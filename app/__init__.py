@@ -19,7 +19,9 @@ def create_app(config_class="app.config.Config"):
     # blueprint registration
     from app.routes.races import race_bp
     from app.routes.auth import auth_bp
+    from app.routes.teams import team_bp
     app.register_blueprint(race_bp, url_prefix="/api/race")
+    app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     # basic route (to be remover later)

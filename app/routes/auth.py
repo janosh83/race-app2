@@ -5,7 +5,7 @@ from app import db
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/register', methods=['POST'])
+@auth_bp.route('/register/', methods=['POST'])
 def register():
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
@@ -21,7 +21,7 @@ def register():
 
     return jsonify({"msg": "User created successfully"}), 201
 
-@auth_bp.route('/login', methods=['POST'])
+@auth_bp.route('/login/', methods=['POST'])
 def login():
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
@@ -34,7 +34,7 @@ def login():
     access_token = create_access_token(identity=str(user.id))
     return jsonify({"access_token": access_token}), 200
 
-@auth_bp.route('/protected', methods=['GET'])
+@auth_bp.route('/protected/', methods=['GET'])
 @jwt_required()
 def protected():
     current_user_id = str(get_jwt_identity())

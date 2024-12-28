@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Checkpoint
+from app.models import Checkpoint, CheckpointLog
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
@@ -47,3 +47,15 @@ def get_checkpoint(race_id ,checkpoint_id):
         "longitude": checkpoint.longitude, 
         "description": checkpoint.description, 
         "numOfPoints": checkpoint.numOfPoints}), 200
+
+@checkpoints_bp.route("/log/", methods=["POST"])
+def log_visit(race_id):
+    # TODO: check if team is signed to race, check if checkpoint is in race
+    data = request.json
+    new_log = CheckpointLog(
+        checkpoint_id=data['checkpoint_id'],
+        team_id=data['team_id'],
+        race_id=race_id)
+    db.session.add(new_log)
+    db.session.commit()
+    return jsonify({"id": new_log.id, "checkpoint_id": new_log.checkpoint_id, "team_id": new_log.team_id, "race_id": race_id}), 201
