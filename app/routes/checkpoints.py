@@ -36,7 +36,7 @@ def create_checkpoint(race_id):
     db.session.commit()
     return jsonify({"id": new_checkpoint.id, "title": new_checkpoint.title}), 201
 
-# get single race
+# get single checkpoint
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 def get_checkpoint(race_id ,checkpoint_id):
     checkpoint = Checkpoint.query.filter_by(race_id=race_id, id = checkpoint_id).first_or_404()
