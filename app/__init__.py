@@ -17,15 +17,14 @@ def create_app(config_class="app.config.Config"):
     JWTManager(app)
 
     # blueprint registration
-    from app.routes.users import users_bp
     from app.routes.races import race_bp
     from app.routes.auth import auth_bp
-    app.register_blueprint(users_bp, url_prefix="/api/users")
+    from app.routes.teams import team_bp
     app.register_blueprint(race_bp, url_prefix="/api/race")
+    app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(auth_bp, url_prefix='/auth')
-    #app.register_blueprint(teams_bp, url_prefix="/api/teams")
 
-    # basic route
+    # basic route (to be remover later)
     @app.route("/")
     def index():
         return {"message": "Welcome to the API!"}

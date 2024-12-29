@@ -14,13 +14,31 @@ def test_client():
         with app.app_context():
             db.drop_all()
 
-def test_get_users(test_client):
-    """Test endpointu GET /api/users."""
-    response = test_client.get("/api/users/")
-    assert response.status_code == 200
-    assert response.json == {"users": ["User1", "User2", "User3"]}
-
 def test_not_found(test_client):
     """Test, že neexistující endpoint vrací 404."""
     response = test_client.get("/api/nonexistent")
     assert response.status_code == 404
+
+def test_auth_register(test_client):
+    """Test registrace uživatele."""
+    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
+    assert response.status_code == 201
+    assert response.json == {"msg": "User created successfully"}
+
+def test_auth_login(test_client):
+    """Test přihlášení uživatele."""
+    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
+    response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
+    assert response.status_code == 200
+    assert "access_token" in response.json
+
+def test_auth_protected(test_client):
+    """Test přístupu k chráněnému endpointu."""
+    response = test_client.get("/auth/protected/")
+    assert response.status_code == 401
+
+    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
+    response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
+    response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {response.json['access_token']}"})
+    assert response.status_code == 200
+    assert "Hello, user" in response.json["msg"]
