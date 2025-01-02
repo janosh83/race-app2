@@ -17,6 +17,7 @@ class Race(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
+    checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
     teams = db.relationship('Team', secondary=race_teams, back_populates='races')
 
 class Checkpoint(db.Model):
@@ -46,6 +47,7 @@ class User(db.Model):
     name = db.Column(db.String(128), nullable=False)
     email = db.Column(db.String(128), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
+    is_administrator = db.Column(db.Boolean, default=False)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')
 
     def set_password(self, password):
