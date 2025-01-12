@@ -42,3 +42,19 @@ def test_auth_protected(test_client):
     response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {response.json['access_token']}"})
     assert response.status_code == 200
     assert "Hello, user" in response.json["msg"]
+
+def test_auth_admin_required(test_client):
+    """Test, že chráněný endpoint vyžaduje administrátorská práva."""
+    response = test_client.get("/auth/protected/")
+    assert response.status_code == 401
+
+    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test", "is_administrator": True})
+    response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
+    access_token = response.json["access_token"]
+    response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+    assert "Hello, user" in response.json["msg"]
+
+    response = test_client.get("/auth/admin/", headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+    assert "Hello, admin user" in response.json["msg"]
