@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Team, Checkpoint, CheckpointLog
+from app.models import Race, Team, Checkpoint, User
 
 @pytest.fixture
 def test_app():
@@ -27,6 +27,22 @@ def add_test_data(test_app):
         team2 = Team(name="Team2")
         team3 = Team(name="Team3")
 
+        user1 = User(name="User1", email="example1@example.com", is_administrator=True)
+        user1.set_password("password")
+        user2 = User(name="User2", email="example2@example.com")
+        user2.set_password("password")
+        team1.members = [user1, user2]
+
+        user3 = User(name="User3", email="example3@example.com")
+        user3.set_password("password")
+        user4 = User(name="User4", email="example4@example.com")
+        user4.set_password("password")
+        team2.members = [user3, user4]
+
+        user5 = User(name="User5", email="example5@example.com")
+        user5.set_password("password")
+        team3.members = [user5]
+
         checkpoint1 = Checkpoint(title="Checkpoint 1", latitude=50.0, longitude=14.0, description="Description", numOfPoints=1, race_id=1)
         checkpoint2 = Checkpoint(title="Checkpoint 2", latitude=50.0, longitude=14.5, description="Description", numOfPoints=2, race_id=1)
         checkpoint3 = Checkpoint(title="Checkpoint 3", latitude=50.5, longitude=15.0, description="Description", numOfPoints=1, race_id=1)
@@ -37,36 +53,59 @@ def add_test_data(test_app):
         db.session.commit()
 
 def test_log_visit(test_client, add_test_data):
-    # Test zalogování návštěvy checkpointu
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1})
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Test logging of single visit (user is an admin)
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 1, "team_id": 1})
     assert response.status_code == 201
     assert response.json["checkpoint_id"] == 1
     assert response.json["team_id"] == 1
     assert response.json["race_id"] == 1
 
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 2, "team_id": 4})
-    assert response.status_code == 404 # TODO: not implemented
+    # Test logging of single visit (user is member of the team)
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 1, "team_id": 1})
+    assert response.status_code == 201
+    assert response.json["checkpoint_id"] == 1
+    assert response.json["team_id"] == 1
+    assert response.json["race_id"] == 1
 
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 4, "team_id": 2})
-    assert response.status_code == 404 # TODO: not implemented
+    # test logging of checkpoint visit by non-existing team
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 4})
+    assert response.status_code == 403
+
+    # test logging of non-existing checkpoint team
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 4, "team_id": 2})
+    assert response.status_code == 403
 
 def test_get_visits(test_client, add_test_data):
     # Test získání návštěv checkpointů
-    response = test_client.get("/api/race/1/visits/")
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    admin_header = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers1 = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/auth/login/", json={"email": "example3@example.com", "password": "password"})
+    headers2 = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.get("/api/race/1/visits/", headers = admin_header)
     assert response.status_code == 200
     assert len(response.json) == 0
 
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1})
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 2})
-    response = test_client.get("/api/race/1/visits/")
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers2, json={"checkpoint_id": 1, "team_id": 2})
+    response = test_client.get("/api/race/1/visits/", headers = admin_header)
     assert response.status_code == 200
     assert len(response.json) == 2
 
-    response = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 2, "team_id": 1})
-    response = test_client.get("/api/race/1/visits/1/")
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
+    response = test_client.get("/api/race/1/visits/1/", headers = headers1)
     assert response.status_code == 200
     assert len(response.json) == 2
 
-    response = test_client.get("/api/race/1/visits/2/")
+    response = test_client.get("/api/race/1/visits/2/", headers = headers2)
     assert response.status_code == 200
     assert len(response.json) == 1

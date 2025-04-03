@@ -6,24 +6,28 @@ from app.models import Team, Race, User
 team_bp = Blueprint("team", __name__)
 
 # get all teams
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/", methods=["GET"])
 def get_teams():
     teams = Team.query.all()
     return jsonify([{"id": team.id, "name": team.name} for team in teams])
 
 # get single team
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/", methods=["GET"])
 def get_team(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify({"id": team.id, "name": team.name}), 200
 
 # get teams by race
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["GET"])
 def get_team_by_race(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     return jsonify([{"id": team.id, "name": team.name} for team in race.teams])
 
 # sign up team for race
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["POST"])
 def sign_up(race_id):
     data = request.json
@@ -36,7 +40,8 @@ def sign_up(race_id):
 
 # TODO: get race by team
 
-# add team
+# create team
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route('/', methods=['POST'])
 def create_team():
     data = request.json
@@ -46,6 +51,7 @@ def create_team():
     return jsonify({"id": new_team.id, "name": new_team.name}), 201
 
 # add members to team
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["POST"])
 def add_members(team_id):
     data = request.json
@@ -57,6 +63,7 @@ def add_members(team_id):
     return jsonify({"team_id": team.id, "user_ids": data['user_ids']}), 201
 
 # get members of team
+# for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["GET"])
 def get_members(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()

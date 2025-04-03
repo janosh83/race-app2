@@ -32,7 +32,6 @@ def add_test_data(test_app):
         db.session.commit()
 
 def test_get_teams(test_client, add_test_data):
-    # Test získání všech týmů
     response = test_client.get("/api/team/")
     assert response.status_code == 200
     assert response.json == [
@@ -42,12 +41,11 @@ def test_get_teams(test_client, add_test_data):
     ]
 
 def test_get_single_team(test_client, add_test_data):
-    # Test získání jednoho týmu
     response = test_client.get("/api/team/1/")
     assert response.status_code == 200
     assert response.json == {"id": 1, "name": "Team1"}
 
-    response = test_client.get("/api/team/4/")
+    response = test_client.get("/api/team/4/") # non existing team
     assert response.status_code == 404
 
 def test_team_signup(test_client, add_test_data):

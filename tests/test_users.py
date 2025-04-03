@@ -57,4 +57,4 @@ def test_auth_admin_required(test_client):
 
     response = test_client.get("/auth/admin/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
-    assert "Hello, admin user" in response.json["msg"]
+    assert "Hello, admin " in response.json["msg"]

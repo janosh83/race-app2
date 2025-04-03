@@ -8,7 +8,6 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 def create_app(config_class="app.config.Config"):
-    """Vytvoří instanci aplikace Flask."""
     app = Flask(__name__)
     app.config.from_object(config_class)
 
@@ -23,10 +22,5 @@ def create_app(config_class="app.config.Config"):
     app.register_blueprint(race_bp, url_prefix="/api/race")
     app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(auth_bp, url_prefix='/auth')
-
-    # basic route (to be remover later)
-    @app.route("/")
-    def index():
-        return {"message": "Welcome to the API!"}
 
     return app
