@@ -29,22 +29,21 @@
             </div>
             <div v-if="currentPage === 'races' && isAuthenticated">
                 <h2>Races</h2>
-                <button @click="loadRaces">Load Races</button>
+                <p>Select a race by clicking on its name:</p>
                 <ul>
-                    <li v-for="race in races" :key="race.id">{{ race.name }}: {{ race.description }}</li>
+                    <li v-for="race in signedRaces" :key="race.race_id">
+                        <a href="#" @click.prevent="setActiveRace(race)">
+                            {{ race.name }} (Team ID: {{ race.team_id }})
+                        </a>
+                    </li>
                 </ul>
+                <p v-if="activeRace">
+                    <strong>Active Race:</strong> {{ activeRace.name }} (Team ID: {{ activeRace.team_id }})
+                </p>
             </div>
             <div v-if="currentPage === 'races' && !isAuthenticated">
                 <h2>Access Denied</h2>
                 <p>You must log in to view this page.</p>
-            </div>
-            <div v-if="currentPage === 'teams'">
-                <h2>Teams</h2>
-                <p>Team management will go here.</p>
-            </div>
-            <div v-if="currentPage === 'users'">
-                <h2>Users</h2>
-                <p>User management will go here.</p>
             </div>
             <div v-if="currentPage === 'login'">
                 <h2>Login</h2>
@@ -64,6 +63,21 @@
             <div v-if="currentPage === 'logout'">
                 <h2>Logout</h2>
                 <p>You have been logged out.</p>
+            </div>
+            <div v-if="currentPage === 'activeRace' && activeRace">
+                <h2>Active Race: {{ activeRace.name }}</h2>
+                <p>{{ activeRace.description }}</p>
+                <h3>Checkpoints</h3>
+                <ul>
+                    <li v-for="checkpoint in checkpoints" :key="checkpoint.id">
+                        <strong>{{ checkpoint.title }}</strong>: {{ checkpoint.description }}
+                        <button @click="logVisit(checkpoint)">Log Visit</button>
+                    </li>
+                </ul>
+            </div>
+            <div v-if="currentPage === 'activeRace' && !activeRace">
+                <h2>No Active Race</h2>
+                <p>Please select a race from the "Races" page.</p>
             </div>
         </main>
     </div>
