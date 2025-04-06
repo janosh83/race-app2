@@ -1,0 +1,72 @@
+<!-- filepath: frontend/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Race App</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <nav>
+                <ul>
+                    <li v-for="item in filteredMenu" :key="item.page">
+                        <a href="#" 
+                           @click.prevent="item.page === 'logout' ? logout() : selectPage(item.page)">
+                            {{ item.label }}
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+        <main>
+            <div v-if="currentPage === 'home'">
+                <h2>Welcome to the Race App</h2>
+                <p>Select a menu option to get started.</p>
+            </div>
+            <div v-if="currentPage === 'races' && isAuthenticated">
+                <h2>Races</h2>
+                <button @click="loadRaces">Load Races</button>
+                <ul>
+                    <li v-for="race in races" :key="race.id">{{ race.name }}: {{ race.description }}</li>
+                </ul>
+            </div>
+            <div v-if="currentPage === 'races' && !isAuthenticated">
+                <h2>Access Denied</h2>
+                <p>You must log in to view this page.</p>
+            </div>
+            <div v-if="currentPage === 'teams'">
+                <h2>Teams</h2>
+                <p>Team management will go here.</p>
+            </div>
+            <div v-if="currentPage === 'users'">
+                <h2>Users</h2>
+                <p>User management will go here.</p>
+            </div>
+            <div v-if="currentPage === 'login'">
+                <h2>Login</h2>
+                <form @submit.prevent="login">
+                    <div>
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" v-model="email" required>
+                    </div>
+                    <div>
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" v-model="password" required>
+                    </div>
+                    <button type="submit">Login</button>
+                </form>
+                <p v-if="loginError" style="color: red;">{{ loginError }}</p>
+            </div>
+            <div v-if="currentPage === 'logout'">
+                <h2>Logout</h2>
+                <p>You have been logged out.</p>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
