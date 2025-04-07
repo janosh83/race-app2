@@ -76,3 +76,25 @@ def log_visit(race_id):
         return jsonify({"id": new_log.id, "checkpoint_id": new_log.checkpoint_id, "team_id": new_log.team_id, "race_id": race_id}), 201
     else:
         return jsonify({"message": "You are not authorized to log this visit."}), 403
+    
+@checkpoints_bp.route("/log/", methods=["DELETE"])
+@jwt_required()
+def unlog_visit(race_id):
+    data = request.json
+
+    # check if user is admin or member of the team
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    is_administrator = user.is_administrator
+
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    is_signed_to_race =  data['team_id'] in [team.id for team in user.teams] and data['team_id'] in [team.id for team in race.teams]
+    
+    if is_administrator or is_signed_to_race:
+        result = CheckpointLog.query.filter_by(checkpoint_id = data["checkpoint_id"], team_id = data["team_id"], race_id=race_id).delete()
+        db.session.commit()
+        if result:
+            return jsonify({"message": "Log deleted successfully."}), 200
+        else:
+            return jsonify({"message": "Log not found."}), 404
+    else:
+        return jsonify({"message": "You are not authorized to delete this visit."}), 403

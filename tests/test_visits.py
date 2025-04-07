@@ -97,15 +97,52 @@ def test_get_visits(test_client, add_test_data):
 
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers2, json={"checkpoint_id": 1, "team_id": 2})
+    # total number of visists
     response = test_client.get("/api/race/1/visits/", headers = admin_header)
     assert response.status_code == 200
     assert len(response.json) == 2
 
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
+    # visist by team 1
     response = test_client.get("/api/race/1/visits/1/", headers = headers1)
     assert response.status_code == 200
     assert len(response.json) == 2
 
+    # visist by team 2
     response = test_client.get("/api/race/1/visits/2/", headers = headers2)
     assert response.status_code == 200
     assert len(response.json) == 1
+
+def test_unlog_visits(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    admin_header = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers1 = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/auth/login/", json={"email": "example3@example.com", "password": "password"})
+    headers2 = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers2, json={"checkpoint_id": 1, "team_id": 2})
+    # team 1 visits checkpoint 1 and 2
+    # team 2 visits checkpoint 1
+
+    # delete visit of checkpoint 2
+    response = test_client.delete("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
+    assert response.status_code == 200
+    response = test_client.get("/api/race/1/visits/1/", headers = headers1)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+
+    # test delete visit of non-existing visit
+    response = test_client.delete("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
+    assert response.status_code == 404
+    
+    # delete visit of checkpoint 2 (no visits for team 1 logged)
+    response = test_client.delete("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
+    assert response.status_code == 200
+    response = test_client.get("/api/race/1/visits/1/", headers = headers1)
+    assert response.status_code == 200
+    assert len(response.json) == 0
