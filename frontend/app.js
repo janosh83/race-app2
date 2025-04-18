@@ -53,7 +53,7 @@ const app = Vue.createApp({
                 const token = localStorage.getItem("accessToken");
                 if (!token) throw new Error("User is not logged in");
     
-                const response = await fetch(`http://127.0.0.1:5000/api/race/${this.activeRace.race_id}/checkpoints`, {
+                const response = await fetch(`http://127.0.0.1:5000/api/race/${this.activeRace.race_id}/checkpoints/${this.activeRace.team_id}/status/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (!response.ok) throw new Error("Failed to fetch checkpoints");
@@ -79,8 +79,31 @@ const app = Vue.createApp({
                 if (!response.ok) throw new Error("Failed to log visit");
     
                 alert(`Visit logged for checkpoint: ${checkpoint.title}`);
+                this.loadCheckpoints(); // Refresh the checkpoints
             } catch (error) {
                 console.error("Error logging visit:", error);
+            }
+        },
+        async unlogVisit(checkpoint) {
+            try {
+                const token = localStorage.getItem("accessToken");
+                if (!token) throw new Error("User is not logged in");
+        
+                const response = await fetch(`http://127.0.0.1:5000/api/race/${this.activeRace.race_id}/checkpoints/log/`,{
+                        method: "DELETE",
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ checkpoint_id: checkpoint.id, team_id: this.activeRace.team_id }),
+                    }
+                );
+                if (!response.ok) throw new Error("Failed to unlog visit");
+        
+                alert(`Visit unlogged for checkpoint: ${checkpoint.title}`);
+                this.loadCheckpoints(); // Refresh the checkpoints
+            } catch (error) {
+                console.error("Error unlogging visit:", error);
             }
         },
         async login() {

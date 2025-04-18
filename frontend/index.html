@@ -71,7 +71,8 @@
                 <ul>
                     <li v-for="checkpoint in checkpoints" :key="checkpoint.id">
                         <strong>{{ checkpoint.title }}</strong>: {{ checkpoint.description }}
-                        <button @click="logVisit(checkpoint)">Log Visit</button>
+                        <button v-if="!checkpoint.visited" @click="logVisit(checkpoint)">Log Visit</button>
+                        <button v-else @click="unlogVisit(checkpoint)">Unlog Visit</button>
                     </li>
                 </ul>
             </div>
