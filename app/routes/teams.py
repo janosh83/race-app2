@@ -5,17 +5,42 @@ from app.models import Team, Race, User
 
 team_bp = Blueprint("team", __name__)
 
-# get all teams
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/", methods=["GET"])
 def get_teams():
+    """
+    Get all teams.
+    ---
+    responses:
+        200:
+            description: A list of all teams
+            content:
+                application/json:
+                    schema:
+                        type: array
+                        items:
+                            type: object
+                            $ref: '#/components/schemas/TeamObject'
+    """
     teams = Team.query.all()
     return jsonify([{"id": team.id, "name": team.name} for team in teams])
 
-# get single team
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/", methods=["GET"])
 def get_team(team_id):
+    """
+    Get a single team.
+    ---
+    responses:
+        200:
+            description: Details of a specific team.
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/TeamObject'
+        404:
+            description: Team not found
+    """
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify({"id": team.id, "name": team.name}), 200
 
@@ -23,6 +48,22 @@ def get_team(team_id):
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["GET"])
 def get_team_by_race(race_id):
+    """
+    Get all teams participating in a specific race.
+    ---
+    responses:
+        200:
+            description: A list of teams
+            content:
+                application/json:
+                    schema:
+                        type: array
+                        items:
+                            type: object
+                            $ref: '#/components/schemas/TeamObject'
+        404:
+            description: Race not found
+    """
     race = Race.query.filter_by(id=race_id).first_or_404()
     return jsonify([{"id": team.id, "name": team.name} for team in race.teams])
 
@@ -30,6 +71,36 @@ def get_team_by_race(race_id):
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["POST"])
 def sign_up(race_id):
+    """
+    Sign up a team for a specific race.
+    ---
+    requestBody:
+        required: true
+        content:
+            application/json:
+                schema:
+                    type: object
+                    properties:
+                        team_id:
+                            type: integer
+                            description: The ID of the team to sign up
+    responses:
+        201:
+            description: Team signed
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            team_id:
+                                type: integer
+                                description: The ID of the team
+                            race_id:
+                                type: integer
+                                description: The ID of the race
+        404:
+            decscription: Team or Race not found
+    """
     data = request.json
     team = Team.query.filter_by(id=data["team_id"]).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -44,6 +115,17 @@ def sign_up(race_id):
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route('/', methods=['POST'])
 def create_team():
+    """
+    Create a new team.
+    ---
+    responses:
+        201:
+            description: Team created successfully
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/TeamObject'
+    """
     data = request.json
     new_team = Team(name=data['name'])
     db.session.add(new_team)
@@ -54,6 +136,28 @@ def create_team():
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["POST"])
 def add_members(team_id):
+    """
+    Add members to a team.
+    ---
+    responses:
+        201:
+            description: Members added successfully
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            team_id:
+                                type: integer
+                                description: The ID of the team
+                            user_ids:
+                                type: array
+                                items:
+                                    type: integer
+                                description: List of user IDs added to the team
+        404:
+            description: Team or User not found
+    """
     data = request.json
     team = Team.query.filter_by(id=team_id).first_or_404()
     for user_id in data['user_ids']:
@@ -66,5 +170,20 @@ def add_members(team_id):
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["GET"])
 def get_members(team_id):
+    """
+    Get members of a team.
+    ---
+    responses:
+        200:
+            description: A list of team members
+            content:
+                application/json:
+                    schema:
+                        type: array
+                        items:
+                            $ref: '#/components/schemas/TeamObject'
+        404:
+            description: Team not found
+    """
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])

@@ -11,6 +11,13 @@ checkpoints_bp = Blueprint('checkpoints', __name__)
 @checkpoints_bp.route('/', methods=['GET'])
 # TODO: check if user is admin or member of the team
 def get_checkpoints(race_id):
+    """
+    Get all checkpoints for a specific race.
+    ---
+    responses:
+        200:
+            description: A list of checkpoints
+    """
     checkpoints = Checkpoint.query.filter_by(race_id=race_id).all()
     return jsonify([
         {
@@ -27,6 +34,14 @@ def get_checkpoints(race_id):
 @checkpoints_bp.route('/', methods=['POST'])
 @admin_required()
 def create_checkpoint(race_id):
+    """
+    Create a new checkpoint for a specific race.
+    Requires admin privileges.
+    ---
+    responses:
+        201:
+            description: Checkpoint created successfully
+    """
     data = request.json
     new_checkpoint = Checkpoint(
         title=data['title'],
@@ -40,10 +55,18 @@ def create_checkpoint(race_id):
     db.session.commit()
     return jsonify({"id": new_checkpoint.id, "title": new_checkpoint.title}), 201
 
-# get single checkpoint
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 # TODO: check if user is admin or member of the team
 def get_checkpoint(race_id ,checkpoint_id):
+    """
+    Get a single checkpoint by its ID for a specific race.
+    ---
+    responses:
+        200:
+            description: Checkpoint details
+        404:
+            description: Checkpoint not found
+    """
     checkpoint = Checkpoint.query.filter_by(race_id=race_id, id = checkpoint_id).first_or_404()
     return jsonify({
         "id": checkpoint.id, 
@@ -56,6 +79,18 @@ def get_checkpoint(race_id ,checkpoint_id):
 @checkpoints_bp.route("/log/", methods=["POST"])
 @jwt_required()
 def log_visit(race_id):
+    """
+    Log a visit to a checkpoint by a team.
+    Requires user to be an administrator or a member of the team.
+    ---
+    responses:
+        201:
+            description: Visit logged successfully
+        403:
+            description: Unauthorized access
+        404:
+            description: Race or team not found
+    """
     data = request.json
 
     # check if user is admin or member of the team
@@ -80,6 +115,18 @@ def log_visit(race_id):
 @checkpoints_bp.route("/log/", methods=["DELETE"])
 @jwt_required()
 def unlog_visit(race_id):
+    """
+    Delete a log of a visit to a checkpoint by a team.
+    Requires user to be an administrator or a member of the team.
+    ---
+    responses:
+        200:
+            description: Log deleted successfully
+        404:
+            description: Log not found
+        403:
+            description: Unauthorized access
+    """
     data = request.json
 
     # check if user is admin or member of the team

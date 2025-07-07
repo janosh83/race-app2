@@ -9,19 +9,31 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 
-#
-# Manage races
-#
 
-# get all races
 @race_bp.route("/", methods=["GET"])
 def get_races():
+    """
+    Get all races.
+    ---
+    responses:
+        200:
+            description: A list of all races
+    """
     races = Race.query.all()
     return jsonify([{"id": race.id, "name": race.name, "description": race.description} for race in races])
 
 # get single race
 @race_bp.route("/<int:race_id>/", methods=["GET"])
 def get_race(race_id):
+    """
+    Get a single race.
+    ---
+    responses:
+        200:
+            description: Details of a specific race.
+        404:
+            description: Race not found
+    """
     race = Race.query.filter_by(id=race_id).first_or_404()
     return jsonify({"id": race.id, "name": race.name, "description": race.description}), 200
 
@@ -29,6 +41,13 @@ def get_race(race_id):
 @race_bp.route('/', methods=['POST'])
 @admin_required()
 def create_race():
+    """
+    Create race, requires admin privileges.
+    ---
+    responses:
+        201:
+            description: created race
+    """
     data = request.json
     new_race = Race(name=data['name'], description=data['description'])
     db.session.add(new_race)
@@ -42,6 +61,16 @@ def create_race():
 @race_bp.route("/<int:race_id>/visits/<int:team_id>/", methods=["GET"])
 @jwt_required()
 def get_visits_by_race_and_team(race_id, team_id):
+    """
+    Get visits for a specific team and race.
+    Requires to be an admin or a member of the team.
+    ---
+    responses:
+        200:
+            description: A list of all visits.
+        403:
+            description: Forbidden, user is not an admin or member of the team.
+    """
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
@@ -54,6 +83,14 @@ def get_visits_by_race_and_team(race_id, team_id):
 @race_bp.route("/<int:race_id>/visits/", methods=["GET"])
 @admin_required()
 def get_visits_by_race(race_id):
+    """
+    Get all visits for a specific race.
+    Requires admin privileges.
+    ---
+    responses:
+        200:
+            description: A list of all visits
+    """
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
     return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 

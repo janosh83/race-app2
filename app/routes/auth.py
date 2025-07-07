@@ -10,6 +10,17 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register/', methods=['POST'])
 def register():
+    """
+    Register a new user.
+    ---
+    responses:
+      201:
+        description: User created successfully
+      400:
+        description: Missing email or password
+      409:
+        description: User already exists
+    """
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
         return jsonify({"msg": "Missing email or password"}), 400
@@ -26,6 +37,17 @@ def register():
 
 @auth_bp.route('/login/', methods=['POST'])
 def login():
+    """
+    Log in a user and return an access token.
+    ---
+    responses:
+      200:
+        description: Access token returned successfully
+      400:
+        description: Missing email or password
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
         return jsonify({"msg": "Missing email or password"}), 400
