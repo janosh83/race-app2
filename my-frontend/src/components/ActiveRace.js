@@ -1,0 +1,12 @@
+import React from 'react';
+
+function ActiveRace() {
+  return (
+    <div className="container mt-5">
+      <h1>Welcome to the ActiveRace Page!</h1>
+      <p>You are logged in.</p>
+    </div>
+  );
+}
+
+export default ActiveRace;
