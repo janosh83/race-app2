@@ -38,7 +38,23 @@ def login():
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
     else:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
-    return jsonify({"access_token": access_token}), 200
+    
+    # Fetch teams and races associated with the user
+    races = [{"race_id": race.id, 
+              "team_id": team.id, 
+              "name": race.name, 
+              "description": race.description} for team in user.teams for race in team.races]
+
+    return jsonify({
+        "access_token": access_token,
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "is_administrator": user.is_administrator,
+        },
+        "signed_races": races
+    }), 200
 
 
 @auth_bp.route('/protected/', methods=['GET'])
