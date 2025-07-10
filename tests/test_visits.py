@@ -113,6 +113,36 @@ def test_get_visits(test_client, add_test_data):
     assert response.status_code == 200
     assert len(response.json) == 1
 
+def test_get_checkpoints_with_status(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers1 = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # 0 visits
+    response = test_client.get("/api/race/1/checkpoints/1/status/", headers = headers1)
+    assert response.status_code == 200
+    assert len(response.json) == 3
+    assert response.json[0]["visited"] == False
+    assert response.json[1]["visited"] == False
+    assert response.json[2]["visited"] == False
+
+    # 1 visit
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
+    response = test_client.get("/api/race/1/checkpoints/1/status/", headers = headers1)
+    assert response.status_code == 200
+    assert len(response.json) == 3
+    assert response.json[0]["visited"] == True
+    assert response.json[1]["visited"] == False
+    assert response.json[2]["visited"] == False
+
+    # 2 visits
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 3, "team_id": 1})
+    response = test_client.get("/api/race/1/checkpoints/1/status/", headers = headers1)
+    assert response.status_code == 200
+    assert len(response.json) == 3
+    assert response.json[0]["visited"] == True
+    assert response.json[1]["visited"] == False
+    assert response.json[2]["visited"] == True
+    
 def test_unlog_visits(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
     admin_header = {"Authorization": f"Bearer {response.json['access_token']}"}
