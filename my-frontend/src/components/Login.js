@@ -17,6 +17,8 @@ function Login() {
             const data = await response.json();
             if (response.ok && data.access_token) {
                 localStorage.setItem('accessToken', data.access_token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
                 window.location.reload();
             } else {
                 setError(data.msg || 'Login failed');
