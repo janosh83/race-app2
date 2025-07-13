@@ -15,7 +15,7 @@ def create_app(config_class="app.config.Config"):
     db.init_app(app)
     migrate.init_app(app, db)
     JWTManager(app)
-    CORS(app)
+    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
     # blueprint registration
     from app.routes.races import race_bp

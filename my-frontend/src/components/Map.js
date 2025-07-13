@@ -1,16 +1,36 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 function Map() {
   const mapRef = useRef(null);
-  const mapInstance = useRef(null); // To keep track of the Leaflet map instance
+  const mapInstance = useRef(null);
+  const [checkpoints, setCheckpoints] = useState([]);
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
+
+  // Get active race and team from localStorage
+  const activeRace = JSON.parse(localStorage.getItem('activeRace'));
+  const activeRaceId = activeRace.race_id;
+  const activeTeamId = activeRace.team_id;
+
+  // Fetch checkpoints when activeRaceId changes
+  useEffect(() => {
+  if (!activeRaceId || !activeTeamId) return;
+  const accessToken = localStorage.getItem('accessToken');
+  fetch(`http://localhost:5000/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+    .then(res => res.json())
+    .then(data => setCheckpoints(data))
+    .catch(err => console.error('Failed to fetch checkpoints:', err));
+}, [activeRaceId, activeTeamId]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
-    // Initialize map
     mapInstance.current = L.map(mapRef.current).setView([49.8729317, 14.8981184], 16);
 
     L.tileLayer(`https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${API_KEY}`, {
@@ -19,6 +39,7 @@ function Map() {
       attribution: '<a href="https://api.mapy.com/copyright" target="_blank">&copy; Seznam.cz a.s. a další</a>',
     }).addTo(mapInstance.current);
 
+    // ... LogoControl and geolocation code ...
     const LogoControl = L.Control.extend({
       options: { position: 'bottomleft' },
       onAdd: function () {
@@ -54,14 +75,35 @@ function Map() {
       );
     }
 
-    // Cleanup
     return () => {
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
       }
     };
-  }, []);
+  }, [API_KEY]);
+
+  // Add checkpoint markers when checkpoints or map are ready
+  useEffect(() => {
+    if (!mapInstance.current || !checkpoints.length) return;
+
+    // Remove old markers if needed (optional: keep track of them in a ref)
+    checkpoints.forEach(cp => {
+      L.marker([cp.latitude, cp.longitude], {
+        title: cp.title,
+        icon: L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        shadowSize: [41, 41],
+      }),
+      })
+        .addTo(mapInstance.current)
+        .bindPopup(`<strong>${cp.title}</strong><br/>${cp.description || ''}`);
+    });
+  }, [checkpoints]);
 
   return (
     <div style={{ position: 'fixed', top: '56px', left: 0, right: 0, bottom: 0, zIndex: 1 }}>
