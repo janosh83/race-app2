@@ -2,6 +2,12 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Configuration
+.evn file needs to be created in my-frontend directory with Mapy.com API key:
+
+`REACT_APP_MAPY_API_KEY=you api key`
+
+
 ## Available Scripts
 
 In the project directory, you can run:
