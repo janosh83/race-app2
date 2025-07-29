@@ -94,4 +94,35 @@ def get_visits_by_race(race_id):
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
     return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 
+@race_bp.route("/<int:race_id>/checkpoints/<int:team_id>/status/", methods=["GET"])
+@jwt_required()
+def get_checkpoints_with_status(race_id, team_id):
+    # Check if the user is authorized to view this team's data
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    # Get all checkpoints for the race
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    checkpoints = race.checkpoints
+
+    # Get all visits for the race and team
+    visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
+    visited_checkpoint_ids = {visit.checkpoint_id for visit in visits}
+
+    # Build the response
+    response = []
+    for checkpoint in checkpoints:
+        response.append({
+            "id": checkpoint.id,
+            "title": checkpoint.title,
+            "description": checkpoint.description,
+            "latitude": checkpoint.latitude,
+            "longitude": checkpoint.longitude,
+            "visited": checkpoint.id in visited_checkpoint_ids
+        })
+
+    return jsonify(response), 200
+
+
 # TODO: compute results

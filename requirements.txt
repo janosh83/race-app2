@@ -5,3 +5,5 @@ flask-migrate
 flask-jwt-extended 
 bcrypt
 flasgger
+flask-cors
+

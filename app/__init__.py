@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
+from flask_cors import CORS
 
 # database initialization
 db = SQLAlchemy()
@@ -53,6 +54,7 @@ def create_app(config_class="app.config.Config"):
     migrate.init_app(app, db)
     JWTManager(app)
     Swagger(app, template=swagger_template)
+    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
     # blueprint registration
     from app.routes.races import race_bp
