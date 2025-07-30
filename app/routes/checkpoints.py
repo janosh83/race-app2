@@ -9,14 +9,41 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 checkpoints_bp = Blueprint('checkpoints', __name__)
 
 @checkpoints_bp.route('/', methods=['GET'])
-# TODO: check if user is admin or member of the team
 def get_checkpoints(race_id):
     """
     Get all checkpoints for a specific race.
     ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
     responses:
-        200:
-            description: A list of checkpoints
+      200:
+        description: A list of checkpoints
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                  latitude:
+                    type: number
+                  longitude:
+                    type: number
+                  description:
+                    type: string
+                  numOfPoints:
+                    type: integer
     """
     checkpoints = Checkpoint.query.filter_by(race_id=race_id).all()
     return jsonify([
@@ -38,9 +65,49 @@ def create_checkpoint(race_id):
     Create a new checkpoint for a specific race.
     Requires admin privileges.
     ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                example: "Start"
+              latitude:
+                type: number
+                example: 49.8729317
+              longitude:
+                type: number
+                example: 14.8981184
+              description:
+                type: string
+                example: "Starting point"
+              numOfPoints:
+                type: integer
+                example: 1
     responses:
-        201:
-            description: Checkpoint created successfully
+      201:
+        description: Checkpoint created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
     """
     data = request.json
     new_checkpoint = Checkpoint(
@@ -56,16 +123,47 @@ def create_checkpoint(race_id):
     return jsonify({"id": new_checkpoint.id, "title": new_checkpoint.title}), 201
 
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
-# TODO: check if user is admin or member of the team
-def get_checkpoint(race_id ,checkpoint_id):
+def get_checkpoint(race_id, checkpoint_id):
     """
     Get a single checkpoint by its ID for a specific race.
     ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
     responses:
-        200:
-            description: Checkpoint details
-        404:
-            description: Checkpoint not found
+      200:
+        description: Checkpoint details
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                description:
+                  type: string
+                numOfPoints:
+                  type: integer
+      404:
+        description: Checkpoint not found
     """
     checkpoint = Checkpoint.query.filter_by(race_id=race_id, id = checkpoint_id).first_or_404()
     return jsonify({
@@ -83,13 +181,56 @@ def log_visit(race_id):
     Log a visit to a checkpoint by a team.
     Requires user to be an administrator or a member of the team.
     ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              checkpoint_id:
+                type: integer
+                example: 5
+              team_id:
+                type: integer
+                example: 2
     responses:
-        201:
-            description: Visit logged successfully
-        403:
-            description: Unauthorized access
-        404:
-            description: Race or team not found
+      201:
+        description: Visit logged successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                checkpoint_id:
+                  type: integer
+                team_id:
+                  type: integer
+                race_id:
+                  type: integer
+      403:
+        description: Unauthorized access
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: You are not authorized to log this visit.
+      404:
+        description: Race or team not found
     """
     data = request.json
 
@@ -119,13 +260,59 @@ def unlog_visit(race_id):
     Delete a log of a visit to a checkpoint by a team.
     Requires user to be an administrator or a member of the team.
     ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              checkpoint_id:
+                type: integer
+                example: 5
+              team_id:
+                type: integer
+                example: 2
     responses:
-        200:
-            description: Log deleted successfully
-        404:
-            description: Log not found
-        403:
-            description: Unauthorized access
+      200:
+        description: Log deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Log deleted successfully.
+      404:
+        description: Log not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Log not found.
+      403:
+        description: Unauthorized access
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: You are not authorized to delete this visit.
     """
     data = request.json
 
