@@ -96,6 +96,71 @@ def create_race():
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
 
+@race_bp.route('/<int:race_id>/', methods=['DELETE'])
+@admin_required()
+def delete_race(race_id):
+    """
+    Delete a race by its ID.  
+    Only possible if the race has no checkpoints, teams, or visits associated.
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race to delete
+    responses:
+      200:
+        description: Race deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Race deleted successfully
+      400:
+        description: Cannot delete the race due to existing checkpoints, teams, or visits
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Cannot delete the race, it has checkpoints associated with it.
+      404:
+        description: Race not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Race not found
+    """
+    result = Race.query.filter_by(id=race_id).first_or_404()
+    if result:
+        if result.checkpoints:
+            return jsonify({"message": "Cannot delete the race, it has checkpoints associated with it."}), 400
+        if result.teams:
+            return jsonify({"message": "Cannot delete the race, it has teams associated with it."}), 400
+        
+        logs = CheckpointLog.query.filter_by(race_id=race_id).all()
+        if logs:
+            return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
+
+        db.session.delete(result)
+        db.session.commit()
+        return jsonify({"message: Race deleted successfully"}), 200
+    
+
+
 #
 # Get visits
 #
@@ -182,7 +247,7 @@ def get_checkpoints_with_status(race_id, team_id):
     Requires to be an admin or a member of the team.
     ---
     tags:
-      - Races
+      - Checkpoints
     parameters:
       - in: path
         name: race_id

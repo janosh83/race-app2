@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from app import db
 from app.models import Team, Race, User
+from app.routes.admin import admin_required
 
 team_bp = Blueprint("team", __name__)
 
@@ -256,3 +257,59 @@ def get_members(team_id):
     """
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])
+
+@team_bp.route("/<int:team_id>/members/", methods=["DELETE"])
+@admin_required()
+def remove_all_members(team_id):
+    """
+    Remove all members from a team.
+    ---
+    tags:
+      - Teams
+    parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the team
+    responses:
+      200:
+        description: All members removed successfully
+      404:
+        description: Team not found
+    """
+    team = Team.query.filter_by(id=team_id).first_or_404()
+    team.members.clear()
+    db.session.commit()
+    return jsonify({"message": "All members removed successfully"}), 200
+
+@team_bp.route("/<int:team_id>/", methods=["DELETE"])
+@admin_required()
+def delete_team(team_id):
+    """
+    Delete a team.
+    ---
+    tags:
+      - Teams
+    parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the team
+    responses:
+      200:
+        description: Team deleted successfully
+      400:
+        description: Cannot delete the team, it has members associated with it.
+      404:
+        description: Team not found
+    """
+    team = Team.query.filter_by(id=team_id).first_or_404()
+    if team.members:
+        return jsonify({"message": "Cannot delete the team, it has members associated with it."}), 400
+    db.session.delete(team)
+    db.session.commit()
+    return jsonify({"message": "Team deleted successfully"}), 200   
