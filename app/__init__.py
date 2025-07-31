@@ -4,12 +4,15 @@ from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
 from flask_cors import CORS
+import os
 
 # database initialization
 db = SQLAlchemy()
 migrate = Migrate()
 
-def create_app(config_class="app.config.Config"):
+def create_app(config_class=None):
+    if config_class is None:
+        config_class = os.environ.get('FLASK_CONFIG', 'app.config.DevelopmentConfig')
     app = Flask(__name__)
     app.config.from_object(config_class)
 

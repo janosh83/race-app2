@@ -6,4 +6,5 @@ flask-jwt-extended
 bcrypt
 flasgger
 flask-cors
-
+gunicorn
+python-dotenv
