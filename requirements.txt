@@ -8,3 +8,4 @@ flasgger
 flask-cors
 gunicorn
 python-dotenv
+psycopg2-binary
