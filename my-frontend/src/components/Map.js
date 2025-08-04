@@ -7,6 +7,7 @@ function Map() {
   const mapInstance = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
+  const apiUrl = process.env.REACT_APP_API_URL;
 
   // Get active race and team from localStorage
   const activeRace = JSON.parse(localStorage.getItem('activeRace'));
@@ -17,7 +18,7 @@ function Map() {
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
     const accessToken = localStorage.getItem('accessToken');
-    fetch(`http://localhost:5000/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
+    fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -125,7 +126,7 @@ function Map() {
         if (btn) {
           btn.onclick = async () => {
             const accessToken = localStorage.getItem('accessToken');
-            const url = `http://localhost:5000/api/race/${activeRaceId}/checkpoints/log/`;
+            const url = `${apiUrl}/api/race/${activeRaceId}/checkpoints/log/`;
             const options = {
               method: cp.visited ? 'DELETE' : 'POST',
               headers: {
@@ -138,7 +139,7 @@ function Map() {
               const res = await fetch(url, options);
               if (res.ok) {
                 // Refresh checkpoints
-                const updated = await fetch(`http://localhost:5000/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
+                const updated = await fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
                   headers: {
                     'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json',
