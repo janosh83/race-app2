@@ -97,7 +97,7 @@ def create_app(config_class=None):
     migrate.init_app(app, db)
     JWTManager(app)
     Swagger(app, template=swagger_template)
-    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+    CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
 
     # blueprint registration
     from app.routes.races import race_bp
