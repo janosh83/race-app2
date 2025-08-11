@@ -72,6 +72,20 @@ def test_log_visit(test_client, add_test_data):
     assert response.json["team_id"] == 1
     assert response.json["race_id"] == 1
 
+    # Test logging of visit with image
+    with open("tests/test_image.jpg", "rb") as img:
+        data = {"image": img, "checkpoint_id": 2, "team_id": 1}
+        response = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data=data,
+            content_type='multipart/form-data'
+        )
+    assert response.status_code == 201
+    assert response.json["checkpoint_id"] == 2
+    assert response.json["team_id"] == 1
+    assert response.json["image_id"] == 1
+
     # test logging of checkpoint visit by non-existing team
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 4})
     assert response.status_code == 403

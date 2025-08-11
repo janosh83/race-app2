@@ -1,9 +1,11 @@
+import os
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Race
+from app.models import Checkpoint, CheckpointLog, User, Race, Image
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
@@ -174,11 +176,16 @@ def get_checkpoint(race_id, checkpoint_id):
         "description": checkpoint.description, 
         "numOfPoints": checkpoint.numOfPoints}), 200
 
+UPLOAD_FOLDER = 'static/images'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @checkpoints_bp.route("/log/", methods=["POST"])
 @jwt_required()
 def log_visit(race_id):
     """
-    Log a visit to a checkpoint by a team.
+    Log a visit to a checkpoint by a team, optionally with an image.
     Requires user to be an administrator or a member of the team.
     ---
     tags:
@@ -193,6 +200,20 @@ def log_visit(race_id):
     requestBody:
       required: true
       content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              checkpoint_id:
+                type: integer
+                example: 5
+              team_id:
+                type: integer
+                example: 2
+              image:
+                type: string
+                format: binary
+                description: Optional image file to upload
         application/json:
           schema:
             type: object
@@ -219,6 +240,9 @@ def log_visit(race_id):
                   type: integer
                 race_id:
                   type: integer
+                image_id:
+                  type: integer
+                  nullable: true
       403:
         description: Unauthorized access
         content:
@@ -232,24 +256,49 @@ def log_visit(race_id):
       404:
         description: Race or team not found
     """
-    data = request.json
+    # Accept both JSON and multipart/form-data
+    if request.content_type.startswith('multipart/form-data'):
+        data = request.form
+        file = request.files.get('image')
+    else:
+        data = request.json
+        file = None
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
-    is_signed_to_race =  data['team_id'] in [team.id for team in user.teams] and data['team_id'] in [team.id for team in race.teams]
+    user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
+    team_is_in_race = int(data['team_id']) in [team.id for team in race.teams]
+    is_signed_to_race =  user_is_in_team and team_is_in_race
     
+    image_id = None
     if is_administrator or is_signed_to_race:
-        # log visit
-        new_log = CheckpointLog(
-            checkpoint_id=data['checkpoint_id'],
-            team_id=data['team_id'],
-            race_id=race_id)
-        db.session.add(new_log)
-        db.session.commit()
-        return jsonify({"id": new_log.id, "checkpoint_id": new_log.checkpoint_id, "team_id": new_log.team_id, "race_id": race_id}), 201
+      if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        file.save(filepath)
+        image = Image(filename=filename)
+        db.session.add(image)
+        db.session.commit() # not sure if it is needed here
+        image_id = image.id
+
+      # log visit
+      new_log = CheckpointLog(
+          checkpoint_id=data['checkpoint_id'],
+          team_id=data['team_id'],
+          race_id=race_id,
+          image_id=image_id)
+      db.session.add(new_log)
+      db.session.commit()
+      return jsonify({
+          "id": new_log.id, 
+          "checkpoint_id": new_log.checkpoint_id, 
+          "team_id": new_log.team_id, 
+          "race_id": race_id, 
+          "image_id": image_id}), 201
     else:
         return jsonify({"message": "You are not authorized to log this visit."}), 403
     
@@ -258,6 +307,7 @@ def log_visit(race_id):
 def unlog_visit(race_id):
     """
     Delete a log of a visit to a checkpoint by a team.
+    Also deletes the associated image file and record if present.
     Requires user to be an administrator or a member of the team.
     ---
     tags:
@@ -324,9 +374,25 @@ def unlog_visit(race_id):
     is_signed_to_race =  data['team_id'] in [team.id for team in user.teams] and data['team_id'] in [team.id for team in race.teams]
     
     if is_administrator or is_signed_to_race:
-        result = CheckpointLog.query.filter_by(checkpoint_id = data["checkpoint_id"], team_id = data["team_id"], race_id=race_id).delete()
-        db.session.commit()
-        if result:
+        log = CheckpointLog.query.filter_by(
+            checkpoint_id=data["checkpoint_id"],
+            team_id=data["team_id"],
+            race_id=race_id
+        ).first()
+        if log:
+            # Delete associated image file and record if present
+            if log.image_id:
+                image = Image.query.get(log.image_id)
+                if image:
+                    image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                    try:
+                        if os.path.exists(image_path):
+                            os.remove(image_path)
+                    except Exception as e:
+                        print(f"Error deleting image file: {e}")
+                    db.session.delete(image)
+            db.session.delete(log)
+            db.session.commit()
             return jsonify({"message": "Log deleted successfully."}), 200
         else:
             return jsonify({"message": "Log not found."}), 404

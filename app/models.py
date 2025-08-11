@@ -34,7 +34,12 @@ class CheckpointLog(db.Model):
     checkpoint_id = db.Column(db.Integer, db.ForeignKey('checkpoint.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+class Image(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(256), nullable=False)
 
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
