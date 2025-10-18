@@ -69,6 +69,16 @@ def test_create_race(test_client, add_test_data):
         {"id": 2, "name": "Hill Bill Rally", "description": "Roadtrip po Balkáně."}
     ]
 
+    response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"}) # FIXME: test is failing due to checkpoints assigned to the race, TODO: write separate test for deleting race
+    assert response.status_code == 200
+
+    response = test_client.get("/api/race/") # get all races to see added race
+    assert response.status_code == 200
+    assert response.json == [
+        {"id": 2, "name": "Hill Bill Rally", "description": "Roadtrip po Balkáně."}
+    ]
+
+
 def test_get_race_checkpoints(test_client, add_test_data):
     """Test endpoint GET /api/race/race_id/checkpoints/checkpoint_id """
     response = test_client.get("/api/race/1/checkpoints/1/") # get first checkpoint

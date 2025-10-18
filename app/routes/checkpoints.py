@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Race, Image
+from app.models import Checkpoint, CheckpointLog, User, Race, Image, Registration
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
@@ -10,6 +10,7 @@ from werkzeug.utils import secure_filename
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
 
+# tested by test_races.py -> test_get_race_checkpoints
 @checkpoints_bp.route('/', methods=['GET'])
 def get_checkpoints(race_id):
     """
@@ -60,6 +61,7 @@ def get_checkpoints(race_id):
         for checkpoint in checkpoints
     ])
 
+# FIXME: write test
 @checkpoints_bp.route('/', methods=['POST'])
 @admin_required()
 def create_checkpoint(race_id):
@@ -124,6 +126,8 @@ def create_checkpoint(race_id):
     db.session.commit()
     return jsonify({"id": new_checkpoint.id, "title": new_checkpoint.title}), 201
 
+# tested by test_races.py -> test_get_race_checkpoints
+# TODO: return path to image
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 def get_checkpoint(race_id, checkpoint_id):
     """
@@ -181,6 +185,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# tested by test_visits.py -> test_log_visit
 @checkpoints_bp.route("/log/", methods=["POST"])
 @jwt_required()
 def log_visit(race_id):
@@ -268,10 +273,9 @@ def log_visit(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
+    registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
-    team_is_in_race = int(data['team_id']) in [team.id for team in race.teams]
-    is_signed_to_race =  user_is_in_team and team_is_in_race
+    is_signed_to_race =  user_is_in_team and registration
     
     image_id = None
     if is_administrator or is_signed_to_race:
@@ -301,7 +305,8 @@ def log_visit(race_id):
           "image_id": image_id}), 201
     else:
         return jsonify({"message": "You are not authorized to log this visit."}), 403
-    
+
+# tested by test_visits.py -> test_unlog_visits
 @checkpoints_bp.route("/log/", methods=["DELETE"])
 @jwt_required()
 def unlog_visit(race_id):
@@ -370,8 +375,9 @@ def unlog_visit(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    is_signed_to_race =  data['team_id'] in [team.id for team in user.teams] and data['team_id'] in [team.id for team in race.teams]
+    user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
+    registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
+    is_signed_to_race = user_is_in_team and registration
     
     if is_administrator or is_signed_to_race:
         log = CheckpointLog.query.filter_by(

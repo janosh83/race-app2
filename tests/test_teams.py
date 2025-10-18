@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Team
+from app.models import Race, Team, RaceCategory
 
 @pytest.fixture
 def test_app():
@@ -24,11 +24,18 @@ def add_test_data(test_app):
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka")
         race2 = Race(name="Hill Bill Rally", description="Roadtrip po Balkáně")
 
+        race_category1 = RaceCategory(name="Motorka", description="Pro v3echny motorkáře")
+        race_category2 = RaceCategory(name="Auto", description="Pro motoristy")
+
+        race1.categories.append(race_category2)
+        race2.categories.append(race_category1)
+        race2.categories.append(race_category2)
+
         team1 = Team(name="Team1")
         team2 = Team(name="Team2")
         team3 = Team(name="Team3")
 
-        db.session.add_all([race1, race2, team1, team2, team3])
+        db.session.add_all([race1, race2, race_category1, race_category2, team1, team2, team3])
         db.session.commit()
 
 def test_get_teams(test_client, add_test_data):
@@ -50,14 +57,14 @@ def test_get_single_team(test_client, add_test_data):
 
 def test_team_signup(test_client, add_test_data):
     # Test přihlášení týmu k závodu
-    response = test_client.post("/api/team/race/1/", json={"team_id": 1})
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}) # race category id 1 = Auto, OK for race Jarní jízda
     assert response.status_code == 201
-    assert response.json == {"team_id": 1, "race_id": 1}
+    assert response.json == {"team_id": 1, "race_id": 1, 'race_category': 'Auto'}
 
     # Test získání týmů podle závodu
-    response = test_client.post("/api/team/race/1/", json={"team_id": 2})
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}) # race category id 1 = Auto, OK for race Jarní jízda
     response = test_client.get("/api/team/race/1/")
-    assert response.json == [{"id": 1, "name": "Team1"}, {"id": 2, "name": "Team2"}]
+    assert response.json == [{"id": 1, "name": "Team1", 'race_category': 'Auto'}, {"id": 2, "name": "Team2", 'race_category': 'Auto'}]
 
 def test_add_team(test_client, add_test_data):
     # Test přidání týmu

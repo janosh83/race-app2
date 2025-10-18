@@ -1,11 +1,13 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Team, Race, User
+from app.models import Team, Race, User, Registration, RaceCategory
 from app.routes.admin import admin_required
 
 team_bp = Blueprint("team", __name__)
 
+# get all teams
+# tested by test_teams.py -> test_get_teams
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/", methods=["GET"])
 def get_teams():
@@ -27,6 +29,8 @@ def get_teams():
     teams = Team.query.all()
     return jsonify([{"id": team.id, "name": team.name} for team in teams])
 
+# get single team
+# tested by test_teams.py -> test_get_single_team
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/", methods=["GET"])
 def get_team(team_id):
@@ -56,6 +60,7 @@ def get_team(team_id):
     return jsonify({"id": team.id, "name": team.name}), 200
 
 # get teams by race
+# tested by test_teams.py -> test_team_signup
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["GET"])
 def get_team_by_race(race_id):
@@ -83,10 +88,25 @@ def get_team_by_race(race_id):
       404:
         description: Race not found
     """
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    return jsonify([{"id": team.id, "name": team.name} for team in race.teams])
+
+    registrations = (
+        db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"))
+        .join(Registration, Registration.team_id == Team.id)
+        .join(RaceCategory, Registration.race_category == RaceCategory.id)
+        .filter(Registration.race_id == race_id)
+        .all()
+    )
+
+    if not registrations:
+        return jsonify({"message": "No teams found for this race"}), 404
+
+    return jsonify([
+        {"id": team_id, "name": team_name, "race_category": category_name}
+        for team_id, team_name, category_name in registrations
+    ]), 200
 
 # sign up team for race
+# tested by test_teams.py -> test_team_signup
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["POST"])
 def sign_up(race_id):
@@ -130,16 +150,25 @@ def sign_up(race_id):
         description: Team or Race not found
     """
     data = request.json
+    
     team = Team.query.filter_by(id=data["team_id"]).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    team.races.append(race)
-    db.session.add(team)
-    db.session.commit()
-    return jsonify({"team_id": data["team_id"], "race_id": race_id}), 201
+    race_category = RaceCategory.query.filter_by(id=data["race_category_id"]).first_or_404()
+
+    if race_category in race.categories:
+        
+      registration = Registration(race_id=race.id, team_id=team.id, race_category=data["race_category_id"])
+      db.session.add(registration)
+      db.session.commit()
+      return jsonify({"team_id": data["team_id"], "race_id": race_id, "race_category": race_category.name}), 201
+    
+    else:
+        return jsonify({"message": "Category not available for the race"}), 400
 
 # TODO: get race by team
 
 # create team
+# tested by test_teams.py -> test_add_team
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route('/', methods=['POST'])
 def create_team():
@@ -173,6 +202,7 @@ def create_team():
     return jsonify({"id": new_team.id, "name": new_team.name}), 201
 
 # add members to team
+# tested by test_teams.py -> test_add_members
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["POST"])
 def add_members(team_id):
@@ -228,6 +258,7 @@ def add_members(team_id):
     return jsonify({"team_id": team.id, "user_ids": data['user_ids']}), 201
 
 # get members of team
+# tested by test_teams.py -> test_add_members
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/<int:team_id>/members/", methods=["GET"])
 def get_members(team_id):
@@ -258,6 +289,7 @@ def get_members(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])
 
+# FIXME: write test
 @team_bp.route("/<int:team_id>/members/", methods=["DELETE"])
 @admin_required()
 def remove_all_members(team_id):
@@ -284,6 +316,7 @@ def remove_all_members(team_id):
     db.session.commit()
     return jsonify({"message": "All members removed successfully"}), 200
 
+# FIXME: write test
 @team_bp.route("/<int:team_id>/", methods=["DELETE"])
 @admin_required()
 def delete_team(team_id):

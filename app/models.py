@@ -25,7 +25,7 @@ class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
-    race_category = db.Column(db.Integer, db.ForeignKey('race_category.id'), nullable=False)
+    race_category = db.Column(db.Integer, db.ForeignKey('race_category.id'), nullable=False) # FIXME: it should be race_category_id
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'team_id', name='uq_race_team'),

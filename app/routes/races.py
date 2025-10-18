@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Race, CheckpointLog, User
+from app.models import Race, CheckpointLog, User, RaceCategory
 from app.routes.checkpoints import checkpoints_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -9,7 +9,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 
-
+# get all races
+# tested by test_races.py -> test_get_all_races
 @race_bp.route("/", methods=["GET"])
 def get_races():
     """
@@ -31,6 +32,7 @@ def get_races():
     return jsonify([{"id": race.id, "name": race.name, "description": race.description} for race in races])
 
 # get single race
+# tested by test_races.py -> test_get_single_race
 @race_bp.route("/<int:race_id>/", methods=["GET"])
 def get_race(race_id):
     """
@@ -59,6 +61,7 @@ def get_race(race_id):
     return jsonify({"id": race.id, "name": race.name, "description": race.description}), 200
 
 # add race
+# tested by test_races.py -> test_create_race
 @race_bp.route('/', methods=['POST'])
 @admin_required()
 def create_race():
@@ -96,6 +99,8 @@ def create_race():
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
 
+# delete race
+# tested by test_races.py -> test_create_race
 @race_bp.route('/<int:race_id>/', methods=['DELETE'])
 @admin_required()
 def delete_race(race_id):
@@ -159,12 +164,46 @@ def delete_race(race_id):
         db.session.commit()
         return jsonify({"message: Race deleted successfully"}), 200
     
+# FIXME: write test
+race_bp.route("/<int:race_id>/race-categories/", methods=["POST"])
+@admin_required()
+def add_race_category(race_id):
+    """
+    Add a race category to a specific race
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    if not race:
+        return jsonify({"message": "Race not found"}), 404
+    
+    race_category_id = request.json.get("race_category_id")
+    if not race_category_id:
+        return jsonify({"message": "Missing race_category_id"}), 400
+    
+    race_category = RaceCategory.query.filter_by(id=race_category_id).first_or_404()
+    if not race_category:
+        return jsonify({"message": "Race category not found"}), 404
+    
+    race.race_categories.append(race_category)
+    db.session.add(race)
+    db.session.commit()
 
+    return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
+
+# FIXME: write test
+race_bp.route("/<int:race_id>/race-categories/", methods=["GET"])
+def get_race_categories(race_id):
+    """
+    Get all race categories for a specific race
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in race.race_categories])
 
 #
 # Get visits
 #
 
+# get all visits for selected team and race
+# tested by test_visits.py -> test_get_visits
 @race_bp.route("/<int:race_id>/visits/<int:team_id>/", methods=["GET"])
 @jwt_required()
 def get_visits_by_race_and_team(race_id, team_id):
@@ -210,6 +249,8 @@ def get_visits_by_race_and_team(race_id, team_id):
     visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
     return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 
+# get all visits for selected race
+# tested by test_visits.py -> test_get_visits
 @race_bp.route("/<int:race_id>/visits/", methods=["GET"])
 @admin_required()
 def get_visits_by_race(race_id):
@@ -239,6 +280,8 @@ def get_visits_by_race(race_id):
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
     return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 
+# get all visits for selected team and race with status
+# tested by test_visits.py -> test_get_checkpoints_with_status
 @race_bp.route("/<int:race_id>/checkpoints/<int:team_id>/status/", methods=["GET"])
 @jwt_required()
 def get_checkpoints_with_status(race_id, team_id):

@@ -2,12 +2,13 @@ from functools import wraps
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from app.models import User
+from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
 
 auth_bp = Blueprint('auth', __name__)
 
+# tested by test_users.py -> test_auth_login
 @auth_bp.route('/register/', methods=['POST'])
 def register():
     """
@@ -83,6 +84,7 @@ def register():
 
     return jsonify({"msg": "User created successfully"}), 201
 
+# tested by test_users.py -> test_auth_login
 @auth_bp.route('/login/', methods=['POST'])
 def login():
     """
@@ -183,11 +185,27 @@ def login():
     else:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
     
-    # Fetch teams and races associated with the user
-    races = [{"race_id": race.id, 
-              "team_id": team.id, 
-              "name": race.name, 
-              "description": race.description} for team in user.teams for race in team.races]
+    # Fetch teams and races associated with the user   
+    races_by_user = (
+        db.session.query(Registration,
+            Race.id.label("race_id"), 
+            Team.id.label("team_id"), 
+            Race.name.label("race_name"), 
+            Race.description.label("race_description"),
+            RaceCategory.name.label("race_category"))
+        .join(Race, Registration.race_id == Race.id)
+        .join(Team, Registration.team_id == Team.id)
+        .join(RaceCategory, Registration.race_category == RaceCategory.id)
+        .join(team_members, team_members.c.team_id == Team.id)
+        .filter(team_members.c.user_id == user.id)
+        .all()
+    )
+
+    registered_races = [{"race_id": race.race_id, 
+              "team_id": race.team_id, 
+              "race_name": race.race_name, 
+              "race_category": race.race_category,
+              "race_description": race.race_description} for race in races_by_user]
 
     return jsonify({
         "access_token": access_token,
@@ -197,10 +215,10 @@ def login():
             "email": user.email,
             "is_administrator": user.is_administrator,
         },
-        "signed_races": races
+        "signed_races": registered_races
     }), 200
 
-
+# tested by test_users.py -> test_auth_protected
 @auth_bp.route('/protected/', methods=['GET'])
 @jwt_required()
 def protected():
@@ -226,6 +244,7 @@ def protected():
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, user {current_user_id}!"}), 200
 
+# tested by test_users.py -> test_auth_admin_required
 @auth_bp.route('/admin/', methods=['GET'])
 @admin_required()
 def admin():
