@@ -8,7 +8,8 @@ from app.routes.admin import admin_required
 # Blueprint pro checkpointy
 race_category_bp = Blueprint('race-category', __name__)
 
-# FIXME: write test
+# get all race categories
+# tested by test_categories.py -> test_add_race_category
 @race_category_bp.route('/', methods=['GET'])
 def get_race_categories():
     """
@@ -17,7 +18,9 @@ def get_race_categories():
     categories = RaceCategory.query.all()
     return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in categories]), 200
 
-# FIXME: write test
+# create new race category
+# NOTE: adding race categories for particular race is done through race endpoint
+# tested by test_categories.py -> test_add_race_category
 @race_category_bp.route('/', methods=['POST'])
 @admin_required()
 def create_race_category():
@@ -32,13 +35,15 @@ def create_race_category():
     db.session.commit()
     return jsonify({"id": new_category.id, "name": new_category.name, "description": new_category.description}), 201
 
-# FIXME: write test
+# delete race category
+# tested by test_categories.py -> test_add_race_category
 @race_category_bp.route('/<int:category_id>/', methods=['DELETE'])
 @admin_required()
 def delete_race_category(category_id):
     """
     Delete race category by ID.
     """
+    # TODO: check if category is used in any race
     category = RaceCategory.query.filter_by(id=category_id).first_or_404()
     db.session.delete(category)
     db.session.commit()
