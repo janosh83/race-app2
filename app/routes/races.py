@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Race, CheckpointLog, User, RaceCategory
+from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Team, Checkpoint
 from app.routes.checkpoints import checkpoints_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -85,6 +85,8 @@ def create_race():
                 type: string
                 description: A description of the race
                 example: "A fun city-wide race."
+    security:
+      - BearerAuth: []
     responses:
       201:
         description: Created race
@@ -117,6 +119,8 @@ def delete_race(race_id):
           type: integer
         required: true
         description: ID of the race to delete
+    security:
+      - BearerAuth: []
     responses:
       200:
         description: Race deleted successfully
@@ -368,4 +372,23 @@ def get_checkpoints_with_status(race_id, team_id):
     return jsonify(response), 200
 
 
-# TODO: compute results
+@race_bp.route("/<int:race_id>/results/", methods=["GET"])
+@jwt_required()
+def get_race_results(race_id):
+    # ensure race exists
+    Race.query.filter_by(id=race_id).first_or_404()
+
+    rows = (
+        #db.session.query(Team.id, Team.name, Registration.race_category, RaceCategory.name.label("race_category"))
+        db.session.query(Team.name.label("team_name"), RaceCategory.name.label("race_category_name"), db.func.sum(Checkpoint.numOfPoints).label("total_points"))
+        .select_from(Registration)
+        .join(Team, Registration.team_id == Team.id)
+        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
+        .join(CheckpointLog, (Registration.team_id == CheckpointLog.team_id) & (Registration.race_id == CheckpointLog.race_id))
+        .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
+        .filter(Registration.race_id == race_id)
+        .group_by(CheckpointLog.team_id)
+        .order_by(db.desc("total_points"))
+        .all())
+
+    return jsonify([{"team": row.team_name, "category": row.race_category_name, "points_for_checkpoints": row.total_points} for row in rows]), 200
