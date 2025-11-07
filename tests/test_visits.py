@@ -48,9 +48,9 @@ def add_test_data(test_app):
         checkpoint2 = Checkpoint(title="Checkpoint 2", latitude=50.0, longitude=14.5, description="Description", numOfPoints=2, race_id=1)
         checkpoint3 = Checkpoint(title="Checkpoint 3", latitude=50.5, longitude=15.0, description="Description", numOfPoints=1, race_id=1)
 
-        registration1 = Registration(race_id=1, team_id=1, race_category=0)
-        registration2 = Registration(race_id=1, team_id=2, race_category=0)
-        registration3 = Registration(race_id=1, team_id=3, race_category=0)
+        registration1 = Registration(race_id=1, team_id=1, race_category_id=1)
+        registration2 = Registration(race_id=1, team_id=2, race_category_id=1)
+        registration3 = Registration(race_id=1, team_id=3, race_category_id=1)
 
         race1.race_categories = [race_category1]
         race1.registrations = [registration1, registration2, registration3]

@@ -1,8 +1,8 @@
-"""Added support for race categories.
+"""Fixed race categories
 
-Revision ID: 328fb0d58cb7
+Revision ID: 1b3817565d89
 Revises: 48c397bb565d
-Create Date: 2025-10-13 22:18:58.222662
+Create Date: 2025-11-07 21:06:11.153142
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '328fb0d58cb7'
+revision = '1b3817565d89'
 down_revision = '48c397bb565d'
 branch_labels = None
 depends_on = None
@@ -35,8 +35,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('race_id', sa.Integer(), nullable=False),
     sa.Column('team_id', sa.Integer(), nullable=False),
-    sa.Column('race_category', sa.Integer(), nullable=False),
-    sa.ForeignKeyConstraint(['race_category'], ['race_category.id'], ),
+    sa.Column('race_category_id', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['race_category_id'], ['race_category.id'], ),
     sa.ForeignKeyConstraint(['race_id'], ['race.id'], ),
     sa.ForeignKeyConstraint(['team_id'], ['team.id'], ),
     sa.PrimaryKeyConstraint('id'),

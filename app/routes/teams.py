@@ -92,7 +92,7 @@ def get_team_by_race(race_id):
     registrations = (
         db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"))
         .join(Registration, Registration.team_id == Team.id)
-        .join(RaceCategory, Registration.race_category == RaceCategory.id)
+        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
         .filter(Registration.race_id == race_id)
         .all()
     )
@@ -157,7 +157,7 @@ def sign_up(race_id):
 
     if race_category in race.categories:
         
-      registration = Registration(race_id=race.id, team_id=team.id, race_category=data["race_category_id"])
+      registration = Registration(race_id=race.id, team_id=team.id, race_category_id=data["race_category_id"])
       db.session.add(registration)
       db.session.commit()
       return jsonify({"team_id": data["team_id"], "race_id": race_id, "race_category": race_category.name}), 201

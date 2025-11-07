@@ -29,7 +29,7 @@ def add_test_data(test_app):
         user1.set_password("password")
         team1.members = [user1]
 
-        registration1 = Registration(race_id=1, team_id=1, race_category=0)
+        registration1 = Registration(race_id=1, team_id=1, race_category_id=0)
         race_category1 = RaceCategory(name="Kola", description="Na libovolném kole.")
 
 

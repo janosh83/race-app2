@@ -195,7 +195,7 @@ def login():
             RaceCategory.name.label("race_category"))
         .join(Race, Registration.race_id == Race.id)
         .join(Team, Registration.team_id == Team.id)
-        .join(RaceCategory, Registration.race_category == RaceCategory.id)
+        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
         .join(team_members, team_members.c.team_id == Team.id)
         .filter(team_members.c.user_id == user.id)
         .all()

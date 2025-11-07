@@ -2,7 +2,7 @@ import os
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Race, Image, Registration
+from app.models import Checkpoint, CheckpointLog, User, Image, Registration
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename

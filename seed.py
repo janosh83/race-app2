@@ -6,6 +6,10 @@ def seed_data():
     #    print("Database already seeded!")
     #    return
 
+    # TODO: Remove existing data for a clean seed
+
+    # FIXME: Add missing cathegories and rergistrations
+
     race1 = Race(name="First race", description="This is the first testing race.")
     race2 = Race(name="Second race", description="This is the second testing race.")
 
