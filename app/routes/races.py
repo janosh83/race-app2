@@ -378,17 +378,36 @@ def get_race_results(race_id):
     # ensure race exists
     Race.query.filter_by(id=race_id).first_or_404()
 
-    rows = (
-        #db.session.query(Team.id, Team.name, Registration.race_category, RaceCategory.name.label("race_category"))
-        db.session.query(Team.name.label("team_name"), RaceCategory.name.label("race_category_name"), db.func.sum(Checkpoint.numOfPoints).label("total_points"))
+    registrations = (db.session.query(Registration.team_id, Team.name.label("team_name"), RaceCategory.name.label("race_category_name"))
         .select_from(Registration)
         .join(Team, Registration.team_id == Team.id)
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
-        .join(CheckpointLog, (Registration.team_id == CheckpointLog.team_id) & (Registration.race_id == CheckpointLog.race_id))
-        .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
         .filter(Registration.race_id == race_id)
-        .group_by(CheckpointLog.team_id)
-        .order_by(db.desc("total_points"))
+        .order_by(Registration.team_id)
         .all())
+    
+    points = (db.session.query(CheckpointLog.team_id, db.func.sum(Checkpoint.numOfPoints).label("total_points"))
+        .select_from(CheckpointLog)
+        .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
+        .filter(CheckpointLog.race_id == race_id)
+        .group_by(CheckpointLog.team_id)
+        .order_by(CheckpointLog.team_id)
+        .all())
+    
+    result = []
+    i = 0
+    for reg in registrations:
+        if i < len(points) and reg.team_id == points[i].team_id:
+            result.append({
+                "team": reg.team_name,
+                "category": reg.race_category_name,
+                "points_for_checkpoints": points[i].total_points})
+            i += 1
+        else:
+            result.append({
+                "team": reg.team_name,
+                "category": reg.race_category_name,
+                "points_for_checkpoints": 0})
+              
 
-    return jsonify([{"team": row.team_name, "category": row.race_category_name, "points_for_checkpoints": row.total_points} for row in rows]), 200
+    return jsonify(result), 200

@@ -73,23 +73,54 @@ def test_simple_results(test_client, add_test_data):
     assert response.status_code == 201
     response = test_client.get("/api/race/1/results/", headers = headers)
     assert response.status_code == 200
-    assert response.json == [{"team": "Rychlíci", "category": "Kola", "points_for_checkpoints": 1}]
+    assert len(response.json) == 3
+    assert {"team": "Rychlíci", "category": "Kola", "points_for_checkpoints": 1} in response.json
+    assert {"team": "Dobrodruzi", "category": "Kola", "points_for_checkpoints": 0} in response.json
+    assert {"team": "Objevitelé", "category": "Kola", "points_for_checkpoints": 0} in response.json
 
     # 1 point for team 1, 1 point for team 2
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 2}) 
     assert response.status_code == 201
     response = test_client.get("/api/race/1/results/", headers = headers)
     assert response.status_code == 200
-    assert len(response.json) == 2
+    assert len(response.json) == 3
     assert {"team": "Rychlíci", "category": "Kola", "points_for_checkpoints": 1} in response.json
     assert {"team": "Dobrodruzi", "category": "Kola", "points_for_checkpoints": 1} in response.json
+    assert {"team": "Objevitelé", "category": "Kola", "points_for_checkpoints": 0} in response.json
 
     # 1 point for team 1, 2 point for team 2
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 3, "team_id": 2}) 
     assert response.status_code == 201
     response = test_client.get("/api/race/1/results/", headers = headers)
     assert response.status_code == 200
-    assert len(response.json) == 2
+    assert len(response.json) == 3
     assert {"team": "Rychlíci", "category": "Kola", "points_for_checkpoints": 1} in response.json
     assert {"team": "Dobrodruzi", "category": "Kola", "points_for_checkpoints": 2} in response.json
+    assert {"team": "Objevitelé", "category": "Kola", "points_for_checkpoints": 0} in response.json
 
+def test_more_results(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 1, "team_id": 1})
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 1})
+    response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 1, "team_id": 2})
+    response = test_client.get("/api/race/1/results/", headers = headers)
+    assert response.status_code == 200
+    assert len(response.json) == 3
+    assert {"team": "Rychlíci", "category": "Kola", "points_for_checkpoints": 2} in response.json
+    assert {"team": "Dobrodruzi", "category": "Kola", "points_for_checkpoints": 1} in response.json
+    assert {"team": "Objevitelé", "category": "Kola", "points_for_checkpoints": 0} in response.json
+
+def test_more_results(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.post("/api/race/2/checkpoints/log/", headers = headers, json={"checkpoint_id": 4, "team_id": 4})
+    response = test_client.post("/api/race/2/checkpoints/log/", headers = headers, json={"checkpoint_id": 5, "team_id": 4})
+    response = test_client.post("/api/race/2/checkpoints/log/", headers = headers, json={"checkpoint_id": 4, "team_id": 5})
+    response = test_client.get("/api/race/2/results/", headers = headers)
+    assert response.status_code == 200
+    assert len(response.json) == 2
+    assert {"team": "Cestovatelé", "category": "Kola", "points_for_checkpoints": 3} in response.json
+    assert {"team": "Průzkumníci", "category": "Kola", "points_for_checkpoints": 1} in response.json
