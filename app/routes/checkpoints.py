@@ -2,10 +2,11 @@ import os
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Image, Registration
+from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
+from datetime import datetime
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
@@ -273,6 +274,12 @@ def log_visit(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    # allow logging only when inside logging period or if admin
+    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
+
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race =  user_is_in_team and registration
@@ -374,6 +381,12 @@ def unlog_visit(race_id):
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
+
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    # allow logging only when inside logging period or if admin
+    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()

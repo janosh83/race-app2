@@ -1,6 +1,8 @@
 import pytest
 from app import create_app, db
 from app.models import Race, Checkpoint
+from datetime import datetime, timedelta
+from datetime import datetime
 
 # TODO: adding races should be admin task
 # TODO: getting checkpoint data should require user authentication
@@ -22,7 +24,11 @@ def test_client(test_app):
 def add_test_data(test_app):
     # insert test data
     with test_app.app_context():
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka")
+        now = datetime.now()
+        some_time_earlier = now - timedelta(minutes=10)
+        some_time_later = now + timedelta(minutes=10)
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+                     end_showing_checkpoints_at=some_time_later, start_logging_at=some_time_earlier, end_logging_at=some_time_later)
 
         check1 = Checkpoint(title="Praha", latitude=50.0755381, longitude=14.4378005, description="Hlavní město České republiky", numOfPoints = 1)
         check2 = Checkpoint(title="Brno", latitude=49.1950602, longitude=16.6068371, description="Město na jihu Moravy", numOfPoints = 1)
@@ -41,6 +47,8 @@ def test_get_all_races(test_client, add_test_data):
 
     # TODO: test also empty race list
 
+    # FIXME: test time constraints for race
+
 def test_get_single_race(test_client, add_test_data):
     """Test endpoint GET /api/race/race_id """
     response = test_client.get("/api/race/1/") # race exist
@@ -49,6 +57,8 @@ def test_get_single_race(test_client, add_test_data):
 
     response = test_client.get("/api/race/2/") # non existing race
     assert response.status_code == 404
+
+    # FIXME: test time constraints for race
 
 def test_create_race(test_client, add_test_data):
     """Test endpoint POST /api/race """
@@ -77,6 +87,8 @@ def test_create_race(test_client, add_test_data):
     assert response.json == [
         {"id": 2, "name": "Hill Bill Rally", "description": "Roadtrip po Balkáně."}
     ]
+
+    # FIXME: test time constraints for race
 
 
 def test_get_race_checkpoints(test_client, add_test_data):

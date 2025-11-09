@@ -20,6 +20,10 @@ class Race(db.Model):
     checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
     registrations = db.relationship('Registration', backref='race', cascade="all, delete-orphan", lazy=True)
     categories = db.relationship('RaceCategory', secondary=race_categories_in_race, back_populates='races')
+    start_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
+    end_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
+    start_logging_at = db.Column(db.DateTime, nullable=False)
+    end_logging_at = db.Column(db.DateTime, nullable=False)
 
 class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)

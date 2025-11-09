@@ -29,7 +29,9 @@ def get_races():
                 $ref: '#/components/schemas/RaceObject'
     """
     races = Race.query.all()
-    return jsonify([{"id": race.id, "name": race.name, "description": race.description} for race in races])
+    return jsonify([{"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
+                    "end_logging_at": race.end_logging_at} for race in races])
 
 # get single race
 # tested by test_races.py -> test_get_single_race
@@ -58,7 +60,9 @@ def get_race(race_id):
         description: Race not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    return jsonify({"id": race.id, "name": race.name, "description": race.description}), 200
+    return jsonify({"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
+                    "end_logging_at": race.end_logging_at}), 200
 
 # add race
 # tested by test_races.py -> test_create_race
@@ -96,7 +100,9 @@ def create_race():
               $ref: '#/components/schemas/RaceObject'
     """
     data = request.json
-    new_race = Race(name=data['name'], description=data['description'])
+    new_race = Race(name=data['name'], description=data['description'], start_showing_checkpoints_at=data['start_showing_checkpoints_at'],
+                    end_showing_checkpoints_at=data['end_showing_checkpoints_at'], start_logging_at=data['start_logging_at'],
+                    end_logging_at=data['end_logging_at'])
     db.session.add(new_race)
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201

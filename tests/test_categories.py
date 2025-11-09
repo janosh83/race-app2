@@ -1,6 +1,7 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration
+from app.models import Race, Team, User, RaceCategory, Registration
+from datetime import datetime, timedelta
 
 @pytest.fixture
 def test_app():
@@ -21,7 +22,11 @@ def test_client(test_app):
 def add_test_data(test_app):
     # Vložení testovacích dat
     with test_app.app_context():
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka")
+        now = datetime.now()
+        some_time_earlier = now - timedelta(minutes=10)
+        some_time_later = now + timedelta(minutes=10)
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+                     end_showing_checkpoints_at=some_time_earlier, start_logging_at=some_time_later, end_logging_at=some_time_later)
 
         team1 = Team(name="Team1")
 
