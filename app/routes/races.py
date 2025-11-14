@@ -5,6 +5,7 @@ from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Te
 from app.routes.checkpoints import checkpoints_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.utils import parse_datetime
 
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
@@ -100,9 +101,16 @@ def create_race():
               $ref: '#/components/schemas/RaceObject'
     """
     data = request.json
-    new_race = Race(name=data['name'], description=data['description'], start_showing_checkpoints_at=data['start_showing_checkpoints_at'],
-                    end_showing_checkpoints_at=data['end_showing_checkpoints_at'], start_logging_at=data['start_logging_at'],
-                    end_logging_at=data['end_logging_at'])
+    start_showing_checkpoints_at = parse_datetime(data['start_showing_checkpoints_at'])
+    end_showing_checkpoints_at = parse_datetime(data['end_showing_checkpoints_at'])
+    start_logging_at = parse_datetime(data['start_logging_at'])
+    end_logging_at = parse_datetime(data['end_logging_at'])
+    new_race = Race(name=data['name'],
+                    description=data['description'], 
+                    start_showing_checkpoints_at=start_showing_checkpoints_at,
+                    end_showing_checkpoints_at=end_showing_checkpoints_at, 
+                    start_logging_at=start_logging_at,
+                    end_logging_at=end_logging_at)
     db.session.add(new_race)
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
