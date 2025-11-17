@@ -1,8 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
 
 function Map() {
+  // token expiry watcher (redirect to login when token expires)
+  useEffect(() => {
+    const check = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      if (isTokenExpired(token, 5)) logoutAndRedirect();
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);

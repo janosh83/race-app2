@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -25,6 +26,18 @@ function findCandidates(races = []) {
 }
 
 function ActiveRace() {
+  // token expiry watcher (redirect to login when token expires)
+  useEffect(() => {
+    const check = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      if (isTokenExpired(token, 5)) logoutAndRedirect();
+    };
+    check();
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const signedRaces = JSON.parse(localStorage.getItem('signedRaces')) || [];
   const storedActive = JSON.parse(localStorage.getItem('activeRace') || 'null');
   const [activeRace, setActiveRace] = useState(storedActive);

@@ -3,6 +3,7 @@ import ActiveRace from './ActiveRace';
 import Map from './Map';
 import Tasks from './Tasks';
 import Standings from './Standings';
+import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
 
 function MainPage() {
   // default to activeRace so main page shows content immediately
@@ -15,6 +16,23 @@ function MainPage() {
       localStorage.removeItem('activeSection');
     }
     // keep activeRaceId in storage for ActiveRace component to read if needed
+  }, []);
+
+  // --- NEW: periodically check token expiry and redirect to login when expired ---
+  useEffect(() => {
+    const check = () => {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+      if (isTokenExpired(token, 5)) {
+        // small margin (5s) before expiry
+        logoutAndRedirect();
+      }
+    };
+    // initial quick check
+    check();
+    // run every 30 seconds
+    const id = setInterval(check, 30_000);
+    return () => clearInterval(id);
   }, []);
 
   const renderSection = () => {
