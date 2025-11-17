@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { selectActiveRace } from '../utils/activeRace';
 
 function Login() {
     const [email, setEmail] = useState('');
@@ -20,22 +21,21 @@ function Login() {
                 localStorage.setItem('accessToken', data.access_token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
-                
-                // redirect to active race if available
-                const signed = data.signed_races || [];
-                let activeRaceId = null;
-                if (signed.length > 0) {
-                    const first = signed[0];
-                    activeRaceId = (first && typeof first === 'object') ? (first.id || first) : first;
-                }
+
+                // choose active race
+                const { activeRaceId, candidates } = selectActiveRace(data.signed_races || []);
 
                 if (activeRaceId) {
-                    // set desired section and race for the SPA
                     localStorage.setItem('activeSection', 'activeRace');
                     localStorage.setItem('activeRaceId', String(activeRaceId));
-                } 
+                }
+
+                // multiple or zero active races -> ask user to choose
+                //if (candidates.length > 1) {
+                //    localStorage.setItem('activeSection', 'selectRace');
+                //    localStorage.setItem('raceCandidates', JSON.stringify(candidates));
+                //}
                 window.location.reload();
-                
             } else {
                 setError(data.msg || 'Login failed');
             }
