@@ -192,7 +192,11 @@ def login():
             Team.id.label("team_id"), 
             Race.name.label("race_name"), 
             Race.description.label("race_description"),
-            RaceCategory.name.label("race_category"))
+            RaceCategory.name.label("race_category"),
+            Race.start_showing_checkpoints_at,
+            Race.end_showing_checkpoints_at,
+            Race.start_logging_at,
+            Race.end_logging_at)
         .join(Race, Registration.race_id == Race.id)
         .join(Team, Registration.team_id == Team.id)
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
@@ -205,7 +209,11 @@ def login():
               "team_id": race.team_id, 
               "race_name": race.race_name, 
               "race_category": race.race_category,
-              "race_description": race.race_description} for race in races_by_user]
+              "race_description": race.race_description,
+              "start_showing_checkpoints": race.start_showing_checkpoints_at,
+              "end_showing_checkpoints": race.end_showing_checkpoints_at,
+              "start_logging": race.start_logging_at,
+              "end_logging": race.end_logging_at} for race in races_by_user]
 
     return jsonify({
         "access_token": access_token,

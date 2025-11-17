@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ActiveRace from './ActiveRace';
 import Map from './Map';
 import Tasks from './Tasks';
 import Standings from './Standings';
 
 function MainPage() {
-  const [activeSection, setActiveSection] = useState('activeRaces');
+  // default to activeRace so main page shows content immediately
+  const [activeSection, setActiveSection] = useState('activeRace');
+
+  useEffect(() => {
+    const stored = localStorage.getItem('activeSection');
+    if (stored) {
+      setActiveSection(stored);
+      localStorage.removeItem('activeSection');
+    }
+    // keep activeRaceId in storage for ActiveRace component to read if needed
+  }, []);
 
   const renderSection = () => {
     switch (activeSection) {
@@ -24,6 +34,8 @@ function MainPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('signedRaces');
     window.location.reload();
   };
 
