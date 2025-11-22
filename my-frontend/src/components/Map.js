@@ -58,6 +58,8 @@ function Map() {
 
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const userMarkerRef = useRef(null);
+  const geoWatchIdRef = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
@@ -116,27 +118,53 @@ function Map() {
     });
     new LogoControl().addTo(mapInstance.current);
 
+    // show a blue dot for current position and keep it updated
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          L.marker([latitude, longitude], {
-            title: 'Your location',
-            icon: L.icon({
-              iconUrl: 'https://cdn-icons-png.flaticon.com/512/64/64113.png',
-              iconSize: [32, 32],
-              iconAnchor: [16, 32],
-            }),
+      const onPos = (position) => {
+        const { latitude, longitude } = position.coords;
+        // create or update a small blue circle marker
+        if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng([latitude, longitude]);
+        } else {
+          userMarkerRef.current = L.circleMarker([latitude, longitude], {
+            radius: 8,
+            color: '#1E90FF',       // blue border
+            weight: 2,
+            fillColor: '#1E90FF',   // blue fill
+            fillOpacity: 0.9,
+            interactive: false
           }).addTo(mapInstance.current);
-          mapInstance.current.setView([latitude, longitude], 16);
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
         }
-      );
+        // center map to first known position
+        mapInstance.current.setView([latitude, longitude], 16);
+      };
+
+      const onErr = (error) => {
+        console.warn('Geolocation error:', error);
+      };
+
+      // get initial position
+      navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
+      // watch for updates and keep blue dot in sync
+      geoWatchIdRef.current = navigator.geolocation.watchPosition(onPos, onErr, {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 10000,
+      });
     }
 
     return () => {
+      // clear geolocation watch and remove user marker
+      try {
+        if (geoWatchIdRef.current && navigator.geolocation && navigator.geolocation.clearWatch) {
+          navigator.geolocation.clearWatch(geoWatchIdRef.current);
+          geoWatchIdRef.current = null;
+        }
+      } catch (e) { /* ignore */ }
+      if (userMarkerRef.current && mapInstance.current) {
+        mapInstance.current.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
