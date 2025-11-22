@@ -3,6 +3,46 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
 
+function parseRaceTimeField(race, ...keys) {
+  for (const k of keys) {
+    if (race && race[k]) return Date.parse(race[k]);
+  }
+  return null;
+}
+
+function timeStateForRace(nowMs, race) {
+  const startShow = parseRaceTimeField(race, 'start_showing_checkpoints', 'start_showing_checkpoints_at', 'start_showing');
+  const startLogging = parseRaceTimeField(race, 'start_logging', 'start_logging_at');
+  const endLogging = parseRaceTimeField(race, 'end_logging', 'end_logging_at');
+  const endShow = parseRaceTimeField(race, 'end_showing_checkpoints', 'end_showing_checkpoints_at', 'end_showing');
+
+  if (!startShow || !endShow) return { state: 'UNKNOWN', info: 'Race time window not available' };
+
+  if (nowMs < startShow) {
+    return { state: 'BEFORE_SHOW', startShow, startLogging, endLogging, endShow };
+  }
+  if (nowMs >= startShow && (startLogging === null || nowMs < startLogging)) {
+    // showing but before logging window
+    return { state: 'SHOW_ONLY', startShow, startLogging, endLogging, endShow };
+  }
+  if (startLogging && nowMs >= startLogging && (!endLogging || nowMs <= endLogging)) {
+    // logging window active
+    return { state: 'LOGGING', startShow, startLogging, endLogging, endShow };
+  }
+  if (endLogging && nowMs > endLogging && nowMs <= endShow) {
+    // after logging but still showing
+    return { state: 'POST_LOG_SHOW', startShow, startLogging, endLogging, endShow };
+  }
+  // after end of showing
+  return { state: 'AFTER_SHOW', startShow, startLogging, endLogging, endShow };
+}
+
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  return d.toLocaleString();
+}
+
 function Map() {
   // token expiry watcher (redirect to login when token expires)
   useEffect(() => {
@@ -19,13 +59,21 @@ function Map() {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
+  const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
 
   // Get active race and team from localStorage
-  const activeRace = JSON.parse(localStorage.getItem('activeRace'));
-  const activeRaceId = activeRace.race_id;
-  const activeTeamId = activeRace.team_id;
+  const activeRace = JSON.parse(localStorage.getItem('activeRace') || 'null');
+  const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
+  const activeTeamId = activeRace?.team_id ?? null;
+
+  // compute time state whenever activeRace changes
+  useEffect(() => {
+    const now = Date.now();
+    const ts = timeStateForRace(now, activeRace);
+    setTimeInfo(ts);
+  }, [activeRace]);
 
   // Fetch checkpoints when activeRaceId changes
   useEffect(() => {
@@ -40,7 +88,7 @@ function Map() {
       .then(res => res.json())
       .then(data => setCheckpoints(data))
       .catch(err => console.error('Failed to fetch checkpoints:', err));
-  }, [activeRaceId, activeTeamId]);
+  }, [activeRaceId, activeTeamId, apiUrl]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -107,6 +155,10 @@ function Map() {
       }
     });
 
+    const loggingAllowed = timeInfo.state === 'LOGGING';
+    const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
+    const showMessageOnly = timeInfo.state === 'BEFORE_SHOW' || timeInfo.state === 'AFTER_SHOW' || timeInfo.state === 'UNKNOWN';
+
     checkpoints.forEach(cp => {
       const iconUrl = cp.visited
         ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
@@ -124,24 +176,45 @@ function Map() {
         }),
       }).addTo(mapInstance.current);
 
+      // Build popup according to time state
+      let buttonHtml = '';
+      if (!showCheckpoints) {
+        buttonHtml = `<div class="text-muted">Checkpoints are not shown at this time.</div>`;
+      } else {
+        if (loggingAllowed) {
+          // allow log/delete
+          buttonHtml = `<button id="visit-btn-${cp.id}" class="leaflet-popup-btn btn btn-sm btn-primary">${cp.visited ? 'Delete Visit' : 'Log Visit'}</button>`;
+        } else {
+          // showing but logging disabled
+          buttonHtml = `<button id="visit-btn-${cp.id}" class="leaflet-popup-btn btn btn-sm btn-secondary" disabled>${cp.visited ? 'Visit logged (readonly)' : 'Logging not open'}</button>`;
+        }
+      }
+
+      const popupExtra =
+        timeInfo.state === 'BEFORE_SHOW'
+          ? `<div class="text-warning">Checkpoints will be shown at ${formatDate(timeInfo.startShow)}</div>`
+          : timeInfo.state === 'AFTER_SHOW'
+          ? `<div class="text-danger">Showing of checkpoints ended at ${formatDate(timeInfo.endShow)}</div>`
+          : '';
+
       const popupContent = `
         <strong>${cp.title}</strong><br/>
         ${cp.description || ''}<br/>
-        <button id="visit-btn-${cp.id}" class="leaflet-popup-btn">
-          ${cp.visited ? 'Delete Visit' : 'Log Visit'}
-        </button>
+        ${buttonHtml}
+        ${popupExtra}
       `;
 
       marker.bindPopup(popupContent);
 
       marker.on('popupopen', () => {
+        // Only bind click handler when loggingAllowed and popup button exists
         const btn = document.getElementById(`visit-btn-${cp.id}`);
-        if (btn) {
+        if (btn && loggingAllowed && !cp.visited) {
           btn.onclick = async () => {
             const accessToken = localStorage.getItem('accessToken');
             const url = `${apiUrl}/api/race/${activeRaceId}/checkpoints/log/`;
             const options = {
-              method: cp.visited ? 'DELETE' : 'POST',
+              method: 'POST',
               headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
@@ -162,24 +235,93 @@ function Map() {
                 setCheckpoints(data);
                 marker.closePopup();
               } else {
-                alert('Failed to update visit status.');
+                alert('Failed to log visit.');
               }
             } catch (err) {
               alert('Network error.');
             }
           };
+        } else if (btn && loggingAllowed && cp.visited) {
+          // Delete visit handler
+          btn.onclick = async () => {
+            const accessToken = localStorage.getItem('accessToken');
+            const url = `${apiUrl}/api/race/${activeRaceId}/checkpoints/log/`;
+            const options = {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ checkpoint_id: cp.id, team_id: activeTeamId }),
+            };
+            try {
+              const res = await fetch(url, options);
+              if (res.ok) {
+                const updated = await fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                });
+                const data = await updated.json();
+                setCheckpoints(data);
+                marker.closePopup();
+              } else {
+                alert('Failed to delete visit.');
+              }
+            } catch (err) {
+              alert('Network error.');
+            }
+          };
+        } else {
+          // do nothing; button disabled or not present
         }
       });
     });
-  }, [checkpoints, activeRaceId, activeTeamId]);
+  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo]);
+
+  // small overlay message about current time state
+  const overlayMessage = (() => {
+    switch (timeInfo.state) {
+      case 'BEFORE_SHOW':
+        return `Checkpoints will be shown at ${formatDate(timeInfo.startShow)}`;
+      case 'SHOW_ONLY':
+        return 'Checkpoints are visible. Logging is not open yet.';
+      case 'LOGGING':
+        return 'Logging is open — you can log or delete visits now.';
+      case 'POST_LOG_SHOW':
+        return 'Logging closed. Checkpoints still visible (read-only).';
+      case 'AFTER_SHOW':
+        return `Showing of checkpoints ended at ${formatDate(timeInfo.endShow)}`;
+      default:
+        return '';
+    }
+  })();
 
   return (
-    <div style={{ position: 'fixed', top: '56px', left: 0, right: 0, bottom: 0, zIndex: 1 }}>
-      <div
-        ref={mapRef}
-        style={{ height: '100%', width: '100%' }}
-      />
-    </div>
+    <>
+      {overlayMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 56,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(255,255,255,0.95)',
+          padding: '8px 12px',
+          borderRadius: 6,
+          boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+        }}>
+          {overlayMessage}
+        </div>
+      )}
+      <div style={{ position: 'fixed', top: '56px', left: 0, right: 0, bottom: 0, zIndex: 1 }}>
+        <div
+          ref={mapRef}
+          style={{ height: '100%', width: '100%' }}
+        />
+      </div>
+    </>
   );
 }
 
