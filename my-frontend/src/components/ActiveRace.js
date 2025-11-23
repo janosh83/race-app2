@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
+import { findCandidates } from '../utils/activeRaceUtils';
 
 function formatDate(ts) {
   if (!ts) return '—';
@@ -12,17 +13,6 @@ function normalizeName(race) {
 }
 function normalizeDescription(race) {
   return race.description || race.race_description || '';
-}
-
-function findCandidates(races = []) {
-  const now = Date.now();
-  return races.filter(r => {
-    const startRaw = r.start_showing_checkpoints || r.start_showing_checkpoints_at || r.start_showing || r.start_logging;
-    const endRaw = r.end_showing_checkpoints || r.end_showing_checkpoints_at || r.end_showing || r.end_logging;
-    const start = startRaw ? Date.parse(startRaw) : null;
-    const end = endRaw ? Date.parse(endRaw) : null;
-    return start && end && start <= now && now <= end;
-  });
 }
 
 function ActiveRace() {

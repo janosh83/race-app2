@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { selectActiveRace } from '../utils/activeRace';
+import { selectActiveRace } from '../utils/activeRaceUtils';
 
 function Login() {
     const [email, setEmail] = useState('');
