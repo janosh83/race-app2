@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
 import { findCandidates } from '../utils/activeRaceUtils';
 
@@ -28,23 +28,30 @@ function ActiveRace() {
     return () => clearInterval(id);
   }, []);
 
-  const signedRaces = JSON.parse(localStorage.getItem('signedRaces')) || [];
-  const storedActive = JSON.parse(localStorage.getItem('activeRace') || 'null');
+  const signedRaces = useMemo(() => JSON.parse(localStorage.getItem('signedRaces'), []), []);
+  const storedActive = useMemo(() => JSON.parse(localStorage.getItem('activeRace') || 'null', null), []);
   const [activeRace, setActiveRace] = useState(storedActive);
   const [candidates, setCandidates] = useState([]);
 
   useEffect(() => {
-    const c = findCandidates(signedRaces);
-    setCandidates(c);
-
-    if (!activeRace) {
-      if (c.length === 1) {
-        setActiveRace(c[0]);
+    // effect now depends on a stable signedRaces reference
+    const update = () => {
+      const c = findCandidates(signedRaces);
+      setCandidates(c);
+      if (!activeRace && c.length === 1) {
         localStorage.setItem('activeRace', JSON.stringify(c[0]));
+        setActiveRace(c[0]);
       }
-    }
-    // keep activeRace in sync if stored changed elsewhere
-  }, []); // run once on mount
+    };
+    update();
+
+    const onStorage = (e) => {
+      if (e.key === 'signedRaces' || e.key === 'activeRace') update();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [signedRaces, activeRace]);
+  
 
   const handleSelect = (race) => {
     setActiveRace(race);
