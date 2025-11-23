@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
 
 function formatDate(ts) {

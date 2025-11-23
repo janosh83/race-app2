@@ -1,0 +1,104 @@
+/**
+ * Merged auth + api helpers:
+ * - parseJwt, isTokenExpired, logoutAndRedirect (from auth.js)
+ * - fetchRaw (low-level wrapper that returns Response, similar to old auth.apiFetch)
+ * - apiFetch (high-level wrapper that returns parsed JSON and throws on non-ok)
+ */
+
+const BASE = process.env.REACT_APP_API_URL || '';
+
+/* ---------- auth helpers ---------- */
+export function parseJwt(token) {
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(token, marginSeconds = 10) {
+  const payload = parseJwt(token);
+  if (!payload || !payload.exp) return true;
+  const expMs = payload.exp * 1000;
+  return Date.now() > (expMs - marginSeconds * 1000);
+}
+
+export function logoutAndRedirect(loginPath = '/login') {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('signedRaces');
+  localStorage.removeItem('activeRace');
+  localStorage.removeItem('activeSection');
+  window.location.href = loginPath;
+}
+
+/* ---------- low-level fetch (returns Response) ---------- */
+export async function fetchRaw(path, init = {}) {
+  const url = path.startsWith('http') ? path : `${BASE}${path}`;
+  const token = localStorage.getItem('accessToken');
+  const headers = new Headers(init.headers || {});
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  headers.set('Accept', 'application/json');
+
+  const res = await fetch(url, { ...init, headers });
+  if (res.status === 401 || res.status === 403) {
+    logoutAndRedirect();
+    throw new Error('Unauthorized');
+  }
+  return res;
+}
+
+/* ---------- high-level fetch (returns parsed payload) ---------- */
+async function handleResponse(res) {
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  const payload = isJson ? await res.json().catch(() => null) : null;
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      logoutAndRedirect();
+      throw new Error('Unauthorized');
+    }
+    const msg = payload?.message || payload?.error || res.statusText || 'Request failed';
+    const err = new Error(msg);
+    err.status = res.status;
+    err.payload = payload;
+    throw err;
+  }
+  return payload;
+}
+
+/**
+ * apiFetch(path, opts) -> returns parsed payload (object/array/null)
+ * If you need the raw Response (to call .blob() / .arrayBuffer() / stream), use fetchRaw(...)
+ */
+export async function apiFetch(path, opts = {}) {
+  const url = path.startsWith('http') ? path : `${BASE}${path}`;
+  const token = localStorage.getItem('accessToken');
+  const headers = new Headers(opts.headers || {});
+  headers.set('Accept', 'application/json');
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  // if body provided and not FormData, ensure JSON content-type
+  const body = opts.body && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body;
+  if (body && !(opts.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+
+  const controller = new AbortController();
+  const signal = opts.signal || controller.signal;
+  const timeout = opts.timeoutMs;
+  let timeoutId;
+  if (timeout) timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, {
+      method: opts.method || 'GET',
+      headers,
+      body,
+      signal,
+    });
+    return await handleResponse(res);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}

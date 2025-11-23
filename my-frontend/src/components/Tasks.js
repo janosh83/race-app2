@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect } from 'react';
-import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
  
 function Tasks() {
   useEffect(() => {

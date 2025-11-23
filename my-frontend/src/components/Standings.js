@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { isTokenExpired, logoutAndRedirect, apiFetch } from '../utils/auth';
+import { isTokenExpired, logoutAndRedirect, apiFetch } from '../utils/api';
 
 function Standings() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const apiUrl = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
     const check = () => {
@@ -28,7 +27,7 @@ function Standings() {
       }
 
       try {
-        const response = await apiFetch(`${apiUrl}/api/race/${activeRaceId}/results/`);
+        const response = await apiFetch(`/api/race/${activeRaceId}/results/`);
         if (!response.ok) throw new Error('Failed to fetch results');
         const data = await response.json();
         setResults(data);

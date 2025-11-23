@@ -1,13 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import ActiveRace from './ActiveRace';
 import Map from './Map';
 import Tasks from './Tasks';
 import Standings from './Standings';
-import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
+import AdminDashboard from './Admin/AdminDashboard';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 function MainPage() {
   // default to activeRace so main page shows content immediately
   const [activeSection, setActiveSection] = useState('activeRace');
+
+  // read current user once (safe parse)
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     const stored = localStorage.getItem('activeSection');
@@ -45,6 +55,8 @@ function MainPage() {
         return <Tasks />;
       case 'standings':
         return <Standings />;
+      case 'admin':
+        return <AdminDashboard />;
       default:
         return null;
     }
@@ -76,6 +88,11 @@ function MainPage() {
               <li className="nav-item">
                 <button className={`nav-link btn btn-link${activeSection === 'standings' ? ' active' : ''}`} onClick={() => setActiveSection('standings')}>Standings</button>
               </li>
+              {user && user.is_administrator && (
+                <li className="nav-item">
+                  <button className={`nav-link btn btn-link${activeSection === 'admin' ? ' active' : ''}`} onClick={() => setActiveSection('admin')}>Admin</button>
+                </li>
+              )}
             </ul>
             <ul className="navbar-nav ms-auto">
               <li className="nav-item">

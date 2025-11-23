@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { isTokenExpired, logoutAndRedirect } from '../utils/auth';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 function parseRaceTimeField(race, ...keys) {
   for (const k of keys) {
