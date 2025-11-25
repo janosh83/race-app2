@@ -2,13 +2,24 @@ import React, { useEffect, useState } from 'react';
 import RaceList from './RaceList';
 import RaceForm from './RaceForm';
 import RegistrationList from './RegistrationList';
+import CheckpointForm from './CheckpointForm';
+import CheckpointList from './CheckpointList';
+import CategoryForm from './CategoryForm';
+import Standings from './Standings';
+import VisitsList from './VisitsList';
 import { adminApi } from '../../services/adminApi';
 
-function AdminDashboard(){
+function AdminDashboard() {
   const [races, setRaces] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [checkpoints, setCheckpoints] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // ui state: creating new race or editing existing
+  const [creatingNew, setCreatingNew] = useState(false);
+  const [editingRace, setEditingRace] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -16,9 +27,7 @@ function AdminDashboard(){
     setError(null);
     adminApi.listRaces()
       .then(res => {
-        console.log('adminApi.listRaces ->', res);
         if (!mounted) return;
-        // if API returns {data: [...]}, adapt here: setRaces(res.data || res)
         setRaces(Array.isArray(res) ? res : (res?.data || []));
       })
       .catch(err => {
@@ -30,6 +39,63 @@ function AdminDashboard(){
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    if (selected) {
+      const fetchCheckpoints = async () => {
+        try {
+          const data = await adminApi.getCheckpointsByRaceID(selected.id);
+          setCheckpoints(Array.isArray(data) ? data : (data?.data || []));
+        } catch (e) {
+          console.error('Failed to load checkpoints', e);
+          setCheckpoints([]);
+        }
+      };
+      const fetchCategories = async () => {
+        try {
+          const data = await adminApi.listCategories();
+          setCategories(Array.isArray(data) ? data : (data?.data || []));
+        } catch (e) {
+          console.error('Failed to load categories', e);
+          setCategories([]);
+        }
+      };
+      fetchCheckpoints();
+      fetchCategories();
+    } else {
+      setCheckpoints([]);
+      setCategories([]);
+    }
+  }, [selected]);
+
+  const handleNewClick = () => {
+    setSelected(null);
+    setEditingRace(null);
+    setCreatingNew(true);
+  };
+
+  const handleManage = (race) => {
+    setSelected(race);
+    setCreatingNew(false);
+    setEditingRace(null);
+  };
+
+  const handleSavedRace = (race, wasNew = true) => {
+    // race: saved race object from server
+    setRaces(prev => {
+      if (wasNew) return [race, ...prev];
+      return prev.map(r => (r.id === race.id ? race : r));
+    });
+    setSelected(race);
+    setCreatingNew(false);
+    setEditingRace(null);
+  };
+
+  const handleEdit = () => {
+    if (!selected) return;
+    setEditingRace(selected);
+    setCreatingNew(false);
+  };
+
   return (
     <div className="container mt-4">
       <h2>Admin</h2>
@@ -38,15 +104,49 @@ function AdminDashboard(){
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row">
-        <div className="col-md-5">
-          <RaceList races={races} onSelect={setSelected} />
+        <div className="col-md-4">
+          <RaceList races={races} onSelect={handleManage} />
+          <div className="mt-2 d-grid">
+            <button className="btn btn-success" onClick={handleNewClick}>New race</button>
+          </div>
         </div>
-        <div className="col-md-7">
-          <RaceForm onCreated={(r) => setRaces(prev => [r, ...prev])} />
-          {selected ? <RegistrationList race={selected} /> : <div className="mt-3 text-muted">Select a race to manage registrations</div>}
+
+        <div className="col-md-8">
+          {/* show form when creating or editing */}
+          {(creatingNew || editingRace) ? (
+            <RaceForm
+              race={editingRace}
+              onSaved={(r) => handleSavedRace(r, !editingRace)}
+              onCancel={() => { setCreatingNew(false); setEditingRace(null); }}
+            />
+          ) : (
+            <>
+              {selected ? (
+                <>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <h4>Manage: {selected.name || selected.title || `#${selected.id}`}</h4>
+                    <div>
+                      <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>Edit race</button>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>Close</button>
+                    </div>
+                  </div>
+
+                  <RegistrationList race={selected} />
+                  <CheckpointForm raceId={selected.id} onCheckpointAdded={(checkpoint) => setCheckpoints(prev => [checkpoint, ...prev])} />
+                  <CheckpointList checkpoints={checkpoints} onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))} />
+                  <CategoryForm raceId={selected.id} />
+                  <Standings raceId={selected.id} />
+                  <VisitsList raceId={selected.id} />
+                </>
+              ) : (
+                <div className="mt-3 text-muted">Select a race or click "New race" to create one</div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
 export default AdminDashboard;

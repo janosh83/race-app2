@@ -115,6 +115,63 @@ def create_race():
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
 
+@race_bp.route('/<int:race_id>/', methods=['PUT'])
+@admin_required()
+def update_race(race_id):
+    """
+    Update a race (admin only).
+    Accepts partial payload; only provided fields are updated.
+    Fields accepted (examples):
+      - name: string
+      - description: string
+      - start_showing_checkpoints_at: ISO datetime string
+      - end_showing_checkpoints_at: ISO datetime string
+      - start_logging_at: ISO datetime string
+      - end_logging_at: ISO datetime string
+    """
+    data = request.json or {}
+    race = Race.query.filter_by(id=race_id).first_or_404()
+
+    # simple scalar fields
+    if 'name' in data:
+        race.name = data.get('name')
+    if 'description' in data:
+        race.description = data.get('description')
+
+    # datetime fields (accept several possible keys but prefer explicit *_at keys)
+    if 'start_showing_checkpoints_at' in data:
+        race.start_showing_checkpoints_at = parse_datetime(data.get('start_showing_checkpoints_at'))
+    elif 'start_showing_checkpoints' in data:
+        race.start_showing_checkpoints_at = parse_datetime(data.get('start_showing_checkpoints'))
+
+    if 'end_showing_checkpoints_at' in data:
+        race.end_showing_checkpoints_at = parse_datetime(data.get('end_showing_checkpoints_at'))
+    elif 'end_showing_checkpoints' in data:
+        race.end_showing_checkpoints_at = parse_datetime(data.get('end_showing_checkpoints'))
+
+    if 'start_logging_at' in data:
+        race.start_logging_at = parse_datetime(data.get('start_logging_at'))
+    elif 'start_logging' in data:
+        race.start_logging_at = parse_datetime(data.get('start_logging'))
+
+    if 'end_logging_at' in data:
+        race.end_logging_at = parse_datetime(data.get('end_logging_at'))
+    elif 'end_logging' in data:
+        race.end_logging_at = parse_datetime(data.get('end_logging'))
+
+    db.session.add(race)
+    db.session.commit()
+
+    return jsonify({
+        "id": race.id,
+        "name": race.name,
+        "description": race.description,
+        "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+        "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+        "start_logging_at": race.start_logging_at,
+        "end_logging_at": race.end_logging_at
+    }), 200
+
 # delete race
 # tested by test_races.py -> test_create_race
 @race_bp.route('/<int:race_id>/', methods=['DELETE'])
