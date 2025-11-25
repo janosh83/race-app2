@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import RaceList from './RaceList';
 import RaceForm from './RaceForm';
 import RegistrationList from './RegistrationList';
-import CheckpointForm from './CheckpointForm';
 import CheckpointList from './CheckpointList';
 import CategoryForm from './CategoryForm';
 import Standings from './Standings';
@@ -167,9 +166,13 @@ function AdminDashboard() {
                     </div>
                   </div>
 
+                  <CheckpointList
+                    checkpoints={checkpoints}
+                    raceId={selected.id}
+                    onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
+                    onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
+                  />
                   <RegistrationList race={selected} />
-                  <CheckpointForm raceId={selected.id} onCheckpointAdded={(checkpoint) => setCheckpoints(prev => [checkpoint, ...prev])} />
-                  <CheckpointList checkpoints={checkpoints} onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))} />
                   <CategoryForm raceId={selected.id} />
                   <Standings raceId={selected.id} />
                   <VisitsList raceId={selected.id} />
