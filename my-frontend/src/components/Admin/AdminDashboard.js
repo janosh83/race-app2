@@ -9,6 +9,16 @@ import Standings from './Standings';
 import VisitsList from './VisitsList';
 import { adminApi } from '../../services/adminApi';
 
+function formatIso(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
 function AdminDashboard() {
   const [races, setRaces] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -128,6 +138,32 @@ function AdminDashboard() {
                     <div>
                       <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>Edit race</button>
                       <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>Close</button>
+                    </div>
+                  </div>
+
+                  {/* Description and time constraints */}
+                  <div className="card mb-3">
+                    <div className="card-body">
+                      {selected.description ? (
+                        <p className="mb-2">{selected.description}</p>
+                      ) : (
+                        <p className="mb-2 text-muted">No description</p>
+                      )}
+
+                      <div className="small text-muted">
+                        <div>
+                          <strong>Showing checkpoints:</strong>{' '}
+                          {formatIso(selected.start_showing_checkpoints_at ?? selected.start_showing_checkpoints ?? selected.start_showing)}
+                          {' — '}
+                          {formatIso(selected.end_showing_checkpoints_at ?? selected.end_showing_checkpoints ?? selected.end_showing)}
+                        </div>
+                        <div>
+                          <strong>Logging window:</strong>{' '}
+                          {formatIso(selected.start_logging_at ?? selected.start_logging)}
+                          {' — '}
+                          {formatIso(selected.end_logging_at ?? selected.end_logging)}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
