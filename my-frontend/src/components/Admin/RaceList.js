@@ -1,7 +1,5 @@
 import React from 'react';
 export default function RaceList({races,onSelect}){
-  console.log('RaceList rendered');
-  console.log(races);
   return (
     <div>
       <h4>Races</h4>
