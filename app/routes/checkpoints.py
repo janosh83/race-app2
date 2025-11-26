@@ -67,65 +67,56 @@ def get_checkpoints(race_id):
 @admin_required()
 def create_checkpoint(race_id):
     """
-    Create a new checkpoint for a specific race.
-    Requires admin privileges.
-    ---
-    tags:
-      - Checkpoints
-    parameters:
-      - in: path
-        name: race_id
-        schema:
-          type: integer
-        required: true
-        description: ID of the race
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              title:
-                type: string
-                example: "Start"
-              latitude:
-                type: number
-                example: 49.8729317
-              longitude:
-                type: number
-                example: 14.8981184
-              description:
-                type: string
-                example: "Starting point"
-              numOfPoints:
-                type: integer
-                example: 1
-    responses:
-      201:
-        description: Checkpoint created successfully
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                id:
-                  type: integer
-                title:
-                  type: string
+    Accept either a single checkpoint object or an array of checkpoints.
+    For JSON: body may be {...} or [{...}, {...}]
+    For multipart/form-data: treat form as single checkpoint.
     """
-    data = request.json
-    new_checkpoint = Checkpoint(
-        title=data['title'],
-        latitude=data['latitude'],
-        longitude=data['longitude'],
-        description=data['description'],
-        numOfPoints=data['numOfPoints'], # TODO: if not exist, set to 1
-        race_id=race_id
-    )
-    db.session.add(new_checkpoint)
+    # determine input source
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        # single item from form
+        data = request.form.to_dict()
+        items = [data]
+    else:
+        payload = request.get_json(silent=True)
+        if payload is None:
+            return jsonify({"message": "Invalid or missing JSON body"}), 400
+        items = payload if isinstance(payload, list) else [payload]
+
+    created = []
+    for entry in items:
+        # basic normalization of field names
+        title = entry.get('title') or entry.get('name')
+        latitude = entry.get('latitude') or entry.get('lat')
+        longitude = entry.get('longitude') or entry.get('lng')
+        description = entry.get('description') or entry.get('desc')
+        num_points = entry.get('numOfPoints') or entry.get('num_of_points') or entry.get('numPoints') or 1
+
+        if not title:
+            return jsonify({"message": "Missing required field: title or name"}), 400
+
+        new_checkpoint = Checkpoint(
+            title=title,
+            latitude=latitude,
+            longitude=longitude,
+            description=description,
+            numOfPoints=num_points,
+            race_id=race_id
+        )
+        db.session.add(new_checkpoint)
+        created.append(new_checkpoint)
+
+    # commit once for all created records
     db.session.commit()
-    return jsonify({"id": new_checkpoint.id, "title": new_checkpoint.title}), 201
+
+    result = [{"id": cp.id, 
+               "title": cp.title, 
+               "description": cp.description, 
+               "latitude": cp.latitude, "longitude": cp.longitude,
+               "numOfPoints": cp.numOfPoints } for cp in created]
+    # return single object when one created to remain backwards-compatible
+    if len(result) == 1:
+        return jsonify(result[0]), 201
+    return jsonify(result), 201
 
 # tested by test_races.py -> test_get_race_checkpoints
 # TODO: return path to image
