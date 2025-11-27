@@ -239,8 +239,8 @@ def delete_race(race_id):
         db.session.commit()
         return jsonify({"message: Race deleted successfully"}), 200
     
-# FIXME: write test
-race_bp.route("/<int:race_id>/race-categories/", methods=["POST"])
+# tested by tests\test_categories.py -> test_with_race
+@race_bp.route("/<int:race_id>/categories/", methods=["POST"])
 @admin_required()
 def add_race_category(race_id):
     """
@@ -258,20 +258,21 @@ def add_race_category(race_id):
     if not race_category:
         return jsonify({"message": "Race category not found"}), 404
     
-    race.race_categories.append(race_category)
+    race.categories.append(race_category)
     db.session.add(race)
     db.session.commit()
 
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
 
-# FIXME: write test
-race_bp.route("/<int:race_id>/race-categories/", methods=["GET"])
+# tested by tests\test_categories.py -> test_with_race
+@race_bp.route("/<int:race_id>/categories/", methods=["GET"])
+@admin_required()
 def get_race_categories(race_id):
     """
     Get all race categories for a specific race
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in race.race_categories])
+    return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in race.categories])
 
 #
 # Get visits

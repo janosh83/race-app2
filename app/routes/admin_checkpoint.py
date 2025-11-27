@@ -11,19 +11,21 @@ admin_checkpoint_bp = Blueprint('checkpoint', __name__)
 
 UPLOAD_FOLDER = 'static/images'
 
+# tested by test_checkpoint.py -> test_checkpoint
 @admin_checkpoint_bp.route('/<int:checkpoint_id>/', methods=['GET'])
 @admin_required()
 def get_checkpoint(checkpoint_id):
-    checkpoint = Checkpoint.query.get_or_404(checkpoint_id)
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     return jsonify({
         "id": checkpoint.id,
         "title": checkpoint.title,
         "description": checkpoint.description,
         "latitude": checkpoint.latitude,
         "longitude": checkpoint.longitude,
-        "numOfPoints": checkpoint.num_of_points
+        "numOfPoints": checkpoint.numOfPoints
     }), 200
 
+# tested by test_checkpoint.py -> test_delete_checkpoint
 @admin_checkpoint_bp.route('/<int:checkpoint_id>/', methods=['DELETE'])
 @admin_required()
 def delete_checkpoint(checkpoint_id):

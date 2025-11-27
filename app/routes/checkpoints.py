@@ -62,7 +62,7 @@ def get_checkpoints(race_id):
         for checkpoint in checkpoints
     ])
 
-# FIXME: write test
+# tested by test_checkpoint.py -> test_delete_checkpoint
 @checkpoints_bp.route('/', methods=['POST'])
 @admin_required()
 def create_checkpoint(race_id):
