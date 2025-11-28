@@ -172,7 +172,7 @@ function AdminDashboard() {
                     onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
                     onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
                   />
-                  <RegistrationList race={selected} />
+                  <RegistrationList raceId={selected.id} />
                   <CategoryForm raceId={selected.id} />
                   <Standings raceId={selected.id} />
                   <VisitsList raceId={selected.id} />
