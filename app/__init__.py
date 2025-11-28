@@ -97,7 +97,22 @@ def create_app(config_class=None):
     migrate.init_app(app, db)
     JWTManager(app)
     Swagger(app, template=swagger_template)
-    CORS(app, origins=app.config['CORS_ORIGINS'], supports_credentials=True)
+    # Configure CORS explicitly for API endpoints. We allow the origins
+    # defined in CORS_ORIGINS and enable credentials support when needed.
+    # We also explicitly allow typical headers and methods used by the
+    # frontend (Authorization, Content-Type) so preflight (OPTIONS)
+    # requests are handled correctly.
+    # Make sure CORS applies to both API endpoints and auth endpoints
+    CORS(app,
+         resources={
+             r"/api/*": {"origins": app.config['CORS_ORIGINS']},
+             r"/auth/*": {"origins": app.config['CORS_ORIGINS']}
+         },
+         supports_credentials=True,
+         expose_headers=["Content-Type", "Authorization"],
+         allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
+         methods=["GET", "HEAD", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"]
+         )
 
     # blueprint registration
     from app.routes.races import race_bp
