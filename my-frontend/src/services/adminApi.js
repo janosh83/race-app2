@@ -18,9 +18,19 @@ export const adminApi = {
   getVisitsByTeam: (teamId) => apiFetch(`/api/admin/teams/${teamId}/visits/`),
   addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),
   deleteVisit: (visitId) => apiFetch(`/api/admin/visits/${visitId}/`, { method: 'DELETE' }),
-  createCategory: (payload) => apiFetch('/api/admin/categories/', { method: 'POST', body: payload }),
-  deleteCategory: (categoryId) => apiFetch(`/api/admin/categories/${categoryId}/`, { method: 'DELETE' }),
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
   
+  // race-category endpoints
+  // list all global categories
+  // create global category
+  createCategory: (payload) => apiFetch('/api/race-category/', { method: 'POST', body: payload }),
+  // delete global category
+  deleteCategory: (categoryId) => apiFetch(`/api/race-category/${categoryId}/`, { method: 'DELETE' }),
+
+  // per-race category assignment endpoints
+  getRaceCategories: (raceId) => apiFetch(`/api/race/${raceId}/categories/`),
+  addRaceCategory: (raceId, raceCategoryId) => apiFetch(`/api/race/${raceId}/categories/`, { method: 'POST', body: { race_category_id: raceCategoryId } }),
+  removeRaceCategory: (raceId, raceCategoryId) => apiFetch(`/api/race/${raceId}/categories/`, { method: 'DELETE', body: { race_category_id: raceCategoryId } }),
+
   // Add other necessary endpoints...
 };

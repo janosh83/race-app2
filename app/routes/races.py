@@ -274,6 +274,34 @@ def get_race_categories(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in race.categories])
 
+
+  # remove (unassign) a race category from a specific race
+  # expects JSON body: { "race_category_id": <id> }
+  
+@race_bp.route("/<int:race_id>/categories/", methods=["DELETE"])
+@admin_required()
+def remove_race_category(race_id):
+  """
+  Remove (unassign) a race category from a specific race.
+  """
+  race = Race.query.filter_by(id=race_id).first_or_404()
+  data = request.get_json() or {}
+  race_category_id = data.get('race_category_id')
+  if not race_category_id:
+    return jsonify({"message": "Missing race_category_id"}), 400
+
+  race_category = RaceCategory.query.filter_by(id=race_category_id).first_or_404()
+
+  # if the category is not assigned, return 404
+  if race_category not in race.categories:
+    return jsonify({"message": "Category not assigned to this race"}), 404
+
+  race.categories.remove(race_category)
+  db.session.add(race)
+  db.session.commit()
+
+  return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
+
 #
 # Get visits
 #

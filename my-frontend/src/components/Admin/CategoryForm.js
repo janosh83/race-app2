@@ -1,61 +1,129 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 
-export default function CategoryForm({ raceId, onCategoryAdded }) {
-  const [name, setName] = useState('');
-  const [categories, setCategories] = useState([]);
+export default function CategoryForm({ raceId }) {
+  const [allCategories, setAllCategories] = useState([]);
+  const [assigned, setAssigned] = useState([]); // array of category objects assigned to race
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [newName, setNewName] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cats, raceCats] = await Promise.all([
+        adminApi.listCategories(),
+        adminApi.getRaceCategories(raceId),
+      ]);
+      setAllCategories(Array.isArray(cats) ? cats : (cats?.data || []));
+      setAssigned(Array.isArray(raceCats) ? raceCats : (raceCats?.data || []));
+    } catch (err) {
+      console.error('Failed to load categories', err);
+      setError('Failed to load categories');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const data = await adminApi.listCategories();
-      setCategories(data);
-    };
-    fetchCategories();
-  }, []);
+    if (raceId) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceId]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const isAssigned = (catId) => assigned.some(c => c.id === catId);
+
+  const assign = async (catId) => {
     try {
-      const newCategory = await adminApi.createCategory({ name });
-      onCategoryAdded(newCategory);
-      setName('');
-    } catch (error) {
-      console.error('Failed to add category', error);
+      await adminApi.addRaceCategory(raceId, catId);
+      await load();
+    } catch (err) {
+      console.error('Failed to assign category', err);
+      setError('Failed to assign category');
     }
   };
 
-  const handleDelete = async (categoryId) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
-      try {
-        await adminApi.deleteCategory(categoryId);
-        setCategories(categories.filter(cat => cat.id !== categoryId));
-      } catch (error) {
-        console.error('Failed to delete category', error);
-      }
+  const unassign = async (catId) => {
+    if (!window.confirm('Unassign this category from the race?')) return;
+    try {
+      await adminApi.removeRaceCategory(raceId, catId);
+      await load();
+    } catch (err) {
+      console.error('Failed to unassign category', err);
+      setError('Failed to unassign category');
     }
   };
+
+  const createAndAssign = async (assignAfter = false) => {
+    if (!newName.trim()) return;
+    try {
+      const created = await adminApi.createCategory({ name: newName.trim() });
+      setNewName('');
+      await load();
+      if (assignAfter && created && created.id) {
+        await adminApi.addRaceCategory(raceId, created.id);
+        await load();
+      }
+    } catch (err) {
+      console.error('Failed to create category', err);
+      setError('Failed to create category');
+    }
+  };
+
+  if (!raceId) return null;
 
   return (
-    <div>
-      <h3>Manage Categories</h3>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Category Name"
-          required
-        />
-        <button type="submit">Add Category</button>
-      </form>
-      <ul>
-        {categories.map((category) => (
-          <li key={category.id}>
-            {category.name}
-            <button onClick={() => handleDelete(category.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
+    <div className="mt-3">
+      <div className="d-flex align-items-center mb-2">
+        <h4 className="me-3">Race Categories</h4>
+        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>Refresh</button>
+      </div>
+
+      {loading && <div>Loading…</div>}
+      {error && <div className="alert alert-danger">{error}</div>}
+
+      <div className="row">
+        <div className="col-md-6">
+          <h5>All Categories</h5>
+          <ul className="list-group">
+            {allCategories.map(cat => (
+              <li key={cat.id} className="list-group-item d-flex justify-content-between align-items-center">
+                <div>{cat.name}</div>
+                <div>
+                  {isAssigned(cat.id) ? (
+                    <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(cat.id)}>Unassign</button>
+                  ) : (
+                    <button className="btn btn-sm btn-primary" onClick={() => assign(cat.id)}>Assign</button>
+                  )}
+                </div>
+              </li>
+            ))}
+            {allCategories.length === 0 && <li className="list-group-item text-muted">No categories</li>}
+          </ul>
+        </div>
+
+        <div className="col-md-6">
+          <h5>Assigned to this race</h5>
+          <ul className="list-group mb-3">
+            {assigned.map(cat => (
+              <li key={cat.id} className="list-group-item d-flex justify-content-between align-items-center">
+                <div>{cat.name}</div>
+                <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(cat.id)}>Unassign</button>
+              </li>
+            ))}
+            {assigned.length === 0 && <li className="list-group-item text-muted">No categories assigned</li>}
+          </ul>
+
+          <div className="card p-3">
+            <h6>Create new category</h6>
+            <div className="input-group">
+              <input className="form-control" placeholder="Category name" value={newName} onChange={e => setNewName(e.target.value)} />
+              <button className="btn btn-primary" onClick={() => createAndAssign(false)}>Create</button>
+              <button className="btn btn-success" onClick={() => createAndAssign(true)}>Create & Assign</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
