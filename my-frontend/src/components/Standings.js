@@ -19,7 +19,8 @@ function Standings() {
 
   useEffect(() => {
     const fetchResults = async () => {
-      const activeRaceId = JSON.parse(localStorage.getItem('activeRace'))?.race_id;
+      const active = JSON.parse(localStorage.getItem('activeRace') || 'null');
+      const activeRaceId = active?.race_id ?? active?.id ?? active?.raceId;
       if (!activeRaceId) {
         setError('No active race found.');
         setLoading(false);
@@ -27,12 +28,13 @@ function Standings() {
       }
 
       try {
-        const response = await apiFetch(`/api/race/${activeRaceId}/results/`);
-        if (!response.ok) throw new Error('Failed to fetch results');
-        const data = await response.json();
+        // apiFetch returns parsed JSON (not Response)
+        const payload = await apiFetch(`/api/race/${activeRaceId}/results/`);
+        // normalize common shapes: array or { data: [...] } etc.
+        const data = Array.isArray(payload) ? payload : (payload?.data || payload?.results || payload?.standings || []);
         setResults(data);
       } catch (err) {
-        setError(err.message);
+        setError(err?.message || 'Failed to fetch results');
       } finally {
         setLoading(false);
       }
