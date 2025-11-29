@@ -349,9 +349,15 @@ def get_visits_by_race_and_team(race_id, team_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         return 403
+    
+    visits = (db.session.query(CheckpointLog.id, CheckpointLog.checkpoint_id, Checkpoint.title.label("checkpoint_title"), CheckpointLog.team_id, CheckpointLog.created_at)
+                .select_from(CheckpointLog)
+                .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
+                .filter(CheckpointLog.race_id==race_id)
+                .filter(CheckpointLog.team_id==team_id)
+                .all())
 
-    visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
-    return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
+    return jsonify([{"id": visit.id, "checkpoint_id": visit.checkpoint_id, "checkpoint": visit.checkpoint_title, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 
 # get all visits for selected race
 # tested by test_visits.py -> test_get_visits
@@ -499,12 +505,14 @@ def get_race_results(race_id):
     for reg in registrations:
         if i < len(points) and reg.team_id == points[i].team_id:
             result.append({
+                "team_id": reg.team_id,
                 "team": reg.team_name,
                 "category": reg.race_category_name,
                 "points_for_checkpoints": points[i].total_points})
             i += 1
         else:
             result.append({
+                "team_id": reg.team_id,
                 "team": reg.team_name,
                 "category": reg.race_category_name,
                 "points_for_checkpoints": 0})

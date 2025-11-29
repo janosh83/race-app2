@@ -12,16 +12,17 @@ export const adminApi = {
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
   getLogs: (raceId) => apiFetch(`/api/admin/races/${raceId}/logs/`),
   listTeams: () => apiFetch('/api/admin/teams/'),
-  listCategories: () => apiFetch('/api/race-category/'),
+  
   addCheckpoint: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/`, { method: 'POST', body: payload }),
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
-  getVisitsByTeam: (teamId) => apiFetch(`/api/admin/teams/${teamId}/visits/`),
+  getVisitsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/visits/${teamId}/`), // OK
   addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),
   deleteVisit: (visitId) => apiFetch(`/api/admin/visits/${visitId}/`, { method: 'DELETE' }),
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
   
   // race-category endpoints
   // list all global categories
+  listCategories: () => apiFetch('/api/race-category/'),
   // create global category
   createCategory: (payload) => apiFetch('/api/race-category/', { method: 'POST', body: payload }),
   // delete global category

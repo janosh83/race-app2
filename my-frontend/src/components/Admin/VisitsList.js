@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
 
-export default function VisitsList({ teamId }) {
+function formatDate(iso) {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return iso;
+  }
+}
+
+export default function VisitsList({ teamId, raceId }) {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -11,8 +21,8 @@ export default function VisitsList({ teamId }) {
       setLoading(true);
       setError(null);
       try {
-        const data = await adminApi.getVisitsByTeam(teamId);
-        setVisits(data);
+        const data = await adminApi.getVisitsByTeamAndRace(teamId, raceId);
+        setVisits(Array.isArray(data) ? data : (data?.data || []));
       } catch (err) {
         console.error('Failed to load visits', err);
         setError('Failed to load visits');
@@ -21,8 +31,8 @@ export default function VisitsList({ teamId }) {
       }
     };
 
-    fetchVisits();
-  }, [teamId]);
+    if (teamId && raceId) fetchVisits();
+  }, [teamId, raceId]);
 
   const handleDelete = async (visitId) => {
     if (window.confirm('Are you sure you want to delete this visit?')) {
@@ -40,15 +50,30 @@ export default function VisitsList({ teamId }) {
 
   return (
     <div>
-      <h3>Visits</h3>
-      <ul>
-        {visits.map(visit => (
-          <li key={visit.id}>
-            <span>{visit.time} - {visit.image && <img src={visit.image} alt="Visit" width="50" />}</span>
-            <button onClick={() => handleDelete(visit.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
+      {visits.length === 0 ? (
+        <div className="text-muted">No visits</div>
+      ) : (
+        <table className="table table-sm">
+          <thead>
+            <tr>
+              <th>Checkpoint</th>
+              <th>Time</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visits.map(visit => (
+              <tr key={visit.id}>
+                <td>{visit.checkpoint || `#${visit.checkpoint_id}`}</td>
+                <td>{formatDate(visit.created_at)}</td>
+                <td>
+                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(visit.id)}>Delete</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

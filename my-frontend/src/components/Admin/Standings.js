@@ -6,7 +6,8 @@ function normalizeResults(payload) {
   // payload already an array of simple result objects (admin)
   if (Array.isArray(payload)) {
     return payload.map(p => ({
-      team: p.team ?? p.team_name ?? p.name ?? (p.team?.name ?? ''),
+      teamId: p.team_id ?? p.id ?? null,
+      teamName: p.team ?? p.team_name ?? p.name ?? (p.team?.name ?? ''),
       category: p.category ?? p.category_name ?? p.race_category ?? (p.category?.name ?? ''),
       points: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
       raw: p,
@@ -18,7 +19,7 @@ function normalizeResults(payload) {
   return [];
 }
 
-export default function Standings({ raceId }) {
+export default function Standings({ raceId, onTeamClick }) {
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -69,8 +70,14 @@ export default function Standings({ raceId }) {
           </thead>
           <tbody>
             {standings.map((row, idx) => (
-              <tr key={idx}>
-                <td>{row.team}</td>
+              <tr key={row.teamId ?? idx}>
+                <td>
+                  {onTeamClick ? (
+                    <button className="btn btn-link p-0" onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}>{row.teamName}</button>
+                  ) : (
+                    row.teamName
+                  )}
+                </td>
                 <td>{row.category}</td>
                 <td className="text-end">{row.points}</td>
               </tr>

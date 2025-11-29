@@ -29,6 +29,7 @@ function AdminDashboard() {
   // ui state: creating new race or editing existing
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
+  const [visitingTeam, setVisitingTeam] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -174,8 +175,18 @@ function AdminDashboard() {
                   />
                   <RegistrationList raceId={selected.id} />
                   <CategoryForm raceId={selected.id} />
-                  <Standings raceId={selected.id} />
-                  <VisitsList raceId={selected.id} />
+                  <Standings raceId={selected.id} onTeamClick={(teamId) => setVisitingTeam(teamId)} />
+                  {visitingTeam && (
+                    <div className="card mt-3">
+                      <div className="card-body">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h5 className="mb-0">Visits — team #{visitingTeam}</h5>
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>Close</button>
+                        </div>
+                        <VisitsList teamId={visitingTeam} raceId={selected.id}/>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="mt-3 text-muted">Select a race or click "New race" to create one</div>
