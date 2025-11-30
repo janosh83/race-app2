@@ -10,8 +10,6 @@ export const adminApi = {
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
   updateRegistration: (raceId, payload) => apiFetch(`/api/admin/races/${raceId}/registrations/`, { method: 'PUT', body: payload }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
-  getLogs: (raceId) => apiFetch(`/api/admin/races/${raceId}/logs/`),
-  listTeams: () => apiFetch('/api/admin/teams/'),
   
   addCheckpoint: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/`, { method: 'POST', body: payload }),
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
