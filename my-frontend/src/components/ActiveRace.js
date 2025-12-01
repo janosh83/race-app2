@@ -1,12 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
-
-function formatDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleString();
-}
+import { formatDate } from '../contexts/TimeContext';
 
 function normalizeName(race) {
   return race.name || race.race_name || 'Unnamed race';
