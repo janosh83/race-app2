@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { selectActiveRace } from '../utils/activeRaceUtils';
+import { useTime } from '../contexts/TimeContext';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const apiUrl = process.env.REACT_APP_API_URL;
+    const { setActiveRace } = useTime();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -22,12 +24,18 @@ function Login() {
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
 
-                // choose active race
+                // choose active race (if exactly one candidate)
                 const { activeRaceId, candidates } = selectActiveRace(data.signed_races || []);
 
                 if (activeRaceId) {
+                    // find the full signed_race object to persist (may contain team_id)
+                    const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
+                    if (candidate) setActiveRace(candidate);
+                    else setActiveRace({ race_id: activeRaceId });
                     localStorage.setItem('activeSection', 'activeRace');
-                    localStorage.setItem('activeRaceId', String(activeRaceId));
+                } else {
+                    // no single candidate — clear any previous active race
+                    setActiveRace(null);
                 }
 
                 // multiple or zero active races -> ask user to choose

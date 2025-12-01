@@ -3,46 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
-
-function parseRaceTimeField(race, ...keys) {
-  for (const k of keys) {
-    if (race && race[k]) return Date.parse(race[k]);
-  }
-  return null;
-}
-
-function timeStateForRace(nowMs, race) {
-  const startShow = parseRaceTimeField(race, 'start_showing_checkpoints', 'start_showing_checkpoints_at', 'start_showing');
-  const startLogging = parseRaceTimeField(race, 'start_logging', 'start_logging_at');
-  const endLogging = parseRaceTimeField(race, 'end_logging', 'end_logging_at');
-  const endShow = parseRaceTimeField(race, 'end_showing_checkpoints', 'end_showing_checkpoints_at', 'end_showing');
-
-  if (!startShow || !endShow) return { state: 'UNKNOWN', info: 'Race time window not available' };
-
-  if (nowMs < startShow) {
-    return { state: 'BEFORE_SHOW', startShow, startLogging, endLogging, endShow };
-  }
-  if (nowMs >= startShow && (startLogging === null || nowMs < startLogging)) {
-    // showing but before logging window
-    return { state: 'SHOW_ONLY', startShow, startLogging, endLogging, endShow };
-  }
-  if (startLogging && nowMs >= startLogging && (!endLogging || nowMs <= endLogging)) {
-    // logging window active
-    return { state: 'LOGGING', startShow, startLogging, endLogging, endShow };
-  }
-  if (endLogging && nowMs > endLogging && nowMs <= endShow) {
-    // after logging but still showing
-    return { state: 'POST_LOG_SHOW', startShow, startLogging, endLogging, endShow };
-  }
-  // after end of showing
-  return { state: 'AFTER_SHOW', startShow, startLogging, endLogging, endShow };
-}
-
-function formatDate(ts) {
-  if (!ts) return '—';
-  const d = new Date(ts);
-  return d.toLocaleString();
-}
+import { useTime, formatDate } from '../contexts/TimeContext';
 
 function Map() {
   // token expiry watcher (redirect to login when token expires)
@@ -62,21 +23,13 @@ function Map() {
   const userMarkerRef = useRef(null);
   const geoWatchIdRef = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
-  const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
+  const { activeRace, timeInfo } = useTime();
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
 
-  // Get active race and team from localStorage
-  const activeRace = JSON.parse(localStorage.getItem('activeRace') || 'null');
+  // Get active race and team from TimeContext
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
-
-  // compute time state whenever activeRace changes
-  useEffect(() => {
-    const now = Date.now();
-    const ts = timeStateForRace(now, activeRace);
-    setTimeInfo(ts);
-  }, [activeRace]);
 
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
