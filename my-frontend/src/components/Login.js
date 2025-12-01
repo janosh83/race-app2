@@ -38,11 +38,6 @@ function Login() {
                     setActiveRace(null);
                 }
 
-                // multiple or zero active races -> ask user to choose
-                //if (candidates.length > 1) {
-                //    localStorage.setItem('activeSection', 'selectRace');
-                //    localStorage.setItem('raceCandidates', JSON.stringify(candidates));
-                //}
                 window.location.reload();
             } else {
                 setError(data.msg || 'Login failed');
