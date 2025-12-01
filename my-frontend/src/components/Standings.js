@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { isTokenExpired, logoutAndRedirect, apiFetch } from '../utils/api';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+import { raceApi } from '../services/raceApi';
 
 function Standings() {
   const [results, setResults] = useState([]);
@@ -28,8 +29,8 @@ function Standings() {
       }
 
       try {
-        // apiFetch returns parsed JSON (not Response)
-        const payload = await apiFetch(`/api/race/${activeRaceId}/results/`);
+      // Use raceApi proxy which uses apiFetch under the hood
+      const payload = await raceApi.getResults(activeRaceId);
         // normalize common shapes: array or { data: [...] } etc.
         const data = Array.isArray(payload) ? payload : (payload?.data || payload?.results || payload?.standings || []);
         setResults(data);

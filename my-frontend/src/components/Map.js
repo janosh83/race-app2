@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+import { raceApi } from '../services/raceApi';
 
 function parseRaceTimeField(race, ...keys) {
   for (const k of keys) {
@@ -77,20 +78,20 @@ function Map() {
     setTimeInfo(ts);
   }, [activeRace]);
 
-  // Fetch checkpoints when activeRaceId changes
+  // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
-    const accessToken = localStorage.getItem('accessToken');
-    fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-      .then(res => res.json())
-      .then(data => setCheckpoints(data))
-      .catch(err => console.error('Failed to fetch checkpoints:', err));
-  }, [activeRaceId, activeTeamId, apiUrl]);
+    let mounted = true;
+    raceApi
+      .getCheckpointsStatus(activeRaceId, activeTeamId)
+      .then((data) => {
+        if (mounted) setCheckpoints(data);
+      })
+      .catch((err) => console.error('Failed to fetch checkpoints:', err));
+    return () => {
+      mounted = false;
+    };
+  }, [activeRaceId, activeTeamId]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -237,68 +238,30 @@ function Map() {
       marker.on('popupopen', () => {
         // Only bind click handler when loggingAllowed and popup button exists
         const btn = document.getElementById(`visit-btn-${cp.id}`);
-        if (btn && loggingAllowed && !cp.visited) {
+          if (btn && loggingAllowed && !cp.visited) {
           btn.onclick = async () => {
-            const accessToken = localStorage.getItem('accessToken');
-            const url = `${apiUrl}/api/race/${activeRaceId}/checkpoints/log/`;
-            const options = {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ checkpoint_id: cp.id, team_id: activeTeamId }),
-            };
             try {
-              const res = await fetch(url, options);
-              if (res.ok) {
-                // Refresh checkpoints
-                const updated = await fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
-                const data = await updated.json();
-                setCheckpoints(data);
-                marker.closePopup();
-              } else {
-                alert('Failed to log visit.');
-              }
+              await raceApi.logVisit(activeRaceId, { checkpoint_id: cp.id, team_id: activeTeamId });
+              // Refresh checkpoints
+              const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+              setCheckpoints(data);
+              marker.closePopup();
             } catch (err) {
-              alert('Network error.');
+              console.error('Failed to log visit:', err);
+              alert('Failed to log visit.');
             }
           };
         } else if (btn && loggingAllowed && cp.visited) {
           // Delete visit handler
           btn.onclick = async () => {
-            const accessToken = localStorage.getItem('accessToken');
-            const url = `${apiUrl}/api/race/${activeRaceId}/checkpoints/log/`;
-            const options = {
-              method: 'DELETE',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ checkpoint_id: cp.id, team_id: activeTeamId }),
-            };
             try {
-              const res = await fetch(url, options);
-              if (res.ok) {
-                const updated = await fetch(`${apiUrl}/api/race/${activeRaceId}/checkpoints/${activeTeamId}/status/`, {
-                  headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json',
-                  },
-                });
-                const data = await updated.json();
-                setCheckpoints(data);
-                marker.closePopup();
-              } else {
-                alert('Failed to delete visit.');
-              }
+              await raceApi.deleteVisit(activeRaceId, { checkpoint_id: cp.id, team_id: activeTeamId });
+              const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+              setCheckpoints(data);
+              marker.closePopup();
             } catch (err) {
-              alert('Network error.');
+              console.error('Failed to delete visit:', err);
+              alert('Failed to delete visit.');
             }
           };
         } else {
