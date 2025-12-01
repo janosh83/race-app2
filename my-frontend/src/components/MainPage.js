@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import ActiveRace from './ActiveRace';
 import Map from './Map';
 import Tasks from './Tasks';
@@ -14,11 +14,42 @@ function MainPage() {
 
   const { activeRace, setActiveRace, timeInfo, signedRaces } = useTime();
   const [userNavigated, setUserNavigated] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [navHeight, setNavHeight] = useState(56);
+  const navRef = useRef(null);
 
   const navigateTo = (section) => {
     setActiveSection(section);
     setUserNavigated(true);
+    setNavOpen(false);
   };
+
+  // Measure navbar height to offset the map on mobile when menu expands
+  const measureNav = () => {
+    if (navRef.current) {
+      const h = Math.ceil(navRef.current.getBoundingClientRect().height);
+      if (h && h !== navHeight) setNavHeight(h);
+    }
+  };
+
+  useEffect(() => {
+    measureNav();
+    const onResize = () => measureNav();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  useEffect(() => {
+    // re-measure when nav opens/closes or section changes
+    measureNav();
+    // allow collapse animation to finish then re-measure
+    const t = setTimeout(measureNav, 300);
+    return () => clearTimeout(t);
+  }, [navOpen, activeSection]);
 
   // read signed races and user once (safe parse)
   const user = useMemo(() => {
@@ -85,7 +116,7 @@ function MainPage() {
       case 'activeRace':
         return <ActiveRace />;
       case 'map':
-        return <Map />;
+        return <Map topOffset={navHeight} />;
       case 'tasks':
         return <Tasks />;
       case 'standings':
@@ -106,10 +137,20 @@ function MainPage() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg navbar-dark bg-primary">
+      <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark bg-primary" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
           <span className="navbar-brand">Race App</span>
-          <div className="collapse navbar-collapse">
+          <button
+            className="navbar-toggler"
+            type="button"
+            aria-controls="mainNavbar"
+            aria-expanded={navOpen ? 'true' : 'false'}
+            aria-label="Toggle navigation"
+            onClick={() => setNavOpen(o => !o)}
+          >
+            <span className="navbar-toggler-icon"></span>
+          </button>
+          <div id="mainNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <button className={`nav-link btn btn-link${activeSection === 'activeRace' ? ' active' : ''}`} onClick={() => navigateTo('activeRace')}>Active Race</button>
@@ -135,7 +176,7 @@ function MainPage() {
             </ul>
             <ul className="navbar-nav ms-auto">
               <li className="nav-item">
-                <button className="nav-link btn btn-link text-white" onClick={handleLogout}>Logout</button>
+                <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>Logout</button>
               </li>
             </ul>
           </div>

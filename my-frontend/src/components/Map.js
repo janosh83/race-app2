@@ -5,7 +5,7 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
 
-function Map() {
+function Map({ topOffset = 56 }) {
   // token expiry watcher (redirect to login when token expires)
   useEffect(() => {
     const check = () => {
@@ -247,7 +247,7 @@ function Map() {
       {overlayMessage && (
         <div style={{
           position: 'fixed',
-          top: 56,
+          top: topOffset,
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1000,
@@ -259,7 +259,7 @@ function Map() {
           {overlayMessage}
         </div>
       )}
-      <div style={{ position: 'fixed', top: '56px', left: 0, right: 0, bottom: 0, zIndex: 1 }}>
+      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
         <div
           ref={mapRef}
           style={{ height: '100%', width: '100%' }}
