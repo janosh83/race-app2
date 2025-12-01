@@ -58,7 +58,20 @@ export function TimeProvider({ children }) {
   useEffect(() => {
     function compute() {
       const now = Date.now();
-      setTimeInfo(timeStateForRace(now, activeRace));
+      const next = timeStateForRace(now, activeRace);
+      setTimeInfo(prev => {
+        if (!prev) return next;
+        if (
+          prev.state === next.state &&
+          prev.startShow === next.startShow &&
+          prev.startLogging === next.startLogging &&
+          prev.endLogging === next.endLogging &&
+          prev.endShow === next.endShow
+        ) {
+          return prev; // no change → avoid re-render
+        }
+        return next;
+      });
     }
 
     compute();

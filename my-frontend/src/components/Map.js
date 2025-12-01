@@ -222,7 +222,7 @@ function Map() {
         }
       });
     });
-  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo]);
+  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state]);
 
   // small overlay message about current time state
   const overlayMessage = (() => {
