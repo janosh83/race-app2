@@ -43,8 +43,31 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
 
   const toIso = (dtLocal) => dtLocal ? new Date(dtLocal).toISOString() : null;
 
+  // --- Validation logic ---
+  const [validationError, setValidationError] = useState('');
+  useEffect(() => {
+    setValidationError('');
+    if (startShow && endShow && startShow > endShow) {
+      setValidationError('Start showing must be before end showing.');
+      return;
+    }
+    if (startLogging && endLogging && startLogging > endLogging) {
+      setValidationError('Start logging must be before end logging.');
+      return;
+    }
+    if (startLogging && startShow && startLogging < startShow) {
+      setValidationError('Start logging cannot be before start showing.');
+      return;
+    }
+    if (endLogging && endShow && endLogging > endShow) {
+      setValidationError('End logging cannot be after end showing.');
+      return;
+    }
+  }, [startShow, endShow, startLogging, endLogging]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (validationError) return;
     setSaving(true);
     try {
       const payload = {
@@ -77,9 +100,15 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         <h4 className="mb-0">{isEdit ? 'Edit race' : 'Create race'}</h4>
         <div>
           {onCancel && <button type="button" className="btn btn-sm btn-outline-secondary me-2" onClick={onCancel}>Cancel</button>}
-          <button className="btn btn-primary btn-sm" type="submit" disabled={saving}>{saving ? 'Saving…' : (isEdit ? 'Save' : 'Create')}</button>
+          <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !!validationError}>{saving ? 'Saving…' : (isEdit ? 'Save' : 'Create')}</button>
         </div>
       </div>
+
+      {validationError && (
+        <div className="alert alert-danger py-2 mb-2">
+          {validationError}
+        </div>
+      )}
 
       <div className="mb-2">
         <input
