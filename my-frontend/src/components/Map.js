@@ -82,7 +82,7 @@ function Map() {
         } else {
           userMarkerRef.current = L.circleMarker([latitude, longitude], {
             radius: 8,
-            color: '#1E90FF',       // blue border
+            color: '#3030FF',       // blue border
             weight: 2,
             fillColor: '#1E90FF',   // blue fill
             fillOpacity: 0.9,

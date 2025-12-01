@@ -12,7 +12,7 @@ function MainPage() {
   // default to activeRace so main page shows content immediately
   const [activeSection, setActiveSection] = useState('activeRace');
 
-  const { activeRace, setActiveRace, timeInfo } = useTime();
+  const { activeRace, setActiveRace, timeInfo, signedRaces } = useTime();
   const [userNavigated, setUserNavigated] = useState(false);
 
   const navigateTo = (section) => {
@@ -29,13 +29,7 @@ function MainPage() {
     }
   }, []);
 
-  const signedRaces = useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('signedRaces') || 'null') || [];
-    } catch {
-      return [];
-    }
-  }, []);
+  // signedRaces now comes from TimeContext and refreshes automatically
 
   // Decide initial section based on signed races / active race
   useEffect(() => {

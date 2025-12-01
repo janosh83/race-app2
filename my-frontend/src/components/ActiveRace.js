@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
-import { formatDate } from '../contexts/TimeContext';
+import { formatDate, useTime } from '../contexts/TimeContext';
 
 function normalizeName(race) {
   return race.name || race.race_name || 'Unnamed race';
@@ -23,34 +23,18 @@ function ActiveRace() {
     return () => clearInterval(id);
   }, []);
 
-  const signedRaces = useMemo(() => JSON.parse(localStorage.getItem('signedRaces'), []), []);
-  const storedActive = useMemo(() => JSON.parse(localStorage.getItem('activeRace') || 'null', null), []);
-  const [activeRace, setActiveRace] = useState(storedActive);
-  const [candidates, setCandidates] = useState([]);
+  const { activeRace, setActiveRace, signedRaces } = useTime();
+  const candidates = useMemo(() => findCandidates(signedRaces || []), [signedRaces]);
 
   useEffect(() => {
-    // effect now depends on a stable signedRaces reference
-    const update = () => {
-      const c = findCandidates(signedRaces);
-      setCandidates(c);
-      if (!activeRace && c.length === 1) {
-        localStorage.setItem('activeRace', JSON.stringify(c[0]));
-        setActiveRace(c[0]);
-      }
-    };
-    update();
-
-    const onStorage = (e) => {
-      if (e.key === 'signedRaces' || e.key === 'activeRace') update();
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, [signedRaces, activeRace]);
+    if (!activeRace && candidates.length === 1) {
+      setActiveRace(candidates[0]);
+    }
+  }, [activeRace, candidates, setActiveRace]);
   
 
   const handleSelect = (race) => {
     setActiveRace(race);
-    localStorage.setItem('activeRace', JSON.stringify(race));
   };
 
   const others = signedRaces.filter(r => {

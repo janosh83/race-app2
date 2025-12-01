@@ -7,7 +7,7 @@ function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const apiUrl = process.env.REACT_APP_API_URL;
-    const { setActiveRace } = useTime();
+    const { setActiveRace, setSignedRaces } = useTime();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,6 +23,7 @@ function Login() {
                 localStorage.setItem('accessToken', data.access_token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
+                setSignedRaces(data.signed_races || []);
 
                 // choose active race (if exactly one candidate)
                 const { activeRaceId, candidates } = selectActiveRace(data.signed_races || []);
