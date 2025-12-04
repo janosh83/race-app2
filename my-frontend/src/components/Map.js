@@ -24,6 +24,8 @@ function Map({ topOffset = 56 }) {
   const geoWatchIdRef = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const { activeRace, timeInfo } = useTime();
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -187,16 +189,38 @@ function Map({ topOffset = 56 }) {
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
 
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleLogVisit = async () => {
     if (!selectedCheckpoint) return;
     try {
-      await raceApi.logVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
+      const formData = new FormData();
+      formData.append('checkpoint_id', selectedCheckpoint.id);
+      formData.append('team_id', activeTeamId);
+      if (selectedImage) {
+        formData.append('image', selectedImage);
+      }
+
+      await raceApi.logVisitWithImage(activeRaceId, formData);
       const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
       setCheckpoints(data);
       setSelectedCheckpoint(null);
+      setSelectedImage(null);
+      setImagePreview(null);
     } catch (err) {
       console.error('Failed to log visit:', err);
-      alert('Failed to log visit.');
+      alert(err.message || 'Failed to log visit.');
     }
   };
 
@@ -211,6 +235,12 @@ function Map({ topOffset = 56 }) {
       console.error('Failed to delete visit:', err);
       alert('Failed to delete visit.');
     }
+  };
+
+  const handleCloseOverlay = () => {
+    setSelectedCheckpoint(null);
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   return (
@@ -249,7 +279,7 @@ function Map({ topOffset = 56 }) {
               <h3>{selectedCheckpoint.title}</h3>
               <button 
                 className="btn btn-sm btn-outline-secondary"
-                onClick={() => setSelectedCheckpoint(null)}
+                onClick={handleCloseOverlay}
               >
                 ✕ Close
               </button>
@@ -280,22 +310,46 @@ function Map({ topOffset = 56 }) {
             )}
 
             {showCheckpoints && (
-              <div className="d-grid gap-2">
+              <div>
                 {loggingAllowed && !selectedCheckpoint.visited && (
-                  <button 
-                    className="btn btn-primary btn-lg"
-                    onClick={handleLogVisit}
-                  >
-                    Log Visit
-                  </button>
+                  <>
+                    <div className="mb-3">
+                      <label className="form-label">Attach Photo (optional)</label>
+                      <input 
+                        type="file" 
+                        className="form-control"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                      />
+                      {imagePreview && (
+                        <div className="mt-2">
+                          <img 
+                            src={imagePreview} 
+                            alt="Preview" 
+                            style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="d-grid gap-2">
+                      <button 
+                        className="btn btn-primary btn-lg"
+                        onClick={handleLogVisit}
+                      >
+                        Log Visit {selectedImage ? 'with Photo' : ''}
+                      </button>
+                    </div>
+                  </>
                 )}
                 {loggingAllowed && selectedCheckpoint.visited && (
-                  <button 
-                    className="btn btn-danger btn-lg"
-                    onClick={handleDeleteVisit}
-                  >
-                    Delete Visit
-                  </button>
+                  <div className="d-grid gap-2">
+                    <button 
+                      className="btn btn-danger btn-lg"
+                      onClick={handleDeleteVisit}
+                    >
+                      Delete Visit
+                    </button>
+                  </div>
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
