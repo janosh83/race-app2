@@ -27,6 +27,7 @@ function Map({ topOffset = 56 }) {
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const { activeRace, timeInfo } = useTime();
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -262,6 +263,7 @@ function Map({ topOffset = 56 }) {
 
   const handleLogVisit = async () => {
     if (!selectedCheckpoint) return;
+    setIsUploading(true);
     try {
       const formData = new FormData();
       formData.append('checkpoint_id', selectedCheckpoint.id);
@@ -279,6 +281,8 @@ function Map({ topOffset = 56 }) {
     } catch (err) {
       console.error('Failed to log visit:', err);
       alert(err.message || 'Failed to log visit.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -303,6 +307,34 @@ function Map({ topOffset = 56 }) {
 
   return (
     <>
+      {/* Loading overlay during upload */}
+      {isUploading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px 40px',
+            borderRadius: '8px',
+            textAlign: 'center'
+          }}>
+            <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '500' }}>Uploading...</div>
+          </div>
+        </div>
+      )}
+
       {overlayMessage && (
         <div style={{
           position: 'fixed',
