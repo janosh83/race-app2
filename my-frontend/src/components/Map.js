@@ -142,10 +142,6 @@ function Map({ topOffset = 56 }) {
       }
     });
 
-    const loggingAllowed = timeInfo.state === 'LOGGING';
-    const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
-    const showMessageOnly = timeInfo.state === 'BEFORE_SHOW' || timeInfo.state === 'AFTER_SHOW' || timeInfo.state === 'UNKNOWN';
-
     checkpoints.forEach(cp => {
       const iconUrl = cp.visited
         ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
