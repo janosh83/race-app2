@@ -1,4 +1,5 @@
 import os
+import uuid
 from flask import Blueprint, jsonify, request
 
 from app import db
@@ -279,7 +280,13 @@ def log_visit(race_id):
     image_id = None
     if is_administrator or is_signed_to_race:
       if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
+        # Generate unique filename: timestamp_uuid_original.ext
+        original_filename = secure_filename(file.filename)
+        file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{timestamp}_{unique_id}.{file_ext}"
+        
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         file.save(filepath)
