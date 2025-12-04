@@ -11,7 +11,13 @@ from datetime import datetime
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
 
-# tested by test_races.py -> test_get_race_checkpoints
+# Get the absolute path to the app directory for image uploads
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
+
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 @checkpoints_bp.route('/', methods=['GET'])
 def get_checkpoints(race_id):
     """
@@ -171,11 +177,6 @@ def get_checkpoint(race_id, checkpoint_id):
         "longitude": checkpoint.longitude, 
         "description": checkpoint.description, 
         "numOfPoints": checkpoint.numOfPoints}), 200
-
-UPLOAD_FOLDER = 'static/images'
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # tested by test_visits.py -> test_log_visit
 @checkpoints_bp.route("/log/", methods=["POST"])

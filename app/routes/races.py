@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Team, Checkpoint
+from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Team, Checkpoint, Image
 from app.routes.checkpoints import checkpoints_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -461,19 +461,26 @@ def get_checkpoints_with_status(race_id, team_id):
 
     # Get all visits for the race and team
     visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
-    visited_checkpoint_ids = {visit.checkpoint_id for visit in visits}
+    visits_by_checkpoint = {visit.checkpoint_id: visit for visit in visits}
 
     # Build the response
     response = []
     for checkpoint in checkpoints:
-        response.append({
+        visit = visits_by_checkpoint.get(checkpoint.id)
+        checkpoint_data = {
             "id": checkpoint.id,
             "title": checkpoint.title,
             "description": checkpoint.description,
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
-            "visited": checkpoint.id in visited_checkpoint_ids
-        })
+            "visited": checkpoint.id in visits_by_checkpoint
+        }
+        # Add image info if visit exists and has an image
+        if visit and visit.image_id:
+            image = Image.query.get(visit.image_id)
+            if image:
+                checkpoint_data["image_filename"] = image.filename
+        response.append(checkpoint_data)
 
     return jsonify(response), 200
 

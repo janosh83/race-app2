@@ -9,7 +9,7 @@ from app.routes.admin import admin_required
 # Blueprint pro checkpointy
 admin_checkpoint_bp = Blueprint('checkpoint', __name__)
 
-UPLOAD_FOLDER = 'static/images'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 # tested by test_checkpoint.py -> test_checkpoint
 @admin_checkpoint_bp.route('/<int:checkpoint_id>/', methods=['GET'])

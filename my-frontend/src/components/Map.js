@@ -297,6 +297,19 @@ function Map({ topOffset = 56 }) {
               </span>
             </div>
 
+            {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
+              <div className="mb-3">
+                <label className="form-label">Visit Photo:</label>
+                <div>
+                  <img 
+                    src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
+                    alt="Visit photo" 
+                    style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
+                  />
+                </div>
+              </div>
+            )}
+
             {!showCheckpoints && (
               <div className="alert alert-warning">
                 Checkpoints are not shown at this time.

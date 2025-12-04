@@ -106,7 +106,8 @@ def create_app(config_class=None):
     CORS(app,
          resources={
              r"/api/*": {"origins": app.config['CORS_ORIGINS']},
-             r"/auth/*": {"origins": app.config['CORS_ORIGINS']}
+             r"/auth/*": {"origins": app.config['CORS_ORIGINS']},
+             r"/static/images/*": {"origins": app.config['CORS_ORIGINS']}
          },
          supports_credentials=True,
          expose_headers=["Content-Type", "Authorization"],
@@ -125,5 +126,16 @@ def create_app(config_class=None):
     app.register_blueprint(admin_checkpoint_bp, url_prefix="/api/checkpoint")
     app.register_blueprint(race_category_bp, url_prefix="/api/race-category")
     app.register_blueprint(auth_bp, url_prefix='/auth')
+
+    # Serve static images with CORS support
+    from flask import send_from_directory
+    
+    images_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+    os.makedirs(images_folder, exist_ok=True)
+    
+    @app.route('/static/images/<filename>')
+    def serve_image(filename):
+        """Serve uploaded checkpoint images with CORS headers"""
+        return send_from_directory(images_folder, filename)
 
     return app
