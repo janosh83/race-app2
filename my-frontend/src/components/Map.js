@@ -23,6 +23,7 @@ function Map({ topOffset = 56 }) {
   const userMarkerRef = useRef(null);
   const geoWatchIdRef = useRef(null);
   const [checkpoints, setCheckpoints] = useState([]);
+  const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const { activeRace, timeInfo } = useTime();
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -158,68 +159,9 @@ function Map({ topOffset = 56 }) {
         }),
       }).addTo(mapInstance.current);
 
-      // Build popup according to time state
-      let buttonHtml = '';
-      if (!showCheckpoints) {
-        buttonHtml = `<div class="text-muted">Checkpoints are not shown at this time.</div>`;
-      } else {
-        if (loggingAllowed) {
-          // allow log/delete
-          buttonHtml = `<button id="visit-btn-${cp.id}" class="leaflet-popup-btn btn btn-sm btn-primary">${cp.visited ? 'Delete Visit' : 'Log Visit'}</button>`;
-        } else {
-          // showing but logging disabled
-          buttonHtml = `<button id="visit-btn-${cp.id}" class="leaflet-popup-btn btn btn-sm btn-secondary" disabled>${cp.visited ? 'Visit logged (readonly)' : 'Logging not open'}</button>`;
-        }
-      }
-
-      const popupExtra =
-        timeInfo.state === 'BEFORE_SHOW'
-          ? `<div class="text-warning">Checkpoints will be shown at ${formatDate(timeInfo.startShow)}</div>`
-          : timeInfo.state === 'AFTER_SHOW'
-          ? `<div class="text-danger">Showing of checkpoints ended at ${formatDate(timeInfo.endShow)}</div>`
-          : '';
-
-      const popupContent = `
-        <strong>${cp.title}</strong><br/>
-        ${cp.description || ''}<br/>
-        ${buttonHtml}
-        ${popupExtra}
-      `;
-
-      marker.bindPopup(popupContent);
-
-      marker.on('popupopen', () => {
-        // Only bind click handler when loggingAllowed and popup button exists
-        const btn = document.getElementById(`visit-btn-${cp.id}`);
-          if (btn && loggingAllowed && !cp.visited) {
-          btn.onclick = async () => {
-            try {
-              await raceApi.logVisit(activeRaceId, { checkpoint_id: cp.id, team_id: activeTeamId });
-              // Refresh checkpoints
-              const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
-              setCheckpoints(data);
-              marker.closePopup();
-            } catch (err) {
-              console.error('Failed to log visit:', err);
-              alert('Failed to log visit.');
-            }
-          };
-        } else if (btn && loggingAllowed && cp.visited) {
-          // Delete visit handler
-          btn.onclick = async () => {
-            try {
-              await raceApi.deleteVisit(activeRaceId, { checkpoint_id: cp.id, team_id: activeTeamId });
-              const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
-              setCheckpoints(data);
-              marker.closePopup();
-            } catch (err) {
-              console.error('Failed to delete visit:', err);
-              alert('Failed to delete visit.');
-            }
-          };
-        } else {
-          // do nothing; button disabled or not present
-        }
+      // Open full-screen overlay on marker click
+      marker.on('click', () => {
+        setSelectedCheckpoint(cp);
       });
     });
   }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state]);
@@ -242,6 +184,35 @@ function Map({ topOffset = 56 }) {
     }
   })();
 
+  const loggingAllowed = timeInfo.state === 'LOGGING';
+  const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
+
+  const handleLogVisit = async () => {
+    if (!selectedCheckpoint) return;
+    try {
+      await raceApi.logVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
+      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      setCheckpoints(data);
+      setSelectedCheckpoint(null);
+    } catch (err) {
+      console.error('Failed to log visit:', err);
+      alert('Failed to log visit.');
+    }
+  };
+
+  const handleDeleteVisit = async () => {
+    if (!selectedCheckpoint) return;
+    try {
+      await raceApi.deleteVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
+      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      setCheckpoints(data);
+      setSelectedCheckpoint(null);
+    } catch (err) {
+      console.error('Failed to delete visit:', err);
+      alert('Failed to delete visit.');
+    }
+  };
+
   return (
     <>
       {overlayMessage && (
@@ -259,6 +230,86 @@ function Map({ topOffset = 56 }) {
           {overlayMessage}
         </div>
       )}
+
+      {/* Full-screen checkpoint overlay */}
+      {selectedCheckpoint && (
+        <div style={{
+          position: 'fixed',
+          top: topOffset,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 2000,
+          overflowY: 'auto',
+          padding: '20px'
+        }}>
+          <div className="container">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <h3>{selectedCheckpoint.title}</h3>
+              <button 
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setSelectedCheckpoint(null)}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {selectedCheckpoint.description && (
+              <div className="mb-3">
+                <p>{selectedCheckpoint.description}</p>
+              </div>
+            )}
+
+            <div className="mb-3">
+              <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
+                {selectedCheckpoint.visited ? '✓ Visited' : 'Not visited'}
+              </span>
+            </div>
+
+            {!showCheckpoints && (
+              <div className="alert alert-warning">
+                Checkpoints are not shown at this time.
+                {timeInfo.state === 'BEFORE_SHOW' && (
+                  <div>Checkpoints will be shown at {formatDate(timeInfo.startShow)}</div>
+                )}
+                {timeInfo.state === 'AFTER_SHOW' && (
+                  <div>Showing of checkpoints ended at {formatDate(timeInfo.endShow)}</div>
+                )}
+              </div>
+            )}
+
+            {showCheckpoints && (
+              <div className="d-grid gap-2">
+                {loggingAllowed && !selectedCheckpoint.visited && (
+                  <button 
+                    className="btn btn-primary btn-lg"
+                    onClick={handleLogVisit}
+                  >
+                    Log Visit
+                  </button>
+                )}
+                {loggingAllowed && selectedCheckpoint.visited && (
+                  <button 
+                    className="btn btn-danger btn-lg"
+                    onClick={handleDeleteVisit}
+                  >
+                    Delete Visit
+                  </button>
+                )}
+                {!loggingAllowed && (
+                  <div className="alert alert-info">
+                    {selectedCheckpoint.visited 
+                      ? 'Visit logged (read-only mode)' 
+                      : 'Logging is not open yet'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
         <div
           ref={mapRef}
