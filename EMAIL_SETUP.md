@@ -1,8 +1,69 @@
 # Email Configuration for Password Recovery
 
-## Brevo (SendInBlue) Setup
+## Local Development (SMTP Sink)
 
-This application uses Brevo for sending transactional emails (password reset, registration confirmation, etc.).
+For local development and testing, use a local SMTP sink that captures emails without sending them. This is the quickest way to test email functionality.
+
+### Using aiosmtpd (Recommended for Development)
+
+`aiosmtpd` is already included in `requirements-dev.txt`.
+
+**1. Start the SMTP sink:**
+
+```bash
+# In a separate terminal window
+python -m aiosmtpd -n -l localhost:1025
+```
+
+This starts a debugging SMTP server that prints all emails to the console.
+
+**2. Configure your `.env` file for local development:**
+
+```env
+MAIL_SERVER=localhost
+MAIL_PORT=1025
+MAIL_USE_TLS=false
+MAIL_USE_SSL=false
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_DEFAULT_SENDER=noreply@localhost.dev
+FRONTEND_URL=http://localhost:3000
+```
+
+**3. Run your Flask app:**
+
+```bash
+python run.py
+```
+
+**4. Test password reset:**
+
+```bash
+curl -X POST http://localhost:5000/auth/request-password-reset/ \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com"}'
+```
+
+**5. Check the terminal running aiosmtpd** - you'll see the complete email content including:
+- Headers
+- Subject
+- Text body
+- HTML body
+- Reset link with token
+
+### Alternative: Using Python's Built-in SMTP (Python < 3.12)
+
+For older Python versions:
+
+```bash
+python -m smtpd -c DebuggingServer -n localhost:1025
+```
+
+---
+
+## Production Setup (Brevo)
+
+For production/staging environments on Render, use Brevo for reliable email delivery.
 
 ### Setup Instructions:
 
@@ -22,9 +83,9 @@ This application uses Brevo for sending transactional emails (password reset, re
 
 3. **Configure Environment Variables**:
 
-### Local Development (.env file):
+### Brevo Configuration for Staging/Production
 
-Create or update your `.env` file in the project root:
+Create or update your `.env` file when you want to test with real email delivery:
 
 ```env
 MAIL_SERVER=smtp-relay.brevo.com
@@ -35,6 +96,8 @@ MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
 FRONTEND_URL=http://localhost:3000
 ```
+
+**Note:** For day-to-day development, use the SMTP sink approach described above instead of consuming your Brevo quota.
 
 ### Production (Render):
 
@@ -57,19 +120,26 @@ For production, you should verify your sender email address in Brevo:
 
 ### Testing:
 
-Test the email functionality locally:
+**Local Development (SMTP Sink):**
 
 ```bash
-# Start backend
+# Terminal 1: Start SMTP sink
+python -m aiosmtpd -n -l localhost:1025
+
+# Terminal 2: Start backend
 python run.py
 
-# In another terminal, test password reset
+# Terminal 3: Test password reset
 curl -X POST http://localhost:5000/auth/request-password-reset/ \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com"}'
 ```
 
-Check your email inbox for the password reset link.
+Check Terminal 1 (aiosmtpd output) to see the email content.
+
+**Production (Brevo):**
+
+After configuring Brevo credentials, check your actual email inbox for the password reset link.
 
 ## Features Implemented:
 
