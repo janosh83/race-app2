@@ -53,12 +53,12 @@ export async function fetchRaw(path, init = {}) {
 }
 
 /* ---------- high-level fetch (returns parsed payload) ---------- */
-async function handleResponse(res) {
+async function handleResponse(res, { noRedirectOnAuthFailure = false } = {}) {
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const payload = isJson ? await res.json().catch(() => null) : null;
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
-      logoutAndRedirect();
+      if (!noRedirectOnAuthFailure) logoutAndRedirect();
       throw new Error('Unauthorized');
     }
     const msg = payload?.message || payload?.error || res.statusText || 'Request failed';
@@ -75,11 +75,12 @@ async function handleResponse(res) {
  * If you need the raw Response (to call .blob() / .arrayBuffer() / stream), use fetchRaw(...)
  */
 export async function apiFetch(path, opts = {}) {
+  const { noAuth = false, noRedirectOnAuthFailure = false } = opts;
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
   const token = localStorage.getItem('accessToken');
   const headers = new Headers(opts.headers || {});
   headers.set('Accept', 'application/json');
-  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (token && !noAuth) headers.set('Authorization', `Bearer ${token}`);
   // if body provided and not FormData, ensure JSON content-type
   const body = opts.body && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body;
   if (body && !(opts.body instanceof FormData)) headers.set('Content-Type', 'application/json');
@@ -97,7 +98,7 @@ export async function apiFetch(path, opts = {}) {
       body,
       signal,
     });
-    return await handleResponse(res);
+    return await handleResponse(res, { noRedirectOnAuthFailure });
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }

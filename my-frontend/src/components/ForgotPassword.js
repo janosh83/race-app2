@@ -16,7 +16,9 @@ function ForgotPassword() {
     try {
       const data = await apiFetch('/auth/request-password-reset/', {
         method: 'POST',
-        body: JSON.stringify({ email })
+        body: { email },
+        noAuth: true,
+        noRedirectOnAuthFailure: true,
       });
       setMessage(data.msg || 'If the email exists, a password reset link has been sent');
       setEmail('');

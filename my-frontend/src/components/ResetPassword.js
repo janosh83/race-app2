@@ -38,10 +38,12 @@ function ResetPassword() {
     try {
       const data = await apiFetch('/auth/reset-password/', {
         method: 'POST',
-        body: JSON.stringify({
+        body: {
           token,
           new_password: password
-        })
+        },
+        noAuth: true,
+        noRedirectOnAuthFailure: true,
       });
       setMessage(data.msg || 'Password reset successfully');
       setTimeout(() => {
