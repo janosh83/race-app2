@@ -1,25 +1,20 @@
 import React, { useState } from 'react';
 import { selectActiveRace } from '../utils/activeRaceUtils';
 import { useTime } from '../contexts/TimeContext';
+import { authApi } from '../services/authApi';
 
 function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const apiUrl = process.env.REACT_APP_API_URL;
     const { setActiveRace, setSignedRaces } = useTime();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         try {
-            const response = await fetch(`${apiUrl}/auth/login/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
-            const data = await response.json();
-            if (response.ok && data.access_token) {
+            const data = await authApi.login(email, password);
+            if (data.access_token) {
                 localStorage.setItem('accessToken', data.access_token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
@@ -44,7 +39,7 @@ function Login() {
                 setError(data.msg || 'Login failed');
             }
         } catch (err) {
-            setError('Network error');
+            setError(err.message || 'Login failed');
         }
     };
 

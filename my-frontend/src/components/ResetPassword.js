@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { apiFetch } from '../utils/api';
+import { authApi } from '../services/authApi';
 
 function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -36,15 +36,7 @@ function ResetPassword() {
     setLoading(true);
 
     try {
-      const data = await apiFetch('/auth/reset-password/', {
-        method: 'POST',
-        body: {
-          token,
-          new_password: password
-        },
-        noAuth: true,
-        noRedirectOnAuthFailure: true,
-      });
+      const data = await authApi.resetPassword(token, password);
       setMessage(data.msg || 'Password reset successfully');
       setTimeout(() => {
         navigate('/login');

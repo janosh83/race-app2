@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { apiFetch } from '../utils/api';
+import { authApi } from '../services/authApi';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -14,12 +14,7 @@ function ForgotPassword() {
     setLoading(true);
 
     try {
-      const data = await apiFetch('/auth/request-password-reset/', {
-        method: 'POST',
-        body: { email },
-        noAuth: true,
-        noRedirectOnAuthFailure: true,
-      });
+      const data = await authApi.requestPasswordReset(email);
       setMessage(data.msg || 'If the email exists, a password reset link has been sent');
       setEmail('');
     } catch (err) {
