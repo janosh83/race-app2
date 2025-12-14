@@ -460,7 +460,7 @@ def reset_password():
         return jsonify({"msg": "Invalid or expired token"}), 400
     
     # Check if token is expired
-    if datetime.utcnow() > user.reset_token_expiry:
+    if datetime.now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
         return jsonify({"msg": "Token has expired"}), 400
