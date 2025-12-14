@@ -1,10 +1,12 @@
 from functools import wraps
+from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
+from app.utils import send_password_reset_email, generate_reset_token
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -335,3 +337,137 @@ def admin():
     """
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
+
+@auth_bp.route('/request-password-reset/', methods=['POST'])
+def request_password_reset():
+    """
+    Request a password reset email.
+    ---
+    tags:
+      - Authentication
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                example: user@example.com
+            required:
+              - email
+    responses:
+      200:
+        description: Password reset email sent (always returns 200 even if email doesn't exist for security)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: If the email exists, a password reset link has been sent
+      400:
+        description: Missing email
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: Email is required
+    """
+    data = request.get_json()
+    if not data or 'email' not in data:
+        return jsonify({"msg": "Email is required"}), 400
+    
+    email = data['email']
+    user = User.query.filter_by(email=email).first()
+    
+    # Always return success message for security (don't reveal if email exists)
+    if user:
+        # Generate reset token
+        reset_token = generate_reset_token()
+        expiry = datetime.utcnow() + timedelta(hours=1)
+        
+        # Save token to user
+        user.set_reset_token(reset_token, expiry)
+        db.session.commit()
+        
+        # Send email
+        send_password_reset_email(user.email, reset_token)
+    
+    return jsonify({"msg": "If the email exists, a password reset link has been sent"}), 200
+
+@auth_bp.route('/reset-password/', methods=['POST'])
+def reset_password():
+    """
+    Reset password using a valid token.
+    ---
+    tags:
+      - Authentication
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                example: abc123def456
+              new_password:
+                type: string
+                example: newSecurePassword123
+            required:
+              - token
+              - new_password
+    responses:
+      200:
+        description: Password reset successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: Password reset successfully
+      400:
+        description: Missing token or password, or invalid/expired token
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: Token and new password are required
+    """
+    data = request.get_json()
+    if not data or 'token' not in data or 'new_password' not in data:
+        return jsonify({"msg": "Token and new password are required"}), 400
+    
+    token = data['token']
+    new_password = data['new_password']
+    
+    # Find user by token
+    user = User.query.filter_by(reset_token=token).first()
+    
+    if not user or not user.reset_token_expiry:
+        return jsonify({"msg": "Invalid or expired token"}), 400
+    
+    # Check if token is expired
+    if datetime.utcnow() > user.reset_token_expiry:
+        user.clear_reset_token()
+        db.session.commit()
+        return jsonify({"msg": "Token has expired"}), 400
+    
+    # Reset password
+    user.set_password(new_password)
+    user.clear_reset_token()
+    db.session.commit()
+    
+    return jsonify({"msg": "Password reset successfully"}), 200

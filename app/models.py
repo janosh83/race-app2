@@ -78,6 +78,8 @@ class User(db.Model):
     email = db.Column(db.String(128), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     is_administrator = db.Column(db.Boolean, default=False)
+    reset_token = db.Column(db.String(100), nullable=True, unique=True)
+    reset_token_expiry = db.Column(db.DateTime, nullable=True)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')
 
     def set_password(self, password):
@@ -85,3 +87,11 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def set_reset_token(self, token, expiry):
+        self.reset_token = token
+        self.reset_token_expiry = expiry
+    
+    def clear_reset_token(self):
+        self.reset_token = None
+        self.reset_token_expiry = None

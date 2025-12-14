@@ -6,6 +6,7 @@ flask-jwt-extended
 bcrypt
 flasgger
 flask-cors
+flask-mail
 gunicorn
 python-dotenv
 psycopg2-binary

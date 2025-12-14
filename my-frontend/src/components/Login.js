@@ -79,6 +79,11 @@ function Login() {
                     </div>
                     {error && <div className="alert alert-danger">{error}</div>}
                     <button type="submit" className="btn btn-primary w-100">Login</button>
+                    <div className="text-center mt-3">
+                        <a href="/forgot-password" className="text-decoration-none">
+                            Forgot Password?
+                        </a>
+                    </div>
                 </form>
             </div>
         </div>
