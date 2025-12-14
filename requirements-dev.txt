@@ -6,5 +6,7 @@ flask-jwt-extended
 bcrypt
 flasgger
 flask-cors
+flask-mail
+aiosmtpd
 python-dotenv
 pytest
