@@ -28,12 +28,14 @@ function Login() {
                     const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
                     if (candidate) setActiveRace(candidate);
                     else setActiveRace({ race_id: activeRaceId });
-                    localStorage.setItem('activeSection', 'activeRace');
                 } else {
                     // no single candidate — clear any previous active race
                     setActiveRace(null);
                 }
 
+                // Set flag for initial load auto-redirect
+                sessionStorage.setItem('initialLoad', 'true');
+                
                 window.location.reload();
             } else {
                 setError(data.msg || 'Login failed');
