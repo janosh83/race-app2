@@ -103,13 +103,13 @@ function RaceLayout() {
               <li className="nav-item">
                 <button className="nav-link btn btn-link" onClick={() => navigateTo('/race/standings')}>Standings</button>
               </li>
+            </ul>
+            <ul className="navbar-nav ms-auto">
               {user && user.is_administrator && (
                 <li className="nav-item">
                   <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/races')}>Admin</button>
                 </li>
               )}
-            </ul>
-            <ul className="navbar-nav ms-auto">
               <li className="nav-item">
                 <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>Logout</button>
               </li>
