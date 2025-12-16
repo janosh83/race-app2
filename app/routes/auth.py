@@ -6,7 +6,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
-from app.utils import send_password_reset_email, generate_reset_token
+from app.services.email_service import EmailService, generate_reset_token
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -390,14 +390,14 @@ def request_password_reset():
     if user:
         # Generate reset token
         reset_token = generate_reset_token()
-        expiry = datetime.utcnow() + timedelta(hours=1)
+        expiry = datetime.now() + timedelta(hours=1)
         
         # Save token to user
         user.set_reset_token(reset_token, expiry)
         db.session.commit()
         
         # Send email
-        send_password_reset_email(user.email, reset_token)
+        EmailService.send_password_reset_email(user.email, reset_token)
     
     return jsonify({"msg": "If the email exists, a password reset link has been sent"}), 200
 
