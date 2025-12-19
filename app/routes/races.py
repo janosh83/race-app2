@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Team, Checkpoint, Image
+from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image
 from app.routes.checkpoints import checkpoints_bp
 from app.routes.tasks import tasks_bp
 from app.routes.admin import admin_required
@@ -306,16 +306,15 @@ def remove_race_category(race_id):
   return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
 
 #
-# Get visits
-#
+# Get visits and task completions
 
-# get all visits for selected team and race
+# get all checkpoint visits for selected team and race
 # tested by test_visits.py -> test_get_visits
 @race_bp.route("/<int:race_id>/visits/<int:team_id>/", methods=["GET"])
 @jwt_required()
 def get_visits_by_race_and_team(race_id, team_id):
     """
-    Get visits for a specific team and race.
+    Get checkpoint visits for a specific team and race.
     Requires to be an admin or a member of the team.
     ---
     tags:
@@ -337,7 +336,7 @@ def get_visits_by_race_and_team(race_id, team_id):
       - BearerAuth: []
     responses:
       200:
-        description: A list of all visits.
+        description: A list of checkpoint visits.
         content:
           application/json:
             schema:
@@ -362,36 +361,73 @@ def get_visits_by_race_and_team(race_id, team_id):
 
     return jsonify([{"id": visit.id, "checkpoint_id": visit.checkpoint_id, "checkpoint": visit.checkpoint_title, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
 
-# get all visits for selected race
+# get all checkpoint visits for selected race
 # tested by test_visits.py -> test_get_visits
 @race_bp.route("/<int:race_id>/visits/", methods=["GET"])
 @admin_required()
 def get_visits_by_race(race_id):
     """
-    Get all visits for a specific race.
+    Get all checkpoint visits for a specific race.
     Requires admin privileges.
-    ---
-    tags:
-      - Races
-    parameters:
-      - in: path
-        name: race_id
-        schema:
-          type: integer
-        required: true
-        description: ID of the race
-    responses:
-      200:
-        description: A list of all visits
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/VisitObject'
     """
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
     return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
+
+# get all task completions for selected team and race
+@race_bp.route("/<int:race_id>/task-completions/<int:team_id>/", methods=["GET"])
+@jwt_required()
+def get_task_completions_by_race_and_team(race_id, team_id):
+    """
+    Get task completions for a specific team and race.
+    Requires to be an admin or a member of the team.
+    """
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        return 403
+
+    completions = (
+        db.session.query(
+            TaskLog.id,
+            TaskLog.task_id,
+            Task.title.label("task_title"),
+            TaskLog.team_id,
+            TaskLog.created_at
+        )
+        .select_from(TaskLog)
+        .join(Task, TaskLog.task_id == Task.id)
+        .filter(TaskLog.race_id == race_id)
+        .filter(TaskLog.team_id == team_id)
+        .all()
+    )
+
+    return jsonify([
+        {
+            "id": completion.id,
+            "task_id": completion.task_id,
+            "task": completion.task_title,
+            "team_id": completion.team_id,
+            "created_at": completion.created_at,
+        }
+        for completion in completions
+    ])
+
+# get all task completions for selected race
+@race_bp.route("/<int:race_id>/task-completions/", methods=["GET"])
+@admin_required()
+def get_task_completions_by_race(race_id):
+    """
+    Get all task completions for a specific race.
+    Requires admin privileges.
+    """
+    completions = TaskLog.query.filter_by(race_id=race_id).all()
+    return jsonify([
+        {
+            "task_id": completion.task_id,
+            "team_id": completion.team_id,
+            "created_at": completion.created_at,
+        }
+        for completion in completions
+    ])
 
 # get all visits for selected team and race with status
 # tested by test_visits.py -> test_get_checkpoints_with_status
@@ -486,6 +522,43 @@ def get_checkpoints_with_status(race_id, team_id):
         response.append(checkpoint_data)
 
     return jsonify(response), 200
+
+
+@race_bp.route("/<int:race_id>/tasks/<int:team_id>/status/", methods=["GET"])
+@jwt_required()
+def get_tasks_with_status(race_id, team_id):
+  """
+  Get all tasks for a race with completion status for a team.
+  Requires to be an admin or a member of the team.
+  """
+
+  user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+  if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+    return jsonify({"msg": "Unauthorized"}), 403
+
+  race = Race.query.filter_by(id=race_id).first_or_404()
+  tasks = race.tasks
+
+  completions = TaskLog.query.filter_by(race_id=race_id, team_id=team_id).all()
+  completions_by_task = {completion.task_id: completion for completion in completions}
+
+  response = []
+  for task in tasks:
+    completion = completions_by_task.get(task.id)
+    task_data = {
+      "id": task.id,
+      "title": task.title,
+      "description": task.description,
+      "numOfPoints": task.numOfPoints,
+      "completed": task.id in completions_by_task,
+    }
+    if completion and completion.image_id:
+      image = Image.query.get(completion.image_id)
+      if image:
+        task_data["image_filename"] = image.filename
+    response.append(task_data)
+
+  return jsonify(response), 200
 
 
 @race_bp.route("/<int:race_id>/results/", methods=["GET"])

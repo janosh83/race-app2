@@ -223,6 +223,67 @@ def test_log_task_completion_duplicate(test_client, add_test_data):
     assert response.status_code == 409  # Conflict
     assert "already logged" in response.json["message"]
 
+def test_get_task_completions_by_race(test_client, add_test_data):
+    """Admin can list all task completions for a race"""
+    # no completions yet
+    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
+    headers_admin = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.get("/api/race/1/task-completions/", headers=headers_admin)
+    assert response.status_code == 200
+    assert len(response.json) == 0
+
+    # add two completions
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 1, "team_id": 1}, headers=headers_user)
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 2, "team_id": 1}, headers=headers_user)
+
+    response = test_client.get("/api/race/1/task-completions/", headers=headers_admin)
+    assert response.status_code == 200
+    assert len(response.json) == 2
+    task_ids = sorted([item["task_id"] for item in response.json])
+    assert task_ids == [1, 2]
+
+def test_get_task_completions_by_team(test_client, add_test_data):
+    """Team member can list own task completions"""
+    # log completions as team member
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 1, "team_id": 1}, headers=headers_user)
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 2, "team_id": 1}, headers=headers_user)
+
+    response = test_client.get("/api/race/1/task-completions/1/", headers=headers_user)
+    assert response.status_code == 200
+    assert len(response.json) == 2
+    returned_ids = sorted([item["task_id"] for item in response.json])
+    assert returned_ids == [1, 2]
+    assert all(item["team_id"] == 1 for item in response.json)
+
+def test_get_tasks_with_status(test_client, add_test_data):
+    """Team member sees completion status per task"""
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # initial: none completed
+    response = test_client.get("/api/race/1/tasks/1/status/", headers=headers_user)
+    assert response.status_code == 200
+    assert len(response.json) == 3
+    assert all(not item["completed"] for item in response.json)
+
+    # complete two tasks
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 1, "team_id": 1}, headers=headers_user)
+    test_client.post("/api/race/1/tasks/log/", json={"task_id": 3, "team_id": 1}, headers=headers_user)
+
+    response = test_client.get("/api/race/1/tasks/1/status/", headers=headers_user)
+    assert response.status_code == 200
+    status_by_id = {item["id"]: item for item in response.json}
+    assert status_by_id[1]["completed"] is True
+    assert status_by_id[2]["completed"] is False
+    assert status_by_id[3]["completed"] is True
+
 def test_unlog_task_completion_by_team_member(test_client, add_test_data):
     """Test deleting task completion log by team member"""
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
