@@ -170,6 +170,26 @@ def test_log_task_completion_by_team_member(test_client, add_test_data):
     assert response.json["team_id"] == 1
     assert response.json["race_id"] == 1
 
+def test_log_task_completion_with_image(test_client, add_test_data):
+    """Test logging task completion with image upload"""
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Test logging task with image
+    with open("tests/test_image.jpg", "rb") as img:
+        data = {"image": img, "task_id": 2, "team_id": 1}
+        response = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data=data,
+            content_type='multipart/form-data'
+        )
+    assert response.status_code == 201
+    assert response.json["task_id"] == 2
+    assert response.json["team_id"] == 1
+    assert response.json["race_id"] == 1
+    assert response.json["image_id"] == 1
+
 def test_log_task_completion_by_admin(test_client, add_test_data):
     """Test logging task completion by admin"""
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
