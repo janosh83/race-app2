@@ -59,6 +59,8 @@ function Standings() {
               <th>Team</th>
               <th>Category</th>
               <th>Points for Checkpoints</th>
+              <th>Points for Tasks</th>
+              <th>Total Points</th>
             </tr>
           </thead>
           <tbody>
@@ -67,6 +69,8 @@ function Standings() {
                 <td>{result.team}</td>
                 <td>{result.category}</td>
                 <td>{result.points_for_checkpoints}</td>
+                <td>{result.points_for_tasks}</td>
+                <td><strong>{result.total_points}</strong></td>
               </tr>
             ))}
           </tbody>
