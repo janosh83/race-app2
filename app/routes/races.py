@@ -3,12 +3,14 @@ from flask import Blueprint, jsonify, request
 from app import db
 from app.models import Race, CheckpointLog, User, RaceCategory, Registration, Team, Checkpoint, Image
 from app.routes.checkpoints import checkpoints_bp
+from app.routes.tasks import tasks_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
 
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
+race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
 
 # get all races
 # tested by test_races.py -> test_get_all_races
@@ -235,6 +237,7 @@ def delete_race(race_id):
         if logs:
             return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
 
+        # FIXME: delete TaskLogs
         db.session.delete(result)
         db.session.commit()
         return jsonify({"message: Race deleted successfully"}), 200
