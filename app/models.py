@@ -18,6 +18,7 @@ class Race(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
+    tasks = db.relationship('Task', backref='race', cascade="all, delete-orphan", lazy=True)
     registrations = db.relationship('Registration', backref='race', cascade="all, delete-orphan", lazy=True)
     categories = db.relationship('RaceCategory', secondary=race_categories_in_race, back_populates='races')
     start_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
@@ -50,6 +51,13 @@ class Checkpoint(db.Model):
     numOfPoints = db.Column(db.Integer, default=1)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
 
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    numOfPoints = db.Column(db.Integer, default=1)
+    race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+
 class CheckpointLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     checkpoint_id = db.Column(db.Integer, db.ForeignKey('checkpoint.id'), nullable=False)
@@ -60,6 +68,18 @@ class CheckpointLog(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('checkpoint_id', 'team_id', 'race_id', name='uq_checkpoint_team_race'),
+    )
+
+class TaskLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint('task_id', 'team_id', 'race_id', name='uq_task_team_race'),
     )
 
 class Image(db.Model):
