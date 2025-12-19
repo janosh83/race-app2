@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 
@@ -6,6 +6,30 @@ function Standings() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Normalize/sort and compute ranking once results change
+  const rankedResults = useMemo(() => {
+    const arr = Array.isArray(results) ? [...results] : [];
+    arr.sort((a, b) => {
+      const totalA = a?.total_points ?? 0;
+      const totalB = b?.total_points ?? 0;
+      if (totalB !== totalA) return totalB - totalA;
+      const checkpointsA = a?.points_for_checkpoints ?? 0;
+      const checkpointsB = b?.points_for_checkpoints ?? 0;
+      if (checkpointsB !== checkpointsA) return checkpointsB - checkpointsA;
+      return (a?.team || '').localeCompare(b?.team || '');
+    });
+
+    let lastPoints = null;
+    let lastRank = 0;
+    return arr.map((item, idx) => {
+      const points = item?.total_points ?? 0;
+      const rank = points === lastPoints ? lastRank : idx + 1;
+      lastPoints = points;
+      lastRank = rank;
+      return { ...item, rank };
+    });
+  }, [results]);
 
   useEffect(() => {
     const check = () => {
@@ -50,12 +74,13 @@ function Standings() {
   return (
     <div className="container mt-5">
       <h1>Race Results</h1>
-      {results.length === 0 ? (
+      {rankedResults.length === 0 ? (
         <p>No results available for this race.</p>
       ) : (
         <table className="table">
           <thead>
             <tr>
+              <th>#</th>
               <th>Team</th>
               <th>Category</th>
               <th>Points for Checkpoints</th>
@@ -64,8 +89,9 @@ function Standings() {
             </tr>
           </thead>
           <tbody>
-            {results.map((result, index) => (
+            {rankedResults.map((result, index) => (
               <tr key={index}>
+                <td>{result.rank}</td>
                 <td>{result.team}</td>
                 <td>{result.category}</td>
                 <td>{result.points_for_checkpoints}</td>
