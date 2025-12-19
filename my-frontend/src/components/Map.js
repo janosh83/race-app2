@@ -166,24 +166,6 @@ function Map({ topOffset = 56 }) {
     });
   }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state]);
 
-  // small overlay message about current time state
-  const overlayMessage = (() => {
-    switch (timeInfo.state) {
-      case 'BEFORE_SHOW':
-        return `Checkpoints will be shown at ${formatDate(timeInfo.startShow)}`;
-      case 'SHOW_ONLY':
-        return 'Checkpoints are visible. Logging is not open yet.';
-      case 'LOGGING':
-        return 'Logging is open — you can log or delete visits now.';
-      case 'POST_LOG_SHOW':
-        return 'Logging closed. Checkpoints still visible (read-only).';
-      case 'AFTER_SHOW':
-        return `Showing of checkpoints ended at ${formatDate(timeInfo.endShow)}`;
-      default:
-        return '';
-    }
-  })();
-
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
 
@@ -331,21 +313,16 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
-      {overlayMessage && (
-        <div style={{
-          position: 'fixed',
-          top: topOffset,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          background: 'rgba(255,255,255,0.95)',
-          padding: '8px 12px',
-          borderRadius: 6,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-        }}>
-          {overlayMessage}
-        </div>
-      )}
+      <div style={{
+        position: 'fixed',
+        top: topOffset ? topOffset + 8 : 16,
+        right: 16,
+        zIndex: 1500
+      }}>
+        <span className={`badge ${loggingAllowed ? 'bg-success' : 'bg-secondary'}`}>
+          {loggingAllowed ? 'Logging open' : 'Read-only'}
+        </span>
+      </div>
 
       {/* Full-screen checkpoint overlay */}
       {selectedCheckpoint && (
