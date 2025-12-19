@@ -7,9 +7,11 @@ from app.models import (
     Team,
     Race,
     Checkpoint,
+    Task,
     RaceCategory,
     Registration,
     CheckpointLog,
+    TaskLog,
     Image,
     team_members,
     race_categories_in_race,
@@ -19,12 +21,14 @@ def clean_db():
     """Remove existing data in correct order to avoid FK errors."""
     # delete child tables first
     db.session.execute(CheckpointLog.__table__.delete())
+    db.session.execute(TaskLog.__table__.delete())
     db.session.execute(Registration.__table__.delete())
     # association tables
     db.session.execute(team_members.delete())
     db.session.execute(race_categories_in_race.delete())
     db.session.execute(Image.__table__.delete())
     db.session.execute(Checkpoint.__table__.delete())
+    db.session.execute(Task.__table__.delete())
     db.session.execute(Team.__table__.delete())
     db.session.execute(RaceCategory.__table__.delete())
     db.session.execute(Race.__table__.delete())
@@ -91,6 +95,36 @@ def seed_data():
         numOfPoints=1,
     )
     race2.checkpoints.extend([checkpoint4, checkpoint5])
+
+    # tasks
+    task1 = Task(
+        title="Identify local landmark",
+        description="Find and photograph a famous local landmark.",
+        numOfPoints=5,
+    )
+    task2 = Task(
+        title="Interview local resident",
+        description="Talk to a local person and record interesting facts.",
+        numOfPoints=10,
+    )
+    task3 = Task(
+        title="Collect historical info",
+        description="Research and document local history.",
+        numOfPoints=8,
+    )
+    race1.tasks.extend([task1, task2])
+
+    task4 = Task(
+        title="Photography challenge",
+        description="Take creative photos of the race area.",
+        numOfPoints=7,
+    )
+    task5 = Task(
+        title="Environmental survey",
+        description="Assess and document local environmental features.",
+        numOfPoints=6,
+    )
+    race2.tasks.extend([task4, task5])
 
     # users
     user1 = User(name="Alice", email="alice@example.com", is_administrator=False)
