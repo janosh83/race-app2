@@ -3,12 +3,15 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 
 function AdminLayout() {
+  console.log('AdminLayout - Component rendering');
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
 
   const user = React.useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
+      const userData = JSON.parse(localStorage.getItem('user') || 'null');
+      console.log('AdminLayout - User data:', userData);
+      return userData;
     } catch {
       return null;
     }
@@ -30,7 +33,9 @@ function AdminLayout() {
 
   // Redirect non-admins
   useEffect(() => {
-    if (user && !user.is_administrator) {
+    console.log('AdminLayout - Checking admin status. User:', user, 'is_administrator:', user?.is_administrator);
+    if (user && user.is_administrator === false) {
+      console.log('AdminLayout - Redirecting non-admin to /race');
       navigate('/race');
     }
   }, [user, navigate]);
@@ -63,20 +68,6 @@ function AdminLayout() {
             <span className="navbar-toggler-icon"></span>
           </button>
           <div id="adminNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
-            <ul className="navbar-nav me-auto mb-2 mb-lg-0">
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/races')}>Races</button>
-              </li>
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/categories')}>Categories</button>
-              </li>
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/checkpoints')}>Checkpoints</button>
-              </li>
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/registrations')}>Registrations</button>
-              </li>
-            </ul>
             <ul className="navbar-nav ms-auto">
               <li className="nav-item">
                 <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>Back to Race</button>

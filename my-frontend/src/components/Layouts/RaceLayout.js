@@ -107,7 +107,7 @@ function RaceLayout() {
             <ul className="navbar-nav ms-auto">
               {user && user.is_administrator && (
                 <li className="nav-item">
-                  <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin/races')}>Admin</button>
+                  <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin')}>Admin</button>
                 </li>
               )}
               <li className="nav-item">

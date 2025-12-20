@@ -34,11 +34,7 @@ function App() {
 
           {/* Admin routes (protected) */}
           <Route path="/admin" element={isLoggedIn ? <AdminLayout /> : <Navigate to="/login" />}>
-            <Route path="races" element={<AdminPage />} />
-            <Route path="categories" element={<AdminPage />} />
-            <Route path="checkpoints" element={<AdminPage />} />
-            <Route path="registrations" element={<AdminPage />} />
-            <Route index element={<Navigate to="races" />} />
+            <Route index element={<AdminPage />} />
           </Route>
 
           {/* Catch-all redirect */}
