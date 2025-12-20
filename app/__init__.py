@@ -124,10 +124,12 @@ def create_app(config_class=None):
     from app.routes.teams import team_bp
     from app.routes.admin_checkpoint import admin_checkpoint_bp
     from app.routes.race_category import race_category_bp
+    from app.routes.admin_user import admin_user_bp
     app.register_blueprint(race_bp, url_prefix="/api/race")
     app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(admin_checkpoint_bp, url_prefix="/api/checkpoint")
     app.register_blueprint(race_category_bp, url_prefix="/api/race-category")
+    app.register_blueprint(admin_user_bp, url_prefix="/api/user")
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
     # Serve static images with CORS support

@@ -6,8 +6,15 @@ export const adminApi = {
   updateRace: (raceId, payload) => apiFetch(`/api/race/${raceId}/`, { method: 'PUT', body: payload }),  // OK
   
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
+  addRegistration: (raceId, payload) => apiFetch(`/api/team/race/${raceId}/`, { method: 'POST', body: payload }),
   updateRegistration: (raceId, payload) => apiFetch(`/api/admin/races/${raceId}/registrations/`, { method: 'PUT', body: payload }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
+
+  // User management (admin)
+  getUsers: () => apiFetch('/api/user/'),
+  createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
+  updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
+  deleteUser: (userId) => apiFetch(`/api/user/${userId}/`, { method: 'DELETE' }),
   
   // Checkpoint management
   getCheckpointsByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/checkpoints/`), // OK
@@ -27,6 +34,11 @@ export const adminApi = {
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
   getTaskCompletionsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/task-completions/${teamId}/`),
   deleteTaskCompletion: (taskLogId) => apiFetch(`/api/race/task-log/${taskLogId}/`, { method: 'DELETE' }),
+
+  // Team management
+  getTeams: () => apiFetch('/api/team/'),
+  createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
+  addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
   
   // race-category endpoints
   // list all global categories
