@@ -9,7 +9,9 @@ function normalizeResults(payload) {
       teamId: p.team_id ?? p.id ?? null,
       teamName: p.team ?? p.team_name ?? p.name ?? (p.team?.name ?? ''),
       category: p.category ?? p.category_name ?? p.race_category ?? (p.category?.name ?? ''),
-      points: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
+      pointsForCheckpoints: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
+      pointsForTasks: p.points_for_tasks ?? 0,
+      totalPoints: p.total_points ?? (p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0) + (p.points_for_tasks ?? 0),
       raw: p,
     }));
   }
@@ -65,7 +67,9 @@ export default function Standings({ raceId, onTeamClick }) {
             <tr>
               <th>Team</th>
               <th>Category</th>
-              <th className="text-end">Points</th>
+              <th className="text-end">Points for Checkpoints</th>
+              <th className="text-end">Points for Tasks</th>
+              <th className="text-end">Total Points</th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +83,9 @@ export default function Standings({ raceId, onTeamClick }) {
                   )}
                 </td>
                 <td>{row.category}</td>
-                <td className="text-end">{row.points}</td>
+                <td className="text-end">{row.pointsForCheckpoints}</td>
+                <td className="text-end">{row.pointsForTasks}</td>
+                <td className="text-end"><strong>{row.totalPoints}</strong></td>
               </tr>
             ))}
           </tbody>
