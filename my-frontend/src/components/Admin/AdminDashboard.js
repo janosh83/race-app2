@@ -30,6 +30,9 @@ function AdminDashboard() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
   const [visitingTeam, setVisitingTeam] = useState(null);
+  
+  // submenu state for selected race
+  const [activeSubmenu, setActiveSubmenu] = useState('checkpoints'); // 'checkpoints', 'registrations', 'progress'
 
   useEffect(() => {
     let mounted = true;
@@ -87,6 +90,7 @@ function AdminDashboard() {
     setSelected(race);
     setCreatingNew(false);
     setEditingRace(null);
+    setActiveSubmenu('checkpoints'); // reset to first tab
   };
 
   const handleSavedRace = (race, wasNew = true) => {
@@ -167,25 +171,66 @@ function AdminDashboard() {
                     </div>
                   </div>
 
-                  <CheckpointList
-                    checkpoints={checkpoints}
-                    raceId={selected.id}
-                    onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
-                    onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
-                  />
-                  <RegistrationList raceId={selected.id} />
-                  <CategoryForm raceId={selected.id} />
-                  <Standings raceId={selected.id} onTeamClick={(teamId) => setVisitingTeam(teamId)} />
-                  {visitingTeam && (
-                    <div className="card mt-3">
-                      <div className="card-body">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h5 className="mb-0">Visits — team #{visitingTeam}</h5>
-                          <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>Close</button>
+                  {/* Submenu tabs */}
+                  <ul className="nav nav-tabs mb-3">
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link ${activeSubmenu === 'checkpoints' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('checkpoints')}
+                      >
+                        Checkpoints & Tasks
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link ${activeSubmenu === 'registrations' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('registrations')}
+                      >
+                        Registrations & Categories
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button 
+                        className={`nav-link ${activeSubmenu === 'progress' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('progress')}
+                      >
+                        Visits & Results
+                      </button>
+                    </li>
+                  </ul>
+
+                  {/* Submenu content */}
+                  {activeSubmenu === 'checkpoints' && (
+                    <CheckpointList
+                      checkpoints={checkpoints}
+                      raceId={selected.id}
+                      onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
+                      onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
+                    />
+                  )}
+
+                  {activeSubmenu === 'registrations' && (
+                    <>
+                      <RegistrationList raceId={selected.id} />
+                      <CategoryForm raceId={selected.id} />
+                    </>
+                  )}
+
+                  {activeSubmenu === 'progress' && (
+                    <>
+                      <Standings raceId={selected.id} onTeamClick={(teamId) => setVisitingTeam(teamId)} />
+                      {visitingTeam && (
+                        <div className="card mt-3">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h5 className="mb-0">Visits — team #{visitingTeam}</h5>
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>Close</button>
+                            </div>
+                            <VisitsList teamId={visitingTeam} raceId={selected.id}/>
+                          </div>
                         </div>
-                        <VisitsList teamId={visitingTeam} raceId={selected.id}/>
-                      </div>
-                    </div>
+                      )}
+                    </>
                   )}
                 </>
               ) : (
