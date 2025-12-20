@@ -25,6 +25,8 @@ export const adminApi = {
   addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),
   deleteVisit: (visitId) => apiFetch(`/api/admin/visits/${visitId}/`, { method: 'DELETE' }),
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
+  getTaskCompletionsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/task-completions/${teamId}/`),
+  deleteTaskCompletion: (taskLogId) => apiFetch(`/api/race/task-log/${taskLogId}/`, { method: 'DELETE' }),
   
   // race-category endpoints
   // list all global categories
