@@ -4,14 +4,22 @@ export const adminApi = {
   listRaces: () => apiFetch('/api/race/'),  // OK
   createRace: (payload) => apiFetch('/api/race/', { method: 'POST', body: payload }),  // OK
   updateRace: (raceId, payload) => apiFetch(`/api/race/${raceId}/`, { method: 'PUT', body: payload }),  // OK
-  getCheckpointsByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/checkpoints/`), // OK
-  deleteCheckpoint: (checkpointId) => apiFetch(`/api/checkpoint/${checkpointId}/`, { method: 'DELETE' }), // OK
-  updateCheckpoint: (checkpointId, payload) => apiFetch(`/api/checkpoint/${checkpointId}/`, { method: 'PUT', body: payload }), // not implemented in backend
+  
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
   updateRegistration: (raceId, payload) => apiFetch(`/api/admin/races/${raceId}/registrations/`, { method: 'PUT', body: payload }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
   
+  // Checkpoint management
+  getCheckpointsByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/checkpoints/`), // OK
   addCheckpoint: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/`, { method: 'POST', body: payload }),
+  deleteCheckpoint: (checkpointId) => apiFetch(`/api/checkpoint/${checkpointId}/`, { method: 'DELETE' }), // OK
+  updateCheckpoint: (checkpointId, payload) => apiFetch(`/api/checkpoint/${checkpointId}/`, { method: 'PUT', body: payload }), // not implemented in backend
+
+  // Task management
+  getTasksByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/tasks/`),
+  addTask: (raceId, payload) => apiFetch(`/api/race/${raceId}/tasks/`, { method: 'POST', body: payload }),
+  deleteTask: (taskId) => apiFetch(`/api/task/${taskId}/`, { method: 'DELETE' }),
+
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
   getVisitsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/visits/${teamId}/`), // OK
   addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),

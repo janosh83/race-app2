@@ -1,26 +1,25 @@
 import React, { useState } from 'react';
 import { adminApi } from '../../services/adminApi';
 
-export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {} }) {
+export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {} }) {
   const [jsonText, setJsonText] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this checkpoint?')) return;
+    if (!window.confirm('Delete this task?')) return;
     try {
-      await adminApi.deleteCheckpoint(id);
+      await adminApi.deleteTask(id);
       onRemove(id);
     } catch (err) {
-      console.error('Failed to delete checkpoint', err);
+      console.error('Failed to delete task', err);
       alert('Delete failed');
     }
   };
 
   const validateItem = (it) => {
-    // minimal validation: name present
     if (!it || typeof it !== 'object') return 'Item is not an object';
-    if (!it.name && !it.title) return 'Missing "name"';
+    if (!it.name && !it.title) return 'Missing "name" or "title"';
     return null;
   };
 
@@ -39,7 +38,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       return;
     }
     if (!Array.isArray(parsed)) {
-      setImportError('Expected JSON array of checkpoints');
+      setImportError('Expected JSON array of tasks');
       return;
     }
     const errors = parsed.map(validateItem).filter(Boolean);
@@ -51,24 +50,18 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     setImporting(true);
     try {
       const created = [];
-      // create sequentially to simplify rate/ordering; could use Promise.all
       for (const it of parsed) {
-        // map common field names
         const payload = {
-          name: it.name ?? it.title,
+          title: it.title ?? it.name,
           description: it.description ?? it.desc ?? null,
-          lat: it.lat ?? it.latitude ?? it.y ?? null,
-          lng: it.lng ?? it.longitude ?? it.x ?? null,
-          sequence: it.sequence ?? it.order ?? null,
-          metadata: it.metadata ?? null,
+          numOfPoints: it.numOfPoints ?? it.points ?? 0,
         };
-        const cp = await adminApi.addCheckpoint(raceId, payload);
-        created.push(cp);
+        const task = await adminApi.addTask(raceId, payload);
+        created.push(task);
       }
-      // notify parent and clear textarea
       onImported(created);
       setJsonText('');
-      alert(`Imported ${created.length} checkpoints`);
+      alert(`Imported ${created.length} tasks`);
     } catch (err) {
       console.error('Import failed', err);
       setImportError(err?.message || 'Import failed');
@@ -79,35 +72,29 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
   return (
     <div className="mb-3">
-      <h5>Checkpoints</h5>
+      <h5>Tasks</h5>
 
       <div className="mb-2">
-        {checkpoints.length === 0 ? (
-          <div className="text-muted">No checkpoints</div>
+        {tasks.length === 0 ? (
+          <div className="text-muted">No tasks</div>
         ) : (
           <table className="table table-sm">
             <thead>
               <tr>
-                <th>Name</th>
+                <th>Title</th>
                 <th>Description</th>
-                <th className="text-muted">Coords</th>
                 <th className="text-muted">Points</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {checkpoints.map(cp => (
-                <tr key={cp.id ?? cp.checkpoint_id ?? cp.name}>
-                  <td>{cp.name ?? cp.title}</td>
-                  <td>{cp.description }</td>
-                  <td className="text-muted">
-                    {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
-                      ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
-                      : '—'}
-                  </td>
-                  <td className="text-muted">{cp.numOfPoints}</td>
+              {tasks.map(task => (
+                <tr key={task.id ?? task.task_id ?? task.title}>
+                  <td>{task.title ?? task.name}</td>
+                  <td>{task.description}</td>
+                  <td className="text-muted">{task.numOfPoints ?? task.points ?? 0}</td>
                   <td>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(cp.id ?? cp.checkpoint_id)}>Delete</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(task.id ?? task.task_id)}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -118,11 +105,11 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
-          <label className="form-label">Import checkpoints (JSON array)</label>
+          <label className="form-label">Import tasks (JSON array)</label>
           <textarea
             className="form-control mb-2"
             rows={6}
-            placeholder='[{"title":"CP1","description":"some description", "lat":49.87,"lng":14.89,"numOfPoints":1}, {"title":"CP2",...}]'
+            placeholder='[{"title":"Task 1","description":"Complete this task", "numOfPoints":10}, {"title":"Task 2",...}]'
             value={jsonText}
             onChange={e => setJsonText(e.target.value)}
             disabled={importing}
@@ -135,7 +122,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
             <button type="button" className="btn btn-outline-secondary" onClick={() => setJsonText('')} disabled={importing}>Clear</button>
           </div>
           <div className="small text-muted mt-2">
-            JSON must be an array of objects. Supported fields: title, description, lat/latitude/y, lng/longitude/x, numOfPoints.
+            JSON must be an array of objects. Supported fields: title/name, description, numOfPoints/points.
           </div>
         </form>
       </div>

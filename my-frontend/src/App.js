@@ -1,15 +1,15 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './components/Login';
-import ForgotPassword from './components/ForgotPassword';
-import ResetPassword from './components/ResetPassword';
-import RaceLayout from './components/Layouts/RaceLayout';
-import AdminLayout from './components/Layouts/AdminLayout';
 import ActiveRacePage from './components/Pages/ActiveRacePage';
-import MapPage from './components/Pages/MapPage';
-import TasksPage from './components/Pages/TasksPage';
-import StandingsPage from './components/Pages/StandingsPage';
+import AdminLayout from './components/Layouts/AdminLayout';
 import AdminPage from './components/Pages/AdminPage';
+import ForgotPassword from './components/ForgotPassword';
+import Login from './components/Login';
+import MapPage from './components/Pages/MapPage';
+import RaceLayout from './components/Layouts/RaceLayout';
+import ResetPassword from './components/ResetPassword';
+import StandingsPage from './components/Pages/StandingsPage';
+import TasksPage from './components/Pages/TasksPage';
 import { TimeProvider } from './contexts/TimeContext';
 
 function App() {

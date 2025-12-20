@@ -3,6 +3,7 @@ import RaceList from './RaceList';
 import RaceForm from './RaceForm';
 import RegistrationList from './RegistrationList';
 import CheckpointList from './CheckpointList';
+import TaskList from './TaskList';
 import CategoryForm from './CategoryForm';
 import Standings from './Standings';
 import VisitsList from './VisitsList';
@@ -22,6 +23,7 @@ function AdminDashboard() {
   const [races, setRaces] = useState([]);
   const [selected, setSelected] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -74,9 +76,20 @@ function AdminDashboard() {
       };
       fetchCheckpoints();
       fetchCategories();
+      const fetchTasks = async () => {
+        try {
+          const data = await adminApi.getTasksByRaceID(selected.id);
+          setTasks(Array.isArray(data) ? data : (data?.data || []));
+        } catch (e) {
+          console.error('Failed to load tasks', e);
+          setTasks([]);
+        }
+      };
+      fetchTasks();
     } else {
       setCheckpoints([]);
       setCategories([]);
+      setTasks([]);
     }
   }, [selected]);
 
@@ -201,13 +214,21 @@ function AdminDashboard() {
 
                   {/* Submenu content */}
                   {activeSubmenu === 'checkpoints' && (
+                    <>
                     <CheckpointList
                       checkpoints={checkpoints}
                       raceId={selected.id}
                       onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
                       onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
                     />
-                  )}
+                    <TaskList
+                      tasks={tasks}
+                      raceId={selected.id}
+                      onRemove={(id) => setTasks(prev => prev.filter(t => t.id !== id))}
+                      onImported={(items) => setTasks(prev => [...items, ...prev])}
+                    />
+                  </>)
+                  }
 
                   {activeSubmenu === 'registrations' && (
                     <>
@@ -245,3 +266,8 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
+
+
+
+
+
