@@ -5,7 +5,7 @@ from app import db
 from app.models import RaceCategory
 from app.routes.admin import admin_required
 
-# Blueprint pro checkpointy
+
 race_category_bp = Blueprint('race-category', __name__)
 
 # get all race categories

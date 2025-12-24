@@ -7,12 +7,13 @@ from app.routes.admin import admin_required
 
 
 # Blueprint pro checkpointy
-admin_checkpoint_bp = Blueprint('checkpoint', __name__)
+checkpoint_bp = Blueprint('checkpoint', __name__)
 
+# FIXME: should be in config and aligned with render settings
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 # tested by test_checkpoint.py -> test_checkpoint
-@admin_checkpoint_bp.route('/<int:checkpoint_id>/', methods=['GET'])
+@checkpoint_bp.route('/<int:checkpoint_id>/', methods=['GET'])
 @admin_required()
 def get_checkpoint(checkpoint_id):
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
@@ -26,7 +27,7 @@ def get_checkpoint(checkpoint_id):
     }), 200
 
 # tested by test_checkpoint.py -> test_delete_checkpoint
-@admin_checkpoint_bp.route('/<int:checkpoint_id>/', methods=['DELETE'])
+@checkpoint_bp.route('/<int:checkpoint_id>/', methods=['DELETE'])
 @admin_required()
 def delete_checkpoint(checkpoint_id):
     # delete associated logs and images

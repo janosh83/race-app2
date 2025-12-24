@@ -2,8 +2,8 @@ from flask import Blueprint, jsonify, request
 
 from app import db
 from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image
-from app.routes.checkpoints import checkpoints_bp
-from app.routes.tasks import tasks_bp
+from app.routes.race_api.checkpoints import checkpoints_bp
+from app.routes.race_api.tasks import tasks_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
