@@ -118,6 +118,7 @@ def create_race():
     db.session.commit()
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
 
+# tested by test_races.py -> test_update_race
 @race_bp.route('/<int:race_id>/', methods=['PUT'])
 @admin_required()
 def update_race(race_id):
@@ -277,7 +278,7 @@ def add_race_category(race_id):
 
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
 
-# tested by tests\test_categories.py -> test_with_race
+# tested by test_race_categories.py -> test_with_race
 @race_bp.route("/<int:race_id>/categories/", methods=["GET"])
 @admin_required()
 def get_race_categories(race_id):
@@ -291,6 +292,7 @@ def get_race_categories(race_id):
   # remove (unassign) a race category from a specific race
   # expects JSON body: { "race_category_id": <id> }
   
+# tested by test_race_categories.py -> test_with_race
 @race_bp.route("/<int:race_id>/categories/", methods=["DELETE"])
 @admin_required()
 def remove_race_category(race_id):

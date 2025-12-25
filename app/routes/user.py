@@ -12,7 +12,7 @@ def get_signed_races():
     Get the list of races the current user is signed to, with timing info.
     ---
     tags:
-      - Authentication
+      - User
     security:
       - BearerAuth: []
     responses:
@@ -27,6 +27,40 @@ def get_signed_races():
                   type: array
                   items:
                     type: object
+                    properties:
+                      race_id:
+                        type: integer
+                        description: The ID of the race
+                      team_id:
+                        type: integer
+                        description: The ID of the user's team
+                      race_name:
+                        type: string
+                        description: The name of the race
+                      race_category:
+                        type: string
+                        description: The category the team is signed up for
+                      race_description:
+                        type: string
+                        description: The description of the race
+                      start_showing_checkpoints:
+                        type: string
+                        format: date-time
+                        description: When to start showing checkpoints on the map
+                      end_showing_checkpoints:
+                        type: string
+                        format: date-time
+                        description: When to stop showing checkpoints on the map
+                      start_logging:
+                        type: string
+                        format: date-time
+                        description: When to start accepting checkpoint/task logs
+                      end_logging:
+                        type: string
+                        format: date-time
+                        description: When to stop accepting checkpoint/task logs
+      401:
+        description: Missing or invalid authentication token
     """
     current_user_id = str(get_jwt_identity())
 

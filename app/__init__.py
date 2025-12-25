@@ -123,12 +123,14 @@ def create_app(config_class=None):
     from app.routes.checkpoint import checkpoint_bp
     from app.routes.race import race_bp
     from app.routes.race_category import race_category_bp
+    from app.routes.task import task_bp
     from app.routes.team import team_bp
     from app.routes.user import user_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(checkpoint_bp, url_prefix="/api/checkpoint")
     app.register_blueprint(race_bp, url_prefix="/api/race")
     app.register_blueprint(race_category_bp, url_prefix="/api/race-category")
+    app.register_blueprint(task_bp, url_prefix="/api/task")
     app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(user_bp, url_prefix="/api/user")
 

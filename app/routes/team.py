@@ -65,7 +65,7 @@ def get_team(team_id):
 @team_bp.route("/race/<int:race_id>/", methods=["GET"])
 def get_team_by_race(race_id):
     """
-    Get all teams participating in a specific race.
+    Get all teams participating in a specific race with their members.
     ---
     tags:
       - Teams
@@ -78,13 +78,38 @@ def get_team_by_race(race_id):
         description: ID of the race
     responses:
       200:
-        description: A list of teams
+        description: A list of teams with members
         content:
           application/json:
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/TeamObject'
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: The team ID
+                  name:
+                    type: string
+                    description: The name of the team
+                  race_category:
+                    type: string
+                    description: The race category name
+                  members:
+                    type: array
+                    description: List of team members
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: The user ID
+                        name:
+                          type: string
+                          description: The user's name
+                        email:
+                          type: string
+                          description: The user's email
       404:
         description: Race not found
     """
