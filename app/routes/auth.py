@@ -291,7 +291,7 @@ def get_signed_races():
 @jwt_required()
 def protected():
     """
-    Protected endpoint, requires authentication.
+    Protected endpoint, requires authentication (DEBUG/TEST only).
     ---
     tags:
       - Authentication
@@ -308,7 +308,13 @@ def protected():
                 msg:
                   type: string
                   example: Hello, user 1!
+      404:
+        description: Not found (production environment)
     """
+    from flask import current_app
+    if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
+        return jsonify({"error": "Not found"}), 404
+    
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, user {current_user_id}!"}), 200
 
@@ -317,7 +323,7 @@ def protected():
 @admin_required()
 def admin():
     """
-    Admin-only endpoint.
+    Admin-only endpoint (DEBUG/TEST only).
     ---
     tags:
       - Authentication
@@ -334,7 +340,13 @@ def admin():
                 msg:
                   type: string
                   example: Hello, admin 1!
+      404:
+        description: Not found (production environment)
     """
+    from flask import current_app
+    if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
+        return jsonify({"error": "Not found"}), 404
+    
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
