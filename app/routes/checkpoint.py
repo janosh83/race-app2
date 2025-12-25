@@ -13,6 +13,7 @@ checkpoint_bp = Blueprint('checkpoint', __name__)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 # tested by test_checkpoint.py -> test_checkpoint
+# NOTE: this entpoint is admin only as users are getting checkpoint though race api
 @checkpoint_bp.route('/<int:checkpoint_id>/', methods=['GET'])
 @admin_required()
 def get_checkpoint(checkpoint_id):

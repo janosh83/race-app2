@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 @pytest.fixture
 def test_app():
-    # Použití konfigurace pro testování
+    # use test config
     app = create_app("app.config.TestConfig")
     with app.app_context():
         db.create_all()
@@ -15,12 +15,11 @@ def test_app():
 
 @pytest.fixture
 def test_client(test_app):
-    # Vytvoření testovacího klienta
     return test_app.test_client()
 
 @pytest.fixture
 def add_test_data(test_app):
-    # Vložení testovacích dat
+    # Insert test data
     with test_app.app_context():
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
@@ -61,10 +60,6 @@ def test_checkpoint(test_client, add_test_data):
 
     response = test_client.get("/api/checkpoint/3/", headers=headers)
     assert response.status_code == 404
-
-# get single checkpoint
-# delte checkpoint
-# create checkpoint in race
 
 def test_delete_checkpoint(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})

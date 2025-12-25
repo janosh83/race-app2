@@ -1,3 +1,4 @@
+from unittest import result
 from flask import Blueprint, jsonify, request
 
 from app import db
@@ -226,22 +227,31 @@ def delete_race(race_id):
                   type: string
                   example: Race not found
     """
-    result = Race.query.filter_by(id=race_id).first_or_404()
-    if result:
-        if result.checkpoints:
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    if race:
+        if race.checkpoints:
             return jsonify({"message": "Cannot delete the race, it has checkpoints associated with it."}), 400
-        if result.teams:
-            return jsonify({"message": "Cannot delete the race, it has teams associated with it."}), 400
-        
-        logs = CheckpointLog.query.filter_by(race_id=race_id).all()
-        if logs:
-            return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
+        if race.registrations:
+            return jsonify({"message": "Cannot delete the race, it has registrations associated with it."}), 400
+        if race.tasks:
+            return jsonify({"message": "Cannot delete the race, it has tasks associated with it."}), 400
 
-        # FIXME: delete TaskLogs
-        db.session.delete(result)
+        checkpoint_logs = CheckpointLog.query.filter_by(race_id=race_id).all()
+        if checkpoint_logs:
+            return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
+        
+        task_logs = TaskLog.query.filter_by(race_id=race_id).all()
+        if task_logs:
+            return jsonify({"message": "Cannot delete the race, it has task completions associated with it."}), 400
+
+        db.session.delete(race)
         db.session.commit()
-        return jsonify({"message: Race deleted successfully"}), 200
-    
+        return jsonify({"message": "Race deleted successfully"}), 200
+
+#
+# Race Categories
+#
+
 # tested by tests\test_categories.py -> test_with_race
 @race_bp.route("/<int:race_id>/categories/", methods=["POST"])
 @admin_required()
@@ -306,7 +316,8 @@ def remove_race_category(race_id):
   return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
 
 #
-# Get visits and task completions
+# Visits and Task completions
+#
 
 # get all checkpoint visits for selected team and race
 # tested by test_visits.py -> test_get_visits

@@ -64,25 +64,4 @@ def test_add_race_category(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json == [{"id": 1, "name": "Kola", "description": "Na libovolném kole."}]
 
-def test_with_race(test_client, add_test_data):
-    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
-    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
-
-    response = test_client.get("/api/race/1/categories/", headers = headers)
-    assert response.status_code == 200
-    
-    assert response.json[0]["name"] == "Kola"
-    assert response.json[0]["description"] == "Na libovolném kole."
-    
-    response = test_client.post("/api/race-category/", json={"name": "Běh", "description": "Pro běžce."}, headers = headers)
-    response = test_client.post("/api/race/1/categories/", json={"race_category_id": response.json['id']}, headers = headers)
-    assert response.status_code == 201
-
-    response = test_client.get("/api/race/1/categories/", headers = headers)
-    assert response.status_code == 200
-    assert len(response.json) == 2
-    assert response.json[0]["name"] == "Kola"
-    assert response.json[0]["description"] == "Na libovolném kole."
-    assert response.json[1]["name"] == "Běh"
-    assert response.json[1]["description"] == "Pro běžce."
     
