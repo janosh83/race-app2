@@ -63,6 +63,7 @@ def get_team(team_id):
 # tested by test_teams.py -> test_team_signup
 # for now it can stay open, but in the future it should be somehow protected
 @team_bp.route("/race/<int:race_id>/", methods=["GET"])
+@admin_required()
 def get_team_by_race(race_id):
     """
     Get all teams participating in a specific race.
@@ -90,20 +91,30 @@ def get_team_by_race(race_id):
     """
 
     registrations = (
-        db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"))
-        .join(Registration, Registration.team_id == Team.id)
-        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
-        .filter(Registration.race_id == race_id)
-        .all()
+      db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"))
+      .join(Registration, Registration.team_id == Team.id)
+      .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
+      .filter(Registration.race_id == race_id)
+      .all()
     )
 
-    if not registrations:
-        return jsonify({"message": "No teams found for this race"}), 404
+    results = []
+    for team_id, team_name, category_name in registrations:
+      team = Team.query.filter_by(id=team_id).first()
+      members = []
+      if team and team.members:
+        members = [
+          {"id": user.id, "name": user.name, "email": user.email}
+          for user in team.members
+        ]
+      results.append({
+        "id": team_id,
+        "name": team_name,
+        "race_category": category_name,
+        "members": members,
+      })
 
-    return jsonify([
-        {"id": team_id, "name": team_name, "race_category": category_name}
-        for team_id, team_name, category_name in registrations
-    ]), 200
+    return jsonify(results), 200
 
 # sign up team for race
 # tested by test_teams.py -> test_team_signup

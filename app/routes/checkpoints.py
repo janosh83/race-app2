@@ -20,6 +20,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @checkpoints_bp.route('/', methods=['GET'])
+@jwt_required()
 def get_checkpoints(race_id):
     """
     Get all checkpoints for a specific race.
@@ -128,6 +129,7 @@ def create_checkpoint(race_id):
 # tested by test_races.py -> test_get_race_checkpoints
 # TODO: return path to image
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
+@jwt_required()
 def get_checkpoint(race_id, checkpoint_id):
     """
     Get a single checkpoint by its ID for a specific race.
