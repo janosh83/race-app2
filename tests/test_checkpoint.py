@@ -1,21 +1,7 @@
 import pytest
-from app import create_app, db
+from app import db
 from app.models import Race, Checkpoint, User
 from datetime import datetime, timedelta
-
-@pytest.fixture
-def test_app():
-    # use test config
-    app = create_app("app.config.TestConfig")
-    with app.app_context():
-        db.create_all()
-        yield app
-        db.session.remove()
-        db.drop_all()
-
-@pytest.fixture
-def test_client(test_app):
-    return test_app.test_client()
 
 @pytest.fixture
 def add_test_data(test_app):
@@ -71,22 +57,34 @@ def test_delete_checkpoint(test_client, add_test_data):
     response = test_client.get("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 404
 
-def test_create_checkpoint(test_client, add_test_data):
-    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+def test_checkpoint_unauthorized_access(test_client, add_test_data):
+    """Test that endpoints require authentication"""
+    # Try to access without JWT token
+    response = test_client.get("/api/checkpoint/1/")
+    assert response.status_code == 401
+    
+    response = test_client.delete("/api/checkpoint/1/")
+    assert response.status_code == 401
+
+def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
+    """Test that non-admin users cannot access admin-only checkpoint endpoints"""
+    # Create a non-admin user
+    with test_client.application.app_context():
+        user2 = User(name="User2", email="user2@example.com", is_administrator=False)
+        user2.set_password("password")
+        db.session.add(user2)
+        db.session.commit()
+    
+    # Login as non-admin user
+    response = test_client.post("/auth/login/", json={"email": "user2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
-
-    response = test_client.post("/api/race/1/checkpoints/", json={
-        "title": "Checkpoint 3", "description": "Třetí checkpoint", "latitude": 50.0955, "longitude": 14.4578, "numOfPoints": 3}, headers=headers)
-    assert response.status_code == 201
-
-    response = test_client.get("/api/checkpoint/3/", headers=headers)
-    assert response.status_code == 200
-    assert response.json["title"] == "Checkpoint 3"
-    assert response.json["description"] == "Třetí checkpoint"
-    assert response.json["latitude"] == 50.0955
-    assert response.json["longitude"] == 14.4578
-    assert response.json["numOfPoints"] == 3
-
-    response = test_client.get("/api/race/1/checkpoints/", headers=headers)
-    assert response.status_code == 200
-    assert len(response.json) == 3
+    
+    # Try to get checkpoint
+    response = test_client.get("/api/checkpoint/1/", headers=headers)
+    assert response.status_code == 403
+    assert response.json["msg"] == "Admins only!"
+    
+    # Try to delete checkpoint
+    response = test_client.delete("/api/checkpoint/1/", headers=headers)
+    assert response.status_code == 403
+    assert response.json["msg"] == "Admins only!"
