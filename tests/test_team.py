@@ -73,33 +73,33 @@ def test_add_members(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json == []
 
-def test_team_signup(test_client, add_test_data):
+def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test přihlášení týmu k závodu
-    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}) # race category id 1 = Auto, OK for race Jarní jízda
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers) # race category id 1 = Auto, OK for race Jarní jízda
     assert response.status_code == 201
     assert response.json == {"team_id": 1, "race_id": 1, 'race_category': 'Auto'}
 
     # Test získání týmů podle závodu
-    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}) # race category id 1 = Auto, OK for race Jarní jízda
-    response = test_client.get("/api/team/race/1/")
-    assert response.json == [{"id": 1, "name": "Team1", 'race_category': 'Auto'}, {"id": 2, "name": "Team2", 'race_category': 'Auto'}]
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers) # race category id 1 = Auto, OK for race Jarní jízda
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.json == [{"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto'}, {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto'}]
 
 
 # Additional tests for GET /team/race/<race_id>/
 
-def test_get_teams_by_race_not_found(test_client, add_test_data):
-    """Test getting teams for non-existent race returns 404."""
-    response = test_client.get("/api/team/race/999/")
-    assert response.status_code == 404
-    assert "No teams found" in response.json["message"]
+def test_get_teams_by_race_not_found(test_client, add_test_data, admin_auth_headers):
+    """Test getting teams for non-existent race returns empty list."""
+    response = test_client.get("/api/team/race/999/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json == []
 
 
-def test_get_teams_by_race_no_teams(test_client, add_test_data):
-    """Test getting teams for race with no registrations returns 404."""
+def test_get_teams_by_race_no_teams(test_client, add_test_data, admin_auth_headers):
+    """Test getting teams for race with no registrations returns empty list."""
     # Race 2 has no registered teams
-    response = test_client.get("/api/team/race/2/")
-    assert response.status_code == 404
-    assert "No teams found" in response.json["message"]
+    response = test_client.get("/api/team/race/2/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json == []
 
 
 # Additional tests for POST /team/race/<race_id>/

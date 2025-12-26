@@ -78,7 +78,7 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
     response = test_client.get("/api/race/2/checkpoints/1/", headers=admin_auth_headers) # non existing race
     assert response.status_code == 404
 
-    response = test_client.get("/api/race/1/checkpoints/") # get all checkpoints for race
+    response = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers) # get all checkpoints for race
     assert response.status_code == 200
     assert response.json == [
         {
@@ -99,15 +99,12 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
         }
     ]
 
-def test_create_checkpoint(test_client, add_test_data):
-    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
-    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
-
+def test_create_checkpoint(test_client, add_test_data, admin_auth_headers):
     response = test_client.post("/api/race/1/checkpoints/", json={
-        "title": "Checkpoint 3", "description": "Třetí checkpoint", "latitude": 50.0955, "longitude": 14.4578, "numOfPoints": 3}, headers=headers)
+        "title": "Checkpoint 3", "description": "Třetí checkpoint", "latitude": 50.0955, "longitude": 14.4578, "numOfPoints": 3}, headers=admin_auth_headers)
     assert response.status_code == 201
 
-    response = test_client.get("/api/checkpoint/3/", headers=headers)
+    response = test_client.get("/api/checkpoint/3/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["title"] == "Checkpoint 3"
     assert response.json["description"] == "Třetí checkpoint"
@@ -115,7 +112,7 @@ def test_create_checkpoint(test_client, add_test_data):
     assert response.json["longitude"] == 14.4578
     assert response.json["numOfPoints"] == 3
 
-    response = test_client.get("/api/race/1/checkpoints/", headers=headers)
+    response = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert len(response.json) == 3
 
@@ -140,7 +137,7 @@ def test_create_checkpoint_multipart_form_admin(test_client, add_test_data, admi
     assert resp.json["numOfPoints"] == 5
 
     # Verify it appears in list
-    list_resp = test_client.get("/api/race/1/checkpoints/")
+    list_resp = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers)
     assert list_resp.status_code == 200
     assert any(cp["title"] == "Form CP" for cp in list_resp.json)
 
@@ -162,7 +159,7 @@ def test_create_checkpoint_array_payload_admin(test_client, add_test_data, admin
     assert {"Bulk A", "Bulk B"} <= titles
 
     # Verify list includes new items
-    list_resp = test_client.get("/api/race/1/checkpoints/")
+    list_resp = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers)
     assert list_resp.status_code == 200
     list_titles = {cp["title"] for cp in list_resp.json}
     assert {"Bulk A", "Bulk B"} <= list_titles
