@@ -1,20 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
-from app import create_app, db
+from app import db
 from app.models import User
 from app.services.email_service import EmailService
-
-@pytest.fixture
-def test_client():
-    app = create_app("app.config.TestConfig")
-    app.config["TESTING"] = True
-
-    with app.test_client() as client:
-        with app.app_context():
-            db.create_all()
-        yield client
-        with app.app_context():
-            db.drop_all()
 
 
 def test_auth_register(test_client):
