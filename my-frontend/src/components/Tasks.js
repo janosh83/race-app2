@@ -43,23 +43,6 @@ function Tasks({ topOffset = 56 }) {
     };
   }, [activeRaceId, activeTeamId]);
 
-  const overlayMessage = (() => {
-    switch (timeInfo.state) {
-      case 'BEFORE_SHOW':
-        return `Tasks will be available at ${formatDate(timeInfo.startShow)}`;
-      case 'SHOW_ONLY':
-        return 'Tasks are visible. Logging is not open yet.';
-      case 'LOGGING':
-        return 'Logging is open — you can log or delete task completions now.';
-      case 'POST_LOG_SHOW':
-        return 'Logging closed. Tasks visible (read-only).';
-      case 'AFTER_SHOW':
-        return `Showing ended at ${formatDate(timeInfo.endShow)}`;
-      default:
-        return '';
-    }
-  })();
-
   const loggingAllowed = timeInfo.state === 'LOGGING';
 
   const handleImageSelect = (e) => {
@@ -201,28 +184,20 @@ function Tasks({ topOffset = 56 }) {
         </div>
       )}
 
-      {overlayMessage && (
-        <div style={{
-          position: 'fixed',
-          top: topOffset,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          background: 'rgba(255,255,255,0.95)',
-          padding: '8px 12px',
-          borderRadius: 6,
-          boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-        }}>
-          {overlayMessage}
-        </div>
-      )}
+      <div style={{
+        position: 'fixed',
+        top: topOffset ? topOffset + 8 : 16,
+        right: 16,
+        zIndex: 1500
+      }}>
+        <span className={`badge ${loggingAllowed ? 'bg-success' : 'bg-secondary'}`}>
+          {loggingAllowed ? 'Logging open' : 'Read-only'}
+        </span>
+      </div>
 
       <div className="container mt-4" style={{ paddingTop: topOffset }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">Tasks</h3>
-          <span className={`badge ${loggingAllowed ? 'bg-success' : 'bg-secondary'}`}>
-            {loggingAllowed ? 'Logging open' : 'Read-only'}
-          </span>
         </div>
 
         <div className="row g-3">
