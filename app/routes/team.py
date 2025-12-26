@@ -66,7 +66,7 @@ def get_team(team_id):
 @admin_required()
 def get_team_by_race(race_id):
     """
-    Get all teams participating in a specific race.
+    Get all teams participating in a specific race with their members.
     ---
     tags:
       - Teams
@@ -79,13 +79,38 @@ def get_team_by_race(race_id):
         description: ID of the race
     responses:
       200:
-        description: A list of teams
+        description: A list of teams with members
         content:
           application/json:
             schema:
               type: array
               items:
-                $ref: '#/components/schemas/TeamObject'
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: The team ID
+                  name:
+                    type: string
+                    description: The name of the team
+                  race_category:
+                    type: string
+                    description: The race category name
+                  members:
+                    type: array
+                    description: List of team members
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                          description: The user ID
+                        name:
+                          type: string
+                          description: The user's name
+                        email:
+                          type: string
+                          description: The user's email
       404:
         description: Race not found
     """
@@ -300,7 +325,7 @@ def get_members(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])
 
-# FIXME: write test
+
 @team_bp.route("/<int:team_id>/members/", methods=["DELETE"])
 @admin_required()
 def remove_all_members(team_id):
@@ -327,7 +352,7 @@ def remove_all_members(team_id):
     db.session.commit()
     return jsonify({"message": "All members removed successfully"}), 200
 
-# FIXME: write test
+
 @team_bp.route("/<int:team_id>/", methods=["DELETE"])
 @admin_required()
 def delete_team(team_id):

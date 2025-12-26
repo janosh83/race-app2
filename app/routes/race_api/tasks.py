@@ -69,10 +69,125 @@ def get_tasks(race_id):
 @admin_required()
 def create_task(race_id):
     """
-    Accept either a single task object or an array of tasks.
-    For JSON: body may be {...} or [{...}, {...}]
-    For multipart/form-data: treat form as single task.
+    Create one or more tasks for a specific race (admin only).
+    Accepts either a single task object or an array of tasks.
+    Supports both JSON and multipart/form-data content types.
+    ---
+    tags:
+      - Tasks
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race to create tasks for
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                properties:
+                  title:
+                    type: string
+                    description: The title of the task
+                    example: "Collect signatures"
+                  description:
+                    type: string
+                    description: Description of the task
+                    example: "Get 5 signatures from different locations"
+                  numOfPoints:
+                    type: integer
+                    description: Points awarded for completing this task
+                    example: 15
+                required:
+                  - title
+              - type: array
+                items:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    numOfPoints:
+                      type: integer
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The title of the task
+              description:
+                type: string
+                description: Description of the task
+              numOfPoints:
+                type: integer
+                description: Points awarded for completing this task
+            required:
+              - title
+    responses:
+      201:
+        description: Task(s) created successfully
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    numOfPoints:
+                      type: integer
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      title:
+                        type: string
+                      description:
+                        type: string
+                      numOfPoints:
+                        type: integer
+      400:
+        description: Invalid input or missing required fields
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Missing required field: title or name"
+      404:
+        description: Race not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Race not found"
+      403:
+        description: Admins only
     """
+    # ensure race exists
+    race = Race.query.filter_by(id=race_id).first()
+    if not race:
+      return jsonify({"message": "Race not found"}), 404
+
     # determine input source
     if request.content_type and request.content_type.startswith('multipart/form-data'):
         # single item from form
@@ -385,7 +500,7 @@ def unlog_task_completion(race_id):
         if log:
             # Delete associated image file and record if present
             if log.image_id:
-                image = Image.query.get(log.image_id)
+                image = Image.query.filter_by(id=log.image_id).first_or_404()
                 if image:
                     image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                     try:
@@ -401,3 +516,83 @@ def unlog_task_completion(race_id):
             return jsonify({"message": "Log not found."}), 404
     else:
         return jsonify({"message": "You are not authorized to delete this task log."}), 403
+
+@tasks_bp.route("/<int:team_id>/status/", methods=["GET"])
+@jwt_required()
+def get_tasks_with_status(race_id, team_id):
+  """
+  Get all tasks for a race with completion status for a team.
+  Requires the user to be an admin or a member of the team.
+  ---
+  tags:
+    - Tasks
+  parameters:
+    - in: path
+      name: race_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the race
+    - in: path
+      name: team_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the team
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: List of tasks with completion status
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
+                description:
+                  type: string
+                numOfPoints:
+                  type: integer
+                completed:
+                  type: boolean
+                image_filename:
+                  type: string
+                  nullable: true
+                  description: Present when a completion includes an image
+    403:
+      description: Unauthorized (user is not an admin or team member)
+  """
+
+  user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+  if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+    return jsonify({"msg": "Unauthorized"}), 403
+
+  race = Race.query.filter_by(id=race_id).first_or_404()
+  tasks = race.tasks
+
+  completions = TaskLog.query.filter_by(race_id=race_id, team_id=team_id).all()
+  completions_by_task = {completion.task_id: completion for completion in completions}
+
+  response = []
+  for task in tasks:
+    completion = completions_by_task.get(task.id)
+    task_data = {
+      "id": task.id,
+      "title": task.title,
+      "description": task.description,
+      "numOfPoints": task.numOfPoints,
+      "completed": task.id in completions_by_task,
+    }
+    if completion and completion.image_id:
+      image = Image.query.filter_by(id=completion.image_id).first_or_404()
+      if image:
+        task_data["image_filename"] = image.filename
+    response.append(task_data)
+
+  return jsonify(response), 200
