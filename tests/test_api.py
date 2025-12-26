@@ -5,7 +5,6 @@ from app import create_app, db
 def test_client():
     # make a test client for Flask app
     app = create_app("app.config.TestConfig")
-    app.config["TESTING"] = True
 
     with app.test_client() as client:
         with app.app_context():

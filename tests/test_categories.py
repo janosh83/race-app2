@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 @pytest.fixture
 def test_app():
-    # Použití konfigurace pro testování
     app = create_app("app.config.TestConfig")
     with app.app_context():
         db.create_all()
@@ -15,12 +14,10 @@ def test_app():
 
 @pytest.fixture
 def test_client(test_app):
-    # Vytvoření testovacího klienta
     return test_app.test_client()
 
 @pytest.fixture
 def add_test_data(test_app):
-    # Vložení testovacích dat
     with test_app.app_context():
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
@@ -36,7 +33,6 @@ def add_test_data(test_app):
 
         registration1 = Registration(race_id=1, team_id=1, race_category_id=0)
         race_category1 = RaceCategory(name="Kola", description="Na libovolném kole.")
-
 
         race1.categories = [race_category1]
         race1.registrations = [registration1]
