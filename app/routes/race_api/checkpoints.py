@@ -74,9 +74,147 @@ def get_checkpoints(race_id):
 @admin_required()
 def create_checkpoint(race_id):
     """
-    Accept either a single checkpoint object or an array of checkpoints.
-    For JSON: body may be {...} or [{...}, {...}]
-    For multipart/form-data: treat form as single checkpoint.
+    Create one or more checkpoints for a specific race (admin only).
+    Accepts either a single checkpoint object or an array of checkpoints.
+    Supports both JSON and multipart/form-data content types.
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race to create checkpoints for
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                properties:
+                  title:
+                    type: string
+                    description: The title of the checkpoint
+                    example: "Main Square"
+                  latitude:
+                    type: number
+                    format: float
+                    description: The latitude coordinate
+                    example: 50.0755
+                  longitude:
+                    type: number
+                    format: float
+                    description: The longitude coordinate
+                    example: 14.4378
+                  description:
+                    type: string
+                    description: Description of the checkpoint
+                    example: "Meet at the fountain"
+                  numOfPoints:
+                    type: integer
+                    description: Points awarded for visiting this checkpoint
+                    example: 10
+                required:
+                  - title
+              - type: array
+                items:
+                  type: object
+                  properties:
+                    title:
+                      type: string
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+                    description:
+                      type: string
+                    numOfPoints:
+                      type: integer
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The title of the checkpoint
+              latitude:
+                type: number
+                description: The latitude coordinate
+              longitude:
+                type: number
+                description: The longitude coordinate
+              description:
+                type: string
+                description: Description of the checkpoint
+              numOfPoints:
+                type: integer
+                description: Points awarded for visiting this checkpoint
+            required:
+              - title
+    responses:
+      201:
+        description: Checkpoint(s) created successfully
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    id:
+                      type: integer
+                    title:
+                      type: string
+                    latitude:
+                      type: number
+                    longitude:
+                      type: number
+                    description:
+                      type: string
+                    numOfPoints:
+                      type: integer
+                - type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      title:
+                        type: string
+                      latitude:
+                        type: number
+                      longitude:
+                        type: number
+                      description:
+                        type: string
+                      numOfPoints:
+                        type: integer
+      400:
+        description: Invalid input or missing required fields
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Missing required field: title or name"
+      404:
+        description: Race not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Race not found"
+      403:
+        description: Admins only
     """
     race = Race.query.filter_by(id=race_id).first()
     if not race:
@@ -132,6 +270,7 @@ def create_checkpoint(race_id):
 # tested by test_races.py -> test_get_race_checkpoints
 # TODO: return path to image
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
+@jwt_required()
 def get_checkpoint(race_id, checkpoint_id):
     """
     Get a single checkpoint by its ID for a specific race.
@@ -420,3 +559,97 @@ def unlog_visit(race_id):
             return jsonify({"message": "Log not found."}), 404
     else:
         return jsonify({"message": "You are not authorized to delete this visit."}), 403
+    
+# get all visits for selected team and race with status
+# tested by test_visits.py -> test_get_checkpoints_with_status
+@checkpoints_bp.route("/<int:team_id>/status/", methods=["GET"])
+@jwt_required()
+def get_checkpoints_with_status(race_id, team_id):
+    """
+    Get all checkpoints for a race with visit status for a team.
+    Requires to be an admin or a member of the team.
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the team
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: List of checkpoints with visit status
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  title:
+                    type: string
+                  description:
+                    type: string
+                  latitude:
+                    type: number
+                  longitude:
+                    type: number
+                  visited:
+                    type: boolean
+      403:
+        description: Unauthorized
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                msg:
+                  type: string
+                  example: Unauthorized
+    """
+
+    # Check if the user is authorized to view this team's data
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        return jsonify({"msg": "Unauthorized"}), 403
+
+    # Get all checkpoints for the race
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    checkpoints = race.checkpoints
+
+    # Get all visits for the race and team
+    visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
+    visits_by_checkpoint = {visit.checkpoint_id: visit for visit in visits}
+
+    # Build the response
+    response = []
+    for checkpoint in checkpoints:
+        visit = visits_by_checkpoint.get(checkpoint.id)
+        checkpoint_data = {
+            "id": checkpoint.id,
+            "title": checkpoint.title,
+            "description": checkpoint.description,
+            "latitude": checkpoint.latitude,
+            "longitude": checkpoint.longitude,
+            "visited": checkpoint.id in visits_by_checkpoint
+        }
+        # Add image info if visit exists and has an image
+        if visit and visit.image_id:
+            image = Image.query.get(visit.image_id)
+            if image:
+                checkpoint_data["image_filename"] = image.filename
+        response.append(checkpoint_data)
+
+    return jsonify(response), 200
