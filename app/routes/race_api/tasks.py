@@ -183,6 +183,11 @@ def create_task(race_id):
       403:
         description: Admins only
     """
+    # ensure race exists
+    race = Race.query.filter_by(id=race_id).first()
+    if not race:
+      return jsonify({"message": "Race not found"}), 404
+
     # determine input source
     if request.content_type and request.content_type.startswith('multipart/form-data'):
         # single item from form
