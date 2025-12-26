@@ -314,7 +314,7 @@ def get_members(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])
 
-# FIXME: write test
+
 @team_bp.route("/<int:team_id>/members/", methods=["DELETE"])
 @admin_required()
 def remove_all_members(team_id):
@@ -341,7 +341,7 @@ def remove_all_members(team_id):
     db.session.commit()
     return jsonify({"message": "All members removed successfully"}), 200
 
-# FIXME: write test
+
 @team_bp.route("/<int:team_id>/", methods=["DELETE"])
 @admin_required()
 def delete_team(team_id):

@@ -109,11 +109,11 @@ def delete_checkpoint(checkpoint_id):
         description: Admins only
     """
     # delete associated logs and images
-    checkpoint = Checkpoint.query.get_or_404(checkpoint_id)
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     logs = CheckpointLog.query.filter_by(checkpoint_id=checkpoint_id).all()
     for log in logs:
         if log.image_id:
-            image = Image.query.get(log.image_id)
+            image = Image.query.filter_by(id=log.image_id).first()
             if image:
                 image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                 try:

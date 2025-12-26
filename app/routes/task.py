@@ -97,11 +97,11 @@ def delete_task(task_id):
         description: Admins only
     """
     # delete associated logs and images
-    task = Task.query.get_or_404(task_id)
+    task = Task.query.filter_by(id=task_id).first_or_404()
     logs = TaskLog.query.filter_by(task_id=task_id).all()
     for log in logs:
         if log.image_id:
-            image = Image.query.get(log.image_id)
+            image = Image.query.filter_by(id=log.image_id).first_or_404()
             if image:
                 image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                 try:

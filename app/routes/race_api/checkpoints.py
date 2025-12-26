@@ -543,7 +543,7 @@ def unlog_visit(race_id):
         if log:
             # Delete associated image file and record if present
             if log.image_id:
-                image = Image.query.get(log.image_id)
+                image = Image.query.filter_by(id=log.image_id).first_or_404()
                 if image:
                     image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                     try:
@@ -647,7 +647,7 @@ def get_checkpoints_with_status(race_id, team_id):
         }
         # Add image info if visit exists and has an image
         if visit and visit.image_id:
-            image = Image.query.get(visit.image_id)
+            image = Image.query.filter_by(id=visit.image_id).first_or_404()
             if image:
                 checkpoint_data["image_filename"] = image.filename
         response.append(checkpoint_data)

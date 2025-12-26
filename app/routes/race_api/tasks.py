@@ -495,7 +495,7 @@ def unlog_task_completion(race_id):
         if log:
             # Delete associated image file and record if present
             if log.image_id:
-                image = Image.query.get(log.image_id)
+                image = Image.query.filter_by(id=log.image_id).first_or_404()
                 if image:
                     image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                     try:
@@ -585,7 +585,7 @@ def get_tasks_with_status(race_id, team_id):
       "completed": task.id in completions_by_task,
     }
     if completion and completion.image_id:
-      image = Image.query.get(completion.image_id)
+      image = Image.query.filter_by(id=completion.image_id).first_or_404()
       if image:
         task_data["image_filename"] = image.filename
     response.append(task_data)
