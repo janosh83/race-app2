@@ -38,5 +38,5 @@ export const authApi = {
     }),
 
   // Get signed races for current user
-  getSignedRaces: () => apiFetch('/auth/signed-races/')
+  getSignedRaces: () => apiFetch('/api/user/signed-races/')
 };

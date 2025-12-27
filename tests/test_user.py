@@ -2,6 +2,10 @@
 Test cases for app/routes/user.py endpoints.
 
 Tests the user endpoints:
+- GET /api/user/ - Get all users (admin only)
+- POST /api/user/ - Create a new user (admin only)
+- PUT /api/user/<id>/ - Update a user (admin only)
+- DELETE /api/user/<id>/ - Delete a user (admin only)
 - GET /api/user/signed-races/ - Get races the current user is signed to
 """
 
@@ -257,3 +261,296 @@ def test_get_signed_races_returns_correct_team_id(test_client, add_test_data):
             assert race["team_id"] == 1  # Should be team1
         elif race["race_id"] == 2:  # Summer Challenge
             assert race["team_id"] == 2  # Should be team2
+
+# GET /api/user/ endpoint tests
+
+def test_get_users_success(test_client, add_test_data, admin_auth_headers):
+    """Test getting all users as admin."""
+    response = test_client.get("/api/user/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json, list)
+    # Should have at least user1, user2, user3 + admin user from fixture
+    assert len(response.json) >= 3
+    
+    # Verify user structure
+    for user in response.json:
+        assert "id" in user
+        assert "name" in user
+        assert "email" in user
+        assert "is_administrator" in user
+
+
+def test_get_users_contains_expected_users(test_client, add_test_data, admin_auth_headers):
+    """Test that the user list contains expected users."""
+    response = test_client.get("/api/user/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    
+    users = response.json
+    emails = [user["email"] for user in users]
+    
+    assert "user1@example.com" in emails
+    assert "user2@example.com" in emails
+    assert "user3@example.com" in emails
+
+
+def test_get_users_unauthorized(test_client, add_test_data):
+    """Test getting users without authentication returns 401."""
+    response = test_client.get("/api/user/")
+    assert response.status_code == 401
+
+
+def test_get_users_forbidden(test_client, add_test_data, regular_user_auth_headers):
+    """Test getting users as non-admin returns 403."""
+    response = test_client.get("/api/user/", headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+# POST /api/user/ endpoint tests
+
+def test_create_user_success(test_client, admin_auth_headers):
+    """Test creating a new user as admin."""
+    new_user = {
+        "name": "New User",
+        "email": "newuser@example.com",
+        "password": "newpassword123",
+        "is_administrator": False
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 201
+    assert response.json["name"] == "New User"
+    assert response.json["email"] == "newuser@example.com"
+    assert response.json["is_administrator"] is False
+    assert "id" in response.json
+
+
+def test_create_user_with_admin_flag(test_client, admin_auth_headers):
+    """Test creating a new admin user."""
+    new_user = {
+        "name": "Admin User",
+        "email": "adminuser@example.com",
+        "password": "adminpass123",
+        "is_administrator": True
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 201
+    assert response.json["is_administrator"] is True
+
+
+def test_create_user_minimal_fields(test_client, admin_auth_headers):
+    """Test creating user with only required fields."""
+    new_user = {
+        "email": "minimal@example.com",
+        "password": "password123"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 201
+    assert response.json["email"] == "minimal@example.com"
+    assert response.json["name"] == ""  # Empty name when not provided
+
+
+def test_create_user_missing_email(test_client, admin_auth_headers):
+    """Test creating user without email returns 400."""
+    new_user = {
+        "name": "No Email User",
+        "password": "password123"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 400
+    assert "email" in response.json.get("msg", "").lower() or "email" in str(response.json).lower()
+
+
+def test_create_user_missing_password(test_client, admin_auth_headers):
+    """Test creating user without password returns 400."""
+    new_user = {
+        "name": "No Password User",
+        "email": "nopass@example.com"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 400
+
+
+def test_create_user_duplicate_email(test_client, add_test_data, admin_auth_headers):
+    """Test creating user with existing email returns 409."""
+    new_user = {
+        "name": "Duplicate",
+        "email": "user1@example.com",  # Already exists in fixture
+        "password": "password123"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=admin_auth_headers)
+    assert response.status_code == 409
+    assert "already exists" in response.json.get("msg", "").lower()
+
+
+def test_create_user_unauthorized(test_client):
+    """Test creating user without authentication returns 401."""
+    new_user = {
+        "name": "New User",
+        "email": "newuser@example.com",
+        "password": "password123"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user)
+    assert response.status_code == 401
+
+
+def test_create_user_forbidden(test_client, add_test_data, regular_user_auth_headers):
+    """Test creating user as non-admin returns 403."""
+    new_user = {
+        "name": "New User",
+        "email": "newuser@example.com",
+        "password": "password123"
+    }
+    
+    response = test_client.post("/api/user/", json=new_user, headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+# PUT /api/user/<id>/ endpoint tests
+
+def test_update_user_success(test_client, add_test_data, admin_auth_headers):
+    """Test updating a user as admin."""
+    update_data = {
+        "name": "Updated User One",
+        "email": "updatedemail@example.com"
+    }
+    
+    response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["name"] == "Updated User One"
+    assert response.json["email"] == "updatedemail@example.com"
+
+
+def test_update_user_password(test_client, add_test_data, admin_auth_headers):
+    """Test updating user password."""
+    update_data = {
+        "password": "newpassword456"
+    }
+    
+    response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 200
+    
+    # Verify new password works
+    login_response = test_client.post("/auth/login/", json={
+        "email": response.json["email"],
+        "password": "newpassword456"
+    })
+    assert login_response.status_code == 200
+
+
+def test_update_user_admin_flag(test_client, add_test_data, admin_auth_headers):
+    """Test updating user admin status."""
+    update_data = {
+        "is_administrator": True
+    }
+    
+    response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["is_administrator"] is True
+
+
+def test_update_user_partial_fields(test_client, add_test_data, admin_auth_headers):
+    """Test updating only some fields."""
+    # Get original data first
+    get_response = test_client.get("/api/user/", headers=admin_auth_headers)
+    original_user = next((u for u in get_response.json if u["id"] == 1), None)
+    
+    # Update only name
+    update_data = {"name": "New Name"}
+    response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
+    
+    assert response.status_code == 200
+    assert response.json["name"] == "New Name"
+    assert response.json["email"] == original_user["email"]  # Email unchanged
+
+
+def test_update_user_duplicate_email(test_client, add_test_data, admin_auth_headers):
+    """Test updating user to existing email returns 409."""
+    update_data = {
+        "email": "user2@example.com"  # Already used by another user
+    }
+    
+    response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 409
+    assert "already taken" in response.json.get("msg", "").lower()
+
+
+def test_update_user_not_found(test_client, admin_auth_headers):
+    """Test updating non-existent user returns 404."""
+    update_data = {"name": "Updated"}
+    
+    response = test_client.put("/api/user/9999/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_update_user_unauthorized(test_client, add_test_data):
+    """Test updating user without authentication returns 401."""
+    update_data = {"name": "Updated"}
+    
+    response = test_client.put("/api/user/1/", json=update_data)
+    assert response.status_code == 401
+
+
+def test_update_user_forbidden(test_client, add_test_data, regular_user_auth_headers):
+    """Test updating user as non-admin returns 403."""
+    update_data = {"name": "Updated"}
+    
+    response = test_client.put("/api/user/1/", json=update_data, headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+# DELETE /api/user/<id>/ endpoint tests
+
+def test_delete_user_success(test_client, add_test_data, admin_auth_headers):
+    """Test deleting a user as admin."""
+    response = test_client.delete("/api/user/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert "deleted successfully" in response.json.get("msg", "").lower()
+    
+    # Verify user is actually deleted
+    get_response = test_client.get("/api/user/", headers=admin_auth_headers)
+    user_ids = [u["id"] for u in get_response.json]
+    assert 1 not in user_ids
+
+
+def test_delete_user_not_found(test_client, admin_auth_headers):
+    """Test deleting non-existent user returns 404."""
+    response = test_client.delete("/api/user/9999/", headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_delete_user_unauthorized(test_client, add_test_data):
+    """Test deleting user without authentication returns 401."""
+    response = test_client.delete("/api/user/1/")
+    assert response.status_code == 401
+
+
+def test_delete_user_forbidden(test_client, add_test_data, regular_user_auth_headers):
+    """Test deleting user as non-admin returns 403."""
+    response = test_client.delete("/api/user/1/", headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+def test_delete_user_by_id(test_client, add_test_data, admin_auth_headers):
+    """Test that correct user is deleted."""
+    # Get original count
+    get_response = test_client.get("/api/user/", headers=admin_auth_headers)
+    original_count = len(get_response.json)
+    
+    # Delete user 2
+    response = test_client.delete("/api/user/2/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    
+    # Verify count decreased and correct user removed
+    get_response = test_client.get("/api/user/", headers=admin_auth_headers)
+    new_count = len(get_response.json)
+    assert new_count == original_count - 1
+    
+    user_ids = [u["id"] for u in get_response.json]
+    assert 2 not in user_ids
+    assert 1 in user_ids  # Other user still exists

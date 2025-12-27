@@ -96,7 +96,7 @@ export function TimeProvider({ children }) {
 
   async function refreshSignedRaces() {
     try {
-      const data = await apiFetch('/auth/signed-races/');
+      const data = await apiFetch('/api/user/signed-races/');
       if (data && Array.isArray(data.signed_races)) {
         setSignedRacesAndPersist(data.signed_races);
         // if our activeRace refers to an outdated object, refresh it by id
