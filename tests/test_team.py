@@ -335,3 +335,110 @@ def test_delete_registration_multiple_registrations(test_client, add_test_data, 
     assert response.status_code == 200
     assert len(response.json) == 1
     assert response.json[0]["id"] == 2
+
+
+# Tests for POST /team/race/<race_id>/send-registration-emails/ (admin only)
+
+def test_send_registration_emails_success(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test sending registration emails successfully."""
+    # Mock the email service
+    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    
+    # Create users and add them to teams
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
+    
+    response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice@example.com", "password": "password"})
+    response = test_client.post("/api/team/2/members/", json={"user_ids": [3]})
+    
+    # Register teams to race
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Send emails
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["message"] == "Emails sent successfully"
+    assert response.json["sent"] == 3
+    assert response.json["failed"] == 0
+    
+    # Verify email service was called for each member
+    assert mock_email_service.call_count == 3
+
+
+def test_send_registration_emails_no_registrations(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test sending emails for race with no registrations."""
+    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    
+    # Race 2 has no registrations
+    response = test_client.post("/api/team/race/2/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 0
+    assert response.json["failed"] == 0
+    
+    # Verify no emails were sent
+    assert mock_email_service.call_count == 0
+
+
+def test_send_registration_emails_teams_without_members(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test sending emails for teams without members."""
+    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    
+    # Register team without members
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Send emails
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 0
+    assert response.json["failed"] == 0
+    
+    # Verify no emails were sent
+    assert mock_email_service.call_count == 0
+
+
+def test_send_registration_emails_partial_failure(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test sending emails with some failures."""
+    # Mock email service to fail for specific email
+    def mock_send_email(email, name, race_name, team_name, race_category):
+        if email == "peter@example.com":
+            raise Exception("Email sending failed")
+    
+    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email', side_effect=mock_send_email)
+    
+    # Create users and add them to team
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
+    
+    # Register team to race
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Send emails
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 1
+    assert response.json["failed"] == 1
+
+
+def test_send_registration_emails_race_not_found(test_client, add_test_data, admin_auth_headers):
+    """Test sending emails for non-existent race returns 404."""
+    response = test_client.post("/api/team/race/999/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_send_registration_emails_unauthorized(test_client, add_test_data):
+    """Test sending emails without JWT returns 401."""
+    response = test_client.post("/api/team/race/1/send-registration-emails/")
+    assert response.status_code == 401
+
+
+def test_send_registration_emails_forbidden_non_admin(test_client, add_test_data, regular_user_auth_headers):
+    """Test sending emails as non-admin returns 403."""
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=regular_user_auth_headers)
+    assert response.status_code == 403

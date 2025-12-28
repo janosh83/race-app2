@@ -248,6 +248,95 @@ def delete_registration(race_id, team_id):
     db.session.commit()
     return jsonify({"message": "Registration deleted successfully"}), 200
 
+# send registration confirmation emails to all registered users
+@team_bp.route("/race/<int:race_id>/send-registration-emails/", methods=["POST"])
+@admin_required()
+def send_registration_emails(race_id):
+    """
+    Send registration confirmation emails to all users registered for a race - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    responses:
+      200:
+        description: Emails sent successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Sent 15 emails successfully
+                sent:
+                  type: integer
+                  description: Number of emails sent successfully
+                failed:
+                  type: integer
+                  description: Number of emails that failed to send
+      404:
+        description: Race not found
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+    """
+    from app.services.email_service import EmailService
+    from app.models import team_members
+    
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    
+    # Get all registrations for this race
+    registrations = Registration.query.filter_by(race_id=race_id).all()
+    
+    sent_count = 0
+    failed_count = 0
+
+    # FIXME: this can be optimized by clever database joins
+    
+    for registration in registrations:
+        team = Team.query.filter_by(id=registration.team_id).first()
+        if not team:
+            continue
+        
+        # Get race category name
+        race_category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
+        race_category_name = race_category.name if race_category else "N/A"
+            
+        # Get all team members
+        members = User.query.join(team_members).filter(team_members.c.team_id == team.id).all()
+        
+        for member in members:
+            try:
+                success = EmailService.send_registration_confirmation_email(
+                    user_email=member.email,
+                    user_name=member.name or member.email,
+                    race_name=race.name,
+                    team_name=team.name,
+                    race_category=race_category_name
+                )
+                if success:
+                    sent_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                failed_count += 1
+    
+    return jsonify({
+        "message": f"Sent {sent_count} emails successfully",
+        "sent": sent_count,
+        "failed": failed_count
+    }), 200
+
 # TODO: get race by team
 
 # create team

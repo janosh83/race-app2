@@ -61,10 +61,14 @@
         
         <div class="detail-box">
             <p><strong>Team:</strong> {{ team_name }}</p>
-            <p style="margin: 0;"><strong>Race:</strong> {{ race_name }}</p>
+            <p><strong>Race:</strong> {{ race_name }}</p>
+            <p style="margin: 0;"><strong>Category:</strong> {{ race_category }}</p>
         </div>
         
         <p>We're excited to have you participate. Make sure to check the race details and prepare accordingly.</p>
+        
+        <p>If you need to reset your password, you can do so here:</p>
+        <p><a href="{{ frontend_url }}/forgot-password" style="color: #28a745; text-decoration: underline;">Reset Password</a></p>
         
         <p style="font-size: 18px; margin-top: 30px;">🏁 Good luck!</p>
         

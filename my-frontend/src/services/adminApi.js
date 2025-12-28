@@ -8,6 +8,7 @@ export const adminApi = {
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
   addRegistration: (raceId, payload) => apiFetch(`/api/team/race/${raceId}/`, { method: 'POST', body: payload }),
   deleteRegistration: (raceId, teamId) => apiFetch(`/api/team/race/${raceId}/team/${teamId}/`, { method: 'DELETE' }),
+  sendRegistrationEmails: (raceId) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
 
   // User management (admin)

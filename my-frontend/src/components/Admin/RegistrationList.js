@@ -18,6 +18,7 @@ export default function RegistrationList({ raceId }) {
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [savingRegistration, setSavingRegistration] = useState(false);
+  const [sendingEmails, setSendingEmails] = useState(false);
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -100,6 +101,23 @@ export default function RegistrationList({ raceId }) {
       setFormError('Failed to register team');
     } finally {
       setSavingRegistration(false);
+    }
+  };
+
+  const handleSendEmails = async () => {
+    if (!window.confirm('Send registration confirmation emails to all registered team members?')) {
+      return;
+    }
+    setSendingEmails(true);
+    setError(null);
+    try {
+      const result = await adminApi.sendRegistrationEmails(raceId);
+      alert(`Emails sent successfully!\nSent: ${result.sent}\nFailed: ${result.failed}`);
+    } catch (err) {
+      console.error('Failed to send emails', err);
+      setError('Failed to send registration emails');
+    } finally {
+      setSendingEmails(false);
     }
   };
 
@@ -225,6 +243,16 @@ export default function RegistrationList({ raceId }) {
             })}
           </tbody>
         </table>
+
+        <div className="d-flex justify-content-end mt-3">
+          <button
+            className="btn btn-primary"
+            onClick={handleSendEmails}
+            disabled={sendingEmails || !registrations || registrations.length === 0}
+          >
+            {sendingEmails ? 'Sending...' : 'Send Registration Emails'}
+          </button>
+        </div>
 
         <hr className="my-4" />
         

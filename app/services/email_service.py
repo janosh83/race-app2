@@ -60,7 +60,7 @@ class EmailService:
         return EmailService._send_email(subject, user_email, None, body_html)
     
     @staticmethod
-    def send_registration_confirmation_email(user_email, user_name, race_name, team_name):
+    def send_registration_confirmation_email(user_email, user_name, race_name, team_name, race_category):
         """
         Send race registration confirmation email.
         
@@ -69,17 +69,21 @@ class EmailService:
             user_name: User's name
             race_name: Name of the race
             team_name: Name of the team
+            race_category: Race category name
             
         Returns:
             bool: True if email sent successfully
         """
+        frontend_url = current_app.config['FRONTEND_URL']
         subject = f"Registration Confirmed: {race_name}"
         
         body_html = render_template(
             'emails/registration_confirmation.html',
             user_name=user_name,
             race_name=race_name,
-            team_name=team_name
+            team_name=team_name,
+            race_category=race_category,
+            frontend_url=frontend_url
         )
         
         return EmailService._send_email(subject, user_email, None, body_html)
