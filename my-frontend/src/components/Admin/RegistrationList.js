@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import TeamCreation from './TeamCreation';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId }) {
@@ -15,13 +16,7 @@ export default function RegistrationList({ raceId }) {
 
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [newTeamName, setNewTeamName] = useState('');
-  const [userSearch, setUserSearch] = useState('');
-  const [selectedUserIds, setSelectedUserIds] = useState([]);
-
   const [savingRegistration, setSavingRegistration] = useState(false);
-  const [savingTeam, setSavingTeam] = useState(false);
-  const [savingMembers, setSavingMembers] = useState(false);
   // import state
   const [importRows, setImportRows] = useState([]);
   const [importing, setImporting] = useState(false);
@@ -79,49 +74,19 @@ export default function RegistrationList({ raceId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
-  const handleCreateTeam = async () => {
-    setFormError(null);
-    const name = newTeamName.trim();
-    if (!name) return;
-    setSavingTeam(true);
+  const handleDeleteRegistration = async (teamId) => {    if (!window.confirm('Are you sure you want to delete this registration?')) {
+      return;
+    }
     try {
-      const created = await adminApi.createTeam({ name });
-      setNewTeamName('');
-      await loadMeta();
-      if (created?.id) setSelectedTeamId(created.id.toString());
+      await adminApi.deleteRegistration(raceId, teamId);
+      await loadRegistrations();
     } catch (err) {
-      console.error('Failed to create team', err);
-      setFormError('Failed to create team');
-    } finally {
-      setSavingTeam(false);
+      console.error('Failed to delete registration', err);
+      setError('Failed to delete registration');
     }
   };
 
-  const handleAddMembers = async () => {
-    setFormError(null);
-    if (!selectedTeamId) {
-      setFormError('Select a team first');
-      return;
-    }
-    const ids = selectedUserIds.filter(n => Number.isInteger(n));
-    if (ids.length === 0) {
-      setFormError('Select at least one user');
-      return;
-    }
-    setSavingMembers(true);
-    try {
-      await adminApi.addTeamMembers(Number(selectedTeamId), { user_ids: ids });
-      setSelectedUserIds([]);
-    } catch (err) {
-      console.error('Failed to add members', err);
-      setFormError('Failed to add members');
-    } finally {
-      setSavingMembers(false);
-    }
-  };
-
-  const handleRegister = async () => {
-    setFormError(null);
+  const handleRegister = async () => {    setFormError(null);
     if (!selectedTeamId || !selectedCategoryId) {
       setFormError('Select a team and a category');
       return;
@@ -141,18 +106,6 @@ export default function RegistrationList({ raceId }) {
     }
   };
 
-  const handleDeleteRegistration = async (teamId) => {
-    if (!window.confirm('Are you sure you want to delete this registration?')) {
-      return;
-    }
-    try {
-      await adminApi.deleteRegistration(raceId, teamId);
-      await loadRegistrations();
-    } catch (err) {
-      console.error('Failed to delete registration', err);
-      setError('Failed to delete registration');
-    }
-  };
 
   // helpers for import
   const slugify = (s) => {
@@ -341,113 +294,21 @@ export default function RegistrationList({ raceId }) {
 
       <div className="row g-3 mb-3">
         <div className="col-12">
+          <TeamCreation
+            teams={teams}
+            users={users}
+            onTeamCreated={async (created) => {
+              await loadMeta();
+              if (created?.id) setSelectedTeamId(created.id.toString());
+            }}
+            onMembersAdded={loadMeta}
+          />
+        </div>
+      </div>
+
+      <div className="row g-3 mb-3">
+        <div className="col-12">
           <div className="card h-100 p-3">
-            <h5 className="mb-3">Create team</h5>
-            <div className="mb-2">
-              <label className="form-label">Team name</label>
-              <div className="input-group">
-                <input
-                  className="form-control"
-                  placeholder="Team name"
-                  value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={savingTeam}
-                  onClick={handleCreateTeam}
-                >
-                  {savingTeam ? 'Creating…' : 'Create'}
-                </button>
-              </div>
-            </div>
-
-            <hr />
-            <h6 className="mb-2">Add members by user name</h6>
-            <div className="mb-2">
-              <label className="form-label">Search users</label>
-              <input
-                className="form-control"
-                placeholder="Type name or email to filter"
-                value={userSearch}
-                onChange={(e) => setUserSearch(e.target.value)}
-              />
-            </div>
-            <div className="border rounded mb-2" style={{ maxHeight: 220, overflowY: 'auto' }}>
-              <table className="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th style={{ width: 40 }}></th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Admin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(users || [])
-                    .filter(u => {
-                      const q = userSearch.trim().toLowerCase();
-                      if (!q) return true;
-                      return (
-                        (u.name || '').toLowerCase().includes(q) ||
-                        (u.email || '').toLowerCase().includes(q)
-                      );
-                    })
-                    .map(u => {
-                      const checked = selectedUserIds.includes(u.id);
-                      return (
-                        <tr key={u.id}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              className="form-check-input"
-                              checked={checked}
-                              onChange={(e) => {
-                                const isOn = e.target.checked;
-                                setSelectedUserIds(prev => {
-                                  if (isOn) return [...prev, u.id];
-                                  return prev.filter(id => id !== u.id);
-                                });
-                              }}
-                            />
-                          </td>
-                          <td>{u.name || '—'}</td>
-                          <td>{u.email}</td>
-                          <td>{u.is_administrator ? 'Yes' : 'No'}</td>
-                        </tr>
-                      );
-                    })}
-                  {(!users || users.length === 0) && (
-                    <tr><td colSpan={4} className="text-muted">No users</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="mb-2">
-              <label className="form-label">Team</label>
-              <div className="input-group">
-                <select
-                  className="form-select"
-                  value={selectedTeamId}
-                  onChange={(e) => setSelectedTeamId(e.target.value)}
-                >
-                  {(teams || []).map(team => (
-                    <option key={team.id} value={team.id}>{team.name}</option>
-                  ))}
-                  {(!teams || teams.length === 0) && <option value="">No teams</option>}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary"
-                  disabled={savingMembers || !selectedTeamId}
-                  onClick={handleAddMembers}
-                >
-                  {savingMembers ? 'Adding…' : 'Add members'}
-                </button>
-              </div>
-            </div>
-
             <hr />
             <h6 className="mb-2">Import teams & members (CSV/TSV)</h6>
             <div className="mb-2">
