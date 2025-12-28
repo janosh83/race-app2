@@ -327,26 +327,28 @@ export default function RegistrationList({ raceId }) {
       {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
       <div className="row g-3 mb-3">
-        <div className="col-lg-6">
+        <div className="col-12">
           <div className="card h-100 p-3">
             <h5 className="mb-3">Create team</h5>
             <div className="mb-2">
               <label className="form-label">Team name</label>
-              <input
-                className="form-control"
-                placeholder="Team name"
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-              />
+              <div className="input-group">
+                <input
+                  className="form-control"
+                  placeholder="Team name"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={savingTeam}
+                  onClick={handleCreateTeam}
+                >
+                  {savingTeam ? 'Creating…' : 'Create'}
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={savingTeam}
-              onClick={handleCreateTeam}
-            >
-              {savingTeam ? 'Creating…' : 'Create team'}
-            </button>
 
             <hr />
             <h6 className="mb-2">Add members by user name</h6>
@@ -411,49 +413,48 @@ export default function RegistrationList({ raceId }) {
             </div>
             <div className="mb-2">
               <label className="form-label">Team</label>
-              <select
-                className="form-select"
-                value={selectedTeamId}
-                onChange={(e) => setSelectedTeamId(e.target.value)}
-              >
-                {(teams || []).map(team => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-                {(!teams || teams.length === 0) && <option value="">No teams</option>}
-              </select>
+              <div className="input-group">
+                <select
+                  className="form-select"
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                >
+                  {(teams || []).map(team => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                  {(!teams || teams.length === 0) && <option value="">No teams</option>}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-outline-primary"
+                  disabled={savingMembers || !selectedTeamId}
+                  onClick={handleAddMembers}
+                >
+                  {savingMembers ? 'Adding…' : 'Add members'}
+                </button>
+              </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-outline-primary"
-              disabled={savingMembers || !selectedTeamId}
-              onClick={handleAddMembers}
-            >
-              {savingMembers ? 'Adding…' : 'Add members'}
-            </button>
 
             <hr />
             <h6 className="mb-2">Import teams & members (CSV/TSV)</h6>
             <div className="mb-2">
-              <input
-                type="file"
-                accept=".csv,.tsv,text/csv,text/tab-separated-values"
-                className="form-control"
-                onChange={(e) => handleImportFile(e.target.files?.[0])}
-              />
-            </div>
-            {importRows.length > 0 && (
-              <div className="mb-2 small text-muted">
-                Parsed rows: {importRows.length}. Expected columns: E-mailová adresa, Tvoje jméno, Jméno posádky, kategorie
+              <div className="input-group">
+                <input
+                  type="file"
+                  accept=".csv,.tsv,text/csv,text/tab-separated-values"
+                  className="form-control"
+                  onChange={(e) => handleImportFile(e.target.files?.[0])}
+                />
+                <button
+                  type="button"
+                  className="btn btn-success"
+                  disabled={importing || importRows.length === 0}
+                  onClick={runImport}
+                >
+                  {importing ? 'Importing…' : 'Import' }
+                </button>
               </div>
-            )}
-            <button
-              type="button"
-              className="btn btn-success"
-              disabled={importing || importRows.length === 0}
-              onClick={runImport}
-            >
-              {importing ? 'Importing…' : 'Import' }
-            </button>
+            </div>
             {importReport && (
               <div className="mt-3">
                 <h6>Import report</h6>
@@ -475,7 +476,7 @@ export default function RegistrationList({ raceId }) {
           </div>
         </div>
 
-        <div className="col-lg-6">
+        <div className="col-12">
           <div className="card h-100 p-3">
             <h5 className="mb-3">Register team to race</h5>
             <div className="mb-2">
