@@ -141,6 +141,19 @@ export default function RegistrationList({ raceId }) {
     }
   };
 
+  const handleDeleteRegistration = async (teamId) => {
+    if (!window.confirm('Are you sure you want to delete this registration?')) {
+      return;
+    }
+    try {
+      await adminApi.deleteRegistration(raceId, teamId);
+      await loadRegistrations();
+    } catch (err) {
+      console.error('Failed to delete registration', err);
+      setError('Failed to delete registration');
+    }
+  };
+
   // helpers for import
   const slugify = (s) => {
     if (!s) return '';
@@ -522,20 +535,24 @@ export default function RegistrationList({ raceId }) {
 
       {loading && <div>Loading registrations…</div>}
 
+      <h5 className="mt-4 mb-3">Current Registrations</h5>
+
       <table className="table table-sm">
         <thead>
           <tr>
             <th>Team</th>
             <th>Category</th>
             <th>Members</th>
+            <th style={{ width: 100 }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {(!registrations || registrations.length === 0) && (
-            <tr><td colSpan="3" className="text-muted">No registrations</td></tr>
+            <tr><td colSpan="4" className="text-muted">No registrations</td></tr>
           )}
           {registrations.map((reg, idx) => {
             const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
+            const teamId = reg.team_id || reg.id;
             const categoryName = reg.race_category || reg.category || reg.category_name || '';
             const members = Array.isArray(reg.members) ? reg.members : (reg.team?.members || []);
             const membersDisplay = (members || []).length > 0
@@ -546,6 +563,15 @@ export default function RegistrationList({ raceId }) {
                 <td>{teamName}</td>
                 <td>{categoryName}</td>
                 <td className="text-muted small">{membersDisplay}</td>
+                <td>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => handleDeleteRegistration(teamId)}
+                    title="Delete registration"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             );
           })}

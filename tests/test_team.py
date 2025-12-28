@@ -248,3 +248,90 @@ def test_delete_team_forbidden_non_admin(test_client, add_test_data, regular_use
     """Test deleting team as non-admin returns 403."""
     response = test_client.delete("/api/team/1/", headers=regular_user_auth_headers)
     assert response.status_code == 403
+
+# Tests for DELETE /team/race/<race_id>/team/<team_id>/ (delete registration, admin only)
+
+def test_delete_registration_success(test_client, add_test_data, admin_auth_headers):
+    """Test deleting a registration as admin."""
+    # First, create a registration
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Verify registration exists
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    
+    # Delete the registration
+    response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["message"] == "Registration deleted successfully"
+    
+    # Verify registration is deleted
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 0
+
+
+def test_delete_registration_not_found(test_client, add_test_data, admin_auth_headers):
+    """Test deleting non-existent registration returns 404."""
+    # Try to delete registration that doesn't exist
+    response = test_client.delete("/api/team/race/1/team/999/", headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_delete_registration_race_not_found(test_client, add_test_data, admin_auth_headers):
+    """Test deleting registration for non-existent race returns 404."""
+    response = test_client.delete("/api/team/race/999/team/1/", headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_delete_registration_unauthorized(test_client, add_test_data):
+    """Test deleting registration without JWT returns 401."""
+    # First, create a registration as admin
+    response = test_client.post("/auth/register/", json={"name": "Admin", "email": "admin@example.com", "password": "password", "is_administrator": True})
+    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
+    admin_token = response.json["access_token"]
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=headers)
+    assert response.status_code == 201
+    
+    # Try to delete without auth
+    response = test_client.delete("/api/team/race/1/team/1/")
+    assert response.status_code == 401
+
+
+def test_delete_registration_forbidden_non_admin(test_client, add_test_data, admin_auth_headers, regular_user_auth_headers):
+    """Test deleting registration as non-admin returns 403."""
+    # First, create a registration as admin
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Try to delete as non-admin
+    response = test_client.delete("/api/team/race/1/team/1/", headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+def test_delete_registration_multiple_registrations(test_client, add_test_data, admin_auth_headers):
+    """Test deleting one registration doesn't affect others."""
+    # Create multiple registrations
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Verify both exist
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 2
+    
+    # Delete one registration
+    response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    
+    # Verify only one remains
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["id"] == 2

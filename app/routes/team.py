@@ -201,6 +201,53 @@ def sign_up(race_id):
     else:
         return jsonify({"message": "Category not available for the race"}), 400
 
+# delete registration (unregister team from race)
+@team_bp.route("/race/<int:race_id>/team/<int:team_id>/", methods=["DELETE"])
+@admin_required()
+def delete_registration(race_id, team_id):
+    """
+    Delete a registration (unregister a team from a race) - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the team
+    responses:
+      200:
+        description: Registration deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Registration deleted successfully
+      404:
+        description: Registration not found
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+    """
+    registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+    db.session.delete(registration)
+    db.session.commit()
+    return jsonify({"message": "Registration deleted successfully"}), 200
+
 # TODO: get race by team
 
 # create team
