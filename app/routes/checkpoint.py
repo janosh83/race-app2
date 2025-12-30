@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, current_app
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image
@@ -8,9 +8,6 @@ from app.routes.admin import admin_required
 
 # Blueprint pro checkpointy
 checkpoint_bp = Blueprint('checkpoint', __name__)
-
-# FIXME: should be in config and aligned with render settings
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 # tested by test_checkpoint.py -> test_checkpoint
 # NOTE: this endpoint is admin only as users are getting checkpoint though race api
@@ -115,7 +112,8 @@ def delete_checkpoint(checkpoint_id):
         if log.image_id:
             image = Image.query.filter_by(id=log.image_id).first()
             if image:
-                image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                image_path = os.path.join(images_folder, image.filename)
                 try:
                     if os.path.exists(image_path):
                         os.remove(image_path)

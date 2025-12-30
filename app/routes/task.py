@@ -1,14 +1,11 @@
 import os
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, current_app
 
 from app import db
 from app.models import Task, TaskLog, Image
 from app.routes.admin import admin_required
 
 task_bp = Blueprint('task', __name__)
-
-# FIXME: should be in config and aligned with render settings
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 # tested by test_task.py -> test_task
 # NOTE: this entpoint is admin only as users are getting task though race api
@@ -103,7 +100,8 @@ def delete_task(task_id):
         if log.image_id:
             image = Image.query.filter_by(id=log.image_id).first_or_404()
             if image:
-                image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                image_path = os.path.join(images_folder, image.filename)
                 try:
                     if os.path.exists(image_path):
                         os.remove(image_path)

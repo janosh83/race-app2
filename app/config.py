@@ -1,12 +1,15 @@
 import os
 from datetime import timedelta
 
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "default-secret-key")
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your_jwt_secret_key')
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///app.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    _raw_cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:3000')
+    CORS_ORIGINS = [o.strip() for o in _raw_cors_origins.split(',') if o.strip()]
     # JWT lifetimes (override via environment if needed)
     # Access token valid for 30 minutes, refresh token for 30 days
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(
@@ -24,7 +27,11 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@raceapp.com')
-    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:3000')
+    FRONTEND_URL = CORS_ORIGINS[0] if CORS_ORIGINS else 'http://localhost:3000'
+    IMAGE_UPLOAD_FOLDER = os.environ.get(
+        'IMAGE_UPLOAD_FOLDER',
+        os.path.join(BASE_DIR, 'static', 'images')
+    )
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"  # Použití in-memory databáze

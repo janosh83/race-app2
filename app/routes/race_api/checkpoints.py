@@ -1,6 +1,6 @@
 import os
 import uuid
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race
@@ -11,9 +11,6 @@ from datetime import datetime
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
-
-# Get the absolute path to the app directory for image uploads
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
@@ -431,8 +428,9 @@ def log_visit(race_id):
         unique_id = uuid.uuid4().hex[:8]
         filename = f"{timestamp}_{unique_id}.{file_ext}"
         
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+        os.makedirs(images_folder, exist_ok=True)
+        filepath = os.path.join(images_folder, filename)
         file.save(filepath)
         image = Image(filename=filename)
         db.session.add(image)
@@ -546,7 +544,8 @@ def unlog_visit(race_id):
             if log.image_id:
                 image = Image.query.filter_by(id=log.image_id).first_or_404()
                 if image:
-                    image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                    images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                    image_path = os.path.join(images_folder, image.filename)
                     try:
                         if os.path.exists(image_path):
                             os.remove(image_path)

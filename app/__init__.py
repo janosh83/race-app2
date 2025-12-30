@@ -137,7 +137,7 @@ def create_app(config_class=None):
     # Serve static images with CORS support
     from flask import send_from_directory
     
-    images_folder = os.path.join(os.path.dirname(__file__), 'static', 'images')
+    images_folder = app.config['IMAGE_UPLOAD_FOLDER']
     os.makedirs(images_folder, exist_ok=True)
     
     @app.route('/static/images/<filename>')
