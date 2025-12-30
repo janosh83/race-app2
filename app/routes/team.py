@@ -290,13 +290,14 @@ def send_registration_emails(race_id):
       403:
         description: Forbidden - admin access required
     """
-    from app.services.email_service import EmailService
+    from app.services.email_service import EmailService, generate_reset_token
     from app.models import team_members
+    from datetime import datetime, timedelta
     
     race = Race.query.filter_by(id=race_id).first_or_404()
     
-    # Get all registrations for this race
-    registrations = Registration.query.filter_by(race_id=race_id).all()
+    # Get only registrations where email hasn't been sent yet
+    registrations = Registration.query.filter_by(race_id=race_id, email_sent=False).all()
     
     sent_count = 0
     failed_count = 0
@@ -315,21 +316,35 @@ def send_registration_emails(race_id):
         # Get all team members
         members = User.query.join(team_members).filter(team_members.c.team_id == team.id).all()
         
+        registration_success = True
         for member in members:
             try:
+                # Generate password reset token for user
+                reset_token = generate_reset_token()
+                member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+                
                 success = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
                     race_name=race.name,
                     team_name=team.name,
-                    race_category=race_category_name
+                    race_category=race_category_name,
+                    reset_token=reset_token
                 )
                 if success:
                     sent_count += 1
                 else:
                     failed_count += 1
+                    registration_success = False
             except Exception as e:
                 failed_count += 1
+                registration_success = False
+        
+        # Mark registration as email sent only if all team members received email
+        if registration_success and len(members) > 0:
+            registration.email_sent = True
+    
+    db.session.commit()
     
     return jsonify({
         "message": f"Sent {sent_count} emails successfully",

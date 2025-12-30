@@ -10,3 +10,4 @@ flask-mail
 aiosmtpd
 python-dotenv
 pytest
+pytest-mock

@@ -31,6 +31,7 @@ class Registration(db.Model):
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
     race_category_id = db.Column(db.Integer, db.ForeignKey('race_category.id'), nullable=False)
+    email_sent = db.Column(db.Boolean, default=False, nullable=False)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'team_id', name='uq_race_team'),

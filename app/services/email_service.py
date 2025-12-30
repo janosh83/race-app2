@@ -60,7 +60,7 @@ class EmailService:
         return EmailService._send_email(subject, user_email, None, body_html)
     
     @staticmethod
-    def send_registration_confirmation_email(user_email, user_name, race_name, team_name, race_category):
+    def send_registration_confirmation_email(user_email, user_name, race_name, team_name, race_category, reset_token):
         """
         Send race registration confirmation email.
         
@@ -70,11 +70,13 @@ class EmailService:
             race_name: Name of the race
             team_name: Name of the team
             race_category: Race category name
+            reset_token: Password reset token for user
             
         Returns:
             bool: True if email sent successfully
         """
         frontend_url = current_app.config['FRONTEND_URL']
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         subject = f"Registration Confirmed: {race_name}"
         
         body_html = render_template(
@@ -83,39 +85,11 @@ class EmailService:
             race_name=race_name,
             team_name=team_name,
             race_category=race_category,
-            frontend_url=frontend_url
+            reset_link=reset_link
         )
         
         return EmailService._send_email(subject, user_email, None, body_html)
     
-    @staticmethod
-    def send_team_invitation_email(user_email, user_name, team_name, inviter_name):
-        """
-        Send team invitation email.
-        
-        Args:
-            user_email: Invited user's email
-            user_name: Invited user's name
-            team_name: Team name
-            inviter_name: Name of person who sent invitation
-            
-        Returns:
-            bool: True if email sent successfully
-        """
-        frontend_url = current_app.config['FRONTEND_URL']
-        
-        subject = f"Team Invitation: {team_name}"
-        
-        body_html = render_template(
-            'emails/team_invitation.html',
-            team_name=team_name,
-            race_name='Race App',
-            inviter_name=inviter_name,
-            invitation_link=frontend_url
-        )
-        
-        return EmailService._send_email(subject, user_email, None, body_html)
-
 
 def generate_reset_token():
     """Generate a secure random token for password reset."""

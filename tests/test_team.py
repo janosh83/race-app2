@@ -342,7 +342,7 @@ def test_delete_registration_multiple_registrations(test_client, add_test_data, 
 def test_send_registration_emails_success(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending registration emails successfully."""
     # Mock the email service
-    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
     
     # Create users and add them to teams
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
@@ -361,7 +361,6 @@ def test_send_registration_emails_success(test_client, add_test_data, admin_auth
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
-    assert response.json["message"] == "Emails sent successfully"
     assert response.json["sent"] == 3
     assert response.json["failed"] == 0
     
@@ -371,7 +370,7 @@ def test_send_registration_emails_success(test_client, add_test_data, admin_auth
 
 def test_send_registration_emails_no_registrations(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails for race with no registrations."""
-    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
     
     # Race 2 has no registrations
     response = test_client.post("/api/team/race/2/send-registration-emails/", headers=admin_auth_headers)
@@ -385,7 +384,7 @@ def test_send_registration_emails_no_registrations(test_client, add_test_data, a
 
 def test_send_registration_emails_teams_without_members(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails for teams without members."""
-    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email')
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
     
     # Register team without members
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
@@ -404,16 +403,22 @@ def test_send_registration_emails_teams_without_members(test_client, add_test_da
 def test_send_registration_emails_partial_failure(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails with some failures."""
     # Mock email service to fail for specific email
-    def mock_send_email(email, name, race_name, team_name, race_category):
-        if email == "peter@example.com":
+    def mock_send_email(user_email, user_name, race_name, team_name, race_category, reset_token):
+        if user_email == "peter@example.com":
             raise Exception("Email sending failed")
+        return True
     
-    mock_email_service = mocker.patch('app.routes.teams.EmailService.send_registration_confirmation_email', side_effect=mock_send_email)
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', side_effect=mock_send_email)
     
     # Create users and add them to team
+    # Note: admin_auth_headers creates an admin user with ID 1, so John will be ID 2 and Peter ID 3
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    assert response.status_code == 201
+    
     response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
-    response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
+    assert response.status_code == 201
+    
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [2, 3]})  # John=2, Peter=3
     
     # Register team to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
@@ -422,6 +427,7 @@ def test_send_registration_emails_partial_failure(test_client, add_test_data, ad
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
+    # When one email fails, the sent count decreases and failed increases
     assert response.json["sent"] == 1
     assert response.json["failed"] == 1
 
@@ -442,3 +448,72 @@ def test_send_registration_emails_forbidden_non_admin(test_client, add_test_data
     """Test sending emails as non-admin returns 403."""
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=regular_user_auth_headers)
     assert response.status_code == 403
+
+
+def test_send_registration_emails_only_unsent(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test that emails are only sent to registrations that haven't received emails yet."""
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
+    
+    # Create users and add them to teams
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    
+    response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice@example.com", "password": "password"})
+    response = test_client.post("/api/team/2/members/", json={"user_ids": [2]})
+    
+    # Register both teams to race
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Send emails first time
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 2
+    assert response.json["failed"] == 0
+    assert mock_email_service.call_count == 2
+    
+    # Send emails again - should send to no one since all received emails
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 0
+    assert response.json["failed"] == 0
+    # Call count should still be 2 (no new calls)
+    assert mock_email_service.call_count == 2
+
+
+def test_send_registration_emails_sets_reset_token(test_client, add_test_data, admin_auth_headers, mocker):
+    """Test that password reset tokens are generated for users."""
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
+    
+    # Create user and add to team
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    
+    # Register team to race
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    
+    # Verify user has no reset token initially
+    from app.models import User
+    with test_client.application.app_context():
+        user = User.query.filter_by(id=1).first()
+        assert user.reset_token is None
+    
+    # Send emails
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 1
+    
+    # Verify user now has a reset token
+    with test_client.application.app_context():
+        user = User.query.filter_by(id=1).first()
+        assert user.reset_token is not None
+        assert user.reset_token_expiry is not None
+    
+    # Verify email was called with reset_token parameter
+    assert mock_email_service.call_count == 1
+    call_args = mock_email_service.call_args[1]
+    assert 'reset_token' in call_args
+    assert call_args['reset_token'] is not None

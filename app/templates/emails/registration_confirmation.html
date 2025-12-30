@@ -41,6 +41,19 @@
         .detail-box strong {
             color: #2c3e50;
         }
+        .reset-button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .reset-button:hover {
+            background-color: #218838;
+        }
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -67,8 +80,12 @@
         
         <p>We're excited to have you participate. Make sure to check the race details and prepare accordingly.</p>
         
-        <p>If you need to reset your password, you can do so here:</p>
-        <p><a href="{{ frontend_url }}/forgot-password" style="color: #28a745; text-decoration: underline;">Reset Password</a></p>
+        <p><strong>Set Your Password:</strong></p>
+        <p>To access your account and manage your race information, please set your password using the link below:</p>
+        <p style="text-align: center;">
+            <a href="{{ reset_link }}" class="reset-button">Set Your Password</a>
+        </p>
+        <p style="font-size: 12px; color: #777;">This link will expire in 7 days.</p>
         
         <p style="font-size: 18px; margin-top: 30px;">🏁 Good luck!</p>
         
