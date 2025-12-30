@@ -116,7 +116,7 @@ def get_team_by_race(race_id):
     """
 
     registrations = (
-      db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"))
+      db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"), Registration.email_sent)
       .join(Registration, Registration.team_id == Team.id)
       .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
       .filter(Registration.race_id == race_id)
@@ -124,7 +124,7 @@ def get_team_by_race(race_id):
     )
 
     results = []
-    for team_id, team_name, category_name in registrations:
+    for team_id, team_name, category_name, email_sent in registrations:
       team = Team.query.filter_by(id=team_id).first()
       members = []
       if team and team.members:
@@ -137,6 +137,7 @@ def get_team_by_race(race_id):
         "name": team_name,
         "race_category": category_name,
         "members": members,
+        "email_sent": email_sent,
       })
 
     return jsonify(results), 200

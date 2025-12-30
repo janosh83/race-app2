@@ -209,12 +209,13 @@ export default function RegistrationList({ raceId }) {
               <th>Team</th>
               <th>Category</th>
               <th>Members</th>
+              <th>Email Sent</th>
               <th style={{ width: 100 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {(!registrations || registrations.length === 0) && (
-              <tr><td colSpan="4" className="text-muted">No registrations</td></tr>
+              <tr><td colSpan="5" className="text-muted">No registrations</td></tr>
             )}
             {registrations.map((reg, idx) => {
               const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
@@ -224,11 +225,19 @@ export default function RegistrationList({ raceId }) {
               const membersDisplay = (members || []).length > 0
                 ? members.map(m => m.name || m.email || `#${m.id}`).join(', ')
                 : '—';
+              const emailSent = reg.email_sent || false;
               return (
                 <tr key={reg.id ?? reg.team_id ?? idx}>
                   <td>{teamName}</td>
                   <td>{categoryName}</td>
                   <td className="text-muted small">{membersDisplay}</td>
+                  <td>
+                    {emailSent ? (
+                      <span className="badge bg-success">✓ Sent</span>
+                    ) : (
+                      <span className="badge bg-secondary">Not sent</span>
+                    )}
+                  </td>
                   <td>
                     <button
                       className="btn btn-sm btn-outline-danger"
