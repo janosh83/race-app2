@@ -29,11 +29,54 @@ export function isTokenExpired(token, marginSeconds = 10) {
 
 export function logoutAndRedirect(loginPath = '/login') {
   localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
   localStorage.removeItem('signedRaces');
   localStorage.removeItem('activeRace');
   localStorage.removeItem('activeSection');
   window.location.href = loginPath;
+}
+
+/* ---------- token refresh ---------- */
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  // If already refreshing, return the existing promise
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        logoutAndRedirect();
+        throw new Error('No refresh token');
+      }
+
+      const res = await fetch(`${BASE}/auth/refresh/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${refreshToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        logoutAndRedirect();
+        throw new Error('Token refresh failed');
+      }
+
+      const data = await res.json();
+      localStorage.setItem('accessToken', data.access_token);
+      return data.access_token;
+    } catch (err) {
+      logoutAndRedirect();
+      throw err;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 }
 
 /* ---------- low-level fetch (returns Response) ---------- */
@@ -73,11 +116,23 @@ async function handleResponse(res, { noRedirectOnAuthFailure = false } = {}) {
 /**
  * apiFetch(path, opts) -> returns parsed payload (object/array/null)
  * If you need the raw Response (to call .blob() / .arrayBuffer() / stream), use fetchRaw(...)
+ * Automatically refreshes token if it's about to expire
  */
 export async function apiFetch(path, opts = {}) {
   const { noAuth = false, noRedirectOnAuthFailure = false } = opts;
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
-  const token = localStorage.getItem('accessToken');
+  let token = localStorage.getItem('accessToken');
+  
+  // Check if token is expired or about to expire (within 2 minutes)
+  if (token && !noAuth && isTokenExpired(token, 120)) {
+    try {
+      token = await refreshAccessToken();
+    } catch (err) {
+      // Refresh failed, let the request proceed and handle 401
+      console.error('Token refresh failed:', err);
+    }
+  }
+  
   const headers = new Headers(opts.headers || {});
   headers.set('Accept', 'application/json');
   if (token && !noAuth) headers.set('Authorization', `Bearer ${token}`);

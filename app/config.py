@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "default-secret-key")
@@ -6,6 +7,14 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///app.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
+    # JWT lifetimes (override via environment if needed)
+    # Access token valid for 30 minutes, refresh token for 30 days
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(
+        seconds=int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES_SECONDS', str(30 * 60)))
+    )
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(
+        days=int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES_DAYS', '30'))
+    )
     
     # Email Configuration (Brevo)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp-relay.brevo.com')

@@ -2,7 +2,7 @@ from functools import wraps
 from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
@@ -183,9 +183,12 @@ def login():
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
-        access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
+      access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
     else:
-        access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
+      access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
+
+    # Issue refresh token with longer lifetime for silent re-auth
+    refresh_token = create_refresh_token(identity=str(user.id))
     
     # Fetch teams and races associated with the user   
     races_by_user = (
@@ -218,7 +221,8 @@ def login():
               "end_logging": race.end_logging_at} for race in races_by_user]
 
     return jsonify({
-        "access_token": access_token,
+      "access_token": access_token,
+      "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "name": user.name,
@@ -292,6 +296,38 @@ def admin():
     
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
+
+# Refresh access token using a valid refresh token
+@auth_bp.route('/refresh/', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    Refresh the access token using a valid refresh token.
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Returns a new access token
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                access_token:
+                  type: string
+      401:
+        description: Missing or invalid refresh token
+    """
+    user_id = get_jwt_identity()
+    # Look up current admin flag to keep claims in sync
+    from app.models import User
+    user = User.query.filter_by(id=int(user_id)).first()
+    is_admin = bool(user.is_administrator) if user else False
+    new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
+    return jsonify({"access_token": new_access}), 200
 
 @auth_bp.route('/request-password-reset/', methods=['POST'])
 def request_password_reset():

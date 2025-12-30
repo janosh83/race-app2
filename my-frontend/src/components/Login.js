@@ -16,6 +16,7 @@ function Login() {
             const data = await authApi.login(email, password);
             if (data.access_token) {
                 localStorage.setItem('accessToken', data.access_token);
+                localStorage.setItem('refreshToken', data.refresh_token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
                 setSignedRaces(data.signed_races || []);
