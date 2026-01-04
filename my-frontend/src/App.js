@@ -11,9 +11,11 @@ import ResetPassword from './components/ResetPassword';
 import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
 import { TimeProvider } from './contexts/TimeContext';
+import { isTokenExpired } from './utils/api';
 
 function App() {
-  const isLoggedIn = !!localStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
+  const isLoggedIn = token && !isTokenExpired(token);
   
   return (
     <TimeProvider>
