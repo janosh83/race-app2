@@ -3,5 +3,8 @@
         "tests"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "jest.enable": true,
+    "jest.runMode": "on-demand",
+    "testing.automaticallyOpenPeekView": "failureInVisibleDocument"
 }
