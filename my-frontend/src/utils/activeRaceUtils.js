@@ -1,5 +1,6 @@
 export function findCandidates(races = []) {
   const now = Date.now();
+  if (!races || !Array.isArray(races)) return [];
   return races.filter(r => {
     const startRaw = r.start_showing_checkpoints || r.start_showing_checkpoints_at || r.start_showing || r.start_logging;
     const endRaw = r.end_showing_checkpoints || r.end_showing_checkpoints_at || r.end_showing || r.end_logging;

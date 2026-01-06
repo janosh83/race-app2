@@ -9,6 +9,12 @@ function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // HTML5 validation should prevent empty submission, but check just in case
+    if (!email) {
+      return;
+    }
+    
     setMessage('');
     setError('');
     setLoading(true);

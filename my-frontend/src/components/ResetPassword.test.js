@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import ResetPassword from './ResetPassword';
 import { authApi } from '../services/authApi';
 
@@ -15,11 +15,12 @@ jest.mock('react-router-dom', () => ({
 
 // Helper function to render component with router
 const renderWithRouter = (initialEntry = '/reset-password?token=valid-token') => {
-  window.history.pushState({}, '', initialEntry);
   return render(
-    <BrowserRouter>
-      <ResetPassword />
-    </BrowserRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <Routes>
+        <Route path="/reset-password" element={<ResetPassword />} />
+      </Routes>
+    </MemoryRouter>
   );
 };
 
@@ -39,7 +40,7 @@ describe('ResetPassword Component', () => {
     test('renders reset password form with token', () => {
       renderWithRouter('/reset-password?token=valid-token');
 
-      expect(screen.getByText('Reset Password')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Reset Password' })).toBeInTheDocument();
       expect(screen.getByLabelText('New Password')).toBeInTheDocument();
       expect(screen.getByLabelText('Confirm New Password')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Reset Password' })).toBeInTheDocument();
@@ -56,14 +57,16 @@ describe('ResetPassword Component', () => {
     test('shows warning when token is missing', () => {
       renderWithRouter('/reset-password');
 
-      expect(screen.getByText(/Invalid or missing reset token/i)).toBeInTheDocument();
+      const alerts = screen.getAllByText(/Invalid or missing reset token/i);
+      expect(alerts.length).toBeGreaterThan(0);
       expect(screen.queryByLabelText('New Password')).not.toBeInTheDocument();
     });
 
     test('shows error alert when token is missing on mount', () => {
       renderWithRouter('/reset-password');
 
-      const errorAlert = screen.getByRole('alert');
+      const errorAlerts = screen.getAllByRole('alert');
+      const errorAlert = errorAlerts.find(alert => alert.classList.contains('alert-danger'));
       expect(errorAlert).toHaveTextContent('Invalid or missing reset token');
       expect(errorAlert).toHaveClass('alert-danger');
     });

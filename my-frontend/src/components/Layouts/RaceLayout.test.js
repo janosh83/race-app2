@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import RaceLayout from './RaceLayout';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
-import { TimeProvider } from '../../contexts/TimeContext';
+import * as TimeContext from '../../contexts/TimeContext';
 
 // Mock dependencies
 jest.mock('../../utils/api');
@@ -32,11 +32,13 @@ const renderWithProviders = (activeRace = null, signedRaces = [], user = null) =
     refreshActiveRace: jest.fn(),
   };
 
+  jest.spyOn(TimeContext, 'useTime').mockReturnValue(mockTimeContext);
+
   return render(
     <MemoryRouter initialEntries={['/race']}>
-      <TimeProvider value={mockTimeContext}>
+      <TimeContext.TimeProvider>
         <RaceLayout />
-      </TimeProvider>
+      </TimeContext.TimeProvider>
     </MemoryRouter>
   );
 };

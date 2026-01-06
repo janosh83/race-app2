@@ -5,38 +5,71 @@ import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import * as TimeContext from '../contexts/TimeContext';
 
-// Mock dependencies
-jest.mock('../services/raceApi');
-jest.mock('../utils/api');
-jest.mock('leaflet', () => ({
-  map: jest.fn(() => ({
-    setView: jest.fn().mockReturnThis(),
+// Mock CSS imports
+jest.mock('leaflet/dist/leaflet.css', () => {});
+
+// Mock Leaflet
+jest.mock('leaflet', () => {
+  const mockMap = {
+    setView: jest.fn(function() { return this; }),
     remove: jest.fn(),
     eachLayer: jest.fn(),
     removeLayer: jest.fn(),
-  })),
-  tileLayer: jest.fn(() => ({
-    addTo: jest.fn(),
-  })),
-  marker: jest.fn(() => ({
-    addTo: jest.fn(),
-    on: jest.fn(),
-  })),
-  circleMarker: jest.fn(() => ({
-    addTo: jest.fn().mockReturnThis(),
-    setLatLng: jest.fn(),
-  })),
-  icon: jest.fn(),
-  Control: {
-    extend: jest.fn(() => jest.fn()),
-  },
-  DomUtil: {
-    create: jest.fn(() => ({})),
-  },
-  DomEvent: {
-    disableClickPropagation: jest.fn(),
-  },
-}));
+  };
+
+  const mockAddTo = jest.fn(() => mockMap);
+
+  const Control = {};
+  Control.extend = function(definition) {
+    // Return a real constructor function
+    function ExtendedControl() {
+      if (definition && definition.onAdd) {
+        this.onAdd = definition.onAdd;
+      }
+    }
+    // Set up prototype method
+    ExtendedControl.prototype.addTo = mockAddTo;
+    return ExtendedControl;
+  };
+
+  return {
+    __esModule: true,
+    default: {
+      map(element) {
+        return mockMap;
+      },
+      tileLayer(url, options) {
+        return {
+          addTo: jest.fn(() => mockMap),
+        };
+      },
+      marker(coords, options) {
+        return {
+          addTo: jest.fn(() => mockMap),
+          on: jest.fn(),
+        };
+      },
+      circleMarker(coords, options) {
+        return {
+          addTo: jest.fn(() => mockMap),
+          setLatLng: jest.fn(() => ({})),
+        };
+      },
+      icon: jest.fn(),
+      Control: Control,
+      DomUtil: {
+        create: jest.fn(() => ({})),
+      },
+      DomEvent: {
+        disableClickPropagation: jest.fn(),
+      },
+    },
+  };
+});
+
+// Mock dependencies
+jest.mock('../services/raceApi');
+jest.mock('../utils/api');
 
 // Mock piexifjs
 jest.mock('piexifjs', () => ({

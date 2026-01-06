@@ -1,14 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ForgotPassword from './ForgotPassword';
-import { authApi } from '../services/authApi';
+import * as authApiModule from '../services/authApi';
 
-// Mock the authApi
+// Mock the authApi module
 jest.mock('../services/authApi');
+
+// Ensure authApi.requestPasswordReset is a jest mock function
+authApiModule.authApi.requestPasswordReset = jest.fn();
 
 describe('ForgotPassword Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    authApiModule.authApi.requestPasswordReset = jest.fn();
   });
 
   test('renders forgot password form', () => {
@@ -32,7 +36,7 @@ describe('ForgotPassword Component', () => {
     const mockResponse = {
       msg: 'Password reset email has been sent'
     };
-    authApi.requestPasswordReset.mockResolvedValue(mockResponse);
+    authApiModule.authApi.requestPasswordReset.mockResolvedValue(mockResponse);
 
     render(<ForgotPassword />);
     
@@ -43,7 +47,7 @@ describe('ForgotPassword Component', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(authApi.requestPasswordReset).toHaveBeenCalledWith('test@example.com');
+      expect(authApiModule.authApi.requestPasswordReset).toHaveBeenCalledWith('test@example.com');
       expect(screen.getByText('Password reset email has been sent')).toBeInTheDocument();
     });
 
@@ -52,7 +56,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('shows default success message when API does not return msg', async () => {
-    authApi.requestPasswordReset.mockResolvedValue({});
+    authApiModule.authApi.requestPasswordReset.mockResolvedValue({});
 
     render(<ForgotPassword />);
     
@@ -67,7 +71,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('displays error message on submission failure', async () => {
-    authApi.requestPasswordReset.mockRejectedValue(new Error('Network error'));
+    authApiModule.authApi.requestPasswordReset.mockRejectedValue(new Error('Network error'));
 
     render(<ForgotPassword />);
     
@@ -82,7 +86,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('displays default error message when error has no message', async () => {
-    authApi.requestPasswordReset.mockRejectedValue({});
+    authApiModule.authApi.requestPasswordReset.mockRejectedValue({});
 
     render(<ForgotPassword />);
     
@@ -97,7 +101,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('shows loading state during submission', async () => {
-    authApi.requestPasswordReset.mockImplementation(() => 
+    authApiModule.authApi.requestPasswordReset.mockImplementation(() => 
       new Promise(resolve => setTimeout(() => resolve({ msg: 'Sent' }), 100))
     );
 
@@ -124,7 +128,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('clears previous messages when submitting again', async () => {
-    authApi.requestPasswordReset
+    authApiModule.authApi.requestPasswordReset
       .mockResolvedValueOnce({ msg: 'First success' })
       .mockRejectedValueOnce(new Error('Second error'));
 
@@ -152,7 +156,7 @@ describe('ForgotPassword Component', () => {
   });
 
   test('clears error message when submitting again after error', async () => {
-    authApi.requestPasswordReset
+    authApiModule.authApi.requestPasswordReset
       .mockRejectedValueOnce(new Error('First error'))
       .mockResolvedValueOnce({ msg: 'Success' });
 
@@ -186,7 +190,7 @@ describe('ForgotPassword Component', () => {
     fireEvent.click(submitButton);
 
     // HTML5 validation should prevent submission
-    expect(authApi.requestPasswordReset).not.toHaveBeenCalled();
+    expect(authApiModule.authApi.requestPasswordReset).not.toHaveBeenCalled();
   });
 
   test('back to login link points to correct path', () => {

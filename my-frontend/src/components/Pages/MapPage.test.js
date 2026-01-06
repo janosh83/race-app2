@@ -6,7 +6,7 @@ import MapPage from './MapPage';
 // Mock the Map component
 jest.mock('../Map', () => {
   return function MockMap({ topOffset }) {
-    return <div data-testid="map-component">Map Component (topOffset: {topOffset})</div>;
+    return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
   };
 });
 

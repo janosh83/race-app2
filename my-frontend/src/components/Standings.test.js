@@ -148,18 +148,24 @@ describe('Standings Component', () => {
 
     test('displays correct column headers', async () => {
       localStorage.setItem('activeRace', JSON.stringify({ race_id: 1 }));
-      raceApi.getResults.mockResolvedValue([]);
+      const mockResults = [
+        { team: 'Team A', total_points: 80, points_for_checkpoints: 50, points_for_tasks: 30, category: 'Cat 1' },
+      ];
+      raceApi.getResults.mockResolvedValue(mockResults);
 
       render(<Standings />);
 
+      // Wait for loading to complete
       await waitFor(() => {
-        expect(screen.getByText('#')).toBeInTheDocument();
-        expect(screen.getByText('Team')).toBeInTheDocument();
-        expect(screen.getByText('Category')).toBeInTheDocument();
-        expect(screen.getByText('Points for Checkpoints')).toBeInTheDocument();
-        expect(screen.getByText('Points for Tasks')).toBeInTheDocument();
-        expect(screen.getByText('Total Points')).toBeInTheDocument();
+        expect(screen.queryByText('Loading results...')).not.toBeInTheDocument();
       });
+
+      expect(screen.getByText('#')).toBeInTheDocument();
+      expect(screen.getByText('Team')).toBeInTheDocument();
+      expect(screen.getByText('Category')).toBeInTheDocument();
+      expect(screen.getByText('Points for Checkpoints')).toBeInTheDocument();
+      expect(screen.getByText('Points for Tasks')).toBeInTheDocument();
+      expect(screen.getByText('Total Points')).toBeInTheDocument();
     });
 
     test('shows message when no results available', async () => {

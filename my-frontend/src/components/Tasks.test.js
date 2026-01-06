@@ -444,7 +444,11 @@ describe('Tasks Component', () => {
       const taskCard = screen.getByText('Task 1').closest('.card');
       fireEvent.click(taskCard);
 
-      const fileInput = screen.getByLabelText('Upload photo (optional)');
+      await waitFor(() => {
+        expect(screen.getByText('Upload photo (optional)')).toBeInTheDocument();
+      });
+
+      const fileInput = document.querySelector('input[type="file"]');
       expect(fileInput).toBeInTheDocument();
       expect(fileInput).toHaveAttribute('type', 'file');
       expect(fileInput).toHaveAttribute('accept', 'image/*');

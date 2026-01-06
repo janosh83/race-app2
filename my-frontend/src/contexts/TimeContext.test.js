@@ -66,7 +66,7 @@ describe('TimeContext', () => {
       render(
         <TimeProvider>
           <TestComponent />
-        </TestComponent>
+        </TimeProvider>
       );
 
       expect(screen.getByTestId('active-race')).toHaveTextContent('null');
@@ -181,16 +181,20 @@ describe('TimeContext', () => {
     });
 
     test('handles null input by storing empty array', () => {
+      const TestSetter = () => {
+        const { setSignedRaces } = useTime();
+        return <button onClick={() => setSignedRaces(null)}>Set Null</button>;
+      };
+
       render(
         <TimeProvider>
-          <TestComponent />
+          <TestSetter />
         </TimeProvider>
       );
 
-      const { setSignedRaces } = useTime();
-      
+      const button = screen.getByText('Set Null');
       act(() => {
-        setSignedRaces(null);
+        button.click();
       });
 
       const stored = JSON.parse(localStorage.getItem('signedRaces'));
