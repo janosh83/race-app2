@@ -12,10 +12,13 @@ import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
 import { TimeProvider } from './contexts/TimeContext';
 import { isTokenExpired } from './utils/api';
+import { logger } from './utils/logger';
 
 function App() {
   const token = localStorage.getItem('accessToken');
   const isLoggedIn = token && !isTokenExpired(token);
+  
+  logger.info('COMPONENT', 'App initialized', { isLoggedIn, hasToken: !!token });
   
   return (
     <TimeProvider>

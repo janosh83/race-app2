@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { formatDate, useTime } from '../contexts/TimeContext';
+import { logger } from '../utils/logger';
 
 function normalizeName(race) {
   return race.name || race.race_name || 'Unnamed race';
@@ -16,7 +17,10 @@ function ActiveRace() {
     const check = () => {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
+      if (isTokenExpired(token, 5)) {
+        logger.warn('TOKEN', 'Token expiry detected in ActiveRace');
+        logoutAndRedirect();
+      }
     };
     check();
     const id = setInterval(check, 30_000);
@@ -28,12 +32,14 @@ function ActiveRace() {
 
   useEffect(() => {
     if (!activeRace && candidates.length === 1) {
+      logger.info('RACE', 'Auto-selecting single candidate race', { race: candidates[0].name || candidates[0].race_id });
       setActiveRace(candidates[0]);
     }
   }, [activeRace, candidates, setActiveRace]);
   
 
   const handleSelect = (race) => {
+    logger.info('RACE', 'User selected race', { race: race.name || race.race_id });
     setActiveRace(race);
   };
 

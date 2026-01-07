@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate, useParams } from 'react-router-dom';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import { useTime } from '../../contexts/TimeContext';
+import { logger } from '../../utils/logger';
 
 function RaceLayout() {
   const navigate = useNavigate();
@@ -50,15 +51,18 @@ function RaceLayout() {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
       if (isTokenExpired(token, 5)) {
+        logger.warn('TOKEN', 'Token expiry detected, logging out');
         logoutAndRedirect();
       }
     };
     check();
     const id = setInterval(check, 30_000);
+    logger.info('COMPONENT', 'Token expiry check started', { intervalMs: 30000 });
     return () => clearInterval(id);
   }, []);
 
   const handleLogout = () => {
+    logger.info('AUTH', 'Logout initiated from RaceLayout');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
     localStorage.removeItem('signedRaces');
@@ -66,6 +70,7 @@ function RaceLayout() {
   };
 
   const navigateTo = (path) => {
+    logger.info('NAV', 'Navigation', { path });
     navigate(path);
     setNavOpen(false);
   };

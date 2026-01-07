@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/api';
+import { logger } from '../utils/logger';
 
 const TimeContext = createContext(null);
 
@@ -42,13 +43,23 @@ export function formatDate(ts) {
 export function TimeProvider({ children }) {
   const [activeRace, setActiveRace] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('activeRace') || 'null');
-    } catch { return null; }
+      const stored = JSON.parse(localStorage.getItem('activeRace') || 'null');
+      logger.info('CONTEXT', 'Initialized activeRace from localStorage', { race: stored?.name || 'none' });
+      return stored;
+    } catch { 
+      logger.warn('CONTEXT', 'Failed to parse activeRace from localStorage');
+      return null; 
+    }
   });
   const [signedRaces, setSignedRaces] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('signedRaces') || '[]');
-    } catch { return []; }
+      const stored = JSON.parse(localStorage.getItem('signedRaces') || '[]');
+      logger.info('CONTEXT', 'Initialized signedRaces from localStorage', { count: stored.length });
+      return stored;
+    } catch { 
+      logger.warn('CONTEXT', 'Failed to parse signedRaces from localStorage');
+      return []; 
+    }
   });
   const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
 
@@ -70,6 +81,7 @@ export function TimeProvider({ children }) {
         ) {
           return prev; // no change → avoid re-render
         }
+        logger.info('CONTEXT', 'Time state changed', { from: prev.state, to: next.state });
         return next;
       });
     }
@@ -84,17 +96,25 @@ export function TimeProvider({ children }) {
   }, [activeRace]);
 
   const setActiveRaceAndPersist = (race) => {
+    if (!race) {
+      logger.info('CONTEXT', 'Clearing active race');
+      localStorage.removeItem('activeRace');
+    } else {
+      logger.info('CONTEXT', 'Setting active race', { race: race.name || race.race_id });
+      localStorage.setItem('activeRace', JSON.stringify(race));
+    }
     setActiveRace(race);
-    if (race) localStorage.setItem('activeRace', JSON.stringify(race));
-    else localStorage.removeItem('activeRace');
   };
 
   const setSignedRacesAndPersist = (races) => {
-    setSignedRaces(races || []);
-    localStorage.setItem('signedRaces', JSON.stringify(races || []));
+    const safeRaces = races || [];
+    logger.info('CONTEXT', 'Updating signed races', { count: safeRaces.length });
+    setSignedRaces(safeRaces);
+    localStorage.setItem('signedRaces', JSON.stringify(safeRaces));
   };
 
   async function refreshSignedRaces() {
+    logger.info('CONTEXT', 'Refreshing signed races from server');
     try {
       const data = await apiFetch('/api/user/signed-races/');
       if (data && Array.isArray(data.signed_races)) {
@@ -103,23 +123,39 @@ export function TimeProvider({ children }) {
         if (activeRace) {
           const idA = activeRace.race_id ?? activeRace.id ?? activeRace.raceId;
           const updated = data.signed_races.find(r => (r.race_id ?? r.id ?? r.raceId) === idA);
-          if (updated) setActiveRaceAndPersist(updated);
+          if (updated) {
+            logger.info('CONTEXT', 'Updated active race from refresh', { race: updated.name || updated.race_id });
+            setActiveRaceAndPersist(updated);
+          }
         }
+        logger.success('CONTEXT', 'Signed races refreshed successfully');
       }
     } catch (e) {
+      logger.error('CONTEXT', 'Failed to refresh signed races', e.message);
       // ignore errors; next refresh will try again
     }
   }
 
   useEffect(() => {
     // refresh on window focus or when tab becomes visible
-    const onFocus = () => refreshSignedRaces();
-    const onVisibility = () => { if (document.visibilityState === 'visible') refreshSignedRaces(); };
+    const onFocus = () => {
+      logger.info('CONTEXT', 'Window focus detected, refreshing races');
+      refreshSignedRaces();
+    };
+    const onVisibility = () => { 
+      if (document.visibilityState === 'visible') {
+        logger.info('CONTEXT', 'Tab became visible, refreshing races');
+        refreshSignedRaces();
+      }
+    };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     // periodic light polling (1 min)
     if (refreshRef.current) clearInterval(refreshRef.current);
-    refreshRef.current = setInterval(refreshSignedRaces, 60_000);
+    refreshRef.current = setInterval(() => {
+      logger.info('CONTEXT', 'Periodic refresh triggered');
+      refreshSignedRaces();
+    }, 60_000);
     return () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);

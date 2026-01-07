@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { selectActiveRace } from '../utils/activeRaceUtils';
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
+import { logger } from '../utils/logger';
 
 function Login() {
     const [email, setEmail] = useState('');
@@ -12,9 +13,11 @@ function Login() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        logger.info('AUTH', 'Login attempt', { email });
         try {
             const data = await authApi.login(email, password);
             if (data.access_token) {
+                logger.success('AUTH', 'Login successful', { email, hasRaces: !!data.signed_races?.length });
                 localStorage.setItem('accessToken', data.access_token);
                 localStorage.setItem('refreshToken', data.refresh_token);
                 localStorage.setItem('user', JSON.stringify(data.user));
@@ -27,9 +30,13 @@ function Login() {
                 if (activeRaceId) {
                     // find the full signed_race object to persist (may contain team_id)
                     const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
-                    if (candidate) setActiveRace(candidate);
+                    if (candidate) {
+                        logger.info('RACE', 'Auto-selecting race', { race: candidate.name || candidate.race_id });
+                        setActiveRace(candidate);
+                    }
                     else setActiveRace({ race_id: activeRaceId });
                 } else {
+                    logger.info('RACE', 'Multiple race candidates available, user must select');
                     // no single candidate — clear any previous active race
                     setActiveRace(null);
                 }
@@ -39,9 +46,11 @@ function Login() {
                 
                 window.location.reload();
             } else {
+                logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
                 setError(data.msg || 'Login failed');
             }
         } catch (err) {
+            logger.error('AUTH', 'Login error', err.message);
             setError(err.message || 'Login failed');
         }
     };

@@ -5,6 +5,8 @@
  * - apiFetch (high-level wrapper that returns parsed JSON and throws on non-ok)
  */
 
+import { logger } from './logger';
+
 const BASE = process.env.REACT_APP_API_URL || '';
 
 /* ---------- auth helpers ---------- */
@@ -28,6 +30,7 @@ export function isTokenExpired(token, marginSeconds = 10) {
 }
 
 export function logoutAndRedirect(loginPath = '/login') {
+  logger.info('AUTH', 'Logging out and redirecting to login');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
@@ -44,10 +47,13 @@ async function refreshAccessToken() {
   // If already refreshing, return the existing promise
   if (refreshPromise) return refreshPromise;
 
+  logger.info('TOKEN', 'Starting token refresh');
+
   refreshPromise = (async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
+        logger.error('TOKEN', 'No refresh token found');
         logoutAndRedirect();
         throw new Error('No refresh token');
       }
@@ -61,14 +67,17 @@ async function refreshAccessToken() {
       });
 
       if (!res.ok) {
+        logger.error('TOKEN', 'Token refresh failed', { status: res.status });
         logoutAndRedirect();
         throw new Error('Token refresh failed');
       }
 
       const data = await res.json();
       localStorage.setItem('accessToken', data.access_token);
+      logger.success('TOKEN', 'Token refreshed successfully');
       return data.access_token;
     } catch (err) {
+      logger.error('TOKEN', 'Token refresh error', err.message);
       logoutAndRedirect();
       throw err;
     } finally {
@@ -121,7 +130,11 @@ async function handleResponse(res, { noRedirectOnAuthFailure = false } = {}) {
 export async function apiFetch(path, opts = {}) {
   const { noAuth = false, noRedirectOnAuthFailure = false } = opts;
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
+  const method = opts.method || 'GET';
   let token = localStorage.getItem('accessToken');
+  
+  // Log the request
+  logger.apiRequest(method, path, opts.body);
   
   // Check if token is expired or about to expire (within 2 minutes)
   if (token && !noAuth && isTokenExpired(token, 120)) {
@@ -129,7 +142,7 @@ export async function apiFetch(path, opts = {}) {
       token = await refreshAccessToken();
     } catch (err) {
       // Refresh failed, let the request proceed and handle 401
-      console.error('Token refresh failed:', err);
+      logger.error('API', `Token refresh failed for ${method} ${path}`, err.message);
     }
   }
   
@@ -148,12 +161,22 @@ export async function apiFetch(path, opts = {}) {
 
   try {
     const res = await fetch(url, {
-      method: opts.method || 'GET',
+      method,
       headers,
       body,
       signal,
     });
-    return await handleResponse(res, { noRedirectOnAuthFailure });
+    
+    // Log the response
+    logger.apiResponse(method, path, res.status, res.ok ? 'Success' : 'Failed');
+    
+    const result = await handleResponse(res, { noRedirectOnAuthFailure });
+    return result;
+  } catch (err) {
+    // Log the error
+    const status = err.status || 'UNKNOWN';
+    logger.apiError(method, path, status, err.message);
+    throw err;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }

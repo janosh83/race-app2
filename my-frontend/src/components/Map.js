@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
+import { logger } from '../utils/logger';
 import piexif from 'piexifjs';
 
 function Map({ topOffset = 56 }) {
@@ -12,7 +13,10 @@ function Map({ topOffset = 56 }) {
     const check = () => {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
+      if (isTokenExpired(token, 5)) {
+        logger.warn('TOKEN', 'Token expiry detected in Map');
+        logoutAndRedirect();
+      }
     };
     check();
     const id = setInterval(check, 30_000);
@@ -39,13 +43,19 @@ function Map({ topOffset = 56 }) {
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
+    logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId });
     let mounted = true;
     raceApi
       .getCheckpointsStatus(activeRaceId, activeTeamId)
       .then((data) => {
-        if (mounted) setCheckpoints(data);
+        if (mounted) {
+          logger.success('RACE', 'Checkpoints loaded for map', { count: data?.length || 0 });
+          setCheckpoints(data);
+        }
       })
-      .catch((err) => console.error('Failed to fetch checkpoints:', err));
+      .catch((err) => {
+        logger.error('RACE', 'Failed to fetch checkpoints', err.message);
+      });
     return () => {
       mounted = false;
     };
@@ -54,6 +64,7 @@ function Map({ topOffset = 56 }) {
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
 
+    logger.info('COMPONENT', 'Initializing map');
     mapInstance.current = L.map(mapRef.current).setView([49.8729317, 14.8981184], 16);
 
     L.tileLayer(`https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${API_KEY}`, {
@@ -81,6 +92,7 @@ function Map({ topOffset = 56 }) {
     if (navigator.geolocation) {
       const onPos = (position) => {
         const { latitude, longitude } = position.coords;
+        logger.info('GEOLOCATION', 'Position update', { lat: latitude.toFixed(4), lng: longitude.toFixed(4) });
         // create or update a small blue circle marker
         if (userMarkerRef.current) {
           userMarkerRef.current.setLatLng([latitude, longitude]);
@@ -99,10 +111,11 @@ function Map({ topOffset = 56 }) {
       };
 
       const onErr = (error) => {
-        console.warn('Geolocation error:', error);
+        logger.warn('GEOLOCATION', 'Geolocation error', error.message);
       };
 
       // get initial position
+      logger.info('GEOLOCATION', 'Requesting initial position');
       navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
       // watch for updates and keep blue dot in sync
       geoWatchIdRef.current = navigator.geolocation.watchPosition(onPos, onErr, {
@@ -241,6 +254,7 @@ function Map({ topOffset = 56 }) {
 
   const handleLogVisit = async () => {
     if (!selectedCheckpoint) return;
+    logger.info('RACE', 'Logging checkpoint visit', { checkpointId: selectedCheckpoint.id, hasImage: !!selectedImage });
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -252,12 +266,13 @@ function Map({ topOffset = 56 }) {
 
       await raceApi.logVisitWithImage(activeRaceId, formData);
       const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      logger.success('RACE', 'Checkpoint visit logged successfully');
       setCheckpoints(data);
       setSelectedCheckpoint(null);
       setSelectedImage(null);
       setImagePreview(null);
     } catch (err) {
-      console.error('Failed to log visit:', err);
+      logger.error('RACE', 'Failed to log checkpoint visit', err.message);
       alert(err.message || 'Failed to log visit.');
     } finally {
       setIsUploading(false);
@@ -266,13 +281,15 @@ function Map({ topOffset = 56 }) {
 
   const handleDeleteVisit = async () => {
     if (!selectedCheckpoint) return;
+    logger.info('RACE', 'Deleting checkpoint visit', { checkpointId: selectedCheckpoint.id });
     try {
       await raceApi.deleteVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
       const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      logger.success('RACE', 'Checkpoint visit deleted successfully');
       setCheckpoints(data);
       setSelectedCheckpoint(null);
     } catch (err) {
-      console.error('Failed to delete visit:', err);
+      logger.error('RACE', 'Failed to delete checkpoint visit', err.message);
       alert('Failed to delete visit.');
     }
   };
