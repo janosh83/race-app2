@@ -3,6 +3,7 @@ import piexif from 'piexifjs';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
+import StatusBadge from './StatusBadge';
 
 function Tasks({ topOffset = 56 }) {
   // token expiry watcher
@@ -44,6 +45,7 @@ function Tasks({ topOffset = 56 }) {
   }, [activeRaceId, activeTeamId]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
+  const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
@@ -184,50 +186,61 @@ function Tasks({ topOffset = 56 }) {
         </div>
       )}
 
-      <div style={{
-        position: 'fixed',
-        top: topOffset ? topOffset + 8 : 16,
-        right: 16,
-        zIndex: 1500
-      }}>
-        <span className={`badge ${loggingAllowed ? 'bg-success' : 'bg-secondary'}`}>
-          {loggingAllowed ? 'Logging open' : 'Read-only'}
-        </span>
-      </div>
+      <StatusBadge 
+        topOffset={topOffset}
+        isShown={showTasks}
+        loggingAllowed={loggingAllowed}
+        timeInfo={timeInfo}
+        itemName="Tasks"
+      />
 
       <div className="container mt-4" style={{ paddingTop: topOffset }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">Tasks</h3>
         </div>
 
-        <div className="row g-3">
-          {tasks.map((task) => (
-            <div className="col-12 col-md-6 col-lg-4" key={task.id}>
-              <div className="card h-100" style={{ cursor: 'pointer' }} onClick={() => setSelectedTask(task)}>
-                <div className="card-body">
-                  <div className="d-flex justify-content-between align-items-start mb-2">
-                    <h5 className="card-title mb-0">{task.title}</h5>
-                    <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
-                      {task.completed ? 'Completed' : 'Pending'}
-                    </span>
-                  </div>
-                  {task.description && <p className="card-text text-muted small">{task.description}</p>}
-                  <div className="d-flex justify-content-between align-items-center mt-2">
-                    <span className="badge bg-primary">{task.numOfPoints} pts</span>
-                    {task.completed && task.image_filename && (
-                      <span className="text-muted small">📷 Photo attached</span>
-                    )}
+        {!showTasks && (
+          <div className="alert alert-warning">
+            Tasks are not shown at this time.
+            {timeInfo.state === 'BEFORE_SHOW' && (
+              <div>Tasks will be shown at {formatDate(timeInfo.startShow)}</div>
+            )}
+            {timeInfo.state === 'AFTER_SHOW' && (
+              <div>Showing of tasks ended at {formatDate(timeInfo.endShow)}</div>
+            )}
+          </div>
+        )}
+
+        {showTasks && (
+          <div className="row g-3">
+            {tasks.map((task) => (
+              <div className="col-12 col-md-6 col-lg-4" key={task.id}>
+                <div className="card h-100" style={{ cursor: 'pointer' }} onClick={() => setSelectedTask(task)}>
+                  <div className="card-body">
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <h5 className="card-title mb-0">{task.title}</h5>
+                      <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
+                        {task.completed ? 'Completed' : 'Pending'}
+                      </span>
+                    </div>
+                    {task.description && <p className="card-text text-muted small">{task.description}</p>}
+                    <div className="d-flex justify-content-between align-items-center mt-2">
+                      <span className="badge bg-primary">{task.numOfPoints} pts</span>
+                      {task.completed && task.image_filename && (
+                        <span className="text-muted small">📷 Photo attached</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {tasks.length === 0 && (
-            <div className="col-12">
-              <div className="alert alert-info">No tasks available for this race.</div>
-            </div>
-          )}
-        </div>
+            ))}
+            {tasks.length === 0 && (
+              <div className="col-12">
+                <div className="alert alert-info">No tasks available for this race.</div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {selectedTask && (

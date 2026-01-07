@@ -329,13 +329,13 @@ describe('Map Component', () => {
     test('does not allow logging in BEFORE_SHOW state', () => {
       jest.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
-        timeInfo: { state: 'BEFORE_SHOW' },
+        timeInfo: { state: 'BEFORE_SHOW', startShow: new Date('2025-01-20T10:00:00') },
       });
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
 
       render(<Map />);
 
-      expect(screen.getByText('Read-only')).toBeInTheDocument();
+      expect(screen.getByText(/Coming/)).toBeInTheDocument();
     });
   });
 

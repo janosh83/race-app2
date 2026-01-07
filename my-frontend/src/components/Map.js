@@ -6,6 +6,7 @@ import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
 import piexif from 'piexifjs';
+import StatusBadge from './StatusBadge';
 
 function Map({ topOffset = 56 }) {
   // token expiry watcher (redirect to login when token expires)
@@ -144,6 +145,9 @@ function Map({ topOffset = 56 }) {
     };
   }, [API_KEY]);
 
+  const loggingAllowed = timeInfo.state === 'LOGGING';
+  const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
+
   // Add checkpoint markers when checkpoints or map are ready
   useEffect(() => {
     if (!mapInstance.current) return;
@@ -154,6 +158,9 @@ function Map({ topOffset = 56 }) {
         mapInstance.current.removeLayer(layer);
       }
     });
+
+    // Only add markers if checkpoints should be shown
+    if (!showCheckpoints) return;
 
     checkpoints.forEach(cp => {
       const iconUrl = cp.visited
@@ -177,10 +184,7 @@ function Map({ topOffset = 56 }) {
         setSelectedCheckpoint(cp);
       });
     });
-  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state]);
-
-  const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showCheckpoints = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo.state);
+  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state, showCheckpoints]);
 
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
@@ -330,16 +334,13 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
-      <div style={{
-        position: 'fixed',
-        top: topOffset ? topOffset + 8 : 16,
-        right: 16,
-        zIndex: 1500
-      }}>
-        <span className={`badge ${loggingAllowed ? 'bg-success' : 'bg-secondary'}`}>
-          {loggingAllowed ? 'Logging open' : 'Read-only'}
-        </span>
-      </div>
+      <StatusBadge 
+        topOffset={topOffset}
+        isShown={showCheckpoints}
+        loggingAllowed={loggingAllowed}
+        timeInfo={timeInfo}
+        itemName="Checkpoints"
+      />
 
       {/* Full-screen checkpoint overlay */}
       {selectedCheckpoint && (
