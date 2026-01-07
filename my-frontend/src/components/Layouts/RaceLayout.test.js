@@ -83,10 +83,17 @@ describe('RaceLayout Component', () => {
       expect(screen.getByRole('button', { name: 'Active Race' })).toBeInTheDocument();
     });
 
-    test('renders Standings navigation link', () => {
-      renderWithProviders();
+    test('renders Standings navigation link when activeRace exists', () => {
+      const activeRace = { race_id: 5, name: 'Test Race' };
+      renderWithProviders(activeRace);
 
       expect(screen.getByRole('button', { name: 'Standings' })).toBeInTheDocument();
+    });
+
+    test('hides Standings navigation link when no activeRace', () => {
+      renderWithProviders(null);
+
+      expect(screen.queryByRole('button', { name: 'Standings' })).not.toBeInTheDocument();
     });
 
     test('renders Logout button', () => {
@@ -164,12 +171,13 @@ describe('RaceLayout Component', () => {
     });
 
     test('navigates to Standings on button click', () => {
-      renderWithProviders();
+      const activeRace = { race_id: 5, name: 'Test Race' };
+      renderWithProviders(activeRace);
 
       const standingsButton = screen.getByRole('button', { name: 'Standings' });
       fireEvent.click(standingsButton);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/race/standings');
+      expect(mockNavigate).toHaveBeenCalledWith('/race/5/standings');
     });
 
     test('closes navbar after navigation', () => {
