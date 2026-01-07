@@ -1,9 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import ActiveRacePage from './ActiveRacePage';
 import { selectActiveRace } from '../../utils/activeRaceUtils';
-import * as TimeContextModule from '../../contexts/TimeContext';
 
 // Mock dependencies
 jest.mock('../../utils/activeRaceUtils');

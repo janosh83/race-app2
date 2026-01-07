@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ActiveRace from '../ActiveRace';
 import { selectActiveRace } from '../../utils/activeRaceUtils';
 import { useTime } from '../../contexts/TimeContext';
 
 function ActiveRacePage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { activeRace, setActiveRace, timeInfo, signedRaces } = useTime();
 
   useEffect(() => {

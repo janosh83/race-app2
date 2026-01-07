@@ -6,7 +6,6 @@ import { logger } from '../../utils/logger';
 
 function RaceLayout() {
   const navigate = useNavigate();
-  const { raceId } = useParams();
   const [navOpen, setNavOpen] = useState(false);
   const [navHeight, setNavHeight] = useState(56);
   const navRef = useRef(null);
