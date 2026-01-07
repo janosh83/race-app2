@@ -34,7 +34,7 @@ function App() {
             <Route index element={<ActiveRacePage />} />
             <Route path=":raceId/map" element={<MapPage />} />
             <Route path=":raceId/tasks" element={<TasksPage />} />
-            <Route path="standings" element={<StandingsPage />} />
+            <Route path=":raceId/standings" element={<StandingsPage />} />
           </Route>
 
           {/* Admin routes (protected) */}

@@ -102,11 +102,11 @@ function RaceLayout() {
                   <li className="nav-item">
                     <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/tasks`)}>Tasks</button>
                   </li>
+                  <li className="nav-item">
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/standings`)}>Standings</button>
+                  </li>
                 </>
               )}
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/race/standings')}>Standings</button>
-              </li>
             </ul>
             <ul className="navbar-nav ms-auto">
               {user && user.is_administrator && (
