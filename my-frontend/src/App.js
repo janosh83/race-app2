@@ -29,20 +29,37 @@ function App() {
 
   useEffect(() => {
     // Check authentication status
+    console.log('[AUTH] Starting auth check...');
+    logger.info('ROUTING', 'Starting auth check');
+    
     const token = localStorage.getItem('accessToken');
-    const loggedIn = token && !isTokenExpired(token);
+    console.log('[AUTH] Token retrieved:', { hasToken: !!token, tokenLength: token?.length });
+    logger.info('ROUTING', 'Token retrieved', { hasToken: !!token });
+    
+    const isExpired = token ? isTokenExpired(token) : true;
+    console.log('[AUTH] Token expiry check:', { isExpired, hasToken: !!token });
+    logger.info('ROUTING', 'Token expiry check', { isExpired });
+    
+    const loggedIn = token && !isExpired;
+    console.log('[AUTH] Auth check complete:', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
+    logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
+    
     setIsLoggedIn(loggedIn);
-    logger.info('ROUTING', 'App initialized, auth check complete', { isLoggedIn: loggedIn, hasToken: !!token });
+    console.log('[AUTH] isLoggedIn state updated to:', loggedIn);
   }, []);
   
   // Show loading state while checking auth
   if (isLoggedIn === null) {
+    console.log('[APP] Rendering loading state - auth check not complete yet');
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
         <p>Loading...</p>
+        <p style={{ fontSize: '12px', color: '#999' }}>Checking authentication status...</p>
       </div>
     );
   }
+  
+  console.log('[APP] Auth check complete, rendering routes with isLoggedIn:', isLoggedIn);
   
   return (
     <TimeProvider>
