@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, useNavigate, useParams } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import { useTime } from '../../contexts/TimeContext';
 import { logger } from '../../utils/logger';
