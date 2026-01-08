@@ -40,7 +40,7 @@ function App() {
     console.log('[AUTH] Token expiry check:', { isExpired, hasToken: !!token });
     logger.info('ROUTING', 'Token expiry check', { isExpired });
     
-    const loggedIn = token && !isExpired;
+    const loggedIn = token && !isExpired ? true : false;
     console.log('[AUTH] Auth check complete:', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
     logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
     
