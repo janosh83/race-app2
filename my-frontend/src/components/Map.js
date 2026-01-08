@@ -29,6 +29,7 @@ function Map({ topOffset = 56 }) {
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
   const geoWatchIdRef = useRef(null);
+  const markersRef = useRef({}); // Track markers by checkpoint ID
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -159,43 +160,81 @@ function Map({ topOffset = 56 }) {
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
-  // Add checkpoint markers when checkpoints or map are ready
+  // Update checkpoint markers efficiently by diffing changes
   useEffect(() => {
     if (!mapInstance.current) return;
 
-    // Remove old markers (optional: keep track of them in a ref for more control)
-    mapInstance.current.eachLayer(layer => {
-      if (layer instanceof L.Marker && !layer.options.title?.includes('Your location')) {
-        mapInstance.current.removeLayer(layer);
+    // If checkpoints shouldn't be shown, remove all markers
+    if (!showCheckpoints) {
+      Object.values(markersRef.current).forEach(marker => {
+        if (mapInstance.current.hasLayer(marker)) {
+          mapInstance.current.removeLayer(marker);
+        }
+      });
+      return;
+    }
+
+    // Build a set of current checkpoint IDs
+    const currentIds = new Set(checkpoints.map(cp => cp.id));
+    const existingIds = new Set(Object.keys(markersRef.current).map(k => parseInt(k, 10)));
+
+    // Remove markers for deleted checkpoints
+    for (const id of existingIds) {
+      if (!currentIds.has(id)) {
+        const marker = markersRef.current[id];
+        if (mapInstance.current.hasLayer(marker)) {
+          mapInstance.current.removeLayer(marker);
+        }
+        delete markersRef.current[id];
+      }
+    }
+
+    // Add or update markers for current checkpoints
+    checkpoints.forEach(cp => {
+      if (markersRef.current[cp.id]) {
+        // Marker exists - just update its icon if visited status changed
+        const currentIcon = markersRef.current[cp.id].options.icon;
+        const iconUrl = cp.visited
+          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
+          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+        const newIcon = currentIcon.options.iconUrl !== iconUrl
+          ? L.icon({
+              iconUrl,
+              iconSize: [25, 41],
+              iconAnchor: [12, 41],
+              popupAnchor: [1, -34],
+              shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+              shadowSize: [41, 41],
+            })
+          : currentIcon;
+        markersRef.current[cp.id].setIcon(newIcon);
+      } else {
+        // New marker - create it
+        const iconUrl = cp.visited
+          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
+          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+
+        const marker = L.marker([cp.latitude, cp.longitude], {
+          title: cp.title,
+          icon: L.icon({
+            iconUrl,
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            shadowSize: [41, 41],
+          }),
+        }).addTo(mapInstance.current);
+
+        // Open full-screen overlay on marker click
+        marker.on('click', () => {
+          setSelectedCheckpoint(cp);
+        });
+
+        markersRef.current[cp.id] = marker;
       }
     });
-
-    // Only add markers if checkpoints should be shown
-    if (!showCheckpoints) return;
-
-    checkpoints.forEach(cp => {
-      const iconUrl = cp.visited
-        ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
-        : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
-
-      const marker = L.marker([cp.latitude, cp.longitude], {
-        title: cp.title,
-        icon: L.icon({
-          iconUrl,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-          shadowSize: [41, 41],
-        }),
-      }).addTo(mapInstance.current);
-
-      // Open full-screen overlay on marker click
-      marker.on('click', () => {
-        setSelectedCheckpoint(cp);
-      });
-    });
-  }, [checkpoints, activeRaceId, activeTeamId, apiUrl, timeInfo.state, showCheckpoints]);
+  }, [checkpoints, showCheckpoints]);
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
