@@ -3,7 +3,7 @@
  * Provides structured logging with categories and log levels
  */
 
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = true;
 
 // Color codes for console output
 const colors = {
