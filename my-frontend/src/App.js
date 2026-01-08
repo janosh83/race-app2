@@ -25,11 +25,12 @@ const LogOnce = ({ message, data, children }) => {
 
 function App() {
   const token = localStorage.getItem('accessToken');
-  const isLoggedIn = token && !isTokenExpired(token);
+  const tokenExpired = token ? isTokenExpired(token) : null;
+  const isLoggedIn = token && !tokenExpired;
 
   useEffect(() => {
-    logger.info('ROUTING', 'App initialized', { isLoggedIn, hasToken: !!token, tokenExpired: token ? isTokenExpired(token) : 'no-token' });
-  }, [isLoggedIn, token]);
+    logger.info('ROUTING', 'App initialized', { isLoggedIn, hasToken: !!token, tokenExpired: tokenExpired ?? 'no-token' });
+  }, [isLoggedIn, token, tokenExpired]);
   
   return (
     <TimeProvider>
