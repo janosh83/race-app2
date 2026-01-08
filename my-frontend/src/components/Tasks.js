@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import piexif from 'piexifjs';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import StatusBadge from './StatusBadge';
+import { resizeImageWithExif } from '../utils/image';
+import { logger } from '../utils/logger';
 
 function Tasks({ topOffset = 56 }) {
   // token expiry watcher
@@ -47,70 +48,17 @@ function Tasks({ topOffset = 56 }) {
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result;
-      let exifObj = null;
-      let exifStr = '';
-      if (file.type === 'image/jpeg') {
-        try {
-          exifObj = piexif.load(dataUrl);
-          exifStr = piexif.dump(exifObj);
-        } catch (err) {
-          exifStr = '';
-        }
-      }
-      const img = new Image();
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-        const maxSize = 1000;
-        if (width > height) {
-          if (width > maxSize) {
-            height = Math.round((height * maxSize) / width);
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = Math.round((width * maxSize) / height);
-            height = maxSize;
-          }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        canvas.toBlob((blob) => {
-          const fr = new FileReader();
-          fr.onloadend = () => {
-            let jpegDataUrl = fr.result;
-            if (file.type === 'image/jpeg' && exifStr) {
-              jpegDataUrl = piexif.insert(exifStr, jpegDataUrl);
-            }
-            const arr = jpegDataUrl.split(',');
-            const mime = arr[0].match(/:(.*?);/)[1];
-            const bstr = atob(arr[1]);
-            let n = bstr.length;
-            const u8arr = new Uint8Array(n);
-            while (n--) {
-              u8arr[n] = bstr.charCodeAt(n);
-            }
-            const finalBlob = new Blob([u8arr], { type: mime });
-            const resizedFile = new File([finalBlob], file.name, { type: mime });
-            setSelectedImage(resizedFile);
-            setImagePreview(jpegDataUrl);
-          };
-          fr.readAsDataURL(blob);
-        }, 'image/jpeg', 0.9);
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { resizedFile, previewDataUrl } = await resizeImageWithExif(file);
+      setSelectedImage(resizedFile);
+      setImagePreview(previewDataUrl);
+    } catch (err) {
+      logger.error('IMAGE', 'Failed to process image', err?.message || err);
+      alert('Failed to process image. Please try another photo.');
+    }
   };
 
   const refreshTasks = async () => {
