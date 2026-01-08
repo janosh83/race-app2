@@ -35,57 +35,58 @@ function App() {
     logger.info('ROUTING', 'App initialized, auth check complete', { isLoggedIn: loggedIn, hasToken: !!token });
   }, []);
   
+  // Show loading state while checking auth
+  if (isLoggedIn === null) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+  
   return (
     <TimeProvider>
       <Router>
         <Routes>
           {/* Auth routes - accessible when NOT logged in, redirect to /race if logged in */}
           <Route path="/login" element={
-            isLoggedIn === null ? null : (
-              isLoggedIn ? (
-                <Navigate to="/race" replace />
-              ) : (
-                <LogOnce message="User accessing login route" data={{ isLoggedIn }}>
-                  <Login />
-                </LogOnce>
-              )
+            isLoggedIn ? (
+              <Navigate to="/race" replace />
+            ) : (
+              <LogOnce message="User accessing login route" data={{ isLoggedIn }}>
+                <Login />
+              </LogOnce>
             )
           } />
           
           <Route path="/forgot-password" element={
-            isLoggedIn === null ? null : (
-              isLoggedIn ? (
-                <Navigate to="/race" replace />
-              ) : (
-                <LogOnce message="User accessing forgot-password route" data={{ isLoggedIn }}>
-                  <ForgotPassword />
-                </LogOnce>
-              )
+            isLoggedIn ? (
+              <Navigate to="/race" replace />
+            ) : (
+              <LogOnce message="User accessing forgot-password route" data={{ isLoggedIn }}>
+                <ForgotPassword />
+              </LogOnce>
             )
           } />
           
           <Route path="/reset-password" element={
-            isLoggedIn === null ? null : (
-              isLoggedIn ? (
-                <Navigate to="/race" replace />
-              ) : (
-                <LogOnce message="User accessing reset-password route" data={{ isLoggedIn }}>
-                  <ResetPassword />
-                </LogOnce>
-              )
+            isLoggedIn ? (
+              <Navigate to="/race" replace />
+            ) : (
+              <LogOnce message="User accessing reset-password route" data={{ isLoggedIn }}>
+                <ResetPassword />
+              </LogOnce>
             )
           } />
 
           {/* Race routes - requires authentication */}
           <Route path="/race" element={
-            isLoggedIn === null ? null : (
-              isLoggedIn ? (
-                <LogOnce message="User accessing protected race routes" data={{ isLoggedIn }}>
-                  <RaceLayout />
-                </LogOnce>
-              ) : (
-                <Navigate to="/login" replace />
-              )
+            isLoggedIn ? (
+              <LogOnce message="User accessing protected race routes" data={{ isLoggedIn }}>
+                <RaceLayout />
+              </LogOnce>
+            ) : (
+              <Navigate to="/login" replace />
             )
           }>
             <Route index element={<ActiveRacePage />} />
@@ -108,14 +109,12 @@ function App() {
 
           {/* Admin routes - requires authentication */}
           <Route path="/admin" element={
-            isLoggedIn === null ? null : (
-              isLoggedIn ? (
-                <LogOnce message="User accessing protected admin routes" data={{ isLoggedIn }}>
-                  <AdminLayout />
-                </LogOnce>
-              ) : (
-                <Navigate to="/login" replace />
-              )
+            isLoggedIn ? (
+              <LogOnce message="User accessing protected admin routes" data={{ isLoggedIn }}>
+                <AdminLayout />
+              </LogOnce>
+            ) : (
+              <Navigate to="/login" replace />
             )
           }>
             <Route index element={<AdminPage />} />
@@ -123,11 +122,9 @@ function App() {
 
           {/* Catch-all redirect */}
           <Route path="*" element={
-            isLoggedIn === null ? null : (
-              <LogOnce message="User accessing unknown route, redirecting" data={{ isLoggedIn, redirectTo: isLoggedIn ? "/race" : "/login" }}>
-                <Navigate to={isLoggedIn ? "/race" : "/login"} replace />
-              </LogOnce>
-            )
+            <LogOnce message="User accessing unknown route, redirecting" data={{ isLoggedIn, redirectTo: isLoggedIn ? "/race" : "/login" }}>
+              <Navigate to={isLoggedIn ? "/race" : "/login"} replace />
+            </LogOnce>
           } />
         </Routes>
       </Router>
