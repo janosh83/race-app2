@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { selectActiveRace } from '../utils/activeRaceUtils';
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
@@ -9,6 +10,7 @@ function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { setActiveRace, setSignedRaces } = useTime();
+    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -41,10 +43,9 @@ function Login() {
                     setActiveRace(null);
                 }
 
-                // Set flag for initial load auto-redirect
-                sessionStorage.setItem('initialLoad', 'true');
-                
-                window.location.reload();
+                // Notify app about auth change and route to /race
+                window.dispatchEvent(new Event('auth-update'));
+                navigate('/race', { replace: true });
             } else {
                 logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
                 setError(data.msg || 'Login failed');

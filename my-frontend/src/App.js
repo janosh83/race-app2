@@ -28,24 +28,39 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = checking, true/false = determined
 
   useEffect(() => {
-    // Check authentication status
-    console.log('[AUTH] Starting auth check...');
-    logger.info('ROUTING', 'Starting auth check');
-    
-    const token = localStorage.getItem('accessToken');
-    console.log('[AUTH] Token retrieved:', { hasToken: !!token, tokenLength: token?.length });
-    logger.info('ROUTING', 'Token retrieved', { hasToken: !!token });
-    
-    const isExpired = token ? isTokenExpired(token) : true;
-    console.log('[AUTH] Token expiry check:', { isExpired, hasToken: !!token });
-    logger.info('ROUTING', 'Token expiry check', { isExpired });
-    
-    const loggedIn = token && !isExpired ? true : false;
-    console.log('[AUTH] Auth check complete:', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
-    logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
-    
-    setIsLoggedIn(loggedIn);
-    console.log('[AUTH] isLoggedIn state updated to:', loggedIn);
+    const syncAuth = () => {
+      console.log('[AUTH] Starting auth check...');
+      logger.info('ROUTING', 'Starting auth check');
+      
+      const token = localStorage.getItem('accessToken');
+      console.log('[AUTH] Token retrieved:', { hasToken: !!token, tokenLength: token?.length });
+      logger.info('ROUTING', 'Token retrieved', { hasToken: !!token });
+      
+      const isExpired = token ? isTokenExpired(token) : true;
+      console.log('[AUTH] Token expiry check:', { isExpired, hasToken: !!token });
+      logger.info('ROUTING', 'Token expiry check', { isExpired });
+      
+      const loggedIn = !!(token && !isExpired);
+      console.log('[AUTH] Auth check complete:', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
+      logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
+      
+      setIsLoggedIn(loggedIn);
+      console.log('[AUTH] isLoggedIn state updated to:', loggedIn);
+    };
+
+    // Run immediately on mount
+    syncAuth();
+
+    // Sync when auth changes in-page or across tabs
+    window.addEventListener('auth-update', syncAuth);
+    window.addEventListener('storage', syncAuth);
+    window.addEventListener('focus', syncAuth);
+
+    return () => {
+      window.removeEventListener('auth-update', syncAuth);
+      window.removeEventListener('storage', syncAuth);
+      window.removeEventListener('focus', syncAuth);
+    };
   }, []);
   
   // Show loading state while checking auth
