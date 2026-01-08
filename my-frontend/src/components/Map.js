@@ -7,6 +7,7 @@ import { useTime, formatDate } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
 import StatusBadge from './StatusBadge';
 import { resizeImageWithExif } from '../utils/image';
+import Toast from './Toast';
 
 function Map({ topOffset = 56 }) {
   // token expiry watcher (redirect to login when token expires)
@@ -33,6 +34,8 @@ function Map({ topOffset = 56 }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [checkpointError, setCheckpointError] = useState(false);
   const { activeRace, timeInfo } = useTime();
   const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
   const apiUrl = process.env.REACT_APP_API_URL;
@@ -44,22 +47,30 @@ function Map({ topOffset = 56 }) {
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
-    logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId });
-    let mounted = true;
-    raceApi
-      .getCheckpointsStatus(activeRaceId, activeTeamId)
-      .then((data) => {
-        if (mounted) {
+    
+    const fetchCheckpoints = () => {
+      logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId });
+      setCheckpointError(false);
+      
+      raceApi
+        .getCheckpointsStatus(activeRaceId, activeTeamId)
+        .then((data) => {
           logger.success('RACE', 'Checkpoints loaded for map', { count: data?.length || 0 });
           setCheckpoints(data);
-        }
-      })
-      .catch((err) => {
-        logger.error('RACE', 'Failed to fetch checkpoints', err.message);
-      });
-    return () => {
-      mounted = false;
+          setCheckpointError(false);
+        })
+        .catch((err) => {
+          logger.error('RACE', 'Failed to fetch checkpoints', err.message);
+          setCheckpointError(true);
+          setToast({
+            message: 'Failed to load checkpoints. Click retry to try again.',
+            type: 'error',
+            duration: 0 // Don't auto-dismiss
+          });
+        });
     };
+
+    fetchCheckpoints();
   }, [activeRaceId, activeTeamId]);
 
   useEffect(() => {
@@ -218,9 +229,18 @@ function Map({ topOffset = 56 }) {
       setSelectedCheckpoint(null);
       setSelectedImage(null);
       setImagePreview(null);
+      setToast({
+        message: 'Visit logged successfully',
+        type: 'success',
+        duration: 3000
+      });
     } catch (err) {
       logger.error('RACE', 'Failed to log checkpoint visit', err.message);
-      alert(err.message || 'Failed to log visit.');
+      setToast({
+        message: 'Failed to log visit: ' + (err.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     } finally {
       setIsUploading(false);
     }
@@ -237,8 +257,41 @@ function Map({ topOffset = 56 }) {
       setSelectedCheckpoint(null);
     } catch (err) {
       logger.error('RACE', 'Failed to delete checkpoint visit', err.message);
-      alert('Failed to delete visit.');
+      setToast({
+        message: 'Failed to delete visit: ' + (err.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     }
+  };
+
+  const handleRetryCheckpoints = () => {
+    if (!activeRaceId || !activeTeamId) return;
+    logger.info('RACE', 'Retrying checkpoint fetch', { raceId: activeRaceId, teamId: activeTeamId });
+    setToast(null);
+    setCheckpointError(false);
+    
+    raceApi
+      .getCheckpointsStatus(activeRaceId, activeTeamId)
+      .then((data) => {
+        logger.success('RACE', 'Checkpoints loaded after retry', { count: data?.length || 0 });
+        setCheckpoints(data);
+        setCheckpointError(false);
+        setToast({
+          message: 'Checkpoints loaded successfully',
+          type: 'success',
+          duration: 3000
+        });
+      })
+      .catch((err) => {
+        logger.error('RACE', 'Retry failed for checkpoints', err.message);
+        setCheckpointError(true);
+        setToast({
+          message: 'Failed to load checkpoints. Click retry to try again.',
+          type: 'error',
+          duration: 0
+        });
+      });
   };
 
   const handleCloseOverlay = () => {
@@ -249,6 +302,44 @@ function Map({ topOffset = 56 }) {
 
   return (
     <>
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Retry button for checkpoint errors */}
+      {checkpointError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: `${topOffset + 10}px`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1500,
+            backgroundColor: '#fff',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}
+        >
+          <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ Failed to load checkpoints</span>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={handleRetryCheckpoints}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Loading overlay during upload */}
       {isUploading && (
         <div style={{

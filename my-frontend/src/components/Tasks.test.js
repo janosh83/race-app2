@@ -404,12 +404,9 @@ describe('Tasks Component', () => {
       });
     });
 
-    test('shows error alert when task logging fails', async () => {
+    test('shows error toast when task logging fails', async () => {
       raceApi.getTasksStatus.mockResolvedValue(mockTasks);
       raceApi.logTaskWithImage.mockRejectedValue(new Error('Network error'));
-      
-      // Mock window.alert
-      const alertMock = jest.spyOn(window, 'alert').mockImplementation(() => {});
 
       render(<Tasks />);
 
@@ -424,10 +421,8 @@ describe('Tasks Component', () => {
       fireEvent.click(completeButton);
 
       await waitFor(() => {
-        expect(alertMock).toHaveBeenCalledWith('Network error');
+        expect(screen.getByText(/Failed to log task: Network error/i)).toBeInTheDocument();
       });
-
-      alertMock.mockRestore();
     });
   });
 

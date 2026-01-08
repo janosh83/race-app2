@@ -5,6 +5,7 @@ import { useTime, formatDate } from '../contexts/TimeContext';
 import StatusBadge from './StatusBadge';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
+import Toast from './Toast';
 
 function Tasks({ topOffset = 56 }) {
   // token expiry watcher
@@ -25,6 +26,8 @@ function Tasks({ topOffset = 56 }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [taskError, setTaskError] = useState(false);
 
   const apiUrl = process.env.REACT_APP_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
@@ -33,16 +36,30 @@ function Tasks({ topOffset = 56 }) {
   // Fetch tasks with status
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
-    let mounted = true;
-    raceApi
-      .getTasksStatus(activeRaceId, activeTeamId)
-      .then((data) => {
-        if (mounted) setTasks(data);
-      })
-      .catch((err) => console.error('Failed to fetch tasks:', err));
-    return () => {
-      mounted = false;
+    
+    const fetchTasks = () => {
+      logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId });
+      setTaskError(false);
+      
+      raceApi
+        .getTasksStatus(activeRaceId, activeTeamId)
+        .then((data) => {
+          logger.success('RACE', 'Tasks loaded', { count: data?.length || 0 });
+          setTasks(data);
+          setTaskError(false);
+        })
+        .catch((err) => {
+          logger.error('RACE', 'Failed to fetch tasks', err.message);
+          setTaskError(true);
+          setToast({
+            message: 'Failed to load tasks. Click retry to try again.',
+            type: 'error',
+            duration: 0
+          });
+        });
     };
+
+    fetchTasks();
   }, [activeRaceId, activeTeamId]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
@@ -57,17 +74,34 @@ function Tasks({ topOffset = 56 }) {
       setImagePreview(previewDataUrl);
     } catch (err) {
       logger.error('IMAGE', 'Failed to process image', err?.message || err);
-      alert('Failed to process image. Please try another photo.');
+      setToast({
+        message: 'Failed to process image. Please try another photo.',
+        type: 'error',
+        duration: 5000
+      });
     }
   };
 
   const refreshTasks = async () => {
-    const data = await raceApi.getTasksStatus(activeRaceId, activeTeamId);
-    setTasks(data);
+    try {
+      const data = await raceApi.getTasksStatus(activeRaceId, activeTeamId);
+      logger.success('RACE', 'Tasks refreshed', { count: data?.length || 0 });
+      setTasks(data);
+      setTaskError(false);
+    } catch (err) {
+      logger.error('RACE', 'Failed to refresh tasks', err.message);
+      setToast({
+        message: 'Failed to refresh tasks: ' + (err.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
+      throw err; // Re-throw to handle in caller
+    }
   };
 
   const handleLogTask = async () => {
     if (!selectedTask) return;
+    logger.info('RACE', 'Logging task', { taskId: selectedTask.id, hasImage: !!selectedImage });
     setIsUploading(true);
     try {
       const formData = new FormData();
@@ -78,10 +112,20 @@ function Tasks({ topOffset = 56 }) {
       }
       await raceApi.logTaskWithImage(activeRaceId, formData);
       await refreshTasks();
+      logger.success('RACE', 'Task logged successfully', { taskId: selectedTask.id });
+      setToast({
+        message: 'Task completed successfully',
+        type: 'success',
+        duration: 3000
+      });
       handleCloseOverlay();
     } catch (err) {
-      console.error('Failed to log task:', err);
-      alert(err.message || 'Failed to log task.');
+      logger.error('RACE', 'Failed to log task', err.message);
+      setToast({
+        message: 'Failed to log task: ' + (err.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     } finally {
       setIsUploading(false);
     }
@@ -89,14 +133,54 @@ function Tasks({ topOffset = 56 }) {
 
   const handleDeleteTask = async () => {
     if (!selectedTask) return;
+    logger.info('RACE', 'Deleting task completion', { taskId: selectedTask.id });
     try {
       await raceApi.deleteTaskCompletion(activeRaceId, { task_id: selectedTask.id, team_id: activeTeamId });
       await refreshTasks();
+      logger.success('RACE', 'Task completion deleted', { taskId: selectedTask.id });
+      setToast({
+        message: 'Task completion deleted',
+        type: 'success',
+        duration: 3000
+      });
       handleCloseOverlay();
     } catch (err) {
-      console.error('Failed to delete task completion:', err);
-      alert('Failed to delete task completion.');
+      logger.error('RACE', 'Failed to delete task completion', err.message);
+      setToast({
+        message: 'Failed to delete task: ' + (err.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     }
+  };
+
+  const handleRetryTasks = () => {
+    if (!activeRaceId || !activeTeamId) return;
+    logger.info('RACE', 'Retrying task fetch', { raceId: activeRaceId, teamId: activeTeamId });
+    setToast(null);
+    setTaskError(false);
+    
+    raceApi
+      .getTasksStatus(activeRaceId, activeTeamId)
+      .then((data) => {
+        logger.success('RACE', 'Tasks loaded after retry', { count: data?.length || 0 });
+        setTasks(data);
+        setTaskError(false);
+        setToast({
+          message: 'Tasks loaded successfully',
+          type: 'success',
+          duration: 3000
+        });
+      })
+      .catch((err) => {
+        logger.error('RACE', 'Retry failed for tasks', err.message);
+        setTaskError(true);
+        setToast({
+          message: 'Failed to load tasks. Click retry to try again.',
+          type: 'error',
+          duration: 0
+        });
+      });
   };
 
   const handleCloseOverlay = () => {
@@ -107,6 +191,44 @@ function Tasks({ topOffset = 56 }) {
 
   return (
     <>
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Retry button for task errors */}
+      {taskError && (
+        <div
+          style={{
+            position: 'fixed',
+            top: `${topOffset + 10}px`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1500,
+            backgroundColor: '#fff',
+            padding: '12px 20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}
+        >
+          <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ Failed to load tasks</span>
+          <button
+            className="btn btn-sm btn-primary"
+            onClick={handleRetryTasks}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {isUploading && (
         <div style={{
           position: 'fixed',
