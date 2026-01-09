@@ -37,7 +37,19 @@ export function logoutAndRedirect(loginPath = '/login') {
   localStorage.removeItem('signedRaces');
   localStorage.removeItem('activeRace');
   localStorage.removeItem('activeSection');
-  window.location.href = loginPath;
+  try {
+    sessionStorage.removeItem('initialLoad');
+  } catch {}
+  // Notify app to sync auth state immediately
+  try {
+    window.dispatchEvent(new Event('auth-update'));
+  } catch {}
+  // Replace history entry to prevent back navigation; fall back to href in tests
+  try {
+    window.location.replace(loginPath);
+  } catch {
+    window.location.href = loginPath;
+  }
 }
 
 /* ---------- token refresh ---------- */

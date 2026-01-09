@@ -62,10 +62,7 @@ function RaceLayout() {
 
   const handleLogout = () => {
     logger.info('AUTH', 'Logout initiated from RaceLayout');
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('signedRaces');
-    window.location.reload();
+    logoutAndRedirect();
   };
 
   const navigateTo = (path) => {
