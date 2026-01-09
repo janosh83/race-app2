@@ -94,14 +94,14 @@ describe('API Utilities', () => {
       expect(localStorage.getItem('activeSection')).toBeNull();
     });
 
-    test('redirects to /login by default', () => {
+    test('redirects to / by default (React Router handles /login redirect)', () => {
       logoutAndRedirect();
-      expect(window.location.href).toBe('/login');
+      expect(window.location.href).toBe('/');
     });
 
-    test('redirects to custom path when provided', () => {
+    test('always redirects to / (ignores custom path parameter)', () => {
       logoutAndRedirect('/custom-login');
-      expect(window.location.href).toBe('/custom-login');
+      expect(window.location.href).toBe('/');
     });
   });
 });

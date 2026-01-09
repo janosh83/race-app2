@@ -45,10 +45,11 @@ export function logoutAndRedirect(loginPath = '/login') {
     window.dispatchEvent(new Event('auth-update'));
   } catch {}
   // Replace history entry to prevent back navigation; fall back to href in tests
+  // Redirect to root (/) so server serves index.html; React Router will redirect to /login
   try {
-    window.location.replace(loginPath);
+    window.location.replace('/');
   } catch {
-    window.location.href = loginPath;
+    window.location.href = '/';
   }
 }
 
