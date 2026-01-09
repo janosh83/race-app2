@@ -137,6 +137,12 @@ export function TimeProvider({ children }) {
   }
 
   useEffect(() => {
+    // Only set up refresh if user is logged in (has signed races)
+    if (!signedRaces || signedRaces.length === 0) {
+      if (refreshRef.current) clearInterval(refreshRef.current);
+      return;
+    }
+
     // refresh on window focus or when tab becomes visible
     const onFocus = () => {
       logger.info('CONTEXT', 'Window focus detected, refreshing races');
@@ -161,7 +167,7 @@ export function TimeProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisibility);
       if (refreshRef.current) clearInterval(refreshRef.current);
     };
-  }, [activeRace]);
+  }, [activeRace, signedRaces]);
 
   return (
     <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, refreshSignedRaces }}>
