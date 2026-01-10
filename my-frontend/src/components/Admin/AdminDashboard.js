@@ -227,6 +227,7 @@ function AdminDashboard() {
                       raceId={selected.id}
                       onRemove={(id) => setTasks(prev => prev.filter(t => t.id !== id))}
                       onImported={(items) => setTasks(prev => [...items, ...prev])}
+                      onUpdate={(id, updatedData) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedData } : t))}
                     />
                   </>)
                   }

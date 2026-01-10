@@ -123,6 +123,61 @@ def test_delete_task_success(test_client, add_test_data, admin_auth_headers):
     assert response.status_code == 404
 
 
+# PUT /api/task/<task_id>/ endpoint tests
+
+def test_update_task_success(test_client, add_test_data, admin_auth_headers):
+    """Test updating a task successfully as admin."""
+    update_data = {
+        "title": "Updated Task 1",
+        "description": "Updated description",
+        "numOfPoints": 15
+    }
+    response = test_client.put("/api/task/1/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Updated Task 1"
+    assert response.json["description"] == "Updated description"
+    assert response.json["numOfPoints"] == 15
+    
+    # Verify the update persisted
+    response = test_client.get("/api/task/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Updated Task 1"
+    assert response.json["description"] == "Updated description"
+    assert response.json["numOfPoints"] == 15
+
+
+def test_update_task_partial(test_client, add_test_data, admin_auth_headers):
+    """Test partial update of task (only some fields)."""
+    update_data = {
+        "title": "New Title Only"
+    }
+    response = test_client.put("/api/task/2/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "New Title Only"
+    # Other fields should remain unchanged
+    assert response.json["description"] == "Second task"
+    assert response.json["numOfPoints"] == 10
+
+
+def test_update_task_not_found(test_client, add_test_data, admin_auth_headers):
+    """Test updating non-existent task returns 404."""
+    update_data = {"title": "Test"}
+    response = test_client.put("/api/task/999/", json=update_data, headers=admin_auth_headers)
+    assert response.status_code == 404
+
+
+def test_update_task_unauthorized(test_client, add_test_data):
+    """Test updating task without JWT returns 401."""
+    response = test_client.put("/api/task/1/", json={"title": "Test"})
+    assert response.status_code == 401
+
+
+def test_update_task_forbidden_non_admin(test_client, add_test_data, regular_user_auth_headers):
+    """Test updating task as non-admin returns 403."""
+    response = test_client.put("/api/task/1/", json={"title": "Test"}, headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
 def test_delete_task_with_logs_and_images(test_client, add_test_data, admin_auth_headers):
     """Test deleting task with associated logs and images."""
     with test_client.application.app_context():

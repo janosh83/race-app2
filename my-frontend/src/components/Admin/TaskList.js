@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import Toast from '../Toast';
 
-export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {} }) {
+export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {} }) {
   const [jsonText, setJsonText] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
+  const [editingId, setEditingId] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    numOfPoints: ''
+  });
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this task?')) return;
@@ -15,6 +23,57 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       console.error('Failed to delete task', err);
       alert('Delete failed');
     }
+  };
+
+  const handleEdit = (task) => {
+    setEditingId(task.id ?? task.task_id);
+    setEditForm({
+      title: task.title ?? '',
+      description: task.description ?? '',
+      numOfPoints: task.numOfPoints ?? task.points ?? 0
+    });
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        title: editForm.title,
+        description: editForm.description,
+        numOfPoints: editForm.numOfPoints ? parseInt(editForm.numOfPoints) : 0
+      };
+      await adminApi.updateTask(editingId, payload);
+      onUpdate(editingId, payload);
+      setEditingId(null);
+      setToast({
+        message: 'Task updated successfully',
+        type: 'success',
+        duration: 5000
+      });
+    } catch (err) {
+      console.error('Failed to update task', err);
+      setToast({
+        message: 'Update failed: ' + (err?.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditForm({
+      title: '',
+      description: '',
+      numOfPoints: ''
+    });
   };
 
   const validateItem = (it) => {
@@ -94,6 +153,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                   <td>{task.description}</td>
                   <td className="text-muted">{task.numOfPoints ?? task.points ?? 0}</td>
                   <td>
+                    <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(task)}>Edit</button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleDelete(task.id ?? task.task_id)}>Delete</button>
                   </td>
                 </tr>
@@ -102,6 +162,56 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           </table>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingId !== null && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Edit Task</h5>
+                <button type="button" className="btn-close" onClick={handleEditCancel}></button>
+              </div>
+              <form onSubmit={handleEditSubmit}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Title</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editForm.title}
+                      onChange={(e) => handleEditChange('title', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Description</label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={editForm.description}
+                      onChange={(e) => handleEditChange('description', e.target.value)}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Number of Points</label>
+                    <input
+                      type="number"
+                      className="form-control"
+                      value={editForm.numOfPoints}
+                      onChange={(e) => handleEditChange('numOfPoints', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
@@ -126,6 +236,16 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           </div>
         </form>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }

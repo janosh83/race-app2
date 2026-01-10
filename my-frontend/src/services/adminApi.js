@@ -27,6 +27,7 @@ export const adminApi = {
   getTasksByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/tasks/`),
   addTask: (raceId, payload) => apiFetch(`/api/race/${raceId}/tasks/`, { method: 'POST', body: payload }),
   deleteTask: (taskId) => apiFetch(`/api/task/${taskId}/`, { method: 'DELETE' }),
+  updateTask: (taskId, payload) => apiFetch(`/api/task/${taskId}/`, { method: 'PUT', body: payload }), // OK
 
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
   getVisitsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/visits/${teamId}/`), // OK

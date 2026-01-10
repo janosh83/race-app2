@@ -59,6 +59,80 @@ def get_task(task_id):
         "numOfPoints": task.numOfPoints
     }), 200
 
+# tested by test_task.py -> test_update_task
+@task_bp.route('/<int:task_id>/', methods=['PUT'])
+@admin_required()
+def update_task(task_id):
+    """
+    Update a task (admin only).
+    ---
+    tags:
+      - Tasks
+    parameters:
+      - in: path
+        name: task_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the task to update
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The title of the task
+              description:
+                type: string
+                description: The description of the task
+              numOfPoints:
+                type: integer
+                description: The number of points for completing
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Task updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
+                description:
+                  type: string
+                numOfPoints:
+                  type: integer
+      404:
+        description: Task not found
+      403:
+        description: Admins only
+    """
+    from flask import request
+    task = Task.query.filter_by(id=task_id).first_or_404()
+    data = request.get_json() or {}
+    
+    if 'title' in data:
+        task.title = data['title']
+    if 'description' in data:
+        task.description = data['description']
+    if 'numOfPoints' in data:
+        task.numOfPoints = data['numOfPoints']
+    
+    db.session.commit()
+    return jsonify({
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "numOfPoints": task.numOfPoints
+    }), 200
+
 # tested by test_task.py -> test_delete_task
 @task_bp.route('/<int:task_id>/', methods=['DELETE'])
 @admin_required()
