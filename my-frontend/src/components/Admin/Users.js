@@ -1,17 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import Toast from '../Toast';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
+  const [toast, setToast] = useState(null);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    isAdmin: false
+  });
 
   const load = async () => {
     setLoading(true);
@@ -68,6 +78,63 @@ export default function Users() {
       console.error('Failed to delete user', err);
       setError('Failed to delete user');
     }
+  };
+
+  const handleEdit = (user) => {
+    setEditingId(user.id);
+    setEditForm({
+      name: user.name || '',
+      email: user.email || '',
+      password: '',
+      isAdmin: user.is_administrator || false
+    });
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: editForm.name,
+        email: editForm.email,
+        is_administrator: editForm.isAdmin
+      };
+      // Only include password if provided
+      if (editForm.password.trim()) {
+        payload.password = editForm.password;
+      }
+      await adminApi.updateUser(editingId, payload);
+      setUsers(users.map(u => u.id === editingId ? { ...u, ...payload } : u));
+      setEditingId(null);
+      setToast({
+        message: 'User updated successfully',
+        type: 'success',
+        duration: 5000
+      });
+    } catch (err) {
+      console.error('Failed to update user', err);
+      setToast({
+        message: 'Update failed: ' + (err?.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditForm({
+      name: '',
+      email: '',
+      password: '',
+      isAdmin: false
+    });
   };
 
   return (
@@ -137,6 +204,7 @@ export default function Users() {
                 <td>{user.email}</td>
                 <td>{user.is_administrator ? 'Yes' : 'No'}</td>
                 <td>
+                  <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(user)}>Edit</button>
                   <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(user.id)}>Delete</button>
                 </td>
               </tr>
@@ -144,6 +212,78 @@ export default function Users() {
           </tbody>
         </table>
       )}
-    </div>
+
+      {/* Edit Modal */}
+      {editingId !== null && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Edit User</h5>
+                <button type="button" className="btn-close" onClick={handleEditCancel}></button>
+              </div>
+              <form onSubmit={handleEditSubmit}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editForm.name}
+                      onChange={(e) => handleEditChange('name', e.target.value)}
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      className="form-control"
+                      value={editForm.email}
+                      onChange={(e) => handleEditChange('email', e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Password (leave empty to keep current)</label>
+                    <input
+                      type="password"
+                      className="form-control"
+                      value={editForm.password}
+                      onChange={(e) => handleEditChange('password', e.target.value)}
+                      placeholder="New password (optional)"
+                    />
+                  </div>
+                  <div className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      id="editAdmin"
+                      checked={editForm.isAdmin}
+                      onChange={(e) => handleEditChange('isAdmin', e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="editAdmin">
+                      Administrator
+                    </label>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}    </div>
   );
 }
