@@ -6,7 +6,6 @@ import AdminPage from './components/Pages/AdminPage';
 import ForgotPassword from './components/ForgotPassword';
 import Login from './components/Login';
 import MapPage from './components/Pages/MapPage';
-import ProtectedRoute from './components/ProtectedRoute';
 import RaceLayout from './components/Layouts/RaceLayout';
 import ResetPassword from './components/ResetPassword';
 import StandingsPage from './components/Pages/StandingsPage';
