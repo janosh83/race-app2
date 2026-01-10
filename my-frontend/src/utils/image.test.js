@@ -1,4 +1,4 @@
-import { resizeImageWithExif } from '../image';
+import { resizeImageWithExif } from './image';
 import piexif from 'piexifjs';
 
 jest.mock('piexifjs', () => {

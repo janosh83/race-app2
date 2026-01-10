@@ -82,7 +82,7 @@ def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test získání týmů podle závodu
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers) # race category id 1 = Auto, OK for race Jarní jízda
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
-    assert response.json == [{"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto'}, {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto'}]
+    assert response.json == [{"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto', 'email_sent': False}, {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto', 'email_sent': False}]
 
 
 # Additional tests for GET /team/race/<race_id>/
@@ -124,7 +124,7 @@ def test_team_signup_race_category_not_found(test_client, add_test_data):
 
 def test_team_signup_category_not_available_for_race(test_client, add_test_data):
     """Test signing up with category not available for race returns 400."""
-    # Race 1 (Jarní jízda) only has category 2 (Auto), not category 1 (Motorka)
+    # Race 1 (Jarní jízda) only has category 1 (Auto), not category 2 (Motorka)
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 2})
     assert response.status_code == 400
     assert "Category not available for the race" in response.json["message"]

@@ -250,40 +250,38 @@ describe('RaceLayout Component', () => {
   });
 
   describe('Logout functionality', () => {
-    test('clears localStorage on logout', () => {
+    test('calls logoutAndRedirect on logout', () => {
       localStorage.setItem('accessToken', 'test-token');
       localStorage.setItem('user', JSON.stringify({ username: 'test' }));
       localStorage.setItem('signedRaces', JSON.stringify([1, 2, 3]));
 
-      // Mock window.location.reload
+      // Mock window.location.replace
       delete window.location;
-      window.location = { reload: jest.fn() };
+      window.location = { replace: jest.fn() };
 
       renderWithProviders();
 
       const logoutButton = screen.getByRole('button', { name: 'Logout' });
       fireEvent.click(logoutButton);
 
-      expect(localStorage.getItem('accessToken')).toBeNull();
-      expect(localStorage.getItem('user')).toBeNull();
-      expect(localStorage.getItem('signedRaces')).toBeNull();
+      expect(logoutAndRedirect).toHaveBeenCalled();
     });
 
-    test('reloads page on logout', () => {
+    test('redirects to root on logout', () => {
       delete window.location;
-      window.location = { reload: jest.fn() };
+      window.location = { replace: jest.fn() };
 
       renderWithProviders();
 
       const logoutButton = screen.getByRole('button', { name: 'Logout' });
       fireEvent.click(logoutButton);
 
-      expect(window.location.reload).toHaveBeenCalled();
+      expect(logoutAndRedirect).toHaveBeenCalled();
     });
 
     test('closes navbar on logout', () => {
       delete window.location;
-      window.location = { reload: jest.fn() };
+      window.location = { replace: jest.fn() };
 
       renderWithProviders();
 

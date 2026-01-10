@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { TimeProvider } from '../contexts/TimeContext';
 import Login from './Login';
 import { authApi } from '../services/authApi';
@@ -7,14 +8,19 @@ import { authApi } from '../services/authApi';
 // Mock the authApi
 jest.mock('../services/authApi');
 
-// Mock window.location.reload
-delete window.location;
-window.location = { reload: jest.fn() };
+// Mock react-router-dom useNavigate
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
 
 const MockLogin = () => (
-  <TimeProvider>
-    <Login />
-  </TimeProvider>
+  <MemoryRouter initialEntries={['/login']}>
+    <TimeProvider>
+      <Login />
+    </TimeProvider>
+  </MemoryRouter>
 );
 
 describe('Login Component', () => {
@@ -22,6 +28,7 @@ describe('Login Component', () => {
     localStorage.clear();
     sessionStorage.clear();
     jest.clearAllMocks();
+    mockNavigate.mockClear();
   });
 
   test('renders login form with email and password fields', () => {
@@ -70,8 +77,7 @@ describe('Login Component', () => {
       expect(authApi.login).toHaveBeenCalledWith('test@example.com', 'password123');
       expect(localStorage.getItem('accessToken')).toBe('mock-access-token');
       expect(localStorage.getItem('refreshToken')).toBe('mock-refresh-token');
-      expect(sessionStorage.getItem('initialLoad')).toBe('true');
-      expect(window.location.reload).toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/race', { replace: true });
     });
   });
 

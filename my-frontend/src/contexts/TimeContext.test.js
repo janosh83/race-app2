@@ -427,6 +427,9 @@ describe('TimeContext', () => {
     });
 
     test('refreshes on window focus', async () => {
+      const storedRaces = [{ race_id: 1 }];
+      localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
+      
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
@@ -445,6 +448,9 @@ describe('TimeContext', () => {
     });
 
     test('refreshes when tab becomes visible', async () => {
+      const storedRaces = [{ race_id: 1 }];
+      localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
+      
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
