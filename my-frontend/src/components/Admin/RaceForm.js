@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
+import Toast from '../Toast';
 
 export default function RaceForm({ race = null, onSaved = null, onCreated = null, onCancel = null }) {
   const [name, setName] = useState('');
@@ -9,6 +10,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [startLogging, setStartLogging] = useState('');
   const [endLogging, setEndLogging] = useState('');
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
   const isEdit = Boolean(race && race.id);
 
   useEffect(() => {
@@ -86,9 +88,18 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       }
       if (onSaved) onSaved(saved);
       if (!isEdit && onCreated) onCreated(saved);
+      setToast({
+        message: isEdit ? 'Race updated successfully' : 'Race created successfully',
+        type: 'success',
+        duration: 5000
+      });
     } catch (err) {
       console.error('Failed to save race', err);
-      alert('Failed to save race');
+      setToast({
+        message: 'Failed to save race: ' + (err?.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     } finally {
       setSaving(false);
     }
@@ -151,6 +162,16 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
         </div>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => setToast(null)}
+        />
+      )}
     </form>
   );
 }

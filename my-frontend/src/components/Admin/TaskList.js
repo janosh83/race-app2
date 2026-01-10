@@ -19,9 +19,18 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     try {
       await adminApi.deleteTask(id);
       onRemove(id);
+      setToast({
+        message: 'Task deleted successfully',
+        type: 'success',
+        duration: 5000
+      });
     } catch (err) {
       console.error('Failed to delete task', err);
-      alert('Delete failed');
+      setToast({
+        message: 'Delete failed: ' + (err?.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     }
   };
 
@@ -120,7 +129,11 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       }
       onImported(created);
       setJsonText('');
-      alert(`Imported ${created.length} tasks`);
+      setToast({
+        message: `Imported ${created.length} tasks successfully`,
+        type: 'success',
+        duration: 5000
+      });
     } catch (err) {
       console.error('Import failed', err);
       setImportError(err?.message || 'Import failed');

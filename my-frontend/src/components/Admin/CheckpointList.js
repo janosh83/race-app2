@@ -21,9 +21,18 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     try {
       await adminApi.deleteCheckpoint(id);
       onRemove(id);
+      setToast({
+        message: 'Checkpoint deleted successfully',
+        type: 'success',
+        duration: 5000
+      });
     } catch (err) {
       console.error('Failed to delete checkpoint', err);
-      alert('Delete failed');
+      setToast({
+        message: 'Delete failed: ' + (err?.message || 'Unknown error'),
+        type: 'error',
+        duration: 5000
+      });
     }
   };
 
@@ -135,7 +144,11 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       // notify parent and clear textarea
       onImported(created);
       setJsonText('');
-      alert(`Imported ${created.length} checkpoints`);
+      setToast({
+        message: `Imported ${created.length} checkpoints successfully`,
+        type: 'success',
+        duration: 5000
+      });
     } catch (err) {
       console.error('Import failed', err);
       setImportError(err?.message || 'Import failed');
