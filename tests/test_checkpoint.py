@@ -57,6 +57,61 @@ def test_delete_checkpoint(test_client, add_test_data):
     response = test_client.get("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 404
 
+def test_update_checkpoint(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Update checkpoint with new data
+    update_data = {
+        "title": "Updated Checkpoint 1",
+        "description": "Updated description",
+        "latitude": 51.0755,
+        "longitude": 15.4378,
+        "numOfPoints": 5
+    }
+    response = test_client.put("/api/checkpoint/1/", json=update_data, headers=headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Updated Checkpoint 1"
+    assert response.json["description"] == "Updated description"
+    assert response.json["latitude"] == 51.0755
+    assert response.json["longitude"] == 15.4378
+    assert response.json["numOfPoints"] == 5
+
+    # Verify the update persisted
+    response = test_client.get("/api/checkpoint/1/", headers=headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Updated Checkpoint 1"
+    assert response.json["description"] == "Updated description"
+    assert response.json["latitude"] == 51.0755
+    assert response.json["longitude"] == 15.4378
+    assert response.json["numOfPoints"] == 5
+
+def test_update_checkpoint_partial(test_client, add_test_data):
+    """Test that partial updates work (only updating some fields)"""
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Update only title and numOfPoints
+    update_data = {
+        "title": "New Title",
+        "numOfPoints": 10
+    }
+    response = test_client.put("/api/checkpoint/2/", json=update_data, headers=headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "New Title"
+    assert response.json["numOfPoints"] == 10
+    # Other fields should remain unchanged
+    assert response.json["description"] == "Druhý checkpoint"
+    assert response.json["latitude"] == 50.0855
+    assert response.json["longitude"] == 14.4478
+
+def test_update_checkpoint_nonexistent(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.put("/api/checkpoint/999/", json={"title": "Test"}, headers=headers)
+    assert response.status_code == 404
+
 def test_checkpoint_unauthorized_access(test_client, add_test_data):
     """Test that endpoints require authentication"""
     # Try to access without JWT token
@@ -64,6 +119,9 @@ def test_checkpoint_unauthorized_access(test_client, add_test_data):
     assert response.status_code == 401
     
     response = test_client.delete("/api/checkpoint/1/")
+    assert response.status_code == 401
+
+    response = test_client.put("/api/checkpoint/1/", json={"title": "Test"})
     assert response.status_code == 401
 
 def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
@@ -86,5 +144,10 @@ def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
     
     # Try to delete checkpoint
     response = test_client.delete("/api/checkpoint/1/", headers=headers)
+    assert response.status_code == 403
+    assert response.json["msg"] == "Admins only!"
+
+    # Try to update checkpoint
+    response = test_client.put("/api/checkpoint/1/", json={"title": "Test"}, headers=headers)
     assert response.status_code == 403
     assert response.json["msg"] == "Admins only!"

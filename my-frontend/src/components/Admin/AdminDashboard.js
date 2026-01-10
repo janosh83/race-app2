@@ -220,6 +220,7 @@ function AdminDashboard() {
                       raceId={selected.id}
                       onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
                       onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
+                      onUpdate={(id, updatedData) => setCheckpoints(prev => prev.map(cp => cp.id === id ? { ...cp, ...updatedData } : cp))}
                     />
                     <TaskList
                       tasks={tasks}

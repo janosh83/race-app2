@@ -71,6 +71,98 @@ def get_checkpoint(checkpoint_id):
         "numOfPoints": checkpoint.numOfPoints
     }), 200
 
+# tested by test_checkpoint.py -> test_update_checkpoint
+@checkpoint_bp.route('/<int:checkpoint_id>/', methods=['PUT'])
+@admin_required()
+def update_checkpoint(checkpoint_id):
+    """
+    Update a checkpoint (admin only).
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint to update
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+                description: The title of the checkpoint
+              description:
+                type: string
+                description: The description of the checkpoint
+              latitude:
+                type: number
+                format: float
+                description: The latitude coordinate
+              longitude:
+                type: number
+                format: float
+                description: The longitude coordinate
+              numOfPoints:
+                type: integer
+                description: The number of points for visiting
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Checkpoint updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                title:
+                  type: string
+                description:
+                  type: string
+                latitude:
+                  type: number
+                longitude:
+                  type: number
+                numOfPoints:
+                  type: integer
+      404:
+        description: Checkpoint not found
+      403:
+        description: Admins only
+    """
+    from flask import request
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
+    data = request.get_json() or {}
+    
+    if 'title' in data:
+        checkpoint.title = data['title']
+    if 'description' in data:
+        checkpoint.description = data['description']
+    if 'latitude' in data:
+        checkpoint.latitude = data['latitude']
+    if 'longitude' in data:
+        checkpoint.longitude = data['longitude']
+    if 'numOfPoints' in data:
+        checkpoint.numOfPoints = data['numOfPoints']
+    
+    db.session.commit()
+    return jsonify({
+        "id": checkpoint.id,
+        "title": checkpoint.title,
+        "description": checkpoint.description,
+        "latitude": checkpoint.latitude,
+        "longitude": checkpoint.longitude,
+        "numOfPoints": checkpoint.numOfPoints
+    }), 200
+
 # tested by test_checkpoint.py -> test_delete_checkpoint
 @checkpoint_bp.route('/<int:checkpoint_id>/', methods=['DELETE'])
 @admin_required()
