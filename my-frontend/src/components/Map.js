@@ -236,6 +236,15 @@ function Map({ topOffset = 56 }) {
     });
   }, [checkpoints, showCheckpoints]);
 
+  // Keep selected checkpoint details in sync with latest data (visited state, images, etc.)
+  useEffect(() => {
+    if (!selectedCheckpoint) return;
+    const updated = checkpoints.find(cp => cp.id === selectedCheckpoint.id);
+    if (updated) {
+      setSelectedCheckpoint(updated);
+    }
+  }, [checkpoints, selectedCheckpoint?.id]);
+
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
