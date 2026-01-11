@@ -210,21 +210,9 @@ def create_task(race_id):
     try:
       loaded = schema.load(items, many=True)
     except Exception as err:
-      messages = getattr(err, 'messages', {})
-      missing_title = False
-      if isinstance(messages, dict):
-        for _, detail in messages.items():
-          if isinstance(detail, dict) and 'title' in detail:
-            missing_title = True
-            break
-          if _ == 'title':
-            missing_title = True
-            break
-      if missing_title:
-        logger.warning(f"Task creation missing title for race {race_id}")
-        return jsonify({"message": "Missing required field: title or name"}), 400
       logger.warning(f"Task creation validation failed for race {race_id}: {err}")
-      return jsonify({"errors": messages or str(err)}), 400
+      messages = getattr(err, 'messages', str(err))
+      return jsonify({"errors": messages}), 400
 
     created = []
     for entry in loaded:

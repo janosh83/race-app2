@@ -195,7 +195,8 @@ def test_create_checkpoint_missing_title_400(test_client, add_test_data, admin_a
         headers=admin_auth_headers,
     )
     assert resp.status_code == 400
-    assert resp.json.get("message") == "Missing required field: title or name"
+    assert "errors" in resp.json
+    assert "title" in str(resp.json["errors"])
 
 
 def test_create_checkpoint_invalid_race_404(test_client, add_test_data, admin_auth_headers):

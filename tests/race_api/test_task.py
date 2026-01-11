@@ -167,7 +167,8 @@ def test_create_task_missing_title(test_client, add_test_data):
         "numOfPoints": 5
     }, headers=headers)
     assert response.status_code == 400
-    assert "Missing required field" in response.json["message"]
+    assert "errors" in response.json
+    assert "title" in str(response.json["errors"])
 
 def test_task_without_authentication(test_client, add_test_data):
     """Test accessing task endpoints without authentication"""
