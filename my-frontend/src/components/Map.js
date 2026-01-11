@@ -263,11 +263,41 @@ function Map({ topOffset = 56 }) {
     logger.info('RACE', 'Logging checkpoint visit', { checkpointId: selectedCheckpoint.id, hasImage: !!selectedImage });
     setIsUploading(true);
     try {
+      // Get user's current position
+      let userLatitude = null;
+      let userLongitude = null;
+
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            });
+          });
+          userLatitude = position.coords.latitude;
+          userLongitude = position.coords.longitude;
+          logger.info('GEOLOCATION', 'User position captured for checkpoint log', {
+            lat: userLatitude.toFixed(4),
+            lng: userLongitude.toFixed(4)
+          });
+        } catch (geoErr) {
+          logger.warn('GEOLOCATION', 'Failed to get user position', geoErr.message);
+          // Continue without user position - it's optional
+        }
+      }
+
       const formData = new FormData();
       formData.append('checkpoint_id', selectedCheckpoint.id);
       formData.append('team_id', activeTeamId);
       if (selectedImage) {
         formData.append('image', selectedImage);
+      }
+      // Add user position if available
+      if (userLatitude !== null) {
+        formData.append('user_latitude', userLatitude);
+        formData.append('user_longitude', userLongitude);
       }
 
       await raceApi.logVisitWithImage(activeRaceId, formData);

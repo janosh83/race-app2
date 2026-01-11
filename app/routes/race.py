@@ -313,14 +313,43 @@ def get_visits_by_race_and_team(race_id, team_id):
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         return 403
     
-    visits = (db.session.query(CheckpointLog.id, CheckpointLog.checkpoint_id, Checkpoint.title.label("checkpoint_title"), CheckpointLog.team_id, CheckpointLog.created_at)
-                .select_from(CheckpointLog)
-                .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
-                .filter(CheckpointLog.race_id==race_id)
-                .filter(CheckpointLog.team_id==team_id)
-                .all())
+    visits = (
+      db.session.query(
+        CheckpointLog.id,
+        CheckpointLog.checkpoint_id,
+        Checkpoint.title.label("checkpoint_title"),
+        CheckpointLog.team_id,
+        CheckpointLog.created_at,
+        CheckpointLog.image_distance_km,
+        CheckpointLog.image_latitude,
+        CheckpointLog.image_longitude,
+        CheckpointLog.user_distance_km,
+        CheckpointLog.user_latitude,
+        CheckpointLog.user_longitude,
+      )
+      .select_from(CheckpointLog)
+      .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
+      .filter(CheckpointLog.race_id == race_id)
+      .filter(CheckpointLog.team_id == team_id)
+      .all()
+    )
 
-    return jsonify([{"id": visit.id, "checkpoint_id": visit.checkpoint_id, "checkpoint": visit.checkpoint_title, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
+    return jsonify([
+      {
+        "id": visit.id,
+        "checkpoint_id": visit.checkpoint_id,
+        "checkpoint": visit.checkpoint_title,
+        "team_id": visit.team_id,
+        "created_at": visit.created_at,
+        "image_distance_km": visit.image_distance_km,
+        "image_latitude": visit.image_latitude,
+        "image_longitude": visit.image_longitude,
+        "user_distance_km": visit.user_distance_km,
+        "user_latitude": visit.user_latitude,
+        "user_longitude": visit.user_longitude,
+      }
+      for visit in visits
+    ])
 
 # get all checkpoint visits for selected race
 # tested by test_visits.py -> test_get_visits
@@ -362,7 +391,20 @@ def get_visits_by_race(race_id):
         description: Admins only
     """
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
-    return jsonify([{"checkpoint_id": visit.checkpoint_id, "team_id": visit.team_id, "created_at": visit.created_at} for visit in visits])
+    return jsonify([
+      {
+        "checkpoint_id": visit.checkpoint_id,
+        "team_id": visit.team_id,
+        "created_at": visit.created_at,
+        "image_distance_km": visit.image_distance_km,
+        "image_latitude": visit.image_latitude,
+        "image_longitude": visit.image_longitude,
+        "user_distance_km": visit.user_distance_km,
+        "user_latitude": visit.user_latitude,
+        "user_longitude": visit.user_longitude,
+      }
+      for visit in visits
+    ])
 
 # get all task completions for selected team and race
 @race_bp.route("/<int:race_id>/task-completions/<int:team_id>/", methods=["GET"])

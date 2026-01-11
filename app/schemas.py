@@ -11,6 +11,7 @@ class CheckpointCreateSchema(Schema):
     @pre_load
     def normalize(self, data, **kwargs):
         normalized = dict(data)
+        # Map aliases
         if "name" in normalized and "title" not in normalized:
             normalized["title"] = normalized["name"]
         if "lat" in normalized and "latitude" not in normalized:
@@ -61,6 +62,9 @@ class CheckpointLogSchema(Schema):
     user_latitude = fields.Float(load_default=None)
     user_longitude = fields.Float(load_default=None)
     user_distance_km = fields.Float(load_default=None)
+
+
+
 
 
 class TaskCreateSchema(Schema):

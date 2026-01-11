@@ -373,7 +373,7 @@ def log_task_completion(race_id):
         description: Race or team not found
     """
     # Accept both JSON and multipart/form-data
-    if request.content_type.startswith('multipart/form-data'):
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
       raw_data = request.form.to_dict()
       file = request.files.get('image')
     else:
