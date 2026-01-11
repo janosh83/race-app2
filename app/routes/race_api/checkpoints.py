@@ -238,8 +238,23 @@ def create_checkpoint(race_id):
     try:
       loaded = schema.load(raw_items, many=True)
     except Exception as err:
+      # Map missing title to legacy message expected by tests
+      messages = getattr(err, 'messages', {})
+      missing_title = False
+      if isinstance(messages, dict):
+        # messages may be indexed when many=True
+        for _, detail in messages.items():
+          if isinstance(detail, dict) and 'title' in detail:
+            missing_title = True
+            break
+          if _ == 'title':
+            missing_title = True
+            break
+      if missing_title:
+        logger.warning(f"Checkpoint creation missing title for race {race_id}")
+        return jsonify({"message": "Missing required field: title or name"}), 400
       logger.warning(f"Checkpoint creation validation failed for race {race_id}: {err}")
-      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
+      return jsonify({"errors": messages or str(err)}), 400
 
     created = []
     for entry in loaded:
@@ -432,6 +447,14 @@ def log_visit(race_id):
     image_latitude = None
     image_longitude = None
     image_distance_km = None
+    user_latitude = None
+    user_longitude = None
+    user_distance_km = None
+
+    # Extract user position from request if provided
+    if 'user_latitude' in data and 'user_longitude' in data:
+        user_latitude = data.get('user_latitude')
+        user_longitude = data.get('user_longitude')
     
     if is_administrator or is_signed_to_race:
       if file and allowed_file(file.filename):
@@ -467,40 +490,66 @@ def log_visit(race_id):
       
       # Get checkpoint details for location validation
       checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
-      
+
       # Calculate distance if image coordinates are available
       if image_latitude is not None and image_longitude is not None:
-          image_distance_km = calculate_distance(checkpoint.latitude, checkpoint.longitude, 
-                                                image_latitude, image_longitude)
-      
-      # log visit
+        image_distance_km = calculate_distance(
+          checkpoint.latitude, checkpoint.longitude,
+          image_latitude, image_longitude
+        )
+
+      # Calculate distance if user coordinates are available
+      if user_latitude is not None and user_longitude is not None:
+        user_distance_km = calculate_distance(
+          checkpoint.latitude, checkpoint.longitude,
+          user_latitude, user_longitude
+        )
+
+      # log visit (always, regardless of user/image coordinates presence)
       new_log = CheckpointLog(
-          checkpoint_id=data['checkpoint_id'],
-          team_id=data['team_id'],
-          race_id=race_id,
-          image_id=image_id,
-          image_latitude=image_latitude,
-          image_longitude=image_longitude,
-          image_distance_km=image_distance_km)
+        checkpoint_id=data['checkpoint_id'],
+        team_id=data['team_id'],
+        race_id=race_id,
+        image_id=image_id,
+        image_latitude=image_latitude,
+        image_longitude=image_longitude,
+        image_distance_km=image_distance_km,
+        user_latitude=user_latitude,
+        user_longitude=user_longitude,
+        user_distance_km=user_distance_km
+      )
       db.session.add(new_log)
       db.session.commit()
-      logger.info(f"Checkpoint visit logged: race {race_id}, checkpoint {data['checkpoint_id']}, team {data['team_id']}, user {user.id}")
-      
+      logger.info(
+        f"Checkpoint visit logged: race {race_id}, checkpoint {data['checkpoint_id']}, "
+        f"team {data['team_id']}, user {user.id}"
+      )
+
       response_data = {
-          "id": new_log.id, 
-          "checkpoint_id": new_log.checkpoint_id, 
-          "team_id": new_log.team_id, 
-          "race_id": race_id, 
-          "image_id": image_id
+        "id": new_log.id,
+        "checkpoint_id": new_log.checkpoint_id,
+        "team_id": new_log.team_id,
+        "race_id": race_id,
+        "image_id": image_id
       }
-      
+
       # Include proximity information if image coordinates are available
       if image_latitude is not None and image_longitude is not None:
-          response_data["image_distance_km"] = round(image_distance_km, 3)
-          response_data["image_latitude"] = image_latitude
-          response_data["image_longitude"] = image_longitude
-          logger.info(f"Image taken {image_distance_km:.3f} km from checkpoint")
-      
+        response_data["image_distance_km"] = round(image_distance_km, 3)
+        response_data["image_latitude"] = image_latitude
+        response_data["image_longitude"] = image_longitude
+        logger.info(f"Image taken {image_distance_km:.3f} km from checkpoint")
+
+      # Include user location information if available
+      if user_latitude is not None and user_longitude is not None:
+        response_data["user_distance_km"] = round(user_distance_km, 3) if user_distance_km is not None else None
+        response_data["user_latitude"] = user_latitude
+        response_data["user_longitude"] = user_longitude
+        if user_distance_km is not None:
+          logger.info(
+            f"User was {user_distance_km:.3f} km from checkpoint when logging visit"
+          )
+
       return jsonify(response_data), 201
     else:
         logger.warning(f"Unauthorized checkpoint visit log attempt by user {user.id} for team {data['team_id']} in race {race_id}")

@@ -68,6 +68,9 @@ class CheckpointLog(db.Model):
     image_latitude = db.Column(db.Float, nullable=True)
     image_longitude = db.Column(db.Float, nullable=True)
     image_distance_km = db.Column(db.Float, nullable=True)
+    user_latitude = db.Column(db.Float, nullable=True)
+    user_longitude = db.Column(db.Float, nullable=True)
+    user_distance_km = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     __table_args__ = (
