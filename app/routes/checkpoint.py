@@ -1,9 +1,12 @@
 import os
+import logging
 from flask import Blueprint, jsonify, current_app
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image
 from app.routes.admin import admin_required
+
+logger = logging.getLogger(__name__)
 
 
 # Blueprint pro checkpointy
@@ -142,18 +145,25 @@ def update_checkpoint(checkpoint_id):
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     data = request.get_json() or {}
     
+    updated_fields = []
     if 'title' in data:
         checkpoint.title = data['title']
+        updated_fields.append('title')
     if 'description' in data:
         checkpoint.description = data['description']
+        updated_fields.append('description')
     if 'latitude' in data:
         checkpoint.latitude = data['latitude']
+        updated_fields.append('latitude')
     if 'longitude' in data:
         checkpoint.longitude = data['longitude']
+        updated_fields.append('longitude')
     if 'numOfPoints' in data:
         checkpoint.numOfPoints = data['numOfPoints']
+        updated_fields.append('numOfPoints')
     
     db.session.commit()
+    logger.info(f"Checkpoint {checkpoint_id} updated - fields: {', '.join(updated_fields)}")
     return jsonify({
         "id": checkpoint.id,
         "title": checkpoint.title,
@@ -200,6 +210,8 @@ def delete_checkpoint(checkpoint_id):
     # delete associated logs and images
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     logs = CheckpointLog.query.filter_by(checkpoint_id=checkpoint_id).all()
+    
+    deleted_images = 0
     for log in logs:
         if log.image_id:
             image = Image.query.filter_by(id=log.image_id).first()
@@ -209,10 +221,13 @@ def delete_checkpoint(checkpoint_id):
                 try:
                     if os.path.exists(image_path):
                         os.remove(image_path)
+                        deleted_images += 1
                 except Exception as e:
-                    print(f"Error deleting image file: {e}")
+                    logger.error(f"Error deleting image file {image.filename} for checkpoint {checkpoint_id}: {e}")
                 db.session.delete(image)
         db.session.delete(log)
+    
+    logger.info(f"Checkpoint {checkpoint_id} deleted with {len(logs)} logs and {deleted_images} images")
     db.session.delete(checkpoint)
     db.session.commit()
     return jsonify({"message": "Checkpoint and associated logs deleted."}), 200

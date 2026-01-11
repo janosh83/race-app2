@@ -1,10 +1,11 @@
-import os
+import logging
 from flask import Blueprint, jsonify, request
 
 from app import db
 from app.models import RaceCategory
 from app.routes.admin import admin_required
 
+logger = logging.getLogger(__name__)
 
 race_category_bp = Blueprint('race-category', __name__)
 
@@ -94,6 +95,7 @@ def create_race_category():
     """
     data = request.get_json()
     if not data or 'name' not in data:
+        logger.error("Race category creation attempt with missing name")
         return jsonify({"msg": "Missing race category name"}), 400
     new_category = RaceCategory(name=data['name'], description=data.get('description', ''))
     db.session.add(new_category)

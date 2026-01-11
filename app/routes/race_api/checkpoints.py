@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from flask import Blueprint, jsonify, request, current_app
 
 from app import db
@@ -8,6 +9,8 @@ from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
@@ -216,6 +219,7 @@ def create_checkpoint(race_id):
     """
     race = Race.query.filter_by(id=race_id).first()
     if not race:
+        logger.error(f"Attempt to create checkpoint for non-existent race ID: {race_id}")
         return jsonify({"message": "Race not found"}), 404
 
     # determine input source
@@ -226,6 +230,7 @@ def create_checkpoint(race_id):
     else:
         payload = request.get_json(silent=True)
         if payload is None:
+            logger.error(f"Invalid or missing JSON body in checkpoint creation for race {race_id}")
             return jsonify({"message": "Invalid or missing JSON body"}), 400
         items = payload if isinstance(payload, list) else [payload]
 
@@ -239,6 +244,7 @@ def create_checkpoint(race_id):
         num_points = entry.get('numOfPoints') or entry.get('num_of_points') or entry.get('numPoints') or 1
 
         if not title:
+            logger.error(f"Missing title field in checkpoint creation for race {race_id}")
             return jsonify({"message": "Missing required field: title or name"}), 400
 
         new_checkpoint = Checkpoint(
@@ -254,6 +260,7 @@ def create_checkpoint(race_id):
 
     # commit once for all created records
     db.session.commit()
+    logger.info(f"Created {len(created)} checkpoint(s) for race {race_id}")
 
     result = [{"id": cp.id, 
                "title": cp.title, 
@@ -412,6 +419,7 @@ def log_visit(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        logger.error(f"Attempt to log visit outside logging period for race {race_id} by user {user.id}")
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
@@ -431,11 +439,17 @@ def log_visit(race_id):
         images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
         os.makedirs(images_folder, exist_ok=True)
         filepath = os.path.join(images_folder, filename)
-        file.save(filepath)
-        image = Image(filename=filename)
-        db.session.add(image)
-        db.session.commit() # not sure if it is needed here
-        image_id = image.id
+        try:
+            file.save(filepath)
+            image = Image(filename=filename)
+            db.session.add(image)
+            db.session.commit() # not sure if it is needed here
+            image_id = image.id
+            logger.info(f"Image {filename} saved for checkpoint visit (race {race_id}, team {data['team_id']})")
+        except Exception as e:
+            logger.error(f"Failed to save image for checkpoint visit: {e}")
+            # Continue without image
+            image_id = None
 
       # log visit
       new_log = CheckpointLog(
@@ -445,6 +459,7 @@ def log_visit(race_id):
           image_id=image_id)
       db.session.add(new_log)
       db.session.commit()
+      logger.info(f"Checkpoint visit logged: race {race_id}, checkpoint {data['checkpoint_id']}, team {data['team_id']}, user {user.id}")
       return jsonify({
           "id": new_log.id, 
           "checkpoint_id": new_log.checkpoint_id, 
@@ -452,6 +467,7 @@ def log_visit(race_id):
           "race_id": race_id, 
           "image_id": image_id}), 201
     else:
+        logger.warning(f"Unauthorized checkpoint visit log attempt by user {user.id} for team {data['team_id']} in race {race_id}")
         return jsonify({"message": "You are not authorized to log this visit."}), 403
 
 # tested by test_visits.py -> test_unlog_visits
@@ -527,6 +543,7 @@ def unlog_visit(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        logger.error(f"Unlog attempt outside logging period for race {race_id} by user {user.id}")
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
@@ -549,15 +566,19 @@ def unlog_visit(race_id):
                     try:
                         if os.path.exists(image_path):
                             os.remove(image_path)
+                            logger.info(f"Deleted image file {image.filename} for checkpoint log {log.id}")
                     except Exception as e:
-                        print(f"Error deleting image file: {e}")
+                        logger.error(f"Error deleting image file {image.filename}: {e}")
                     db.session.delete(image)
             db.session.delete(log)
             db.session.commit()
+            logger.info(f"Checkpoint visit unlogged - race: {race_id}, team: {data['team_id']}, checkpoint: {data['checkpoint_id']}, user: {user.id}")
             return jsonify({"message": "Log deleted successfully."}), 200
         else:
+            logger.error(f"Unlog attempt for non-existent log - race: {race_id}, team: {data['team_id']}, checkpoint: {data['checkpoint_id']}")
             return jsonify({"message": "Log not found."}), 404
     else:
+        logger.error(f"Unauthorized unlog attempt by user {user.id} for team {data['team_id']}")
         return jsonify({"message": "You are not authorized to delete this visit."}), 403
     
 # get all visits for selected team and race with status
@@ -623,6 +644,7 @@ def get_checkpoints_with_status(race_id, team_id):
     # Check if the user is authorized to view this team's data
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        logger.error(f"Unauthorized access attempt to team {team_id} checkpoints by user {user.id}")
         return jsonify({"msg": "Unauthorized"}), 403
 
     # Get all checkpoints for the race
@@ -632,6 +654,8 @@ def get_checkpoints_with_status(race_id, team_id):
     # Get all visits for the race and team
     visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
     visits_by_checkpoint = {visit.checkpoint_id: visit for visit in visits}
+
+    logger.info(f"Retrieved {len(checkpoints)} checkpoints with status for race {race_id}, team {team_id}, user {user.id}")
 
     # Build the response
     response = []

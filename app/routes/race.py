@@ -1,4 +1,5 @@
 from unittest import result
+import logging
 from flask import Blueprint, jsonify, request
 
 from app import db
@@ -9,6 +10,8 @@ from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
+
+logger = logging.getLogger(__name__)
 
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
@@ -116,6 +119,7 @@ def create_race():
                     end_logging_at=end_logging_at)
     db.session.add(new_race)
     db.session.commit()
+    logger.info(f"New race created: {new_race.name} (ID: {new_race.id})")
     return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
 
 # tested by test_races.py -> test_update_race
@@ -165,7 +169,8 @@ def update_race(race_id):
 
     db.session.add(race)
     db.session.commit()
-
+    
+    logger.info(f"Race {race_id} updated: {race.name}")
     return jsonify({
         "id": race.id,
         "name": race.name,
@@ -231,22 +236,28 @@ def delete_race(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     if race:
         if race.checkpoints:
+            logger.error(f"Cannot delete race {race_id}: has {len(race.checkpoints)} checkpoints")
             return jsonify({"message": "Cannot delete the race, it has checkpoints associated with it."}), 400
         if race.registrations:
+            logger.error(f"Cannot delete race {race_id}: has {len(race.registrations)} registrations")
             return jsonify({"message": "Cannot delete the race, it has registrations associated with it."}), 400
         if race.tasks:
+            logger.error(f"Cannot delete race {race_id}: has {len(race.tasks)} tasks")
             return jsonify({"message": "Cannot delete the race, it has tasks associated with it."}), 400
 
         checkpoint_logs = CheckpointLog.query.filter_by(race_id=race_id).all()
         if checkpoint_logs:
+            logger.error(f"Cannot delete race {race_id}: has {len(checkpoint_logs)} checkpoint visits")
             return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
         
         task_logs = TaskLog.query.filter_by(race_id=race_id).all()
         if task_logs:
+            logger.error(f"Cannot delete race {race_id}: has {len(task_logs)} task completions")
             return jsonify({"message": "Cannot delete the race, it has task completions associated with it."}), 400
 
         db.session.delete(race)
         db.session.commit()
+        logger.info(f"Race {race_id} ({race.name}) deleted successfully")
         return jsonify({"message": "Race deleted successfully"}), 200
 
 

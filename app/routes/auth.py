@@ -1,5 +1,6 @@
 from functools import wraps
 from datetime import datetime, timedelta
+import logging
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
@@ -7,6 +8,8 @@ from app.models import User, Registration, Team, Race, RaceCategory, team_member
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -74,16 +77,19 @@ def register():
     """
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
+        logger.warning("Registration attempt with missing email or password")
         return jsonify({"msg": "Missing email or password"}), 400
 
     if User.query.filter_by(email=data['email']).first():
+        logger.error(f"Registration attempt for existing user: {data['email']}")
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(name=data.get('name', ''), email=data['email'], is_administrator=data.get('is_administrator', False))
     user.set_password(data['password'])
     db.session.add(user)
     db.session.commit()
-
+    
+    logger.info(f"New user registered: {user.email} (ID: {user.id}, admin: {user.is_administrator})")
     return jsonify({"msg": "User created successfully"}), 201
 
 # tested by test_auth.py -> test_auth_login
@@ -176,10 +182,12 @@ def login():
     """
     data = request.get_json()
     if not data or 'email' not in data or 'password' not in data:
+        logger.warning("Login attempt with missing email or password")
         return jsonify({"msg": "Missing email or password"}), 400
 
     user = User.query.filter_by(email=data['email']).first()
     if not user or not user.check_password(data['password']):
+        logger.error(f"Failed login attempt for email: {data.get('email', 'unknown')}")
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
@@ -189,6 +197,8 @@ def login():
 
     # Issue refresh token with longer lifetime for silent re-auth
     refresh_token = create_refresh_token(identity=str(user.id))
+    
+    logger.info(f"User logged in: {user.email} (ID: {user.id}, admin: {user.is_administrator})")
     
     # Fetch teams and races associated with the user   
     races_by_user = (
@@ -372,6 +382,7 @@ def request_password_reset():
     """
     data = request.get_json()
     if not data or 'email' not in data:
+        logger.error("Password reset request with missing email")
         return jsonify({"msg": "Email is required"}), 400
     
     email = data['email']
@@ -389,6 +400,9 @@ def request_password_reset():
         
         # Send email
         EmailService.send_password_reset_email(user.email, reset_token)
+        logger.info(f"Password reset email sent to user: {user.email} (ID: {user.id})")
+    else:
+        logger.warning(f"Password reset requested for non-existent email: {email}")
     
     return jsonify({"msg": "If the email exists, a password reset link has been sent"}), 200
 
@@ -439,6 +453,7 @@ def reset_password():
     """
     data = request.get_json()
     if not data or 'token' not in data or 'new_password' not in data:
+        logger.warning("Password reset attempt with missing token or password")
         return jsonify({"msg": "Token and new password are required"}), 400
     
     token = data['token']
@@ -448,12 +463,14 @@ def reset_password():
     user = User.query.filter_by(reset_token=token).first()
     
     if not user or not user.reset_token_expiry:
+        logger.warning(f"Password reset attempt with invalid token: {token[:10]}...")
         return jsonify({"msg": "Invalid or expired token"}), 400
     
     # Check if token is expired
     if datetime.now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
+        logger.warning(f"Password reset attempt with expired token for user: {user.email}")
         return jsonify({"msg": "Token has expired"}), 400
     
     # Reset password
@@ -461,4 +478,5 @@ def reset_password():
     user.clear_reset_token()
     db.session.commit()
     
+    logger.info(f"Password successfully reset for user: {user.email} (ID: {user.id})")
     return jsonify({"msg": "Password reset successfully"}), 200

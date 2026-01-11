@@ -1,8 +1,11 @@
+import logging
 from flask import Blueprint, jsonify, request
 
 from app import db
 from app.models import Team, Race, User, Registration, RaceCategory
 from app.routes.admin import admin_required
+
+logger = logging.getLogger(__name__)
 
 team_bp = Blueprint("team", __name__)
 
@@ -197,9 +200,11 @@ def sign_up(race_id):
       registration = Registration(race_id=race.id, team_id=team.id, race_category_id=data["race_category_id"])
       db.session.add(registration)
       db.session.commit()
+      logger.info(f"Team {team.id} ({team.name}) registered for race {race_id} in category {race_category.name}")
       return jsonify({"team_id": data["team_id"], "race_id": race_id, "race_category": race_category.name}), 201
     
     else:
+        logger.error(f"Team {team.id} attempted to register for unavailable category {race_category.id} in race {race_id}")
         return jsonify({"message": "Category not available for the race"}), 400
 
 # delete registration (unregister team from race)
@@ -247,6 +252,7 @@ def delete_registration(race_id, team_id):
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
     db.session.delete(registration)
     db.session.commit()
+    logger.info(f"Registration deleted: team {team_id} unregistered from race {race_id}")
     return jsonify({"message": "Registration deleted successfully"}), 200
 
 # send registration confirmation emails to all registered users
@@ -300,6 +306,8 @@ def send_registration_emails(race_id):
     # Get only registrations where email hasn't been sent yet
     registrations = Registration.query.filter_by(race_id=race_id, email_sent=False).all()
     
+    logger.info(f"Starting registration email send for race {race_id} - {len(registrations)} registrations pending")
+    
     sent_count = 0
     failed_count = 0
 
@@ -337,15 +345,19 @@ def send_registration_emails(race_id):
                 else:
                     failed_count += 1
                     registration_success = False
+                    logger.error(f"Failed to send registration email to {member.email} for team {team.id}")
             except Exception as e:
                 failed_count += 1
                 registration_success = False
+                logger.error(f"Exception sending registration email to {member.email}: {e}")
         
         # Mark registration as email sent only if all team members received email
         if registration_success and len(members) > 0:
             registration.email_sent = True
     
     db.session.commit()
+    
+    logger.info(f"Registration emails completed for race {race_id} - sent: {sent_count}, failed: {failed_count}")
     
     return jsonify({
         "message": f"Sent {sent_count} emails successfully",
@@ -387,6 +399,7 @@ def create_team():
     new_team = Team(name=data['name'])
     db.session.add(new_team)
     db.session.commit()
+    logger.info(f"New team created: {new_team.name} (ID: {new_team.id})")
     return jsonify({"id": new_team.id, "name": new_team.name}), 201
 
 # add members to team
@@ -443,6 +456,7 @@ def add_members(team_id):
         user = User.query.filter_by(id=user_id).first_or_404()
         team.members.append(user)
     db.session.commit()
+    logger.info(f"Added {len(data['user_ids'])} members to team {team_id}: {data['user_ids']}")
     return jsonify({"team_id": team.id, "user_ids": data['user_ids']}), 201
 
 # get members of team

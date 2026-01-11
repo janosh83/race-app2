@@ -1,5 +1,6 @@
 import os
 import uuid
+import logging
 from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
@@ -9,6 +10,8 @@ from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # Blueprint for tasks
 tasks_bp = Blueprint('tasks', __name__)
@@ -186,6 +189,7 @@ def create_task(race_id):
     # ensure race exists
     race = Race.query.filter_by(id=race_id).first()
     if not race:
+      logger.error(f"Attempt to create task for non-existent race {race_id}")
       return jsonify({"message": "Race not found"}), 404
 
     # determine input source
@@ -196,6 +200,7 @@ def create_task(race_id):
     else:
         payload = request.get_json(silent=True)
         if payload is None:
+            logger.error(f"Create task for race {race_id} with invalid JSON")
             return jsonify({"message": "Invalid or missing JSON body"}), 400
         items = payload if isinstance(payload, list) else [payload]
 
@@ -207,6 +212,7 @@ def create_task(race_id):
         num_points = entry.get('numOfPoints') or entry.get('num_of_points') or entry.get('numPoints') or 1
 
         if not title:
+            logger.error(f"Create task for race {race_id} missing title field")
             return jsonify({"message": "Missing required field: title or name"}), 400
 
         new_task = Task(
@@ -220,6 +226,7 @@ def create_task(race_id):
 
     # commit once for all created records
     db.session.commit()
+    logger.info(f"Created {len(created)} task(s) for race {race_id}")
 
     result = [{"id": t.id, 
                "title": t.title, 
@@ -368,6 +375,7 @@ def log_task_completion(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        logger.error(f"Task completion log attempt outside logging period for race {race_id} by user {user.id}")
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
@@ -386,7 +394,11 @@ def log_task_completion(race_id):
         
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-        file.save(filepath)
+        try:
+          file.save(filepath)
+          logger.info(f"Task image saved: {filename} for race {race_id}, team {data['team_id']}")
+        except Exception as e:
+          logger.error(f"Error saving task image {filename}: {e}")
         image = Image(filename=filename)
         db.session.add(image)
         db.session.commit()
@@ -401,8 +413,10 @@ def log_task_completion(race_id):
       db.session.add(new_log)
       try:
           db.session.commit()
+          logger.info(f"Task completion logged - race: {race_id}, team: {data['team_id']}, task: {data['task_id']}, user: {user.id}")
       except IntegrityError:
           db.session.rollback()
+          logger.error(f"Duplicate task log attempt - race: {race_id}, team: {data['team_id']}, task: {data['task_id']}")
           return jsonify({"message": "Task already logged for this team."}), 409
       return jsonify({
           "id": new_log.id, 
@@ -411,6 +425,7 @@ def log_task_completion(race_id):
           "race_id": race_id, 
           "image_id": image_id}), 201
     else:
+        logger.error(f"Unauthorized task completion log attempt by user {user.id} for team {data['team_id']}")
         return jsonify({"message": "You are not authorized to log this task."}), 403
 
 @tasks_bp.route("/log/", methods=["DELETE"])
@@ -485,6 +500,7 @@ def unlog_task_completion(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
+        logger.error(f"Task unlog attempt outside logging period for race {race_id} by user {user.id}")
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
@@ -506,15 +522,19 @@ def unlog_task_completion(race_id):
                     try:
                         if os.path.exists(image_path):
                             os.remove(image_path)
+                            logger.info(f"Deleted task image file {image.filename} for log {log.id}")
                     except Exception as e:
-                        print(f"Error deleting image file: {e}")
+                        logger.error(f"Error deleting task image file {image.filename}: {e}")
                     db.session.delete(image)
             db.session.delete(log)
             db.session.commit()
+            logger.info(f"Task completion unlogged - race: {race_id}, team: {data['team_id']}, task: {data['task_id']}, user: {user.id}")
             return jsonify({"message": "Log deleted successfully."}), 200
         else:
+            logger.error(f"Task unlog attempt for non-existent log - race: {race_id}, team: {data['team_id']}, task: {data['task_id']}")
             return jsonify({"message": "Log not found."}), 404
     else:
+        logger.error(f"Unauthorized task unlog attempt by user {user.id} for team {data['team_id']}")
         return jsonify({"message": "You are not authorized to delete this task log."}), 403
 
 @tasks_bp.route("/<int:team_id>/status/", methods=["GET"])
@@ -571,6 +591,7 @@ def get_tasks_with_status(race_id, team_id):
 
   user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
   if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+    logger.error(f"Unauthorized access attempt to team {team_id} tasks by user {user.id}")
     return jsonify({"msg": "Unauthorized"}), 403
 
   race = Race.query.filter_by(id=race_id).first_or_404()
@@ -578,6 +599,8 @@ def get_tasks_with_status(race_id, team_id):
 
   completions = TaskLog.query.filter_by(race_id=race_id, team_id=team_id).all()
   completions_by_task = {completion.task_id: completion for completion in completions}
+  
+  logger.info(f"Retrieved {len(tasks)} tasks with status for race {race_id}, team {team_id}, user {user.id}")
 
   response = []
   for task in tasks:

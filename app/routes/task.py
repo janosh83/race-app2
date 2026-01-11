@@ -1,9 +1,12 @@
 import os
+import logging
 from flask import Blueprint, jsonify, current_app
 
 from app import db
 from app.models import Task, TaskLog, Image
 from app.routes.admin import admin_required
+
+logger = logging.getLogger(__name__)
 
 task_bp = Blueprint('task', __name__)
 
@@ -118,14 +121,19 @@ def update_task(task_id):
     task = Task.query.filter_by(id=task_id).first_or_404()
     data = request.get_json() or {}
     
+    updated_fields = []
     if 'title' in data:
         task.title = data['title']
+        updated_fields.append('title')
     if 'description' in data:
         task.description = data['description']
+        updated_fields.append('description')
     if 'numOfPoints' in data:
         task.numOfPoints = data['numOfPoints']
+        updated_fields.append('numOfPoints')
     
     db.session.commit()
+    logger.info(f"Task {task_id} updated - fields: {', '.join(updated_fields)}")
     return jsonify({
         "id": task.id,
         "title": task.title,
@@ -170,6 +178,8 @@ def delete_task(task_id):
     # delete associated logs and images
     task = Task.query.filter_by(id=task_id).first_or_404()
     logs = TaskLog.query.filter_by(task_id=task_id).all()
+    
+    deleted_images = 0
     for log in logs:
         if log.image_id:
             image = Image.query.filter_by(id=log.image_id).first_or_404()
@@ -179,10 +189,13 @@ def delete_task(task_id):
                 try:
                     if os.path.exists(image_path):
                         os.remove(image_path)
+                        deleted_images += 1
                 except Exception as e:
-                    print(f"Error deleting image file: {e}")
+                    logger.error(f"Error deleting image file {image.filename} for task {task_id}: {e}")
                 db.session.delete(image)
         db.session.delete(log)
+    
+    logger.info(f"Task {task_id} deleted with {len(logs)} logs and {deleted_images} images")
     db.session.delete(task)
     db.session.commit()
     return jsonify({"message": "Task and associated logs deleted."}), 200
