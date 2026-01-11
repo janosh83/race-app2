@@ -7,6 +7,8 @@ from flask_cors import CORS
 from flask_mail import Mail
 import os
 from marshmallow import ValidationError
+import logging
+import sys
 
 # database initialization
 db = SQLAlchemy()
@@ -118,6 +120,24 @@ def create_app(config_class=None):
          allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
          methods=["GET", "HEAD", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"]
          )
+
+    # --- Logging configuration ---
+    # Ensure INFO-level logs from our modules appear in the terminal when running locally.
+    log_level_name = app.config.get('LOG_LEVEL', 'INFO')
+    log_level = getattr(logging, log_level_name.upper(), logging.INFO)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Attach a StreamHandler to stdout with a readable formatter if none exists.
+    if not any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(log_level)
+        stream_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s in %(name)s: %(message)s'))
+        root_logger.addHandler(stream_handler)
+
+    # Keep Werkzeug request logs at INFO for visibility when developing
+    logging.getLogger('werkzeug').setLevel(logging.INFO)
 
     # blueprint registration
     from app.routes.auth import auth_bp
