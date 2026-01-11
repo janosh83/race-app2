@@ -9,6 +9,7 @@ from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 
 logger = logging.getLogger(__name__)
 
@@ -219,44 +220,38 @@ def create_checkpoint(race_id):
     """
     race = Race.query.filter_by(id=race_id).first()
     if not race:
-        logger.error(f"Attempt to create checkpoint for non-existent race ID: {race_id}")
-        return jsonify({"message": "Race not found"}), 404
+      logger.error(f"Attempt to create checkpoint for non-existent race ID: {race_id}")
+      return jsonify({"message": "Race not found"}), 404
 
-    # determine input source
+    schema = CheckpointCreateSchema()
+
     if request.content_type and request.content_type.startswith('multipart/form-data'):
-        # single item from form
-        data = request.form.to_dict()
-        items = [data]
+      raw_items = [request.form.to_dict()]
     else:
-        payload = request.get_json(silent=True)
-        if payload is None:
-            logger.error(f"Invalid or missing JSON body in checkpoint creation for race {race_id}")
-            return jsonify({"message": "Invalid or missing JSON body"}), 400
-        items = payload if isinstance(payload, list) else [payload]
+      payload = request.get_json(silent=True)
+      if payload is None:
+        logger.error(f"Invalid or missing JSON body in checkpoint creation for race {race_id}")
+        return jsonify({"message": "Invalid or missing JSON body"}), 400
+      raw_items = payload if isinstance(payload, list) else [payload]
+
+    try:
+      loaded = schema.load(raw_items, many=True)
+    except Exception as err:
+      logger.warning(f"Checkpoint creation validation failed for race {race_id}: {err}")
+      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     created = []
-    for entry in items:
-        # basic normalization of field names
-        title = entry.get('title') or entry.get('name')
-        latitude = entry.get('latitude') or entry.get('lat')
-        longitude = entry.get('longitude') or entry.get('lng')
-        description = entry.get('description') or entry.get('desc')
-        num_points = entry.get('numOfPoints') or entry.get('num_of_points') or entry.get('numPoints') or 1
-
-        if not title:
-            logger.error(f"Missing title field in checkpoint creation for race {race_id}")
-            return jsonify({"message": "Missing required field: title or name"}), 400
-
-        new_checkpoint = Checkpoint(
-            title=title,
-            latitude=latitude,
-            longitude=longitude,
-            description=description,
-            numOfPoints=num_points,
-            race_id=race_id
-        )
-        db.session.add(new_checkpoint)
-        created.append(new_checkpoint)
+    for entry in loaded:
+      new_checkpoint = Checkpoint(
+        title=entry.get('title'),
+        latitude=entry.get('latitude'),
+        longitude=entry.get('longitude'),
+        description=entry.get('description'),
+        numOfPoints=entry.get('numOfPoints'),
+        race_id=race_id
+      )
+      db.session.add(new_checkpoint)
+      created.append(new_checkpoint)
 
     # commit once for all created records
     db.session.commit()
@@ -405,11 +400,17 @@ def log_visit(race_id):
     """
     # Accept both JSON and multipart/form-data
     if request.content_type.startswith('multipart/form-data'):
-        data = request.form
-        file = request.files.get('image')
+      raw_data = request.form.to_dict()
+      file = request.files.get('image')
     else:
-        data = request.json
-        file = None
+      raw_data = request.get_json(silent=True) or {}
+      file = None
+
+    try:
+      data = CheckpointLogSchema().load(raw_data)
+    except Exception as err:
+      logger.error(f"Checkpoint log validation failed for race {race_id}: {err}")
+      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
@@ -533,7 +534,12 @@ def unlog_visit(race_id):
                   type: string
                   example: You are not authorized to delete this visit.
     """
-    data = request.json
+    raw_data = request.get_json(silent=True) or {}
+    try:
+      data = CheckpointLogSchema().load(raw_data)
+    except Exception as err:
+      logger.error(f"Checkpoint unlog validation failed for race {race_id}: {err}")
+      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()

@@ -11,3 +11,4 @@ aiosmtpd
 python-dotenv
 pytest
 pytest-mock
+marshmallow

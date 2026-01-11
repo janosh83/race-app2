@@ -1,9 +1,11 @@
 import logging
 from flask import Blueprint, jsonify, request
+from marshmallow import ValidationError
 
 from app import db
 from app.models import Team, Race, User, Registration, RaceCategory
 from app.routes.admin import admin_required
+from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema
 
 logger = logging.getLogger(__name__)
 
@@ -189,19 +191,20 @@ def sign_up(race_id):
       404:
         description: Team or Race not found
     """
-    data = request.json
+    data = request.get_json() or {}
+    validated = TeamSignUpSchema().load(data)
     
-    team = Team.query.filter_by(id=data["team_id"]).first_or_404()
+    team = Team.query.filter_by(id=validated['team_id']).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    race_category = RaceCategory.query.filter_by(id=data["race_category_id"]).first_or_404()
+    race_category = RaceCategory.query.filter_by(id=validated['race_category_id']).first_or_404()
 
     if race_category in race.categories:
         
-      registration = Registration(race_id=race.id, team_id=team.id, race_category_id=data["race_category_id"])
+      registration = Registration(race_id=race.id, team_id=team.id, race_category_id=validated['race_category_id'])
       db.session.add(registration)
       db.session.commit()
       logger.info(f"Team {team.id} ({team.name}) registered for race {race_id} in category {race_category.name}")
-      return jsonify({"team_id": data["team_id"], "race_id": race_id, "race_category": race_category.name}), 201
+      return jsonify({"team_id": validated['team_id'], "race_id": race_id, "race_category": race_category.name}), 201
     
     else:
         logger.error(f"Team {team.id} attempted to register for unavailable category {race_category.id} in race {race_id}")
@@ -395,8 +398,9 @@ def create_team():
             schema:
               $ref: '#/components/schemas/TeamObject'
     """
-    data = request.json
-    new_team = Team(name=data['name'])
+    data = request.get_json() or {}
+    validated = TeamCreateSchema().load(data)
+    new_team = Team(name=validated['name'])
     db.session.add(new_team)
     db.session.commit()
     logger.info(f"New team created: {new_team.name} (ID: {new_team.id})")
@@ -450,14 +454,15 @@ def add_members(team_id):
       404:
         description: Team or User not found
     """
-    data = request.json
+    data = request.get_json() or {}
+    validated = TeamAddMembersSchema().load(data)
     team = Team.query.filter_by(id=team_id).first_or_404()
-    for user_id in data['user_ids']:
+    for user_id in validated['user_ids']:
         user = User.query.filter_by(id=user_id).first_or_404()
         team.members.append(user)
     db.session.commit()
-    logger.info(f"Added {len(data['user_ids'])} members to team {team_id}: {data['user_ids']}")
-    return jsonify({"team_id": team.id, "user_ids": data['user_ids']}), 201
+    logger.info(f"Added {len(validated['user_ids'])} members to team {team_id}: {validated['user_ids']}")
+    return jsonify({"team_id": team.id, "user_ids": validated['user_ids']}), 201
 
 # get members of team
 # tested by test_teams.py -> test_add_members

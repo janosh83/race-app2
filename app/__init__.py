@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
@@ -6,6 +6,7 @@ from flasgger import Swagger
 from flask_cors import CORS
 from flask_mail import Mail
 import os
+from marshmallow import ValidationError
 
 # database initialization
 db = SQLAlchemy()
@@ -133,6 +134,10 @@ def create_app(config_class=None):
     app.register_blueprint(task_bp, url_prefix="/api/task")
     app.register_blueprint(team_bp, url_prefix="/api/team")
     app.register_blueprint(user_bp, url_prefix="/api/user")
+
+    @app.errorhandler(ValidationError)
+    def handle_validation_error(err):
+        return jsonify({"errors": err.messages}), 400
 
     # Serve static images with CORS support
     from flask import send_from_directory

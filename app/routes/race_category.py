@@ -1,9 +1,11 @@
 import logging
 from flask import Blueprint, jsonify, request
+from marshmallow import ValidationError
 
 from app import db
 from app.models import RaceCategory
 from app.routes.admin import admin_required
+from app.schemas import RaceCategoryCreateSchema, RaceCategoryUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -93,13 +95,12 @@ def create_race_category():
       403:
         description: Admins only
     """
-    data = request.get_json()
-    if not data or 'name' not in data:
-        logger.error("Race category creation attempt with missing name")
-        return jsonify({"msg": "Missing race category name"}), 400
-    new_category = RaceCategory(name=data['name'], description=data.get('description', ''))
+    data = request.get_json() or {}
+    validated = RaceCategoryCreateSchema().load(data)
+    new_category = RaceCategory(name=validated['name'], description=validated.get('description', ''))
     db.session.add(new_category)
     db.session.commit()
+    logger.info(f"Race category created: {new_category.name} (ID: {new_category.id})")
     return jsonify({"id": new_category.id, "name": new_category.name, "description": new_category.description}), 201
 
 # delete race category

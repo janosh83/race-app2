@@ -10,6 +10,7 @@ from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
+from app.schemas import RaceCreateSchema, RaceUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +107,9 @@ def create_race():
             schema:
               $ref: '#/components/schemas/RaceObject'
     """
-    data = request.json
+    raw_data = request.get_json(silent=True) or {}
+    data = RaceCreateSchema().load(raw_data)
+
     start_showing_checkpoints_at = parse_datetime(data['start_showing_checkpoints_at'])
     end_showing_checkpoints_at = parse_datetime(data['end_showing_checkpoints_at'])
     start_logging_at = parse_datetime(data['start_logging_at'])
@@ -137,7 +140,8 @@ def update_race(race_id):
       - start_logging_at: ISO datetime string
       - end_logging_at: ISO datetime string
     """
-    data = request.json or {}
+    raw_data = request.get_json(silent=True) or {}
+    data = RaceUpdateSchema().load(raw_data, partial=True)
     race = Race.query.filter_by(id=race_id).first_or_404()
 
     # simple scalar fields

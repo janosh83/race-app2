@@ -1,10 +1,12 @@
 import os
 import logging
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify, current_app, request
+from marshmallow import ValidationError
 
 from app import db
 from app.models import Task, TaskLog, Image
 from app.routes.admin import admin_required
+from app.schemas import TaskUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -117,23 +119,23 @@ def update_task(task_id):
       403:
         description: Admins only
     """
-    from flask import request
     task = Task.query.filter_by(id=task_id).first_or_404()
     data = request.get_json() or {}
+    validated = TaskUpdateSchema().load(data)
     
     updated_fields = []
-    if 'title' in data:
-        task.title = data['title']
+    if 'title' in validated:
+        task.title = validated['title']
         updated_fields.append('title')
-    if 'description' in data:
-        task.description = data['description']
+    if 'description' in validated:
+        task.description = validated['description']
         updated_fields.append('description')
-    if 'numOfPoints' in data:
-        task.numOfPoints = data['numOfPoints']
+    if 'numOfPoints' in validated:
+        task.numOfPoints = validated['numOfPoints']
         updated_fields.append('numOfPoints')
     
     db.session.commit()
-    logger.info(f"Task {task_id} updated - fields: {', '.join(updated_fields)}")
+    logger.info(f"Task {task_id} updated - fields: {', '.join(updated_fields)}")  
     return jsonify({
         "id": task.id,
         "title": task.title,

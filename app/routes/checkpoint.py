@@ -1,10 +1,12 @@
 import os
 import logging
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify, current_app, request
+from marshmallow import ValidationError
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image
 from app.routes.admin import admin_required
+from app.schemas import CheckpointUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +76,6 @@ def get_checkpoint(checkpoint_id):
         "numOfPoints": checkpoint.numOfPoints
     }), 200
 
-# tested by test_checkpoint.py -> test_update_checkpoint
 @checkpoint_bp.route('/<int:checkpoint_id>/', methods=['PUT'])
 @admin_required()
 def update_checkpoint(checkpoint_id):
@@ -141,25 +142,25 @@ def update_checkpoint(checkpoint_id):
       403:
         description: Admins only
     """
-    from flask import request
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     data = request.get_json() or {}
+    validated = CheckpointUpdateSchema().load(data)
     
     updated_fields = []
-    if 'title' in data:
-        checkpoint.title = data['title']
+    if 'title' in validated:
+        checkpoint.title = validated['title']
         updated_fields.append('title')
-    if 'description' in data:
-        checkpoint.description = data['description']
+    if 'description' in validated:
+        checkpoint.description = validated['description']
         updated_fields.append('description')
-    if 'latitude' in data:
-        checkpoint.latitude = data['latitude']
+    if 'latitude' in validated:
+        checkpoint.latitude = validated['latitude']
         updated_fields.append('latitude')
-    if 'longitude' in data:
-        checkpoint.longitude = data['longitude']
+    if 'longitude' in validated:
+        checkpoint.longitude = validated['longitude']
         updated_fields.append('longitude')
-    if 'numOfPoints' in data:
-        checkpoint.numOfPoints = data['numOfPoints']
+    if 'numOfPoints' in validated:
+        checkpoint.numOfPoints = validated['numOfPoints']
         updated_fields.append('numOfPoints')
     
     db.session.commit()

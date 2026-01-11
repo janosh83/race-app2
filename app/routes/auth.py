@@ -4,10 +4,17 @@ import logging
 
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from marshmallow import ValidationError
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
+from app.schemas import (
+  AuthLoginSchema,
+  AuthRegisterSchema,
+  PasswordResetRequestSchema,
+  PasswordResetSchema,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -75,17 +82,19 @@ def register():
                   type: string
                   example: User already exists
     """
-    data = request.get_json()
-    if not data or 'email' not in data or 'password' not in data:
-        logger.warning("Registration attempt with missing email or password")
-        return jsonify({"msg": "Missing email or password"}), 400
+    data = request.get_json() or {}
+    validated = AuthRegisterSchema().load(data)
 
-    if User.query.filter_by(email=data['email']).first():
-        logger.error(f"Registration attempt for existing user: {data['email']}")
+    if User.query.filter_by(email=validated['email']).first():
+        logger.error(f"Registration attempt for existing user: {validated['email']}")
         return jsonify({"msg": "User already exists"}), 409
 
-    user = User(name=data.get('name', ''), email=data['email'], is_administrator=data.get('is_administrator', False))
-    user.set_password(data['password'])
+    user = User(
+        name=validated.get('name', ''),
+        email=validated['email'],
+        is_administrator=validated.get('is_administrator', False),
+    )
+    user.set_password(validated['password'])
     db.session.add(user)
     db.session.commit()
     
@@ -180,14 +189,12 @@ def login():
                   type: string
                   example: Invalid credentials
     """
-    data = request.get_json()
-    if not data or 'email' not in data or 'password' not in data:
-        logger.warning("Login attempt with missing email or password")
-        return jsonify({"msg": "Missing email or password"}), 400
+    data = request.get_json() or {}
+    validated = AuthLoginSchema().load(data)
 
-    user = User.query.filter_by(email=data['email']).first()
-    if not user or not user.check_password(data['password']):
-        logger.error(f"Failed login attempt for email: {data.get('email', 'unknown')}")
+    user = User.query.filter_by(email=validated['email']).first()
+    if not user or not user.check_password(validated['password']):
+        logger.error(f"Failed login attempt for email: {validated.get('email', 'unknown')}")
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
@@ -380,12 +387,14 @@ def request_password_reset():
                   type: string
                   example: Email is required
     """
-    data = request.get_json()
-    if not data or 'email' not in data:
+    data = request.get_json() or {}
+    try:
+        validated = PasswordResetRequestSchema().load(data)
+    except ValidationError:
         logger.error("Password reset request with missing email")
         return jsonify({"msg": "Email is required"}), 400
-    
-    email = data['email']
+
+    email = validated['email']
     user = User.query.filter_by(email=email).first()
     
     # Always return success message for security (don't reveal if email exists)
@@ -451,13 +460,15 @@ def reset_password():
                   type: string
                   example: Token and new password are required
     """
-    data = request.get_json()
-    if not data or 'token' not in data or 'new_password' not in data:
+    data = request.get_json() or {}
+    try:
+        validated = PasswordResetSchema().load(data)
+    except ValidationError:
         logger.warning("Password reset attempt with missing token or password")
         return jsonify({"msg": "Token and new password are required"}), 400
-    
-    token = data['token']
-    new_password = data['new_password']
+
+    token = validated['token']
+    new_password = validated['new_password']
     
     # Find user by token
     user = User.query.filter_by(reset_token=token).first()

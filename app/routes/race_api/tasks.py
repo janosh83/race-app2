@@ -10,6 +10,7 @@ from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from datetime import datetime
+from app.schemas import TaskCreateSchema, TaskLogSchema
 
 logger = logging.getLogger(__name__)
 
@@ -206,23 +207,14 @@ def create_task(race_id):
 
     created = []
     for entry in items:
-        # basic normalization of field names
-        title = entry.get('title') or entry.get('name')
-        description = entry.get('description') or entry.get('desc')
-        num_points = entry.get('numOfPoints') or entry.get('num_of_points') or entry.get('numPoints') or 1
-
-        if not title:
-            logger.error(f"Create task for race {race_id} missing title field")
-            return jsonify({"message": "Missing required field: title or name"}), 400
-
-        new_task = Task(
-            title=title,
-            description=description,
-            numOfPoints=num_points,
-            race_id=race_id
-        )
-        db.session.add(new_task)
-        created.append(new_task)
+      new_task = Task(
+        title=entry.get('title'),
+        description=entry.get('description'),
+        numOfPoints=entry.get('numOfPoints'),
+        race_id=race_id
+      )
+      db.session.add(new_task)
+      created.append(new_task)
 
     # commit once for all created records
     db.session.commit()
@@ -361,11 +353,17 @@ def log_task_completion(race_id):
     """
     # Accept both JSON and multipart/form-data
     if request.content_type.startswith('multipart/form-data'):
-        data = request.form
-        file = request.files.get('image')
+      raw_data = request.form.to_dict()
+      file = request.files.get('image')
     else:
-        data = request.json
-        file = None
+      raw_data = request.get_json(silent=True) or {}
+      file = None
+
+    try:
+      data = TaskLogSchema().load(raw_data)
+    except Exception as err:
+      logger.warning(f"Task log validation failed for race {race_id}: {err}")
+      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
@@ -490,7 +488,12 @@ def unlog_task_completion(race_id):
                   type: string
                   example: You are not authorized to delete this task log.
     """
-    data = request.json
+    raw_data = request.get_json(silent=True) or {}
+    try:
+      data = TaskLogSchema().load(raw_data)
+    except Exception as err:
+      logger.warning(f"Task unlog validation failed for race {race_id}: {err}")
+      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()

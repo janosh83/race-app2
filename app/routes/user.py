@@ -1,9 +1,10 @@
-import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import Registration, Team, Race, RaceCategory, User, team_members
 from app.routes.admin import admin_required
 from app import db
+import logging
+from app.schemas import UserCreateSchema, UserUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -91,11 +92,8 @@ def create_user():
       403:
         description: Forbidden - admin access required
     """
-    data = request.get_json()
-    
-    if not data or 'email' not in data or 'password' not in data:
-        logger.error("Admin user creation attempt with missing email or password")
-        return jsonify({"msg": "Missing email or password"}), 400
+    payload = request.get_json(silent=True) or {}
+    data = UserCreateSchema().load(payload)
 
     if User.query.filter_by(email=data['email']).first():
         logger.error(f"Admin user creation attempt for existing email: {data['email']}")
@@ -173,38 +171,39 @@ def update_user(user_id):
         description: Forbidden - admin access required
     """
     user = User.query.filter_by(id=user_id).first_or_404()
-    data = request.get_json()
+    payload = request.get_json(silent=True) or {}
+    data = UserUpdateSchema().load(payload, partial=True)
     
     updated_fields = []
     if 'name' in data:
-        user.name = data['name']
-        updated_fields.append('name')
+      user.name = data['name']
+      updated_fields.append('name')
     
     if 'email' in data and data['email'] != user.email:
-        # Check if email is already taken
-        existing = User.query.filter_by(email=data['email']).first()
-        if existing:
-            logger.error(f"User {user_id} update failed: email {data['email']} already taken")
-            return jsonify({"msg": "Email already taken"}), 409
-        user.email = data['email']
-        updated_fields.append('email')
+      # Check if email is already taken
+      existing = User.query.filter_by(email=data['email']).first()
+      if existing:
+        logger.warning(f"User {user_id} update failed: email {data['email']} already taken")
+        return jsonify({"msg": "Email already taken"}), 409
+      user.email = data['email']
+      updated_fields.append('email')
     
     if 'password' in data and data['password']:
-        user.set_password(data['password'])
-        updated_fields.append('password')
+      user.set_password(data['password'])
+      updated_fields.append('password')
     
     if 'is_administrator' in data:
-        user.is_administrator = data['is_administrator']
-        updated_fields.append('is_administrator')
+      user.is_administrator = data['is_administrator']
+      updated_fields.append('is_administrator')
 
     db.session.commit()
     
     logger.info(f"User {user_id} updated by admin - fields: {', '.join(updated_fields)}")
     return jsonify({
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "is_administrator": user.is_administrator
+      "id": user.id,
+      "name": user.name,
+      "email": user.email,
+      "is_administrator": user.is_administrator
     }), 200
 
 

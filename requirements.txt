@@ -10,3 +10,4 @@ flask-mail
 gunicorn
 python-dotenv
 psycopg2-binary
+marshmallow
