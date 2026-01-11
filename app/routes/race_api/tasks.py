@@ -205,8 +205,29 @@ def create_task(race_id):
             return jsonify({"message": "Invalid or missing JSON body"}), 400
         items = payload if isinstance(payload, list) else [payload]
 
+    # validate and normalize using schema (supports field aliases)
+    schema = TaskCreateSchema()
+    try:
+      loaded = schema.load(items, many=True)
+    except Exception as err:
+      messages = getattr(err, 'messages', {})
+      missing_title = False
+      if isinstance(messages, dict):
+        for _, detail in messages.items():
+          if isinstance(detail, dict) and 'title' in detail:
+            missing_title = True
+            break
+          if _ == 'title':
+            missing_title = True
+            break
+      if missing_title:
+        logger.warning(f"Task creation missing title for race {race_id}")
+        return jsonify({"message": "Missing required field: title or name"}), 400
+      logger.warning(f"Task creation validation failed for race {race_id}: {err}")
+      return jsonify({"errors": messages or str(err)}), 400
+
     created = []
-    for entry in items:
+    for entry in loaded:
       new_task = Task(
         title=entry.get('title'),
         description=entry.get('description'),

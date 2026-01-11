@@ -64,7 +64,10 @@ def add_race_category(race_id):
         description: Admins only
     """
     data = request.get_json() or {}
-    validated_data = RaceCategoryAssignSchema().load(data)
+    try:
+      validated_data = RaceCategoryAssignSchema().load(data)
+    except Exception as err:
+      return jsonify({"message": "Missing required field: race_category_id"}), 400
 
     race = Race.query.filter_by(id=race_id).first_or_404()
     if not race:
@@ -183,7 +186,11 @@ def remove_race_category(race_id):
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     data = request.get_json() or {}
-    validated_data = RaceCategoryAssignSchema().load(data)
+    try:
+      validated_data = RaceCategoryAssignSchema().load(data)
+    except Exception as err:
+      logger.error(f"Error validating request data: {err}")
+      return jsonify({"message": "Missing required field: race_category_id"}), 400
     race_category_id = validated_data["race_category_id"]
 
     race_category = RaceCategory.query.filter_by(id=race_category_id).first_or_404()

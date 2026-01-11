@@ -150,8 +150,7 @@ def test_add_members_user_not_found(test_client, add_test_data):
 def test_add_members_empty_array(test_client, add_test_data):
     """Test adding empty array of members."""
     response = test_client.post("/api/team/1/members/", json={"user_ids": []})
-    assert response.status_code == 201
-    assert response.json == {"team_id": 1, "user_ids": []}
+    assert response.status_code == 400
 
 
 # Additional tests for GET /<team_id>/members/

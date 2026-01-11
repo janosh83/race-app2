@@ -237,8 +237,21 @@ def create_checkpoint(race_id):
     try:
       loaded = schema.load(raw_items, many=True)
     except Exception as err:
-      logger.warning(f"Checkpoint creation validation failed for race {race_id}: {err}")
-      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
+      missing_title = False
+      messages = getattr(err, 'messages', str(err))
+      if isinstance(messages, dict):
+        for _, detail in messages.items():
+          if isinstance(detail, dict) and 'title' in detail:
+            missing_title = True
+            break
+          if _ == 'title':
+            missing_title = True
+            break
+      if missing_title:
+        logger.error(f"Checkpoint creation missing title for race {race_id}")
+        return jsonify({"message": "Missing required field: title or name"}), 400
+      logger.error(f"Checkpoint creation validation failed for race {race_id}: {err}")
+      return jsonify({"errors": messages or str(err)}), 400
 
     created = []
     for entry in loaded:

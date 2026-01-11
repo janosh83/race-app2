@@ -17,10 +17,15 @@ class CheckpointCreateSchema(Schema):
             normalized["latitude"] = normalized["lat"]
         if "lng" in normalized and "longitude" not in normalized:
             normalized["longitude"] = normalized["lng"]
+        if "desc" in normalized and "description" not in normalized:
+            normalized["description"] = normalized["desc"]
         if "num_of_points" in normalized and "numOfPoints" not in normalized:
             normalized["numOfPoints"] = normalized["num_of_points"]
         if "numPoints" in normalized and "numOfPoints" not in normalized:
             normalized["numOfPoints"] = normalized["numPoints"]
+        # Remove alias keys to avoid unknown field errors
+        for alias_key in ("name", "lat", "lng", "desc", "num_of_points", "numPoints"):
+            normalized.pop(alias_key, None)
         return normalized
 
 
@@ -48,8 +53,14 @@ class CheckpointUpdateSchema(Schema):
 
 
 class CheckpointLogSchema(Schema):
-    checkpoint_id = fields.Integer(required=True, strict=True)
-    team_id = fields.Integer(required=True, strict=True)
+    checkpoint_id = fields.Integer(required=True)
+    team_id = fields.Integer(required=True)
+    image_latitude = fields.Float(load_default=None)
+    image_longitude = fields.Float(load_default=None)
+    image_distance_km = fields.Float(load_default=None)
+    user_latitude = fields.Float(load_default=None)
+    user_longitude = fields.Float(load_default=None)
+    user_distance_km = fields.Float(load_default=None)
 
 
 class TaskCreateSchema(Schema):
@@ -68,6 +79,8 @@ class TaskCreateSchema(Schema):
             normalized["numOfPoints"] = normalized["numPoints"]
         if "desc" in normalized and "description" not in normalized:
             normalized["description"] = normalized["desc"]
+        for alias_key in ("name", "numPoints", "num_of_points", "desc"):
+            normalized.pop(alias_key, None)
         return normalized
 
 
@@ -87,12 +100,15 @@ class TaskUpdateSchema(Schema):
             normalized["numOfPoints"] = normalized["numPoints"]
         if "desc" in normalized and "description" not in normalized:
             normalized["description"] = normalized["desc"]
+        # Remove alias keys to avoid unknown field errors
+        for alias_key in ("name", "numPoints", "num_of_points", "desc"):
+            normalized.pop(alias_key, None)
         return normalized
 
 
 class TaskLogSchema(Schema):
-    task_id = fields.Integer(required=True, strict=True)
-    team_id = fields.Integer(required=True, strict=True)
+    task_id = fields.Integer(required=True)
+    team_id = fields.Integer(required=True)
 
 
 class RaceCreateSchema(Schema):

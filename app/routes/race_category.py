@@ -96,7 +96,12 @@ def create_race_category():
         description: Admins only
     """
     data = request.get_json() or {}
-    validated = RaceCategoryCreateSchema().load(data)
+    try:
+      validated = RaceCategoryCreateSchema().load(data)
+    except ValidationError as err:
+      if 'name' in err.messages:
+        return jsonify({"msg": "Missing race category name"}), 400
+      return jsonify({"errors": err.messages}), 400
     new_category = RaceCategory(name=validated['name'], description=validated.get('description', ''))
     db.session.add(new_category)
     db.session.commit()
