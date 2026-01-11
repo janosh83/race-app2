@@ -65,6 +65,9 @@ class CheckpointLog(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
     image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=True)
+    image_latitude = db.Column(db.Float, nullable=True)
+    image_longitude = db.Column(db.Float, nullable=True)
+    image_distance_km = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     __table_args__ = (

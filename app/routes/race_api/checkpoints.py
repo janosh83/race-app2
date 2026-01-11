@@ -10,6 +10,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
+from app.utils import extract_image_coordinates, calculate_distance
 
 logger = logging.getLogger(__name__)
 
@@ -399,7 +400,7 @@ def log_visit(race_id):
         description: Race or team not found
     """
     # Accept both JSON and multipart/form-data
-    if request.content_type.startswith('multipart/form-data'):
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
       raw_data = request.form.to_dict()
       file = request.files.get('image')
     else:
@@ -428,6 +429,10 @@ def log_visit(race_id):
     is_signed_to_race =  user_is_in_team and registration
     
     image_id = None
+    image_latitude = None
+    image_longitude = None
+    image_distance_km = None
+    
     if is_administrator or is_signed_to_race:
       if file and allowed_file(file.filename):
         # Generate unique filename: timestamp_uuid_original.ext
@@ -442,6 +447,14 @@ def log_visit(race_id):
         filepath = os.path.join(images_folder, filename)
         try:
             file.save(filepath)
+            
+            # Extract image coordinates from EXIF metadata
+            image_latitude, image_longitude = extract_image_coordinates(filepath)
+            if image_latitude is not None and image_longitude is not None:
+                logger.info(f"Extracted GPS coordinates from image: ({image_latitude}, {image_longitude})")
+            else:
+                logger.info(f"No GPS coordinates found in image EXIF metadata for {filename}")
+            
             image = Image(filename=filename)
             db.session.add(image)
             db.session.commit() # not sure if it is needed here
@@ -451,22 +464,44 @@ def log_visit(race_id):
             logger.error(f"Failed to save image for checkpoint visit: {e}")
             # Continue without image
             image_id = None
-
+      
+      # Get checkpoint details for location validation
+      checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+      
+      # Calculate distance if image coordinates are available
+      if image_latitude is not None and image_longitude is not None:
+          image_distance_km = calculate_distance(checkpoint.latitude, checkpoint.longitude, 
+                                                image_latitude, image_longitude)
+      
       # log visit
       new_log = CheckpointLog(
           checkpoint_id=data['checkpoint_id'],
           team_id=data['team_id'],
           race_id=race_id,
-          image_id=image_id)
+          image_id=image_id,
+          image_latitude=image_latitude,
+          image_longitude=image_longitude,
+          image_distance_km=image_distance_km)
       db.session.add(new_log)
       db.session.commit()
       logger.info(f"Checkpoint visit logged: race {race_id}, checkpoint {data['checkpoint_id']}, team {data['team_id']}, user {user.id}")
-      return jsonify({
+      
+      response_data = {
           "id": new_log.id, 
           "checkpoint_id": new_log.checkpoint_id, 
           "team_id": new_log.team_id, 
           "race_id": race_id, 
-          "image_id": image_id}), 201
+          "image_id": image_id
+      }
+      
+      # Include proximity information if image coordinates are available
+      if image_latitude is not None and image_longitude is not None:
+          response_data["image_distance_km"] = round(image_distance_km, 3)
+          response_data["image_latitude"] = image_latitude
+          response_data["image_longitude"] = image_longitude
+          logger.info(f"Image taken {image_distance_km:.3f} km from checkpoint")
+      
+      return jsonify(response_data), 201
     else:
         logger.warning(f"Unauthorized checkpoint visit log attempt by user {user.id} for team {data['team_id']} in race {race_id}")
         return jsonify({"message": "You are not authorized to log this visit."}), 403

@@ -48,8 +48,14 @@ class CheckpointUpdateSchema(Schema):
 
 
 class CheckpointLogSchema(Schema):
-    checkpoint_id = fields.Integer(required=True, strict=True)
-    team_id = fields.Integer(required=True, strict=True)
+    checkpoint_id = fields.Integer(required=True)
+    team_id = fields.Integer(required=True)
+    image_latitude = fields.Float(load_default=None)
+    image_longitude = fields.Float(load_default=None)
+    image_distance_km = fields.Float(load_default=None)
+
+
+
 
 
 class TaskCreateSchema(Schema):
@@ -91,8 +97,8 @@ class TaskUpdateSchema(Schema):
 
 
 class TaskLogSchema(Schema):
-    task_id = fields.Integer(required=True, strict=True)
-    team_id = fields.Integer(required=True, strict=True)
+    task_id = fields.Integer(required=True)
+    team_id = fields.Integer(required=True)
 
 
 class RaceCreateSchema(Schema):
