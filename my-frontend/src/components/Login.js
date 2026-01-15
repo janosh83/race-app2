@@ -37,15 +37,21 @@ function Login() {
                         setActiveRace(candidate);
                     }
                     else setActiveRace({ race_id: activeRaceId });
+
+                    logger.info('NAVIGATION', `Navigating to /race/${activeRaceId}/map after login`);
+                    // Notify app about auth change and go directly to map (one race auto-selected)
+                    window.dispatchEvent(new Event('auth-update'));
+                    navigate(`/race/${activeRaceId}/map`, { replace: true });
+                    
                 } else {
                     logger.info('RACE', 'Multiple race candidates available, user must select');
                     // no single candidate — clear any previous active race
                     setActiveRace(null);
-                }
 
-                // Notify app about auth change and route to /race
-                window.dispatchEvent(new Event('auth-update'));
-                navigate('/race', { replace: true });
+                    // Notify app about auth change and go to race selection page
+                    window.dispatchEvent(new Event('auth-update'));
+                    navigate('/race', { replace: true });
+                }
             } else {
                 logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
                 setError(data.msg || 'Login failed');
