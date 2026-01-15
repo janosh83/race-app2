@@ -52,7 +52,7 @@ function ActiveRace() {
 
   return (
     <div className="container mt-5">
-      <h2>Active Race</h2>
+      <h2>Select Active Race</h2>
 
       {activeRace ? (
         <div className="card mb-4">

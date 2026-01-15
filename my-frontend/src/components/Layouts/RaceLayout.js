@@ -89,7 +89,9 @@ function RaceLayout() {
           <div id="mainNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>Active Race</button>
+                <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>
+                  {activeRace ? (activeRace.race_name || activeRace.name || activeRace.title || `Race #${activeRace.race_id || activeRace.id}`) : 'Active Race'}
+                </button>
               </li>
               {activeRace && (
                 <>

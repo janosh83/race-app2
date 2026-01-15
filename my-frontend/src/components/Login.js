@@ -33,10 +33,13 @@ function Login() {
                     // find the full signed_race object to persist (may contain team_id)
                     const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
                     if (candidate) {
-                        logger.info('RACE', 'Auto-selecting race', { race: candidate.name || candidate.race_id });
+                        logger.info('RACE', 'Auto-selecting race', { race: candidate.race_name || candidate.name || candidate.race_id });
                         setActiveRace(candidate);
                     }
-                    else setActiveRace({ race_id: activeRaceId });
+                    else {
+                        logger.warn('RACE', 'Could not find candidate race in signed_races', { activeRaceId });
+                        setActiveRace({ race_id: activeRaceId });
+                    }
 
                     logger.info('NAVIGATION', `Navigating to /race/${activeRaceId}/map after login`);
                     // Notify app about auth change and go directly to map (one race auto-selected)
