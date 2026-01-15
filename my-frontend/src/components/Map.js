@@ -29,6 +29,7 @@ function Map({ topOffset = 56 }) {
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
   const geoWatchIdRef = useRef(null);
+  const userLocationRef = useRef(null); // Store latest user position for checkpoint logging
   const markersRef = useRef({}); // Track markers by checkpoint ID
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
@@ -104,8 +105,12 @@ function Map({ topOffset = 56 }) {
     // show a blue dot for current position and keep it updated
     if (navigator.geolocation) {
       const onPos = (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
         logger.info('GEOLOCATION', 'Position update', { lat: latitude.toFixed(4), lng: longitude.toFixed(4) });
+        
+        // Store latest position for immediate use in checkpoint logging (no geolocation delay)
+        userLocationRef.current = { latitude, longitude, accuracy, timestamp: Date.now() };
+        
         // create or update a small blue circle marker
         if (userMarkerRef.current) {
           userMarkerRef.current.setLatLng([latitude, longitude]);
@@ -127,14 +132,17 @@ function Map({ topOffset = 56 }) {
         logger.warn('GEOLOCATION', 'Geolocation error', error.message);
       };
 
-      // get initial position
-      logger.info('GEOLOCATION', 'Requesting initial position');
-      navigator.geolocation.getCurrentPosition(onPos, onErr, { enableHighAccuracy: true });
-      // watch for updates and keep blue dot in sync
+      // get initial position with relaxed accuracy for faster initial acquisition
+      logger.info('GEOLOCATION', 'Starting continuous location monitoring');
+      navigator.geolocation.getCurrentPosition(onPos, onErr, { 
+        enableHighAccuracy: false,  // Use standard accuracy for faster initial position
+        timeout: 5000 
+      });
+      // watch for updates continuously with relaxed settings
       geoWatchIdRef.current = navigator.geolocation.watchPosition(onPos, onErr, {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 10000,
+        enableHighAccuracy: true,   // High accuracy for continuous updates
+        maximumAge: 3000,           // Accept cached position up to 3 seconds old
+        timeout: 8000,
       });
     }
 
@@ -263,29 +271,21 @@ function Map({ topOffset = 56 }) {
     logger.info('RACE', 'Logging checkpoint visit', { checkpointId: selectedCheckpoint.id, hasImage: !!selectedImage });
     setIsUploading(true);
     try {
-      // Get user's current position
+      // Use continuously monitored location (already being tracked, no delay)
       let userLatitude = null;
       let userLongitude = null;
 
-      if (navigator.geolocation) {
-        try {
-          const position = await new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
-            });
-          });
-          userLatitude = position.coords.latitude;
-          userLongitude = position.coords.longitude;
-          logger.info('GEOLOCATION', 'User position captured for checkpoint log', {
-            lat: userLatitude.toFixed(4),
-            lng: userLongitude.toFixed(4)
-          });
-        } catch (geoErr) {
-          logger.warn('GEOLOCATION', 'Failed to get user position', geoErr.message);
-          // Continue without user position - it's optional
-        }
+      if (userLocationRef.current) {
+        userLatitude = userLocationRef.current.latitude;
+        userLongitude = userLocationRef.current.longitude;
+        const age = Date.now() - userLocationRef.current.timestamp;
+        logger.info('GEOLOCATION', 'Using cached user position for checkpoint log', {
+          lat: userLatitude.toFixed(4),
+          lng: userLongitude.toFixed(4),
+          ageMs: age
+        });
+      } else {
+        logger.warn('GEOLOCATION', 'No cached position available yet, location tracking may not have started');
       }
 
       const formData = new FormData();
