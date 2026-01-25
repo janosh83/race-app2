@@ -127,6 +127,16 @@ export default function RegistrationList({ raceId }) {
     loadMeta();
   };
 
+  const handleToggleDisqualification = async (teamId, current) => {
+    try {
+      await adminApi.setDisqualification(raceId, teamId, !current);
+      await loadRegistrations();
+    } catch (err) {
+      console.error('Failed to toggle disqualification', err);
+      setError('Failed to update disqualification');
+    }
+  };
+
   if (!raceId) return null;
 
   return (
@@ -210,12 +220,13 @@ export default function RegistrationList({ raceId }) {
               <th>Category</th>
               <th>Members</th>
               <th>Email Sent</th>
-              <th style={{ width: 100 }}>Actions</th>
+              <th>Disqualified</th>
+              <th style={{ width: 140 }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {(!registrations || registrations.length === 0) && (
-              <tr><td colSpan="5" className="text-muted">No registrations</td></tr>
+              <tr><td colSpan="6" className="text-muted">No registrations</td></tr>
             )}
             {registrations.map((reg, idx) => {
               const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
@@ -226,6 +237,7 @@ export default function RegistrationList({ raceId }) {
                 ? members.map(m => m.name || m.email || `#${m.id}`).join(', ')
                 : '—';
               const emailSent = reg.email_sent || false;
+              const disqualified = !!reg.disqualified;
               return (
                 <tr key={reg.id ?? reg.team_id ?? idx}>
                   <td>{teamName}</td>
@@ -239,6 +251,20 @@ export default function RegistrationList({ raceId }) {
                     )}
                   </td>
                   <td>
+                    {disqualified ? (
+                      <span className="badge bg-danger">Disqualified</span>
+                    ) : (
+                      <span className="badge bg-success">Eligible</span>
+                    )}
+                  </td>
+                  <td>
+                    <button
+                      className="btn btn-sm btn-outline-warning me-2"
+                      onClick={() => handleToggleDisqualification(teamId, disqualified)}
+                      title={disqualified ? 'Reinstate team' : 'Disqualify team'}
+                    >
+                      {disqualified ? 'Reinstate' : 'Disqualify'}
+                    </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
                       onClick={() => handleDeleteRegistration(teamId)}

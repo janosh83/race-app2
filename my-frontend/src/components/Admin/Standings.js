@@ -13,6 +13,7 @@ function normalizeResults(payload) {
         pointsForCheckpoints: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
         pointsForTasks: p.points_for_tasks ?? 0,
         totalPoints: p.total_points ?? (p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0) + (p.points_for_tasks ?? 0),
+        disqualified: !!p.disqualified,
         raw: p,
       }))
       .sort((a, b) => {
@@ -59,6 +60,18 @@ export default function Standings({ raceId, onTeamClick }) {
     return () => { mounted = false; };
   }, [raceId]);
 
+  const handleToggleDisqualification = async (teamId, current) => {
+    if (!raceId || !teamId) return;
+    try {
+      await adminApi.setDisqualification(raceId, teamId, !current);
+      const refreshed = await adminApi.getResults(raceId);
+      setStandings(normalizeResults(refreshed));
+    } catch (err) {
+      console.error('Failed to toggle disqualification', err);
+      setError(err?.message || 'Failed to update disqualification');
+    }
+  };
+
   if (loading) return <div>Loading standings…</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
@@ -87,8 +100,21 @@ export default function Standings({ raceId, onTeamClick }) {
     return result;
   };
 
+  // Assign positions while keeping overall order; disqualified keep order but get dashed position
+  const applyPositionLabels = (rows) => {
+    const eligible = rows.filter((row) => !row.disqualified);
+    const positionedEligible = computePositions(eligible);
+    let idx = 0;
+    return rows.map((row) => {
+      if (row.disqualified) return { ...row, positionLabel: '—' };
+      const label = positionedEligible[idx]?.positionLabel ?? '';
+      idx += 1;
+      return { ...row, positionLabel: label };
+    });
+  };
+
   // Compute overall standings with position labels
-  const rowsWithPosition = computePositions(standings);
+  const rowsWithPosition = applyPositionLabels(standings);
 
   // Group results by category
   const categoriesMap = new Map();
@@ -100,7 +126,7 @@ export default function Standings({ raceId, onTeamClick }) {
     categoriesMap.get(cat).push(item);
   });
 
-  // Sort each category group and compute positions
+  // Sort each category group and compute positions (excluding disqualified from ranking but keeping order)
   const categorizedResults = Array.from(categoriesMap.entries()).map(([categoryName, items]) => {
     const sorted = [...items].sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
@@ -109,7 +135,7 @@ export default function Standings({ raceId, onTeamClick }) {
     });
     return {
       categoryName,
-      results: computePositions(sorted)
+      results: applyPositionLabels(sorted)
     };
   }).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
@@ -123,6 +149,7 @@ export default function Standings({ raceId, onTeamClick }) {
           <th className="text-end">Points for Checkpoints</th>
           <th className="text-end">Points for Tasks</th>
           <th className="text-end">Total Points</th>
+          <th style={{ width: '150px' }}>Disqualification</th>
         </tr>
       </thead>
       <tbody>
@@ -140,6 +167,20 @@ export default function Standings({ raceId, onTeamClick }) {
             <td className="text-end">{row.pointsForCheckpoints}</td>
             <td className="text-end">{row.pointsForTasks}</td>
             <td className="text-end"><strong>{row.totalPoints}</strong></td>
+            <td>
+              <div className="d-flex align-items-center gap-2">
+                <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
+                  {row.disqualified ? 'Disqualified' : 'Eligible'}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-warning"
+                  onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
+                >
+                  {row.disqualified ? 'Reinstate' : 'Disqualify'}
+                </button>
+              </div>
+            </td>
           </tr>
         ))}
       </tbody>
