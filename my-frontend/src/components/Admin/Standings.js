@@ -5,15 +5,21 @@ function normalizeResults(payload) {
   if (!payload) return [];
   // payload already an array of simple result objects (admin)
   if (Array.isArray(payload)) {
-    return payload.map(p => ({
-      teamId: p.team_id ?? p.id ?? null,
-      teamName: p.team ?? p.team_name ?? p.name ?? (p.team?.name ?? ''),
-      category: p.category ?? p.category_name ?? p.race_category ?? (p.category?.name ?? ''),
-      pointsForCheckpoints: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
-      pointsForTasks: p.points_for_tasks ?? 0,
-      totalPoints: p.total_points ?? (p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0) + (p.points_for_tasks ?? 0),
-      raw: p,
-    }));
+    return payload
+      .map(p => ({
+        teamId: p.team_id ?? p.id ?? null,
+        teamName: p.team ?? p.team_name ?? p.name ?? (p.team?.name ?? ''),
+        category: p.category ?? p.category_name ?? p.race_category ?? (p.category?.name ?? ''),
+        pointsForCheckpoints: p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0,
+        pointsForTasks: p.points_for_tasks ?? 0,
+        totalPoints: p.total_points ?? (p.points_for_checkpoints ?? p.points ?? p.points_for_checkpoint ?? 0) + (p.points_for_tasks ?? 0),
+        raw: p,
+      }))
+      .sort((a, b) => {
+        if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+        if (b.pointsForCheckpoints !== a.pointsForCheckpoints) return b.pointsForCheckpoints - a.pointsForCheckpoints;
+        return (a.teamName || '').localeCompare(b.teamName || '');
+      });
   }
   // wrapper objects: { data: [...] } or { results: [...] } etc.
   const arr = payload.data ?? payload.results ?? payload.standings ?? payload.items;
@@ -55,6 +61,31 @@ export default function Standings({ raceId, onTeamClick }) {
   if (loading) return <div>Loading standings…</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
+  // Compute shared position labels: same total points => same place (e.g., 2.-4.)
+  const rowsWithPosition = (() => {
+    const result = [];
+    let i = 0;
+    let nextPlace = 1;
+
+    while (i < standings.length) {
+      const startPlace = nextPlace;
+      const currentPoints = standings[i].totalPoints;
+      let j = i;
+      while (j < standings.length && standings[j].totalPoints === currentPoints) {
+        j += 1;
+      }
+      const endPlace = nextPlace + (j - i) - 1;
+      const label = startPlace === endPlace ? `${startPlace}.` : `${startPlace}.-${endPlace}.`;
+      for (let k = i; k < j; k += 1) {
+        result.push({ ...standings[k], positionLabel: label });
+      }
+      nextPlace = endPlace + 1;
+      i = j;
+    }
+
+    return result;
+  })();
+
   return (
     <div>
       <h3>Current Standings</h3>
@@ -65,6 +96,7 @@ export default function Standings({ raceId, onTeamClick }) {
         <table className="table table-sm">
           <thead>
             <tr>
+              <th style={{ width: '90px' }}>Position</th>
               <th>Team</th>
               <th>Category</th>
               <th className="text-end">Points for Checkpoints</th>
@@ -73,8 +105,9 @@ export default function Standings({ raceId, onTeamClick }) {
             </tr>
           </thead>
           <tbody>
-            {standings.map((row, idx) => (
+            {rowsWithPosition.map((row, idx) => (
               <tr key={row.teamId ?? idx}>
+                <td style={{ fontWeight: 600 }}>{row.positionLabel}</td>
                 <td>
                   {onTeamClick ? (
                     <button className="btn btn-link p-0" onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}>{row.teamName}</button>

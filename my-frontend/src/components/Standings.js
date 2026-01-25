@@ -20,15 +20,28 @@ function Standings() {
       return (a?.team || '').localeCompare(b?.team || '');
     });
 
-    let lastPoints = null;
-    let lastRank = 0;
-    return arr.map((item, idx) => {
-      const points = item?.total_points ?? 0;
-      const rank = points === lastPoints ? lastRank : idx + 1;
-      lastPoints = points;
-      lastRank = rank;
-      return { ...item, rank };
-    });
+    // Compute shared position labels: same total points => same place (e.g., 2.-4.)
+    const result = [];
+    let i = 0;
+    let nextPlace = 1;
+
+    while (i < arr.length) {
+      const startPlace = nextPlace;
+      const currentPoints = arr[i]?.total_points ?? 0;
+      let j = i;
+      while (j < arr.length && (arr[j]?.total_points ?? 0) === currentPoints) {
+        j += 1;
+      }
+      const endPlace = nextPlace + (j - i) - 1;
+      const label = startPlace === endPlace ? `${startPlace}.` : `${startPlace}.-${endPlace}.`;
+      for (let k = i; k < j; k += 1) {
+        result.push({ ...arr[k], positionLabel: label });
+      }
+      nextPlace = endPlace + 1;
+      i = j;
+    }
+
+    return result;
   }, [results]);
 
   useEffect(() => {
@@ -91,7 +104,7 @@ function Standings() {
           <tbody>
             {rankedResults.map((result, index) => (
               <tr key={index}>
-                <td>{result.rank}</td>
+                <td style={{ fontWeight: 600 }}>{result.positionLabel}</td>
                 <td>{result.team}</td>
                 <td>{result.category}</td>
                 <td>{result.points_for_checkpoints}</td>
