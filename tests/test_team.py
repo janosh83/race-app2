@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Team, RaceCategory
+from app.models import Race, Team, RaceCategory, Registration
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -82,7 +82,10 @@ def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test získání týmů podle závodu
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers) # race category id 1 = Auto, OK for race Jarní jízda
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
-    assert response.json == [{"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto', 'email_sent': False}, {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto', 'email_sent': False}]
+    assert response.json == [
+        {"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto', 'email_sent': False, 'disqualified': False},
+        {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto', 'email_sent': False, 'disqualified': False},
+    ]
 
 
 # Additional tests for GET /team/race/<race_id>/
@@ -334,6 +337,122 @@ def test_delete_registration_multiple_registrations(test_client, add_test_data, 
     assert response.status_code == 200
     assert len(response.json) == 1
     assert response.json[0]["id"] == 2
+
+
+# Tests for PATCH /team/race/<race_id>/team/<team_id>/disqualify/ (admin only)
+
+def test_disqualify_and_revert_team_success(test_client, test_app, add_test_data, admin_auth_headers):
+    """Admin can disqualify and later revert a team within a race."""
+    # Create a registration
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    # Disqualify the team
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={"disqualified": True},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json["disqualified"] is True
+
+    with test_app.app_context():
+        reg = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert reg is not None and reg.disqualified is True
+
+    # Revert disqualification
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={"disqualified": False},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json["disqualified"] is False
+
+    with test_app.app_context():
+        reg = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert reg is not None and reg.disqualified is False
+
+
+def test_disqualify_missing_field(test_client, add_test_data, admin_auth_headers):
+    """Request without disqualified field returns 400 with validation errors."""
+    # Need registration
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 400
+    assert "disqualified" in response.json.get("errors", {})
+
+
+def test_disqualify_not_found_registration(test_client, add_test_data, admin_auth_headers):
+    """Disqualifying non-existent registration returns 404."""
+    response = test_client.patch(
+        "/api/team/race/1/team/999/disqualify/",
+        json={"disqualified": True},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_disqualify_unauthorized(test_client, add_test_data):
+    """Disqualify endpoint requires authentication."""
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={"disqualified": True},
+    )
+    assert response.status_code == 401
+
+
+def test_disqualify_forbidden_for_non_admin(test_client, add_test_data, regular_user_auth_headers):
+    """Disqualify endpoint is admin-only; non-admin gets 403."""
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={"disqualified": True},
+        headers=regular_user_auth_headers,
+    )
+    assert response.status_code == 403
+
+
+def test_race_results_include_disqualified_flag(test_client, add_test_data, admin_auth_headers):
+    """Race results payload includes disqualified boolean for each team."""
+    # Register a team and fetch results (default: not disqualified)
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    response = test_client.get("/api/race/1/results/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["disqualified"] is False
+
+    # Disqualify and check results reflect the flag
+    response = test_client.patch(
+        "/api/team/race/1/team/1/disqualify/",
+        json={"disqualified": True},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+
+    response = test_client.get("/api/race/1/results/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["disqualified"] is True
 
 
 # Tests for POST /team/race/<race_id>/send-registration-emails/ (admin only)

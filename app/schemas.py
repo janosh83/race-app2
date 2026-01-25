@@ -193,3 +193,7 @@ class TeamSignUpSchema(Schema):
 
 class TeamAddMembersSchema(Schema):
     user_ids = fields.List(fields.Integer(strict=True), required=True, validate=validate.Length(min=1))
+
+
+class TeamDisqualifySchema(Schema):
+    disqualified = fields.Boolean(required=True)

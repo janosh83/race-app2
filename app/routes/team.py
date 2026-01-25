@@ -5,7 +5,7 @@ from marshmallow import ValidationError
 from app import db
 from app.models import Team, Race, User, Registration, RaceCategory
 from app.routes.admin import admin_required
-from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema
+from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,13 @@ def get_team_by_race(race_id):
     """
 
     registrations = (
-      db.session.query(Team.id, Team.name, RaceCategory.name.label("race_category"), Registration.email_sent)
+      db.session.query(
+        Team.id,
+        Team.name,
+        RaceCategory.name.label("race_category"),
+        Registration.email_sent,
+        Registration.disqualified,
+      )
       .join(Registration, Registration.team_id == Team.id)
       .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
       .filter(Registration.race_id == race_id)
@@ -129,7 +135,7 @@ def get_team_by_race(race_id):
     )
 
     results = []
-    for team_id, team_name, category_name, email_sent in registrations:
+    for team_id, team_name, category_name, email_sent, disqualified in registrations:
       team = Team.query.filter_by(id=team_id).first()
       members = []
       if team and team.members:
@@ -143,6 +149,7 @@ def get_team_by_race(race_id):
         "race_category": category_name,
         "members": members,
         "email_sent": email_sent,
+        "disqualified": bool(disqualified),
       })
 
     return jsonify(results), 200
@@ -257,6 +264,90 @@ def delete_registration(race_id, team_id):
     db.session.commit()
     logger.info(f"Registration deleted: team {team_id} unregistered from race {race_id}")
     return jsonify({"message": "Registration deleted successfully"}), 200
+
+# toggle disqualified status of a team
+@team_bp.route("/race/<int:race_id>/team/<int:team_id>/disqualify/", methods=["PATCH"])
+@admin_required()
+def toggle_disqualification(race_id, team_id):
+    """
+    Toggle disqualification status of a team in a race - admin only.
+    Can disqualify a team or revert them back to competing status.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the team
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              disqualified:
+                type: boolean
+                description: Set to true to disqualify, false to revert to competing status
+    responses:
+      200:
+        description: Disqualification status updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Team disqualified successfully
+                team_id:
+                  type: integer
+                race_id:
+                  type: integer
+                disqualified:
+                  type: boolean
+      400:
+        description: Bad request - missing disqualified field
+      404:
+        description: Registration not found
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+    """
+    registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+
+    data = request.get_json() or {}
+    try:
+      validated = TeamDisqualifySchema().load(data)
+    except ValidationError as err:
+      return jsonify({"errors": err.messages}), 400
+
+    disqualified = validated['disqualified']
+    registration.disqualified = disqualified
+    db.session.commit()
+  
+    action = "disqualified" if disqualified else "reverted to competing status"
+    logger.info(f"Team {team_id} {action} in race {race_id}")
+  
+    message = f"Team {'disqualified' if disqualified else 'reverted to competing status'} successfully"
+    return jsonify({
+        "message": message,
+        "team_id": team_id,
+        "race_id": race_id,
+        "disqualified": disqualified
+    }), 200
 
 # send registration confirmation emails to all registered users
 @team_bp.route("/race/<int:race_id>/send-registration-emails/", methods=["POST"])

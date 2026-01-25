@@ -583,7 +583,11 @@ def get_race_results(race_id):
     # ensure race exists
     Race.query.filter_by(id=race_id).first_or_404()
 
-    registrations = (db.session.query(Registration.team_id, Team.name.label("team_name"), RaceCategory.name.label("race_category_name"))
+    registrations = (db.session.query(
+        Registration.team_id,
+        Registration.disqualified,
+        Team.name.label("team_name"),
+        RaceCategory.name.label("race_category_name"))
         .select_from(Registration)
         .join(Team, Registration.team_id == Team.id)
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
@@ -626,6 +630,7 @@ def get_race_results(race_id):
             "team_id": reg.team_id,
             "team": reg.team_name,
             "category": reg.race_category_name,
+            "disqualified": bool(reg.disqualified),
             "points_for_checkpoints": points_for_checkpoints,
             "points_for_tasks": points_for_tasks,
             "total_points": points_for_checkpoints + points_for_tasks})
