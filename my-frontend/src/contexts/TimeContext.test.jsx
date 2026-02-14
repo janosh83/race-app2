@@ -4,7 +4,7 @@ import { TimeProvider, useTime, formatDate } from './TimeContext';
 import { apiFetch } from '../utils/api';
 
 // Mock apiFetch
-jest.mock('../utils/api');
+vi.mock('../utils/api');
 
 // Helper component to test the context
 function TestComponent() {
@@ -26,13 +26,13 @@ function TestComponent() {
 describe('TimeContext', () => {
   beforeEach(() => {
     localStorage.clear();
-    jest.clearAllMocks();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('TimeProvider initialization', () => {
@@ -348,7 +348,7 @@ describe('TimeContext', () => {
 
       // Advance time by 15 seconds
       act(() => {
-        jest.advanceTimersByTime(15000);
+        vi.advanceTimersByTime(15000);
       });
 
       // State should be recalculated and now be LOGGING
@@ -477,7 +477,7 @@ describe('TimeContext', () => {
   describe('useTime hook', () => {
     test('throws error when used outside TimeProvider', () => {
       // Suppress console.error for this test
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
 
       expect(() => {
         render(<TestComponent />);

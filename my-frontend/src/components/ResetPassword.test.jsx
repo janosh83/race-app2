@@ -5,11 +5,11 @@ import ResetPassword from './ResetPassword';
 import { authApi } from '../services/authApi';
 
 // Mock dependencies
-jest.mock('../services/authApi');
+vi.mock('../services/authApi');
 
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  ...vi.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
 }));
 
@@ -26,14 +26,14 @@ const renderWithRouter = (initialEntry = '/reset-password?token=valid-token') =>
 
 describe('ResetPassword Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.clearAllTimers();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Component rendering', () => {
@@ -215,7 +215,7 @@ describe('ResetPassword Component', () => {
         expect(screen.getByText('Success')).toBeInTheDocument();
       });
 
-      jest.advanceTimersByTime(2000);
+      vi.advanceTimersByTime(2000);
 
       expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
@@ -381,7 +381,7 @@ describe('ResetPassword Component', () => {
       });
 
       // Clear timer before second submission
-      jest.runOnlyPendingTimers();
+      vi.runOnlyPendingTimers();
       mockNavigate.mockClear();
 
       // Second submission with validation error

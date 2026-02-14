@@ -5,19 +5,19 @@ import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 // Mock dependencies
-jest.mock('../services/raceApi');
-jest.mock('../utils/api');
+vi.mock('../services/raceApi');
+vi.mock('../utils/api');
 
 describe('Standings Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Token management', () => {
@@ -54,7 +54,7 @@ describe('Standings Component', () => {
 
       expect(isTokenExpired).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(2);
     });
   });

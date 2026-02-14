@@ -4,15 +4,15 @@ import ForgotPassword from './ForgotPassword';
 import * as authApiModule from '../services/authApi';
 
 // Mock the authApi module
-jest.mock('../services/authApi');
+vi.mock('../services/authApi');
 
 // Ensure authApi.requestPasswordReset is a jest mock function
-authApiModule.authApi.requestPasswordReset = jest.fn();
+authApiModule.authApi.requestPasswordReset = vi.fn();
 
 describe('ForgotPassword Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    authApiModule.authApi.requestPasswordReset = jest.fn();
+    vi.clearAllMocks();
+    authApiModule.authApi.requestPasswordReset = vi.fn();
   });
 
   test('renders forgot password form', () => {

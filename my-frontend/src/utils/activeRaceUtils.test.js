@@ -5,11 +5,11 @@ describe('activeRaceUtils', () => {
     const mockNow = new Date('2026-01-15T12:00:00Z').getTime();
 
     beforeEach(() => {
-      jest.spyOn(Date, 'now').mockReturnValue(mockNow);
+      vi.spyOn(Date, 'now').mockReturnValue(mockNow);
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     test('returns empty array for empty input', () => {
@@ -218,11 +218,11 @@ describe('activeRaceUtils', () => {
     const mockNow = new Date('2026-01-15T12:00:00Z').getTime();
 
     beforeEach(() => {
-      jest.spyOn(Date, 'now').mockReturnValue(mockNow);
+      vi.spyOn(Date, 'now').mockReturnValue(mockNow);
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     test('returns null for empty array', () => {

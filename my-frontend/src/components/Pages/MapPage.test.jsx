@@ -4,22 +4,22 @@ import { MemoryRouter } from 'react-router-dom';
 import MapPage from './MapPage';
 
 // Mock the Map component
-jest.mock('../Map', () => {
+vi.mock('../Map', () => {
   return function MockMap({ topOffset }) {
     return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
   };
 });
 
 // Mock useOutletContext
-const mockUseOutletContext = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+const mockUseOutletContext = vi.fn();
+vi.mock('react-router-dom', () => ({
+  ...vi.requireActual('react-router-dom'),
   useOutletContext: () => mockUseOutletContext(),
 }));
 
 describe('MapPage Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Component rendering', () => {

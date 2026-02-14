@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import TasksPage from './TasksPage';
 
 // Mock the Tasks component
-jest.mock('../Tasks', () => {
+vi.mock('../Tasks', () => {
   return function MockTasks() {
     return <div data-testid="tasks-component">Tasks Component</div>;
   };

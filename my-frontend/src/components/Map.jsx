@@ -39,8 +39,8 @@ function Map({ topOffset = 56 }) {
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
   const { activeRace, timeInfo } = useTime();
-  const API_KEY = process.env.REACT_APP_MAPY_API_KEY;
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
+  const apiUrl = import.meta.env.VITE_API_URL;
 
   // Get active race and team from TimeContext
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;

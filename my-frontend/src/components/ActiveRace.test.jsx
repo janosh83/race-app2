@@ -6,27 +6,27 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
 
 // Mock utilities
-jest.mock('../utils/api');
-jest.mock('../utils/activeRaceUtils');
+vi.mock('../utils/api');
+vi.mock('../utils/activeRaceUtils');
 
 describe('ActiveRace Component', () => {
-  const mockSetActiveRace = jest.fn();
+  const mockSetActiveRace = vi.fn();
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     isTokenExpired.mockReturnValue(false);
     activeRaceUtils.findCandidates.mockReturnValue([]);
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   const renderWithContext = (timeValue) => {
-    jest.spyOn(TimeContext, 'useTime').mockReturnValue(timeValue);
+    vi.spyOn(TimeContext, 'useTime').mockReturnValue(timeValue);
     return render(
       <TimeContext.TimeProvider>
         <ActiveRace />
@@ -74,7 +74,7 @@ describe('ActiveRace Component', () => {
 
       expect(isTokenExpired).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(2);
     });
 

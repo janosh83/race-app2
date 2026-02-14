@@ -6,12 +6,12 @@ import Login from './Login';
 import { authApi } from '../services/authApi';
 
 // Mock the authApi
-jest.mock('../services/authApi');
+vi.mock('../services/authApi');
 
 // Mock react-router-dom useNavigate
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  ...vi.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
 }));
 
@@ -27,7 +27,7 @@ describe('Login Component', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockNavigate.mockClear();
   });
 

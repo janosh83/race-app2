@@ -1,10 +1,10 @@
 import { resizeImageWithExif } from './image';
 import piexif from 'piexifjs';
 
-jest.mock('piexifjs', () => {
-  const passthrough = jest.fn((_, dataUrl) => dataUrl);
-  const dump = jest.fn(() => '');
-  const load = jest.fn(() => ({}));
+vi.mock('piexifjs', () => {
+  const passthrough = vi.fn((_, dataUrl) => dataUrl);
+  const dump = vi.fn(() => '');
+  const load = vi.fn(() => ({}));
   return {
     __esModule: true,
     default: { insert: passthrough, dump, load },
@@ -30,7 +30,7 @@ function dataUrlToFile(dataUrl, name) {
 }
 
 const OriginalImage = global.Image;
-const mockContext = { drawImage: jest.fn() };
+const mockContext = { drawImage: vi.fn() };
 
 const ensureToBlob = () => {
   HTMLCanvasElement.prototype.toBlob = function toBlob(callback, type) {
@@ -42,7 +42,7 @@ const ensureToBlob = () => {
 beforeAll(() => {
   ensureToBlob();
   Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-    value: jest.fn(() => mockContext),
+    value: vi.fn(() => mockContext),
   });
   global.Image = class MockImage {
     constructor() {

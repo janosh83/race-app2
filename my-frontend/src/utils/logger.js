@@ -2,11 +2,11 @@
  * Logger utility for consistent logging across the frontend
  * Provides structured logging with categories and log levels
  * 
- * Debug mode controlled by REACT_APP_DEBUG_MODE env variable (true/false)
+ * Debug mode controlled by VITE_DEBUG_MODE env variable (true/false)
  * Can be set on Render even in production to enable/disable debug output
  */
 
-const isDev = process.env.REACT_APP_DEBUG_MODE === 'true';
+const isDev = import.meta.env.VITE_DEBUG_MODE === 'true';
 
 // Color codes for console output
 const colors = {

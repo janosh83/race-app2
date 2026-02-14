@@ -6,18 +6,18 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import * as TimeContext from '../contexts/TimeContext';
 
 // Mock CSS imports
-jest.mock('leaflet/dist/leaflet.css', () => {});
+vi.mock('leaflet/dist/leaflet.css', () => {});
 
 // Mock Leaflet
-jest.mock('leaflet', () => {
+vi.mock('leaflet', () => {
   const mockMap = {
-    setView: jest.fn(function() { return this; }),
-    remove: jest.fn(),
-    eachLayer: jest.fn(),
-    removeLayer: jest.fn(),
+    setView: vi.fn(function() { return this; }),
+    remove: vi.fn(),
+    eachLayer: vi.fn(),
+    removeLayer: vi.fn(),
   };
 
-  const mockAddTo = jest.fn(() => mockMap);
+  const mockAddTo = vi.fn(() => mockMap);
 
   const Control = {};
   Control.extend = function(definition) {
@@ -40,75 +40,75 @@ jest.mock('leaflet', () => {
       },
       tileLayer(url, options) {
         return {
-          addTo: jest.fn(() => mockMap),
+          addTo: vi.fn(() => mockMap),
         };
       },
       marker(coords, options) {
         return {
-          addTo: jest.fn(() => mockMap),
-          on: jest.fn(),
+          addTo: vi.fn(() => mockMap),
+          on: vi.fn(),
         };
       },
       circleMarker(coords, options) {
         return {
-          addTo: jest.fn(() => mockMap),
-          setLatLng: jest.fn(() => ({})),
+          addTo: vi.fn(() => mockMap),
+          setLatLng: vi.fn(() => ({})),
         };
       },
-      icon: jest.fn(),
+      icon: vi.fn(),
       Control: Control,
       DomUtil: {
-        create: jest.fn(() => ({})),
+        create: vi.fn(() => ({})),
       },
       DomEvent: {
-        disableClickPropagation: jest.fn(),
+        disableClickPropagation: vi.fn(),
       },
     },
   };
 });
 
 // Mock dependencies
-jest.mock('../services/raceApi');
-jest.mock('../utils/api');
+vi.mock('../services/raceApi');
+vi.mock('../utils/api');
 
 // Mock piexifjs
-jest.mock('piexifjs', () => ({
-  load: jest.fn(() => ({})),
-  dump: jest.fn(() => ''),
-  insert: jest.fn((exif, dataUrl) => dataUrl),
+vi.mock('piexifjs', () => ({
+  load: vi.fn(() => ({})),
+  dump: vi.fn(() => ''),
+  insert: vi.fn((exif, dataUrl) => dataUrl),
 }));
 
 const mockGeolocation = {
-  getCurrentPosition: jest.fn(),
-  watchPosition: jest.fn(() => 1),
-  clearWatch: jest.fn(),
+  getCurrentPosition: vi.fn(),
+  watchPosition: vi.fn(() => 1),
+  clearWatch: vi.fn(),
 };
 
 describe('Map Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     
     // Mock geolocation
     global.navigator.geolocation = mockGeolocation;
     
     // Mock TimeContext
-    jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+    vi.spyOn(TimeContext, 'useTime').mockReturnValue({
       activeRace: { race_id: 1, team_id: 10 },
       timeInfo: { state: 'LOGGING' },
     });
     
-    jest.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
+    vi.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
     
     // Mock environment variables
-    process.env.REACT_APP_MAPY_API_KEY = 'test-api-key';
-    process.env.REACT_APP_API_URL = 'http://test-api.com';
+    vi.stubEnv('VITE_MAPY_API_KEY', 'test-api-key');
+    vi.stubEnv('VITE_API_URL', 'http://test-api.com');
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Token management', () => {
@@ -142,7 +142,7 @@ describe('Map Component', () => {
 
       expect(isTokenExpired).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(2);
     });
   });
@@ -164,7 +164,7 @@ describe('Map Component', () => {
     });
 
     test('does not fetch checkpoints when no activeRace', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: null,
         timeInfo: { state: 'LOGGING' },
       });
@@ -175,7 +175,7 @@ describe('Map Component', () => {
     });
 
     test('does not fetch checkpoints when no team_id', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1 },
         timeInfo: { state: 'LOGGING' },
       });
@@ -196,7 +196,7 @@ describe('Map Component', () => {
     });
 
     test('shows "Read-only" badge when logging is not allowed', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });
@@ -241,7 +241,7 @@ describe('Map Component', () => {
 
   describe('Logging actions', () => {
     test('shows log visit button for unvisited checkpoint when logging is allowed', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'LOGGING' },
       });
@@ -254,7 +254,7 @@ describe('Map Component', () => {
     });
 
     test('shows read-only message when logging is not open', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });
@@ -291,7 +291,7 @@ describe('Map Component', () => {
 
   describe('Time states', () => {
     test('allows checkpoints to show in SHOW_ONLY state', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });
@@ -303,7 +303,7 @@ describe('Map Component', () => {
     });
 
     test('allows checkpoints to show in LOGGING state', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'LOGGING' },
       });
@@ -315,7 +315,7 @@ describe('Map Component', () => {
     });
 
     test('allows checkpoints to show in POST_LOG_SHOW state', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'POST_LOG_SHOW' },
       });
@@ -327,7 +327,7 @@ describe('Map Component', () => {
     });
 
     test('does not allow logging in BEFORE_SHOW state', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'BEFORE_SHOW', startShow: new Date('2025-01-20T10:00:00') },
       });

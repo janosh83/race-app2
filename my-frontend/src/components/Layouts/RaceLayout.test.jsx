@@ -6,11 +6,11 @@ import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import * as TimeContext from '../../contexts/TimeContext';
 
 // Mock dependencies
-jest.mock('../../utils/api');
+vi.mock('../../utils/api');
 
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  ...vi.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
   Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight})</div>,
 }));
@@ -29,10 +29,10 @@ const renderWithProviders = (activeRace = null, signedRaces = [], user = null) =
     timeState: 'LOGGING',
     raceTime: new Date(),
     currentTime: new Date(),
-    refreshActiveRace: jest.fn(),
+    refreshActiveRace: vi.fn(),
   };
 
-  jest.spyOn(TimeContext, 'useTime').mockReturnValue(mockTimeContext);
+  vi.spyOn(TimeContext, 'useTime').mockReturnValue(mockTimeContext);
 
   return render(
     <MemoryRouter initialEntries={['/race']}>
@@ -45,15 +45,15 @@ const renderWithProviders = (activeRace = null, signedRaces = [], user = null) =
 
 describe('RaceLayout Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     isTokenExpired.mockReturnValue(false);
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Component rendering', () => {
@@ -257,7 +257,7 @@ describe('RaceLayout Component', () => {
 
       // Mock window.location.replace
       delete window.location;
-      window.location = { replace: jest.fn() };
+      window.location = { replace: vi.fn() };
 
       renderWithProviders();
 
@@ -269,7 +269,7 @@ describe('RaceLayout Component', () => {
 
     test('redirects to root on logout', () => {
       delete window.location;
-      window.location = { replace: jest.fn() };
+      window.location = { replace: vi.fn() };
 
       renderWithProviders();
 
@@ -281,7 +281,7 @@ describe('RaceLayout Component', () => {
 
     test('closes navbar on logout', () => {
       delete window.location;
-      window.location = { replace: jest.fn() };
+      window.location = { replace: vi.fn() };
 
       renderWithProviders();
 
@@ -334,10 +334,10 @@ describe('RaceLayout Component', () => {
 
       expect(isTokenExpired).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(2);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(3);
     });
 
@@ -397,7 +397,7 @@ describe('RaceLayout Component', () => {
     });
 
     test('measures navbar height on mount', () => {
-      const mockGetBoundingClientRect = jest.fn(() => ({
+      const mockGetBoundingClientRect = vi.fn(() => ({
         height: 64,
       }));
 
@@ -433,14 +433,14 @@ describe('RaceLayout Component', () => {
     });
 
     test('measures height after navbar toggle with delay', () => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       renderWithProviders();
 
       const toggleButton = screen.getByRole('button', { name: 'Toggle navigation' });
       fireEvent.click(toggleButton);
 
       // Advance timers to trigger delayed measurement
-      jest.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300);
 
       expect(screen.getByTestId('outlet')).toBeInTheDocument();
     });

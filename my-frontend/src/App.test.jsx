@@ -4,23 +4,23 @@ import App from './App';
 import { isTokenExpired } from './utils/api';
 
 // Mock the isTokenExpired utility
-jest.mock('./utils/api', () => ({
-  isTokenExpired: jest.fn(),
-  parseJwt: jest.fn(),
-  logoutAndRedirect: jest.fn(),
+vi.mock('./utils/api', () => ({
+  isTokenExpired: vi.fn(),
+  parseJwt: vi.fn(),
+  logoutAndRedirect: vi.fn(),
 }));
 
 // Mock child components to simplify testing
-jest.mock('./components/Login', () => () => <div>Login Component</div>);
-jest.mock('./components/ForgotPassword', () => () => <div>ForgotPassword Component</div>);
-jest.mock('./components/ResetPassword', () => () => <div>ResetPassword Component</div>);
-jest.mock('./components/Layouts/RaceLayout', () => () => <div>RaceLayout Component</div>);
-jest.mock('./components/Layouts/AdminLayout', () => () => <div>AdminLayout Component</div>);
+vi.mock('./components/Login', () => () => <div>Login Component</div>);
+vi.mock('./components/ForgotPassword', () => () => <div>ForgotPassword Component</div>);
+vi.mock('./components/ResetPassword', () => () => <div>ResetPassword Component</div>);
+vi.mock('./components/Layouts/RaceLayout', () => () => <div>RaceLayout Component</div>);
+vi.mock('./components/Layouts/AdminLayout', () => () => <div>AdminLayout Component</div>);
 
 describe('App Component - Routing', () => {
   beforeEach(() => {
     localStorage.clear();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('When user is NOT logged in', () => {

@@ -29,7 +29,7 @@ function Tasks({ topOffset = 56 }) {
   const [toast, setToast] = useState(null);
   const [taskError, setTaskError] = useState(false);
 
-  const apiUrl = process.env.REACT_APP_API_URL;
+  const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
 

@@ -5,24 +5,24 @@ import ActiveRacePage from './ActiveRacePage';
 import { selectActiveRace } from '../../utils/activeRaceUtils';
 
 // Mock dependencies
-jest.mock('../../utils/activeRaceUtils');
-jest.mock('../ActiveRace', () => {
+vi.mock('../../utils/activeRaceUtils');
+vi.mock('../ActiveRace', () => {
   return function MockActiveRace() {
     return <div data-testid="active-race">Active Race Component</div>;
   };
 });
 
-const mockNavigate = jest.fn();
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', () => ({
+  ...vi.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
 }));
 
 // Mock useTime hook
-const mockSetActiveRace = jest.fn();
-const mockUseTime = jest.fn();
-jest.mock('../../contexts/TimeContext', () => ({
-  ...jest.requireActual('../../contexts/TimeContext'),
+const mockSetActiveRace = vi.fn();
+const mockUseTime = vi.fn();
+vi.mock('../../contexts/TimeContext', () => ({
+  ...vi.requireActual('../../contexts/TimeContext'),
   useTime: () => mockUseTime(),
 }));
 
@@ -59,7 +59,7 @@ const renderWithProviders = (
 
 describe('ActiveRacePage Component', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     sessionStorage.clear();
     selectActiveRace.mockReturnValue({ activeRaceId: null, candidates: [] });
   });

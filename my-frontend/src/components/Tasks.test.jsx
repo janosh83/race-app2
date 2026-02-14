@@ -6,12 +6,12 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import * as TimeContext from '../contexts/TimeContext';
 
 // Mock dependencies
-jest.mock('../services/raceApi');
-jest.mock('../utils/api');
-jest.mock('piexifjs', () => ({
-  load: jest.fn(() => ({})),
-  dump: jest.fn(() => ''),
-  insert: jest.fn((exif, dataUrl) => dataUrl),
+vi.mock('../services/raceApi');
+vi.mock('../utils/api');
+vi.mock('piexifjs', () => ({
+  load: vi.fn(() => ({})),
+  dump: vi.fn(() => ''),
+  insert: vi.fn((exif, dataUrl) => dataUrl),
 }));
 
 describe('Tasks Component', () => {
@@ -34,25 +34,25 @@ describe('Tasks Component', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     localStorage.clear();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
     // Mock TimeContext
-    jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+    vi.spyOn(TimeContext, 'useTime').mockReturnValue({
       activeRace: { race_id: 1, team_id: 10 },
       timeInfo: { state: 'LOGGING' },
     });
 
-    jest.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
+    vi.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
 
     // Mock environment variables
-    process.env.REACT_APP_API_URL = 'http://test-api.com';
+    vi.stubEnv('VITE_API_URL', 'http://test-api.com');
   });
 
   afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
   });
 
   describe('Token management', () => {
@@ -86,7 +86,7 @@ describe('Tasks Component', () => {
 
       expect(isTokenExpired).toHaveBeenCalledTimes(1);
 
-      jest.advanceTimersByTime(30000);
+      vi.advanceTimersByTime(30000);
       expect(isTokenExpired).toHaveBeenCalledTimes(2);
     });
   });
@@ -103,7 +103,7 @@ describe('Tasks Component', () => {
     });
 
     test('does not fetch tasks when no activeRace', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: null,
         timeInfo: { state: 'LOGGING' },
       });
@@ -114,7 +114,7 @@ describe('Tasks Component', () => {
     });
 
     test('does not fetch tasks when no team_id', () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1 },
         timeInfo: { state: 'LOGGING' },
       });
@@ -191,7 +191,7 @@ describe('Tasks Component', () => {
     });
 
     test('shows "Read-only" badge when logging is not allowed', async () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });
@@ -272,7 +272,7 @@ describe('Tasks Component', () => {
     });
 
     test('shows warning message when logging is closed', async () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });
@@ -338,7 +338,7 @@ describe('Tasks Component', () => {
     });
 
     test('disables buttons when logging is not allowed', async () => {
-      jest.spyOn(TimeContext, 'useTime').mockReturnValue({
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
       });

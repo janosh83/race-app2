@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import StandingsPage from './StandingsPage';
 
 // Mock the Standings component
-jest.mock('../Standings', () => {
+vi.mock('../Standings', () => {
   return function MockStandings() {
     return <div data-testid="standings-component">Standings Component</div>;
   };
