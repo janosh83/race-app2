@@ -126,26 +126,20 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
     setImporting(true);
     try {
-      const created = [];
-      // create sequentially to simplify rate/ordering; could use Promise.all
-      for (const it of parsed) {
-        // map common field names
-        const payload = {
-          name: it.name ?? it.title,
-          description: it.description ?? it.desc ?? null,
-          lat: it.lat ?? it.latitude ?? it.y ?? null,
-          lng: it.lng ?? it.longitude ?? it.x ?? null,
-          sequence: it.sequence ?? it.order ?? null,
-          metadata: it.metadata ?? null,
-        };
-        const cp = await adminApi.addCheckpoint(raceId, payload);
-        created.push(cp);
-      }
+      // map common field names and prepare batch payload (all in one request)
+      const payload = parsed.map(it => ({
+        title: it.name ?? it.title,
+        description: it.description ?? it.desc ?? null,
+        latitude: it.lat ?? it.latitude ?? it.y ?? null,
+        longitude: it.lng ?? it.longitude ?? it.x ?? null,
+        numOfPoints: it.numOfPoints ?? 0
+      }));
+      const created = await adminApi.addCheckpoint(raceId, payload);
       // notify parent and clear textarea
-      onImported(created);
+      onImported(Array.isArray(created) ? created : [created]);
       setJsonText('');
       setToast({
-        message: `Imported ${created.length} checkpoints successfully`,
+        message: `Imported ${Array.isArray(created) ? created.length : 1} checkpoints successfully`,
         type: 'success',
         duration: 5000
       });
