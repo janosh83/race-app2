@@ -8,7 +8,7 @@ import { logger } from '../utils/logger';
 import LanguageSwitcher from './LanguageSwitcher';
 
 function Login() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -28,6 +28,12 @@ function Login() {
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
                 setSignedRaces(data.signed_races || []);
+
+                // Set language from user's preferred_language if available
+                if (data.user?.preferred_language) {
+                    i18n.changeLanguage(data.user.preferred_language);
+                    logger.info('SETTINGS', 'Language set from user preference', { language: data.user.preferred_language });
+                }
 
                 // choose active race (if exactly one candidate)
                 const { activeRaceId, candidates } = selectActiveRace(data.signed_races || []);

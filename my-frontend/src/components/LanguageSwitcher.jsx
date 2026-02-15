@@ -1,5 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { userApi } from '../services/userApi';
+import { logger } from '../utils/logger';
 import enFlag from '../assets/flags/en.svg';
 import csFlag from '../assets/flags/cs.svg';
 import deFlag from '../assets/flags/de.svg';
@@ -14,9 +16,27 @@ export default function LanguageSwitcher({ className = '' }) {
   const { i18n, t } = useTranslation();
   const current = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
 
-  const handleChange = (event) => {
+  const handleChange = async (event) => {
     const next = event.target.value;
+    
+    // Always update frontend immediately
     i18n.changeLanguage(next);
+    
+    // Try to persist to backend if user is logged in
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user?.id) {
+          await userApi.updatePreferredLanguage(user.id, next);
+          logger.success('SETTINGS', 'Language preference saved', { language: next });
+        }
+      }
+    } catch (error) {
+      // If not logged in or API fails, just log it and continue
+      // Frontend change already applied, so user experience is not affected
+      logger.warn('SETTINGS', 'Failed to save language preference', error.message);
+    }
   };
 
   const currentFlag = LANGUAGE_OPTIONS.find(option => option.value === current)?.flag || enFlag;
