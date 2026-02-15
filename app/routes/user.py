@@ -39,7 +39,8 @@ def get_users():
         "id": user.id,
         "name": user.name,
         "email": user.email,
-        "is_administrator": user.is_administrator
+        "is_administrator": user.is_administrator,
+        "preferred_language": user.preferred_language
     } for user in users])
 
 # duplicate of auth/register which needs to be removed in future
@@ -73,6 +74,10 @@ def create_user():
                 type: boolean
                 description: Whether the user is an administrator
                 default: false
+              preferred_language:
+                type: string
+                description: User's preferred language (en/cs/de)
+                enum: [en, cs, de]
             required:
               - email
               - password
@@ -102,7 +107,8 @@ def create_user():
     user = User(
         name=data.get('name', ''),
         email=data['email'],
-        is_administrator=data.get('is_administrator', False)
+        is_administrator=data.get('is_administrator', False),
+        preferred_language=data.get('preferred_language')
     )
     user.set_password(data['password'])
     
@@ -114,15 +120,16 @@ def create_user():
         "id": user.id,
         "name": user.name,
         "email": user.email,
-        "is_administrator": user.is_administrator
+        "is_administrator": user.is_administrator,
+        "preferred_language": user.preferred_language
     }), 201
 
 
 @user_bp.route("/<int:user_id>/", methods=["PUT"])
-@admin_required()
+@jwt_required()
 def update_user(user_id):
     """
-    Update a user (admin only).
+  Update a user (self or admin).
     ---
     tags:
       - Admin Users
@@ -170,6 +177,15 @@ def update_user(user_id):
       403:
         description: Forbidden - admin access required
     """
+    current_user_id = int(get_jwt_identity())
+    current_user = User.query.filter_by(id=current_user_id).first()
+    if not current_user:
+      return jsonify({"msg": "User not found"}), 404
+
+    is_admin = bool(current_user.is_administrator)
+    if not is_admin and user_id != current_user_id:
+      return jsonify({"msg": "Forbidden"}), 403
+
     user = User.query.filter_by(id=user_id).first_or_404()
     payload = request.get_json(silent=True) or {}
     data = UserUpdateSchema().load(payload, partial=True)
@@ -193,8 +209,14 @@ def update_user(user_id):
       updated_fields.append('password')
     
     if 'is_administrator' in data:
+      if not is_admin:
+        return jsonify({"msg": "Forbidden"}), 403
       user.is_administrator = data['is_administrator']
       updated_fields.append('is_administrator')
+
+    if 'preferred_language' in data:
+      user.preferred_language = data['preferred_language']
+      updated_fields.append('preferred_language')
 
     db.session.commit()
     
@@ -203,7 +225,8 @@ def update_user(user_id):
       "id": user.id,
       "name": user.name,
       "email": user.email,
-      "is_administrator": user.is_administrator
+      "is_administrator": user.is_administrator,
+      "preferred_language": user.preferred_language
     }), 200
 
 

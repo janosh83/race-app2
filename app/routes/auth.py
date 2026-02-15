@@ -47,6 +47,10 @@ def register():
               is_administrator:
                 type: boolean
                 example: false
+              preferred_language:
+                type: string
+                enum: [en, cs, de]
+                example: en
             required:
               - email
               - password
@@ -93,6 +97,7 @@ def register():
         name=validated.get('name', ''),
         email=validated['email'],
         is_administrator=validated.get('is_administrator', False),
+        preferred_language=validated.get('preferred_language'),
     )
     user.set_password(validated['password'])
     db.session.add(user)
@@ -245,6 +250,7 @@ def login():
             "name": user.name,
             "email": user.email,
             "is_administrator": user.is_administrator,
+            "preferred_language": user.preferred_language,
         },
         "signed_races": registered_races
     }), 200

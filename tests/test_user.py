@@ -278,6 +278,7 @@ def test_get_users_success(test_client, add_test_data, admin_auth_headers):
         assert "name" in user
         assert "email" in user
         assert "is_administrator" in user
+        assert "preferred_language" in user
 
 
 def test_get_users_contains_expected_users(test_client, add_test_data, admin_auth_headers):
@@ -322,6 +323,7 @@ def test_create_user_success(test_client, admin_auth_headers):
     assert response.json["email"] == "newuser@example.com"
     assert response.json["is_administrator"] is False
     assert "id" in response.json
+    assert "preferred_language" in response.json
 
 
 def test_create_user_with_admin_flag(test_client, admin_auth_headers):
@@ -424,6 +426,7 @@ def test_update_user_success(test_client, add_test_data, admin_auth_headers):
     assert response.status_code == 200
     assert response.json["name"] == "Updated User One"
     assert response.json["email"] == "updatedemail@example.com"
+    assert "preferred_language" in response.json
 
 
 def test_update_user_password(test_client, add_test_data, admin_auth_headers):
@@ -434,6 +437,7 @@ def test_update_user_password(test_client, add_test_data, admin_auth_headers):
     
     response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
     assert response.status_code == 200
+    assert "preferred_language" in response.json
     
     # Verify new password works
     login_response = test_client.post("/auth/login/", json={
@@ -452,6 +456,7 @@ def test_update_user_admin_flag(test_client, add_test_data, admin_auth_headers):
     response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["is_administrator"] is True
+    assert "preferred_language" in response.json
 
 
 def test_update_user_partial_fields(test_client, add_test_data, admin_auth_headers):
@@ -467,6 +472,7 @@ def test_update_user_partial_fields(test_client, add_test_data, admin_auth_heade
     assert response.status_code == 200
     assert response.json["name"] == "New Name"
     assert response.json["email"] == original_user["email"]  # Email unchanged
+    assert "preferred_language" in response.json
 
 
 def test_update_user_duplicate_email(test_client, add_test_data, admin_auth_headers):
@@ -497,10 +503,66 @@ def test_update_user_unauthorized(test_client, add_test_data):
 
 
 def test_update_user_forbidden(test_client, add_test_data, regular_user_auth_headers):
-    """Test updating user as non-admin returns 403."""
+    """Test updating another user as non-admin returns 403."""
+    # regular_user_auth_headers creates its own user (not from add_test_data)
+    # So it should fail trying to update user 1 from add_test_data
     update_data = {"name": "Updated"}
     
     response = test_client.put("/api/user/1/", json=update_data, headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+def test_update_user_self_allowed(test_client, add_test_data):
+    """Test that a user can update themselves."""
+    # Login as user1 from add_test_data
+    login_response = test_client.post("/auth/login/", json={
+        "email": "user1@example.com",
+        "password": "password"
+    })
+    assert login_response.status_code == 200
+    user1_headers = {"Authorization": f"Bearer {login_response.json['access_token']}"}
+    
+    update_data = {"name": "User One Updated"}
+    
+    # User 1 updating themselves should succeed
+    response = test_client.put("/api/user/1/", json=update_data, headers=user1_headers)
+    assert response.status_code == 200
+    assert response.json["name"] == "User One Updated"
+    assert "preferred_language" in response.json
+
+
+def test_update_user_self_preferred_language(test_client, add_test_data):
+    """Test that a user can update their preferred language."""
+    # Login as user2 from add_test_data
+    login_response = test_client.post("/auth/login/", json={
+        "email": "user2@example.com",
+        "password": "password"
+    })
+    assert login_response.status_code == 200
+    user2_headers = {"Authorization": f"Bearer {login_response.json['access_token']}"}
+    
+    update_data = {"preferred_language": "cs"}
+    
+    # User 2 updating their language preference should succeed
+    response = test_client.put("/api/user/2/", json=update_data, headers=user2_headers)
+    assert response.status_code == 200
+    assert response.json["preferred_language"] == "cs"
+
+
+def test_update_user_self_cannot_change_admin(test_client, add_test_data):
+    """Test that a non-admin user cannot change their admin status."""
+    # Login as user3 from add_test_data
+    login_response = test_client.post("/auth/login/", json={
+        "email": "user3@example.com",
+        "password": "password"
+    })
+    assert login_response.status_code == 200
+    user3_headers = {"Authorization": f"Bearer {login_response.json['access_token']}"}
+    
+    update_data = {"is_administrator": True}
+    
+    # User 3 trying to make themselves admin should fail
+    response = test_client.put("/api/user/3/", json=update_data, headers=user3_headers)
     assert response.status_code == 403
 
 

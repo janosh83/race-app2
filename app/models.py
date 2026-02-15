@@ -106,6 +106,7 @@ class User(db.Model):
     email = db.Column(db.String(128), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     is_administrator = db.Column(db.Boolean, default=False)
+    preferred_language = db.Column(db.String(5), nullable=True)
     reset_token = db.Column(db.String(100), nullable=True, unique=True)
     reset_token_expiry = db.Column(db.DateTime, nullable=True)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')

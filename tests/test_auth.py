@@ -11,12 +11,42 @@ def test_auth_register(test_client):
     assert response.status_code == 201
     assert response.json == {"msg": "User created successfully"}
 
+def test_auth_register_with_preferred_language(test_client):
+    # test user registration with preferred language
+    response = test_client.post("/auth/register/", json={
+        "name": "test_lang",
+        "email": "test_lang@example.com",
+        "password": "test",
+        "preferred_language": "cs"
+    })
+    assert response.status_code == 201
+    
+    # Login and verify preferred_language was set
+    login_response = test_client.post("/auth/login/", json={
+        "email": "test_lang@example.com",
+        "password": "test"
+    })
+    assert login_response.status_code == 200
+    assert login_response.json["user"]["preferred_language"] == "cs"
+
+def test_auth_register_invalid_language(test_client):
+    # test that invalid language code is rejected
+    response = test_client.post("/auth/register/", json={
+        "name": "test",
+        "email": "test_invalid@example.com",
+        "password": "test",
+        "preferred_language": "invalid"
+    })
+    assert response.status_code == 400
+
 def test_auth_login(test_client):
     # test user login
     response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
     response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
     assert response.status_code == 200
     assert "access_token" in response.json
+    assert "user" in response.json
+    assert "preferred_language" in response.json["user"]
 
 def test_auth_protected(test_client):
     # test access to protected endpoint
