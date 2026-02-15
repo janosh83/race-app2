@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 
 function Standings() {
+  const { t } = useTranslation();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -60,7 +62,7 @@ function Standings() {
       const active = JSON.parse(localStorage.getItem('activeRace') || 'null');
       const activeRaceId = active?.race_id ?? active?.id ?? active?.raceId;
       if (!activeRaceId) {
-        setError('No active race found.');
+        setError(t('results.noActiveRace'));
         setLoading(false);
         return;
       }
@@ -72,7 +74,7 @@ function Standings() {
         const data = Array.isArray(payload) ? payload : (payload?.data || payload?.results || payload?.standings || []);
         setResults(data);
       } catch (err) {
-        setError(err?.message || 'Failed to fetch results');
+        setError(err?.message || t('results.fetchFailed'));
       } finally {
         setLoading(false);
       }
@@ -81,24 +83,24 @@ function Standings() {
     fetchResults();
   }, []);
 
-  if (loading) return <div>Loading results...</div>;
+  if (loading) return <div>{t('results.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
   return (
     <div className="container mt-5">
-      <h1>Race Results</h1>
+      <h1>{t('results.title')}</h1>
       {rankedResults.length === 0 ? (
-        <p>No results available for this race.</p>
+        <p>{t('results.noResults')}</p>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Team</th>
-              <th>Category</th>
-              <th>Points for Checkpoints</th>
-              <th>Points for Tasks</th>
-              <th>Total Points</th>
+              <th>{t('results.position')}</th>
+              <th>{t('results.team')}</th>
+              <th>{t('results.category')}</th>
+              <th>{t('results.pointsCheckpoints')}</th>
+              <th>{t('results.pointsTasks')}</th>
+              <th>{t('results.pointsTotal')}</th>
             </tr>
           </thead>
           <tbody>

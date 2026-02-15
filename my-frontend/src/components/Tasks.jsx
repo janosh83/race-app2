@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
@@ -8,6 +9,7 @@ import { logger } from '../utils/logger';
 import Toast from './Toast';
 
 function Tasks({ topOffset = 56 }) {
+  const { t } = useTranslation();
   // token expiry watcher
   useEffect(() => {
     const check = () => {
@@ -52,7 +54,7 @@ function Tasks({ topOffset = 56 }) {
           logger.error('RACE', 'Failed to fetch tasks', err.message);
           setTaskError(true);
           setToast({
-            message: 'Failed to load tasks. Click retry to try again.',
+            message: t('tasks.loadFailed'),
             type: 'error',
             duration: 0
           });
@@ -75,7 +77,7 @@ function Tasks({ topOffset = 56 }) {
     } catch (err) {
       logger.error('IMAGE', 'Failed to process image', err?.message || err);
       setToast({
-        message: 'Failed to process image. Please try another photo.',
+        message: t('tasks.imageProcessFailed'),
         type: 'error',
         duration: 5000
       });
@@ -91,7 +93,7 @@ function Tasks({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to refresh tasks', err.message);
       setToast({
-        message: 'Failed to refresh tasks: ' + (err.message || 'Unknown error'),
+        message: t('tasks.refreshFailed', { message: err.message || t('tasks.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -114,7 +116,7 @@ function Tasks({ topOffset = 56 }) {
       await refreshTasks();
       logger.success('RACE', 'Task logged successfully', { taskId: selectedTask.id });
       setToast({
-        message: 'Task completed successfully',
+        message: t('tasks.completedSuccess'),
         type: 'success',
         duration: 3000
       });
@@ -122,7 +124,7 @@ function Tasks({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to log task', err.message);
       setToast({
-        message: 'Failed to log task: ' + (err.message || 'Unknown error'),
+        message: t('tasks.logFailed', { message: err.message || t('tasks.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -139,7 +141,7 @@ function Tasks({ topOffset = 56 }) {
       await refreshTasks();
       logger.success('RACE', 'Task completion deleted', { taskId: selectedTask.id });
       setToast({
-        message: 'Task completion deleted',
+        message: t('tasks.deleteSuccess'),
         type: 'success',
         duration: 3000
       });
@@ -147,7 +149,7 @@ function Tasks({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to delete task completion', err.message);
       setToast({
-        message: 'Failed to delete task: ' + (err.message || 'Unknown error'),
+        message: t('tasks.deleteFailed', { message: err.message || t('tasks.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -167,7 +169,7 @@ function Tasks({ topOffset = 56 }) {
         setTasks(data);
         setTaskError(false);
         setToast({
-          message: 'Tasks loaded successfully',
+          message: t('tasks.loadedSuccess'),
           type: 'success',
           duration: 3000
         });
@@ -176,7 +178,7 @@ function Tasks({ topOffset = 56 }) {
         logger.error('RACE', 'Retry failed for tasks', err.message);
         setTaskError(true);
         setToast({
-          message: 'Failed to load tasks. Click retry to try again.',
+          message: t('tasks.loadFailed'),
           type: 'error',
           duration: 0
         });
@@ -219,12 +221,12 @@ function Tasks({ topOffset = 56 }) {
             gap: '12px'
           }}
         >
-          <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ Failed to load tasks</span>
+            <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ {t('tasks.loadFailedShort')}</span>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRetryTasks}
           >
-            Retry
+              {t('tasks.retry')}
           </button>
         </div>
       )}
@@ -249,9 +251,9 @@ function Tasks({ topOffset = 56 }) {
             textAlign: 'center'
           }}>
             <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
-              <span className="visually-hidden">Loading...</span>
+              <span className="visually-hidden">{t('tasks.loading')}</span>
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '500' }}>Uploading...</div>
+            <div style={{ fontSize: '18px', fontWeight: '500' }}>{t('tasks.uploading')}</div>
           </div>
         </div>
       )}
@@ -261,22 +263,22 @@ function Tasks({ topOffset = 56 }) {
         isShown={showTasks}
         loggingAllowed={loggingAllowed}
         timeInfo={timeInfo}
-        itemName="Tasks"
+        itemName={t('tasks.title')}
       />
 
       <div className="container mt-4" style={{ paddingTop: topOffset }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h3 className="mb-0">Tasks</h3>
+          <h3 className="mb-0">{t('tasks.title')}</h3>
         </div>
 
         {!showTasks && (
           <div className="alert alert-warning">
-            Tasks are not shown at this time.
+            {t('tasks.notShown')}
             {timeInfo.state === 'BEFORE_SHOW' && (
-              <div>Tasks will be shown at {formatDate(timeInfo.startShow)}</div>
+              <div>{t('tasks.showAt', { time: formatDate(timeInfo.startShow) })}</div>
             )}
             {timeInfo.state === 'AFTER_SHOW' && (
-              <div>Showing of tasks ended at {formatDate(timeInfo.endShow)}</div>
+              <div>{t('tasks.endedAt', { time: formatDate(timeInfo.endShow) })}</div>
             )}
           </div>
         )}
@@ -290,14 +292,14 @@ function Tasks({ topOffset = 56 }) {
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="card-title mb-0">{task.title}</h5>
                       <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
-                        {task.completed ? 'Completed' : 'Pending'}
+                        {task.completed ? t('tasks.completed') : t('tasks.pending')}
                       </span>
                     </div>
                     {task.description && <p className="card-text text-muted small">{task.description}</p>}
                     <div className="d-flex justify-content-between align-items-center mt-2">
-                      <span className="badge bg-primary">{task.numOfPoints} pts</span>
+                      <span className="badge bg-primary">{t('tasks.points', { count: task.numOfPoints })}</span>
                       {task.completed && task.image_filename && (
-                        <span className="text-muted small">📷 Photo attached</span>
+                        <span className="text-muted small">{t('tasks.photoAttached')}</span>
                       )}
                     </div>
                   </div>
@@ -306,7 +308,7 @@ function Tasks({ topOffset = 56 }) {
             ))}
             {tasks.length === 0 && (
               <div className="col-12">
-                <div className="alert alert-info">No tasks available for this race.</div>
+                <div className="alert alert-info">{t('tasks.noneAvailable')}</div>
               </div>
             )}
           </div>
@@ -329,7 +331,7 @@ function Tasks({ topOffset = 56 }) {
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h3>{selectedTask.title}</h3>
               <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
-                ✕ Close
+                ✕ {t('tasks.close')}
               </button>
             </div>
 
@@ -341,18 +343,18 @@ function Tasks({ topOffset = 56 }) {
 
             <div className="mb-3">
               <span className={`badge ${selectedTask.completed ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedTask.completed ? '✓ Completed' : 'Not completed'}
+                {selectedTask.completed ? `✓ ${t('tasks.completed')}` : t('tasks.notCompleted')}
               </span>
-              <span className="badge bg-primary ms-2">{selectedTask.numOfPoints} pts</span>
+              <span className="badge bg-primary ms-2">{t('tasks.points', { count: selectedTask.numOfPoints })}</span>
             </div>
 
             {selectedTask.completed && selectedTask.image_filename && (
               <div className="mb-3">
-                <label className="form-label">Completion Photo:</label>
+                <label className="form-label">{t('tasks.completionPhotoLabel')}</label>
                 <div>
                   <img
                     src={`${apiUrl}/static/images/${selectedTask.image_filename}`}
-                    alt="Completion photo"
+                    alt={t('tasks.completionPhotoAlt')}
                     style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
                   />
                 </div>
@@ -361,11 +363,11 @@ function Tasks({ topOffset = 56 }) {
 
             {imagePreview && (
               <div className="mb-3">
-                <label className="form-label">Preview (resized):</label>
+                <label className="form-label">{t('tasks.previewLabel')}</label>
                 <div>
                   <img
                     src={imagePreview}
-                    alt="Preview"
+                    alt={t('tasks.previewAlt')}
                     style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
                   />
                 </div>
@@ -373,13 +375,13 @@ function Tasks({ topOffset = 56 }) {
             )}
 
             <div className="mb-4">
-              <label className="form-label">Upload photo (optional)</label>
+              <label className="form-label">{t('tasks.uploadPhoto')}</label>
               <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
-              <div className="form-text">Images are resized to max 1000px, EXIF preserved for JPEG.</div>
+              <div className="form-text">{t('tasks.imageHelp')}</div>
             </div>
 
             {!loggingAllowed && (
-              <div className="alert alert-warning">Logging window is closed. You can only view tasks.</div>
+              <div className="alert alert-warning">{t('tasks.loggingClosed')}</div>
             )}
 
             <div className="d-flex gap-2">
@@ -388,7 +390,7 @@ function Tasks({ topOffset = 56 }) {
                 onClick={handleLogTask}
                 disabled={!loggingAllowed}
               >
-                {selectedTask.completed ? 'Re-upload / Update' : 'Mark as completed'}
+                {selectedTask.completed ? t('tasks.reupload') : t('tasks.markCompleted')}
               </button>
               {selectedTask.completed && (
                 <button
@@ -396,7 +398,7 @@ function Tasks({ topOffset = 56 }) {
                   onClick={handleDeleteTask}
                   disabled={!loggingAllowed}
                 >
-                  Delete completion
+                  {t('tasks.deleteCompletion')}
                 </button>
               )}
             </div>

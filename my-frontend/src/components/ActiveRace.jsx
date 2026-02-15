@@ -1,17 +1,12 @@
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { formatDate, useTime } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
 
-function normalizeName(race) {
-  return race.name || race.race_name || 'Unnamed race';
-}
-function normalizeDescription(race) {
-  return race.description || race.race_description || '';
-}
-
 function ActiveRace() {
+  const { t } = useTranslation();
   // token expiry watcher (redirect to login when token expires)
   useEffect(() => {
     const check = () => {
@@ -29,6 +24,9 @@ function ActiveRace() {
 
   const { activeRace, setActiveRace, signedRaces } = useTime();
   const candidates = useMemo(() => findCandidates(signedRaces || []), [signedRaces]);
+
+  const normalizeName = (race) => race.name || race.race_name || t('activeRace.unnamedRace');
+  const normalizeDescription = (race) => race.description || race.race_description || '';
 
   useEffect(() => {
     if (!activeRace && candidates.length === 1) {
@@ -52,7 +50,7 @@ function ActiveRace() {
 
   return (
     <div className="container mt-5">
-      <h2>Select Active Race</h2>
+      <h2>{t('activeRace.selectTitle')}</h2>
 
       {activeRace ? (
         <div className="card mb-4">
@@ -62,36 +60,36 @@ function ActiveRace() {
 
             <ul className="list-group list-group-flush">
               <li className="list-group-item">
-                Start showing checkpoints: {formatDate(activeRace.start_showing_checkpoints || activeRace.start_showing_checkpoints_at)}
+                {t('activeRace.startShowing')}: {formatDate(activeRace.start_showing_checkpoints || activeRace.start_showing_checkpoints_at)}
               </li>
               <li className="list-group-item">
-                End showing checkpoints: {formatDate(activeRace.end_showing_checkpoints || activeRace.end_showing_checkpoints_at)}
+                {t('activeRace.endShowing')}: {formatDate(activeRace.end_showing_checkpoints || activeRace.end_showing_checkpoints_at)}
               </li>
               <li className="list-group-item">
-                Start logging: {formatDate(activeRace.start_logging || activeRace.start_logging_at)}
+                {t('activeRace.startLogging')}: {formatDate(activeRace.start_logging || activeRace.start_logging_at)}
               </li>
               <li className="list-group-item">
-                End logging: {formatDate(activeRace.end_logging || activeRace.end_logging_at)}
+                {t('activeRace.endLogging')}: {formatDate(activeRace.end_logging || activeRace.end_logging_at)}
               </li>
             </ul>
           </div>
         </div>
       ) : (
         <div className="alert alert-warning">
-          No active race selected.
+          {t('activeRace.noActiveSelected')}
           {candidates.length === 0 ? (
-            <div>There are no races currently showing checkpoints.</div>
+            <div>{t('activeRace.noneShowing')}</div>
           ) : (
             <div>
-              Multiple races are currently active — please choose one from the list below.
+              {t('activeRace.multipleActive')}
             </div>
           )}
         </div>
       )}
 
-      <h3>Other signed races</h3>
+      <h3>{t('activeRace.otherSigned')}</h3>
       {others.length === 0 ? (
-        <p>No other races.</p>
+        <p>{t('activeRace.noOtherRaces')}</p>
       ) : (
         <div className="list-group">
           {others.map(r => {
@@ -104,17 +102,17 @@ function ActiveRace() {
                     <strong>{normalizeName(r)}</strong>
                     <div className="text-muted small">{normalizeDescription(r)}</div>
                     <div className="small mt-1">
-                      Showing: {formatDate(r.start_showing_checkpoints || r.start_showing_checkpoints_at)} — {formatDate(r.end_showing_checkpoints || r.end_showing_checkpoints_at)}
+                      {t('activeRace.showingRange', { start: formatDate(r.start_showing_checkpoints || r.start_showing_checkpoints_at), end: formatDate(r.end_showing_checkpoints || r.end_showing_checkpoints_at) })}
                     </div>
                     <div className="small">
-                      Logging: {formatDate(r.start_logging || r.start_logging_at)} — {formatDate(r.end_logging || r.end_logging_at)}
+                      {t('activeRace.loggingRange', { start: formatDate(r.start_logging || r.start_logging_at), end: formatDate(r.end_logging || r.end_logging_at) })}
                     </div>
                   </div>
                   <div className="text-end">
-                    {isCandidate && <span className="badge bg-info mb-2">Currently showing</span>}
+                    {isCandidate && <span className="badge bg-info mb-2">{t('activeRace.currentlyShowing')}</span>}
                     <div>
                       <button className="btn btn-sm btn-outline-primary" onClick={() => handleSelect(r)}>
-                        Select
+                        {t('activeRace.select')}
                       </button>
                     </div>
                   </div>

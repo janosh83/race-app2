@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
@@ -10,6 +11,7 @@ import { resizeImageWithExif } from '../utils/image';
 import Toast from './Toast';
 
 function Map({ topOffset = 56 }) {
+  const { t } = useTranslation();
   // token expiry watcher (redirect to login when token expires)
   useEffect(() => {
     const check = () => {
@@ -65,7 +67,7 @@ function Map({ topOffset = 56 }) {
           logger.error('RACE', 'Failed to fetch checkpoints', err.message);
           setCheckpointError(true);
           setToast({
-            message: 'Failed to load checkpoints. Click retry to try again.',
+            message: t('map.checkpointsLoadFailed'),
             type: 'error',
             duration: 0 // Don't auto-dismiss
           });
@@ -262,7 +264,7 @@ function Map({ topOffset = 56 }) {
       setImagePreview(previewDataUrl);
     } catch (err) {
       logger.error('IMAGE', 'Failed to process image', err?.message || err);
-      alert('Failed to process image. Please try another photo.');
+      alert(t('map.imageProcessFailed'));
     }
   };
 
@@ -308,14 +310,14 @@ function Map({ topOffset = 56 }) {
       setSelectedImage(null);
       setImagePreview(null);
       setToast({
-        message: 'Visit logged successfully',
+        message: t('map.visitLogged'),
         type: 'success',
         duration: 3000
       });
     } catch (err) {
       logger.error('RACE', 'Failed to log checkpoint visit', err.message);
       setToast({
-        message: 'Failed to log visit: ' + (err.message || 'Unknown error'),
+        message: t('map.visitLogFailed', { message: err.message || t('map.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -336,7 +338,7 @@ function Map({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to delete checkpoint visit', err.message);
       setToast({
-        message: 'Failed to delete visit: ' + (err.message || 'Unknown error'),
+        message: t('map.visitDeleteFailed', { message: err.message || t('map.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -356,7 +358,7 @@ function Map({ topOffset = 56 }) {
         setCheckpoints(data);
         setCheckpointError(false);
         setToast({
-          message: 'Checkpoints loaded successfully',
+          message: t('map.checkpointsLoaded'),
           type: 'success',
           duration: 3000
         });
@@ -365,7 +367,7 @@ function Map({ topOffset = 56 }) {
         logger.error('RACE', 'Retry failed for checkpoints', err.message);
         setCheckpointError(true);
         setToast({
-          message: 'Failed to load checkpoints. Click retry to try again.',
+          message: t('map.checkpointsLoadFailed'),
           type: 'error',
           duration: 0
         });
@@ -408,12 +410,12 @@ function Map({ topOffset = 56 }) {
             gap: '12px'
           }}
         >
-          <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ Failed to load checkpoints</span>
+            <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ {t('map.checkpointsLoadFailed')}</span>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRetryCheckpoints}
           >
-            Retry
+              {t('map.retry')}
           </button>
         </div>
       )}
@@ -439,9 +441,9 @@ function Map({ topOffset = 56 }) {
             textAlign: 'center'
           }}>
             <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
-              <span className="visually-hidden">Loading...</span>
+              <span className="visually-hidden">{t('map.loading')}</span>
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '500' }}>Uploading...</div>
+            <div style={{ fontSize: '18px', fontWeight: '500' }}>{t('map.uploading')}</div>
           </div>
         </div>
       )}
@@ -451,7 +453,7 @@ function Map({ topOffset = 56 }) {
         isShown={showCheckpoints}
         loggingAllowed={loggingAllowed}
         timeInfo={timeInfo}
-        itemName="Checkpoints"
+        itemName={t('map.checkpoints')}
       />
 
       {/* Full-screen checkpoint overlay */}
@@ -474,7 +476,7 @@ function Map({ topOffset = 56 }) {
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleCloseOverlay}
               >
-                ✕ Close
+                ✕ {t('map.close')}
               </button>
             </div>
 
@@ -486,17 +488,17 @@ function Map({ topOffset = 56 }) {
 
             <div className="mb-3">
               <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedCheckpoint.visited ? '✓ Visited' : 'Not visited'}
+                {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
               </span>
             </div>
 
             {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
               <div className="mb-3">
-                <label className="form-label">Visit Photo:</label>
+                <label className="form-label">{t('map.visitPhotoLabel')}</label>
                 <div>
                   <img 
                     src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
-                    alt="Visit photo" 
+                    alt={t('map.visitPhotoAlt')}
                     style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
                   />
                 </div>
@@ -505,12 +507,12 @@ function Map({ topOffset = 56 }) {
 
             {!showCheckpoints && (
               <div className="alert alert-warning">
-                Checkpoints are not shown at this time.
+                {t('map.checkpointsNotShown')}
                 {timeInfo.state === 'BEFORE_SHOW' && (
-                  <div>Checkpoints will be shown at {formatDate(timeInfo.startShow)}</div>
+                  <div>{t('map.checkpointsShowAt', { time: formatDate(timeInfo.startShow) })}</div>
                 )}
                 {timeInfo.state === 'AFTER_SHOW' && (
-                  <div>Showing of checkpoints ended at {formatDate(timeInfo.endShow)}</div>
+                  <div>{t('map.checkpointsEndedAt', { time: formatDate(timeInfo.endShow) })}</div>
                 )}
               </div>
             )}
@@ -520,7 +522,7 @@ function Map({ topOffset = 56 }) {
                 {loggingAllowed && !selectedCheckpoint.visited && (
                   <>
                     <div className="mb-3">
-                      <label className="form-label">Attach Photo (optional)</label>
+                      <label className="form-label">{t('map.attachPhoto')}</label>
                       <input 
                         type="file" 
                         className="form-control"
@@ -542,7 +544,7 @@ function Map({ topOffset = 56 }) {
                         className="btn btn-primary btn-lg"
                         onClick={handleLogVisit}
                       >
-                        Log Visit {selectedImage ? 'with Photo' : ''}
+                        {selectedImage ? t('map.logVisitWithPhoto') : t('map.logVisit')}
                       </button>
                     </div>
                   </>
@@ -553,15 +555,15 @@ function Map({ topOffset = 56 }) {
                       className="btn btn-danger btn-lg"
                       onClick={handleDeleteVisit}
                     >
-                      Delete Visit
+                      {t('map.deleteVisit')}
                     </button>
                   </div>
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
                     {selectedCheckpoint.visited 
-                      ? 'Visit logged (read-only mode)' 
-                      : 'Logging is not open yet'}
+                      ? t('map.visitLoggedReadOnly') 
+                      : t('map.loggingNotOpen')}
                   </div>
                 )}
               </div>
