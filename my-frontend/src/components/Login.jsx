@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { selectActiveRace } from '../utils/activeRaceUtils';
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
 import { logger } from '../utils/logger';
+import LanguageSwitcher from './LanguageSwitcher';
 
 function Login() {
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -57,48 +60,51 @@ function Login() {
                 }
             } else {
                 logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
-                setError(data.msg || 'Login failed');
+                setError(data.msg || t('auth.login.failed'));
             }
         } catch (err) {
             logger.error('AUTH', 'Login error', err.message);
-            setError(err.message || 'Login failed');
+            setError(err.message || t('auth.login.failed'));
         }
     };
 
     return (
         <div className="container d-flex align-items-center justify-content-center min-vh-100">
             <div className="card p-4 shadow" style={{ maxWidth: '400px', width: '100%' }}>
-                <h2 className="mb-4 text-center">Login</h2>
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                    <h2 className="mb-0">{t('auth.login.title')}</h2>
+                    <LanguageSwitcher />
+                </div>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-3">
-                        <label htmlFor="email" className="form-label">Email address</label>
+                        <label htmlFor="email" className="form-label">{t('auth.login.emailLabel')}</label>
                         <input
                             type="email"
                             className="form-control"
                             id="email"
-                            placeholder="Enter email"
+                            placeholder={t('auth.login.emailPlaceholder')}
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             required
                         />
                     </div>
                     <div className="mb-3">
-                        <label htmlFor="password" className="form-label">Password</label>
+                        <label htmlFor="password" className="form-label">{t('auth.login.passwordLabel')}</label>
                         <input
                             type="password"
                             className="form-control"
                             id="password"
-                            placeholder="Password"
+                            placeholder={t('auth.login.passwordPlaceholder')}
                             value={password}
                             onChange={e => setPassword(e.target.value)}
                             required
                         />
                     </div>
                     {error && <div className="alert alert-danger">{error}</div>}
-                    <button type="submit" className="btn btn-primary w-100">Login</button>
+                    <button type="submit" className="btn btn-primary w-100">{t('auth.login.submit')}</button>
                     <div className="text-center mt-3">
                         <a href="/forgot-password" className="text-decoration-none">
-                            Forgot Password?
+                            {t('auth.login.forgotLink')}
                         </a>
                     </div>
                 </form>

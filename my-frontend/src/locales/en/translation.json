@@ -103,5 +103,41 @@
     "pointsCheckpoints": "Points for Checkpoints",
     "pointsTasks": "Points for Tasks",
     "pointsTotal": "Total Points"
+  },
+  "auth": {
+    "login": {
+      "title": "Login",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "Enter email",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Password",
+      "submit": "Login",
+      "forgotLink": "Forgot Password?",
+      "failed": "Login failed"
+    },
+    "forgot": {
+      "title": "Forgot Password",
+      "emailLabel": "Email Address",
+      "emailHelp": "Enter your email address and we'll send you a link to reset your password.",
+      "submit": "Send Reset Link",
+      "sending": "Sending...",
+      "backToLogin": "Back to Login",
+      "successDefault": "If the email exists, a password reset link has been sent",
+      "failed": "Failed to send reset email"
+    },
+    "reset": {
+      "title": "Reset Password",
+      "invalidToken": "Invalid or missing reset token",
+      "invalidTokenHelp": "Invalid or missing reset token. Please request a new password reset.",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm New Password",
+      "passwordsNoMatch": "Passwords do not match",
+      "passwordTooShort": "Password must be at least 6 characters long",
+      "submit": "Reset Password",
+      "resetting": "Resetting...",
+      "backToLogin": "Back to Login",
+      "success": "Password reset successfully",
+      "failed": "Failed to reset password"
+    }
   }
 }

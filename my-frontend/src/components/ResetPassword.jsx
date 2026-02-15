@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../services/authApi';
+import LanguageSwitcher from './LanguageSwitcher';
 
 function ResetPassword() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
@@ -14,9 +17,9 @@ function ResetPassword() {
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid or missing reset token');
+      setError(t('auth.reset.invalidToken'));
     }
-  }, [token]);
+  }, [token, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,12 +27,12 @@ function ResetPassword() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(t('auth.reset.passwordsNoMatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      setError(t('auth.reset.passwordTooShort'));
       return;
     }
 
@@ -37,12 +40,12 @@ function ResetPassword() {
 
     try {
       const data = await authApi.resetPassword(token, password);
-      setMessage(data.msg || 'Password reset successfully');
+      setMessage(data.msg || t('auth.reset.success'));
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError(err.message || 'Failed to reset password');
+      setError(err.message || t('auth.reset.failed'));
     } finally {
       setLoading(false);
     }
@@ -54,7 +57,10 @@ function ResetPassword() {
         <div className="col-md-6">
           <div className="card">
             <div className="card-body">
-              <h2 className="card-title text-center mb-4">Reset Password</h2>
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2 className="card-title mb-0">{t('auth.reset.title')}</h2>
+                <LanguageSwitcher />
+              </div>
               
               {message && (
                 <div className="alert alert-success" role="alert">
@@ -70,13 +76,13 @@ function ResetPassword() {
 
               {!token ? (
                 <div className="alert alert-warning">
-                  Invalid or missing reset token. Please request a new password reset.
+                  {t('auth.reset.invalidTokenHelp')}
                 </div>
               ) : (
                 <form onSubmit={handleSubmit}>
                   <div className="mb-3">
                     <label htmlFor="password" className="form-label">
-                      New Password
+                      {t('auth.reset.newPassword')}
                     </label>
                     <input
                       type="password"
@@ -92,7 +98,7 @@ function ResetPassword() {
 
                   <div className="mb-3">
                     <label htmlFor="confirmPassword" className="form-label">
-                      Confirm New Password
+                      {t('auth.reset.confirmPassword')}
                     </label>
                     <input
                       type="password"
@@ -112,10 +118,10 @@ function ResetPassword() {
                       className="btn btn-primary"
                       disabled={loading}
                     >
-                      {loading ? 'Resetting...' : 'Reset Password'}
+                      {loading ? t('auth.reset.resetting') : t('auth.reset.submit')}
                     </button>
                     <a href="/login" className="btn btn-link">
-                      Back to Login
+                      {t('auth.reset.backToLogin')}
                     </a>
                   </div>
                 </form>

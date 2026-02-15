@@ -103,5 +103,41 @@
     "pointsCheckpoints": "Body za checkpointy",
     "pointsTasks": "Body za úkoly",
     "pointsTotal": "Celkem bodů"
+  },
+  "auth": {
+    "login": {
+      "title": "Přihlášení",
+      "emailLabel": "Emailová adresa",
+      "emailPlaceholder": "Zadejte email",
+      "passwordLabel": "Heslo",
+      "passwordPlaceholder": "Heslo",
+      "submit": "Přihlásit se",
+      "forgotLink": "Zapomenuté heslo?",
+      "failed": "Přihlášení se nezdařilo"
+    },
+    "forgot": {
+      "title": "Zapomenuté heslo",
+      "emailLabel": "Emailová adresa",
+      "emailHelp": "Zadejte svůj email a pošleme vám odkaz pro reset hesla.",
+      "submit": "Odeslat odkaz pro reset",
+      "sending": "Odesílám...",
+      "backToLogin": "Zpět na přihlášení",
+      "successDefault": "Pokud email existuje, odkaz pro reset hesla byl odeslán",
+      "failed": "Nepodařilo se odeslat email pro reset"
+    },
+    "reset": {
+      "title": "Reset hesla",
+      "invalidToken": "Neplatný nebo chybějící token",
+      "invalidTokenHelp": "Neplatný nebo chybějící token. Požádejte o nový reset hesla.",
+      "newPassword": "Nové heslo",
+      "confirmPassword": "Potvrzení nového hesla",
+      "passwordsNoMatch": "Hesla se neshodují",
+      "passwordTooShort": "Heslo musí mít alespoň 6 znaků",
+      "submit": "Resetovat heslo",
+      "resetting": "Resetuji...",
+      "backToLogin": "Zpět na přihlášení",
+      "success": "Heslo bylo úspěšně resetováno",
+      "failed": "Nepodařilo se resetovat heslo"
+    }
   }
 }

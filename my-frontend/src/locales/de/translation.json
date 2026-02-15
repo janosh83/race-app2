@@ -103,5 +103,41 @@
     "pointsCheckpoints": "Punkte fuer Checkpoints",
     "pointsTasks": "Punkte fuer Aufgaben",
     "pointsTotal": "Gesamtpunkte"
+  },
+  "auth": {
+    "login": {
+      "title": "Anmeldung",
+      "emailLabel": "E-Mail-Adresse",
+      "emailPlaceholder": "E-Mail eingeben",
+      "passwordLabel": "Passwort",
+      "passwordPlaceholder": "Passwort",
+      "submit": "Anmelden",
+      "forgotLink": "Passwort vergessen?",
+      "failed": "Anmeldung fehlgeschlagen"
+    },
+    "forgot": {
+      "title": "Passwort vergessen",
+      "emailLabel": "E-Mail-Adresse",
+      "emailHelp": "Gib deine E-Mail-Adresse ein und wir senden dir einen Link zum Zuruecksetzen des Passworts.",
+      "submit": "Link zum Zuruecksetzen senden",
+      "sending": "Senden...",
+      "backToLogin": "Zurueck zur Anmeldung",
+      "successDefault": "Wenn die E-Mail existiert, wurde ein Link zum Zuruecksetzen gesendet",
+      "failed": "Zuruecksetzen-E-Mail konnte nicht gesendet werden"
+    },
+    "reset": {
+      "title": "Passwort zuruecksetzen",
+      "invalidToken": "Ungueltiges oder fehlendes Token",
+      "invalidTokenHelp": "Ungueltiges oder fehlendes Token. Bitte einen neuen Reset anfordern.",
+      "newPassword": "Neues Passwort",
+      "confirmPassword": "Neues Passwort bestaetigen",
+      "passwordsNoMatch": "Passwoerter stimmen nicht ueberein",
+      "passwordTooShort": "Passwort muss mindestens 6 Zeichen lang sein",
+      "submit": "Passwort zuruecksetzen",
+      "resetting": "Zuruecksetzen...",
+      "backToLogin": "Zurueck zur Anmeldung",
+      "success": "Passwort erfolgreich zurueckgesetzt",
+      "failed": "Passwort konnte nicht zurueckgesetzt werden"
+    }
   }
 }

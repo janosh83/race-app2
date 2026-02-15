@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { authApi } from '../services/authApi';
+import LanguageSwitcher from './LanguageSwitcher';
 
 function ForgotPassword() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -21,10 +24,10 @@ function ForgotPassword() {
 
     try {
       const data = await authApi.requestPasswordReset(email);
-      setMessage(data.msg || 'If the email exists, a password reset link has been sent');
+      setMessage(data.msg || t('auth.forgot.successDefault'));
       setEmail('');
     } catch (err) {
-      setError(err.message || 'Failed to send reset email');
+      setError(err.message || t('auth.forgot.failed'));
     } finally {
       setLoading(false);
     }
@@ -36,7 +39,10 @@ function ForgotPassword() {
         <div className="col-md-6">
           <div className="card">
             <div className="card-body">
-              <h2 className="card-title text-center mb-4">Forgot Password</h2>
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2 className="card-title mb-0">{t('auth.forgot.title')}</h2>
+                <LanguageSwitcher />
+              </div>
               
               {message && (
                 <div className="alert alert-success" role="alert">
@@ -53,7 +59,7 @@ function ForgotPassword() {
               <form onSubmit={handleSubmit}>
                 <div className="mb-3">
                   <label htmlFor="email" className="form-label">
-                    Email Address
+                    {t('auth.forgot.emailLabel')}
                   </label>
                   <input
                     type="email"
@@ -65,7 +71,7 @@ function ForgotPassword() {
                     disabled={loading}
                   />
                   <div className="form-text">
-                    Enter your email address and we'll send you a link to reset your password.
+                    {t('auth.forgot.emailHelp')}
                   </div>
                 </div>
 
@@ -75,10 +81,10 @@ function ForgotPassword() {
                     className="btn btn-primary"
                     disabled={loading}
                   >
-                    {loading ? 'Sending...' : 'Send Reset Link'}
+                    {loading ? t('auth.forgot.sending') : t('auth.forgot.submit')}
                   </button>
                   <a href="/login" className="btn btn-link">
-                    Back to Login
+                    {t('auth.forgot.backToLogin')}
                   </a>
                 </div>
               </form>
