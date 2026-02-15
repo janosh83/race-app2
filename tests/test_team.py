@@ -521,7 +521,7 @@ def test_send_registration_emails_teams_without_members(test_client, add_test_da
 def test_send_registration_emails_partial_failure(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails with some failures."""
     # Mock email service to fail for specific email
-    def mock_send_email(user_email, user_name, race_name, team_name, race_category, reset_token):
+    def mock_send_email(user_email, user_name, race_name, team_name, race_category, reset_token, language=None):
         if user_email == "peter@example.com":
             raise Exception("Email sending failed")
         return True

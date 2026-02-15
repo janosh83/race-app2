@@ -1,4 +1,5 @@
 from marshmallow import Schema, fields, validate, pre_load
+from app.constants import SUPPORTED_LANGUAGES
 
 
 class CheckpointCreateSchema(Schema):
@@ -138,7 +139,7 @@ class UserCreateSchema(Schema):
     email = fields.Email(required=True)
     password = fields.String(required=True, validate=validate.Length(min=1))
     is_administrator = fields.Boolean(load_default=False)
-    preferred_language = fields.String(validate=validate.OneOf(["en", "cs", "de"]))
+    preferred_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
 
 
 class UserUpdateSchema(Schema):
@@ -146,7 +147,7 @@ class UserUpdateSchema(Schema):
     email = fields.Email()
     password = fields.String(validate=validate.Length(min=6))
     is_administrator = fields.Boolean()
-    preferred_language = fields.String(validate=validate.OneOf(["en", "cs", "de"]))
+    preferred_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
 
 
 class RaceCategoryAssignSchema(Schema):
@@ -168,7 +169,7 @@ class AuthRegisterSchema(Schema):
     email = fields.Email(required=True)
     password = fields.String(required=True, validate=validate.Length(min=1))
     is_administrator = fields.Boolean(load_default=False)
-    preferred_language = fields.String(validate=validate.OneOf(["en", "cs", "de"]))
+    preferred_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
 
 
 class AuthLoginSchema(Schema):

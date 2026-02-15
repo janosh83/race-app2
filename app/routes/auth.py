@@ -413,9 +413,9 @@ def request_password_reset():
         user.set_reset_token(reset_token, expiry)
         db.session.commit()
         
-        # Send email
-        EmailService.send_password_reset_email(user.email, reset_token)
-        logger.info(f"Password reset email sent to user: {user.email} (ID: {user.id})")
+        # Send email with user's preferred language
+        EmailService.send_password_reset_email(user.email, reset_token, language=user.preferred_language)
+        logger.info(f"Password reset email sent to user: {user.email} (ID: {user.id}, language: {user.preferred_language})")
     else:
         logger.warning(f"Password reset requested for non-existent email: {email}")
     
