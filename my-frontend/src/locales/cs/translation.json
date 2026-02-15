@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "brand": "Race App",
+    "adminBrand": "Race App - Admin",
+    "activeRace": "Aktivní závod",
+    "map": "Mapa",
+    "tasks": "Úkoly",
+    "standings": "Pořadí",
+    "admin": "Admin",
+    "logout": "Odhlásit se",
+    "backToRace": "Zpět na závod",
+    "language": "Jazyk"
+  }
+}

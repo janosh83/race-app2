@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../LanguageSwitcher';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 
 function AdminLayout() {
   console.log('AdminLayout - Component rendering');
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
 
   const user = React.useMemo(() => {
@@ -56,7 +59,7 @@ function AdminLayout() {
     <>
       <nav className="navbar navbar-expand-lg navbar-dark bg-dark" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
-          <span className="navbar-brand">Race App - Admin</span>
+          <span className="navbar-brand">{t('nav.adminBrand')}</span>
           <button
             className="navbar-toggler"
             type="button"
@@ -69,11 +72,14 @@ function AdminLayout() {
           </button>
           <div id="adminNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
             <ul className="navbar-nav ms-auto">
-              <li className="nav-item">
-                <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>Back to Race</button>
+              <li className="nav-item d-flex align-items-center me-2">
+                <LanguageSwitcher />
               </li>
               <li className="nav-item">
-                <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>Logout</button>
+                <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>{t('nav.backToRace')}</button>
+              </li>
+              <li className="nav-item">
+                <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>{t('nav.logout')}</button>
               </li>
             </ul>
           </div>

@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "brand": "Race App",
+    "adminBrand": "Race App - Admin",
+    "activeRace": "Aktives Rennen",
+    "map": "Karte",
+    "tasks": "Aufgaben",
+    "standings": "Rangliste",
+    "admin": "Admin",
+    "logout": "Abmelden",
+    "backToRace": "Zuruck zum Rennen",
+    "language": "Sprache"
+  }
+}

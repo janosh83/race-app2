@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../LanguageSwitcher';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import { useTime } from '../../contexts/TimeContext';
 import { logger } from '../../utils/logger';
 
 function RaceLayout() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
   const [navHeight, setNavHeight] = useState(56);
   const navRef = useRef(null);
@@ -75,7 +78,7 @@ function RaceLayout() {
     <>
       <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark bg-primary" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
-          <span className="navbar-brand">Race App</span>
+          <span className="navbar-brand">{t('nav.brand')}</span>
           <button
             className="navbar-toggler"
             type="button"
@@ -90,31 +93,34 @@ function RaceLayout() {
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>
-                  {activeRace ? (activeRace.race_name || activeRace.name || activeRace.title || `Race #${activeRace.race_id || activeRace.id}`) : 'Active Race'}
+                  {activeRace ? (activeRace.race_name || activeRace.name || activeRace.title || `Race #${activeRace.race_id || activeRace.id}`) : t('nav.activeRace')}
                 </button>
               </li>
               {activeRace && (
                 <>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/map`)}>Map</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/map`)}>{t('nav.map')}</button>
                   </li>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/tasks`)}>Tasks</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/tasks`)}>{t('nav.tasks')}</button>
                   </li>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/standings`)}>Standings</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/standings`)}>{t('nav.standings')}</button>
                   </li>
                 </>
               )}
             </ul>
             <ul className="navbar-nav ms-auto">
+              <li className="nav-item d-flex align-items-center me-2">
+                <LanguageSwitcher />
+              </li>
               {user && user.is_administrator && (
                 <li className="nav-item">
-                  <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin')}>Admin</button>
+                  <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin')}>{t('nav.admin')}</button>
                 </li>
               )}
               <li className="nav-item">
-                <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>Logout</button>
+                <button className="nav-link btn btn-link text-white" onClick={() => { setNavOpen(false); handleLogout(); }}>{t('nav.logout')}</button>
               </li>
             </ul>
           </div>
