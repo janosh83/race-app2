@@ -1,5 +1,5 @@
-from marshmallow import Schema, fields, validate, pre_load
-from app.constants import SUPPORTED_LANGUAGES
+from marshmallow import Schema, fields, validate, pre_load, validates_schema, ValidationError
+from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 
 class CheckpointCreateSchema(Schema):
@@ -123,6 +123,22 @@ class RaceCreateSchema(Schema):
     end_showing_checkpoints_at = fields.String(required=True, validate=validate.Length(min=1))
     start_logging_at = fields.String(required=True, validate=validate.Length(min=1))
     end_logging_at = fields.String(required=True, validate=validate.Length(min=1))
+    supported_languages = fields.List(
+        fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES)),
+        load_default=lambda: list(SUPPORTED_LANGUAGES),
+        validate=validate.Length(min=1),
+    )
+    default_language = fields.String(
+        validate=validate.OneOf(SUPPORTED_LANGUAGES),
+        load_default=DEFAULT_LANGUAGE,
+    )
+
+    @validates_schema
+    def validate_language_settings(self, data, **kwargs):
+        supported = data.get("supported_languages", list(SUPPORTED_LANGUAGES))
+        default = data.get("default_language", DEFAULT_LANGUAGE)
+        if default not in supported:
+            raise ValidationError("default_language must be in supported_languages", field_name="default_language")
 
 
 class RaceUpdateSchema(Schema):
@@ -132,6 +148,44 @@ class RaceUpdateSchema(Schema):
     end_showing_checkpoints_at = fields.String(validate=validate.Length(min=1))
     start_logging_at = fields.String(validate=validate.Length(min=1))
     end_logging_at = fields.String(validate=validate.Length(min=1))
+    supported_languages = fields.List(
+        fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES)),
+        validate=validate.Length(min=1),
+    )
+    default_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
+
+
+class RaceTranslationCreateSchema(Schema):
+    language = fields.String(required=True, validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    name = fields.String(required=True, validate=validate.Length(min=1))
+    description = fields.String(load_default="")
+
+
+class RaceTranslationUpdateSchema(Schema):
+    name = fields.String(validate=validate.Length(min=1))
+    description = fields.String()
+
+
+class CheckpointTranslationCreateSchema(Schema):
+    language = fields.String(required=True, validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    title = fields.String(required=True, validate=validate.Length(min=1))
+    description = fields.String(load_default="")
+
+
+class CheckpointTranslationUpdateSchema(Schema):
+    title = fields.String(validate=validate.Length(min=1))
+    description = fields.String()
+
+
+class TaskTranslationCreateSchema(Schema):
+    language = fields.String(required=True, validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    title = fields.String(required=True, validate=validate.Length(min=1))
+    description = fields.String(load_default="")
+
+
+class TaskTranslationUpdateSchema(Schema):
+    title = fields.String(validate=validate.Length(min=1))
+    description = fields.String()
 
 
 class UserCreateSchema(Schema):
@@ -160,6 +214,17 @@ class RaceCategoryCreateSchema(Schema):
 
 
 class RaceCategoryUpdateSchema(Schema):
+    name = fields.String(validate=validate.Length(min=1))
+    description = fields.String()
+
+
+class RaceCategoryTranslationCreateSchema(Schema):
+    language = fields.String(required=True, validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    name = fields.String(required=True, validate=validate.Length(min=1))
+    description = fields.String(load_default="")
+
+
+class RaceCategoryTranslationUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
 

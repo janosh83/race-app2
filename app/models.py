@@ -1,4 +1,5 @@
 from app import db
+from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from werkzeug.security import generate_password_hash, check_password_hash
 
 team_members = db.Table(
@@ -17,6 +18,9 @@ class Race(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
+    supported_languages = db.Column(db.JSON, nullable=False, default=lambda: list(SUPPORTED_LANGUAGES))
+    default_language = db.Column(db.String(5), nullable=False, default=DEFAULT_LANGUAGE)
+    translations = db.relationship('RaceTranslation', backref='race', cascade="all, delete-orphan", lazy=True)
     checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
     tasks = db.relationship('Task', backref='race', cascade="all, delete-orphan", lazy=True)
     registrations = db.relationship('Registration', backref='race', cascade="all, delete-orphan", lazy=True)
@@ -25,6 +29,18 @@ class Race(db.Model):
     end_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
     start_logging_at = db.Column(db.DateTime, nullable=False)
     end_logging_at = db.Column(db.DateTime, nullable=False)
+
+
+class RaceTranslation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+    language = db.Column(db.String(5), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+    __table_args__ = (
+        db.UniqueConstraint('race_id', 'language', name='uq_race_translation_language'),
+    )
 
 class Registration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,7 +58,20 @@ class RaceCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), nullable=False)
     description = db.Column(db.Text)
+    translations = db.relationship('RaceCategoryTranslation', backref='race_category', cascade="all, delete-orphan", lazy=True)
     races = db.relationship('Race', secondary=race_categories_in_race, back_populates='categories')
+
+
+class RaceCategoryTranslation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    race_category_id = db.Column(db.Integer, db.ForeignKey('race_category.id'), nullable=False)
+    language = db.Column(db.String(5), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text)
+
+    __table_args__ = (
+        db.UniqueConstraint('race_category_id', 'language', name='uq_race_category_translation_language'),
+    )
 
 class Checkpoint(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -52,6 +81,7 @@ class Checkpoint(db.Model):
     longitude = db.Column(db.Float, nullable=False)
     numOfPoints = db.Column(db.Integer, default=1)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+    translations = db.relationship('CheckpointTranslation', backref='checkpoint', cascade="all, delete-orphan", lazy=True)
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +89,31 @@ class Task(db.Model):
     description = db.Column(db.Text)
     numOfPoints = db.Column(db.Integer, default=1)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
+    translations = db.relationship('TaskTranslation', backref='task', cascade="all, delete-orphan", lazy=True)
+
+
+class CheckpointTranslation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    checkpoint_id = db.Column(db.Integer, db.ForeignKey('checkpoint.id'), nullable=False)
+    language = db.Column(db.String(5), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+    __table_args__ = (
+        db.UniqueConstraint('checkpoint_id', 'language', name='uq_checkpoint_translation_language'),
+    )
+
+
+class TaskTranslation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
+    language = db.Column(db.String(5), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+
+    __table_args__ = (
+        db.UniqueConstraint('task_id', 'language', name='uq_task_translation_language'),
+    )
 
 class CheckpointLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
