@@ -2,8 +2,10 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from app import db
-from app.models import Race, RaceCategory
+from app.models import Race, RaceCategory, RaceCategoryTranslation, User
+from app.utils import resolve_language
 from app.routes.admin import admin_required
+from flask_jwt_extended import get_jwt_identity
 from app.schemas import RaceCategoryAssignSchema
 
 logger = logging.getLogger(__name__)
@@ -102,11 +104,17 @@ def get_race_categories(race_id):
           type: integer
         required: true
         description: ID of the race
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     security:
       - BearerAuth: []
     responses:
       200:
-        description: List of race categories assigned to this race
+        description: List of race categories assigned to this race (translated when available)
         content:
           application/json:
             schema:
@@ -129,7 +137,26 @@ def get_race_categories(race_id):
         description: Admins only
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    return jsonify([{"id": category.id, "name": category.name, "description": category.description} for category in race.categories])
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported race category language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
+    response = []
+    for category in race.categories:
+      name = category.name
+      description = category.description
+      translation = RaceCategoryTranslation.query.filter_by(
+        race_category_id=category.id,
+        language=language,
+      ).first()
+      if translation:
+        name = translation.name
+        description = translation.description
+      response.append({"id": category.id, "name": name, "description": description})
+    return jsonify(response)
 
 
 # tested by test_race_categories.py -> test_with_race

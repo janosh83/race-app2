@@ -4,9 +4,9 @@ from flask import Blueprint, jsonify, current_app, request
 from marshmallow import ValidationError
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, Image
+from app.models import Checkpoint, CheckpointLog, Image, CheckpointTranslation
 from app.routes.admin import admin_required
-from app.schemas import CheckpointUpdateSchema
+from app.schemas import CheckpointUpdateSchema, CheckpointTranslationCreateSchema, CheckpointTranslationUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,12 @@ def get_checkpoint(checkpoint_id):
           type: integer
         required: true
         description: ID of the checkpoint
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     security:
       - BearerAuth: []
     responses:
@@ -65,12 +71,27 @@ def get_checkpoint(checkpoint_id):
         description: Checkpoint not found
       403:
         description: Admins only
+      400:
+        description: Language not supported by race
     """
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
+    language = request.args.get("lang")
+    title = checkpoint.title
+    description = checkpoint.description
+    if language:
+        if language not in (checkpoint.race.supported_languages or []):
+            return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+        translation = CheckpointTranslation.query.filter_by(
+            checkpoint_id=checkpoint_id,
+            language=language,
+        ).first()
+        if translation:
+            title = translation.title
+            description = translation.description
     return jsonify({
         "id": checkpoint.id,
-        "title": checkpoint.title,
-        "description": checkpoint.description,
+        "title": title,
+        "description": description,
         "latitude": checkpoint.latitude,
         "longitude": checkpoint.longitude,
         "numOfPoints": checkpoint.numOfPoints
@@ -173,6 +194,251 @@ def update_checkpoint(checkpoint_id):
         "longitude": checkpoint.longitude,
         "numOfPoints": checkpoint.numOfPoints
     }), 200
+
+
+@checkpoint_bp.route('/<int:checkpoint_id>/translations/', methods=['GET'])
+@admin_required()
+def get_checkpoint_translations(checkpoint_id):
+    """
+    Get all translations for a checkpoint (admin only).
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: List of checkpoint translations
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  language:
+                    type: string
+                  title:
+                    type: string
+                  description:
+                    type: string
+    """
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
+    logger.info(
+        f"Retrieved {len(checkpoint.translations)} checkpoint translations for checkpoint {checkpoint_id}"
+    )
+    return jsonify([
+        {
+            "id": translation.id,
+            "language": translation.language,
+            "title": translation.title,
+            "description": translation.description,
+        }
+        for translation in checkpoint.translations
+    ]), 200
+
+
+@checkpoint_bp.route('/<int:checkpoint_id>/translations/', methods=['POST'])
+@admin_required()
+def create_checkpoint_translation(checkpoint_id):
+    """
+    Create a translation for a checkpoint (admin only).
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              language:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+            required:
+              - language
+              - title
+    responses:
+      201:
+        description: Translation created
+      400:
+        description: Language not supported by race
+      409:
+        description: Translation already exists
+    """
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
+    data = request.get_json(silent=True) or {}
+    validated = CheckpointTranslationCreateSchema().load(data)
+    if validated["language"] not in (checkpoint.race.supported_languages or []):
+        logger.warning(
+            f"Checkpoint translation create rejected for checkpoint {checkpoint_id}: "
+            f"language {validated['language']} not supported"
+        )
+        return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+    existing = CheckpointTranslation.query.filter_by(
+        checkpoint_id=checkpoint_id,
+        language=validated["language"],
+    ).first()
+    if existing:
+        logger.warning(
+            f"Checkpoint translation already exists for checkpoint {checkpoint_id} language {validated['language']}"
+        )
+        return jsonify({"message": "Translation already exists"}), 409
+
+    translation = CheckpointTranslation(
+        checkpoint_id=checkpoint_id,
+        language=validated["language"],
+        title=validated["title"],
+        description=validated.get("description"),
+    )
+    db.session.add(translation)
+    db.session.commit()
+    logger.info(
+        f"Checkpoint translation created for checkpoint {checkpoint_id} language {translation.language}"
+    )
+    return jsonify({
+        "id": translation.id,
+        "language": translation.language,
+        "title": translation.title,
+        "description": translation.description,
+    }), 201
+
+
+@checkpoint_bp.route('/<int:checkpoint_id>/translations/<string:language>/', methods=['PUT'])
+@admin_required()
+def update_checkpoint_translation(checkpoint_id, language):
+    """
+    Update a translation for a checkpoint (admin only).
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
+      - in: path
+        name: language
+        schema:
+          type: string
+        required: true
+        description: Translation language code
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+    responses:
+      200:
+        description: Translation updated
+      400:
+        description: Language not supported by race
+      404:
+        description: Translation not found
+    """
+    checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
+    if language not in (checkpoint.race.supported_languages or []):
+        logger.warning(
+            f"Checkpoint translation update rejected for checkpoint {checkpoint_id}: "
+            f"language {language} not supported"
+        )
+        return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+    translation = CheckpointTranslation.query.filter_by(
+        checkpoint_id=checkpoint_id,
+        language=language,
+    ).first()
+    if not translation:
+        logger.warning(f"Checkpoint translation not found for checkpoint {checkpoint_id} language {language}")
+        return jsonify({"message": "Translation not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    validated = CheckpointTranslationUpdateSchema().load(data, partial=True)
+    if "title" in validated:
+        translation.title = validated["title"]
+    if "description" in validated:
+        translation.description = validated["description"]
+
+    db.session.commit()
+    logger.info(f"Checkpoint translation updated for checkpoint {checkpoint_id} language {language}")
+    return jsonify({
+        "id": translation.id,
+        "language": translation.language,
+        "title": translation.title,
+        "description": translation.description,
+    }), 200
+
+
+@checkpoint_bp.route('/<int:checkpoint_id>/translations/<string:language>/', methods=['DELETE'])
+@admin_required()
+def delete_checkpoint_translation(checkpoint_id, language):
+    """
+    Delete a translation for a checkpoint (admin only).
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
+      - in: path
+        name: language
+        schema:
+          type: string
+        required: true
+        description: Translation language code
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Translation deleted
+      404:
+        description: Translation not found
+    """
+    translation = CheckpointTranslation.query.filter_by(
+        checkpoint_id=checkpoint_id,
+        language=language,
+    ).first_or_404()
+    db.session.delete(translation)
+    db.session.commit()
+    logger.info(f"Checkpoint translation deleted for checkpoint {checkpoint_id} language {language}")
+    return jsonify({"message": "Translation deleted."}), 200
 
 # tested by test_checkpoint.py -> test_delete_checkpoint
 @checkpoint_bp.route('/<int:checkpoint_id>/', methods=['DELETE'])

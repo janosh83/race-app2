@@ -5,7 +5,8 @@ from flask import Blueprint, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Task, TaskLog, User, Image, Registration, Race
+from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
+from app.utils import resolve_language
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
@@ -24,6 +25,15 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def _apply_task_translation(task, language):
+  if not language:
+    return task.title, task.description
+  translation = TaskTranslation.query.filter_by(task_id=task.id, language=language).first()
+  if translation:
+    return translation.title, translation.description
+  return task.title, task.description
+
 @tasks_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_tasks(race_id):
@@ -39,9 +49,15 @@ def get_tasks(race_id):
           type: integer
         required: true
         description: ID of the race
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
-        description: A list of tasks
+        description: A list of tasks (translated when available)
         content:
           application/json:
             schema:
@@ -58,13 +74,21 @@ def get_tasks(race_id):
                   numOfPoints:
                     type: integer
     """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported task language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
     tasks = Task.query.filter_by(race_id=race_id).all()
     return jsonify([
         {
             "id": task.id, 
-            "title": task.title, 
-            "description": task.description,
-            "numOfPoints": task.numOfPoints
+        "title": _apply_task_translation(task, language)[0], 
+        "description": _apply_task_translation(task, language)[1],
+        "numOfPoints": task.numOfPoints
         }
         for task in tasks
     ])
@@ -259,9 +283,15 @@ def get_task(race_id, task_id):
           type: integer
         required: true
         description: ID of the task
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
-        description: Task details
+        description: Task details (translated when available)
         content:
           application/json:
             schema:
@@ -278,11 +308,20 @@ def get_task(race_id, task_id):
       404:
         description: Task not found
     """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported task language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
     task = Task.query.filter_by(race_id=race_id, id=task_id).first_or_404()
+    title, description = _apply_task_translation(task, language)
     return jsonify({
         "id": task.id, 
-        "title": task.title, 
-        "description": task.description, 
+      "title": title, 
+      "description": description, 
         "numOfPoints": task.numOfPoints}), 200
 
 @tasks_bp.route("/log/", methods=["POST"])
@@ -571,11 +610,17 @@ def get_tasks_with_status(race_id, team_id):
         type: integer
       required: true
       description: ID of the team
+    - in: query
+      name: lang
+      schema:
+        type: string
+      required: false
+      description: Optional language code for translated fields
   security:
     - BearerAuth: []
   responses:
     200:
-      description: List of tasks with completion status
+      description: List of tasks with completion status (translated when available)
       content:
         application/json:
           schema:
@@ -607,6 +652,12 @@ def get_tasks_with_status(race_id, team_id):
     return jsonify({"msg": "Unauthorized"}), 403
 
   race = Race.query.filter_by(id=race_id).first_or_404()
+  requested_language = request.args.get("lang")
+  if requested_language and requested_language not in (race.supported_languages or []):
+    logger.warning(
+      f"Unsupported task language '{requested_language}' requested for race {race_id}; using fallback"
+    )
+  language = resolve_language(race, user, requested_language)
   tasks = race.tasks
 
   completions = TaskLog.query.filter_by(race_id=race_id, team_id=team_id).all()
@@ -617,10 +668,11 @@ def get_tasks_with_status(race_id, team_id):
   response = []
   for task in tasks:
     completion = completions_by_task.get(task.id)
+    title, description = _apply_task_translation(task, language)
     task_data = {
       "id": task.id,
-      "title": task.title,
-      "description": task.description,
+      "title": title,
+      "description": description,
       "numOfPoints": task.numOfPoints,
       "completed": task.id in completions_by_task,
     }

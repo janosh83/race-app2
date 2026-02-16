@@ -178,6 +178,40 @@ def test_update_task_forbidden_non_admin(test_client, add_test_data, regular_use
     assert response.status_code == 403
 
 
+def test_task_translation_crud(test_client, add_test_data, admin_auth_headers):
+    """Test creating, updating, and deleting a task translation."""
+    create_resp = test_client.post(
+        "/api/task/1/translations/",
+        json={"language": "cs", "title": "Ukol 1", "description": "Prvni ukol"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+
+    get_translated = test_client.get("/api/task/1/?lang=cs", headers=admin_auth_headers)
+    assert get_translated.status_code == 200
+    assert get_translated.json["title"] == "Ukol 1"
+    assert get_translated.json["description"] == "Prvni ukol"
+
+    update_resp = test_client.put(
+        "/api/task/1/translations/cs/",
+        json={"title": "Upraveny ukol", "description": "Upraveny popis"},
+        headers=admin_auth_headers,
+    )
+    assert update_resp.status_code == 200
+
+    get_updated = test_client.get("/api/task/1/?lang=cs", headers=admin_auth_headers)
+    assert get_updated.status_code == 200
+    assert get_updated.json["title"] == "Upraveny ukol"
+    assert get_updated.json["description"] == "Upraveny popis"
+
+    delete_resp = test_client.delete("/api/task/1/translations/cs/", headers=admin_auth_headers)
+    assert delete_resp.status_code == 200
+
+    list_resp = test_client.get("/api/task/1/translations/", headers=admin_auth_headers)
+    assert list_resp.status_code == 200
+    assert all(item["language"] != "cs" for item in list_resp.json)
+
+
 def test_delete_task_with_logs_and_images(test_client, add_test_data, admin_auth_headers):
     """Test deleting task with associated logs and images."""
     with test_client.application.app_context():

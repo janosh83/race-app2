@@ -142,3 +142,17 @@ def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     
     distance = R * c
     return distance
+
+
+def resolve_language(race, user, requested_language=None, default_language=None):
+    """Resolve a language for race-scoped content based on request, user, and race defaults."""
+    from app.constants import DEFAULT_LANGUAGE
+
+    race_languages = race.supported_languages or []
+    if requested_language and requested_language in race_languages:
+        return requested_language
+    if user and user.preferred_language in race_languages:
+        return user.preferred_language
+    if race.default_language:
+        return race.default_language
+    return default_language or DEFAULT_LANGUAGE

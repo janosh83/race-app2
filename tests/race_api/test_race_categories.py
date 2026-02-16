@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Team, User, RaceCategory, Registration
+from app.models import Race, Team, User, RaceCategory, Registration, RaceCategoryTranslation
 from datetime import datetime, timedelta
 
 
@@ -29,6 +29,15 @@ def add_test_data(test_app):
         db.session.add_all([race1, team1, user1, registration1, race_category1])
         db.session.commit()
 
+        translation = RaceCategoryTranslation(
+            race_category_id=race_category1.id,
+            language="cs",
+            name="Kola CZ",
+            description="Na libovolnem kole.",
+        )
+        db.session.add(translation)
+        db.session.commit()
+
 def test_with_race(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -50,6 +59,11 @@ def test_with_race(test_client, add_test_data):
     assert response.json[0]["description"] == "Na libovolném kole."
     assert response.json[1]["name"] == "Běh"
     assert response.json[1]["description"] == "Pro běžce."
+
+    response = test_client.get("/api/race/1/categories/?lang=cs", headers=headers)
+    assert response.status_code == 200
+    assert response.json[0]["name"] == "Kola CZ"
+    assert response.json[0]["description"] == "Na libovolnem kole."
 
 
 def test_remove_race_category_success(test_client, add_test_data):

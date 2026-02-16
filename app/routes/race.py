@@ -1,6 +1,7 @@
 from unittest import result
 import logging
 from flask import Blueprint, jsonify, request
+from marshmallow import ValidationError
 
 from app import db
 from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image
@@ -11,6 +12,7 @@ from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
 from app.schemas import RaceCreateSchema, RaceUpdateSchema
+from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,8 @@ def get_all_races():
     races = Race.query.all()
     return jsonify([{"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
-                    "end_logging_at": race.end_logging_at} for race in races])
+                    "end_logging_at": race.end_logging_at, "supported_languages": race.supported_languages,
+                    "default_language": race.default_language} for race in races])
 
 # tested by test_races.py -> test_get_single_race
 @race_bp.route("/<int:race_id>/", methods=["GET"])
@@ -70,7 +73,8 @@ def get_single_race(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     return jsonify({"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
-                    "end_logging_at": race.end_logging_at}), 200
+                    "end_logging_at": race.end_logging_at, "supported_languages": race.supported_languages,
+                    "default_language": race.default_language}), 200
 
 # add race
 # tested by test_races.py -> test_create_race
@@ -119,11 +123,19 @@ def create_race():
                     start_showing_checkpoints_at=start_showing_checkpoints_at,
                     end_showing_checkpoints_at=end_showing_checkpoints_at, 
                     start_logging_at=start_logging_at,
-                    end_logging_at=end_logging_at)
+                    end_logging_at=end_logging_at,
+                    supported_languages=data.get("supported_languages", list(SUPPORTED_LANGUAGES)),
+                    default_language=data.get("default_language", DEFAULT_LANGUAGE))
     db.session.add(new_race)
     db.session.commit()
     logger.info(f"New race created: {new_race.name} (ID: {new_race.id})")
-    return jsonify({"id": new_race.id, "name": new_race.name, "description": new_race.description}), 201
+    return jsonify({
+      "id": new_race.id,
+      "name": new_race.name,
+      "description": new_race.description,
+      "supported_languages": new_race.supported_languages,
+      "default_language": new_race.default_language,
+    }), 201
 
 # tested by test_races.py -> test_update_race
 @race_bp.route('/<int:race_id>/', methods=['PUT'])
@@ -144,11 +156,21 @@ def update_race(race_id):
     data = RaceUpdateSchema().load(raw_data, partial=True)
     race = Race.query.filter_by(id=race_id).first_or_404()
 
+    if "supported_languages" in data or "default_language" in data:
+      supported = data.get("supported_languages", race.supported_languages or list(SUPPORTED_LANGUAGES))
+      default = data.get("default_language", race.default_language or DEFAULT_LANGUAGE)
+      if default not in supported:
+        raise ValidationError({"default_language": ["default_language must be in supported_languages"]})
+
     # simple scalar fields
     if 'name' in data:
         race.name = data.get('name')
     if 'description' in data:
         race.description = data.get('description')
+    if 'supported_languages' in data:
+      race.supported_languages = data.get('supported_languages')
+    if 'default_language' in data:
+      race.default_language = data.get('default_language')
 
     # datetime fields (accept several possible keys but prefer explicit *_at keys)
     if 'start_showing_checkpoints_at' in data:
@@ -182,7 +204,9 @@ def update_race(race_id):
         "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
         "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
         "start_logging_at": race.start_logging_at,
-        "end_logging_at": race.end_logging_at
+        "end_logging_at": race.end_logging_at,
+        "supported_languages": race.supported_languages,
+        "default_language": race.default_language,
     }), 200
 
 # delete race

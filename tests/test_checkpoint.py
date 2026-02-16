@@ -151,3 +151,39 @@ def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
     response = test_client.put("/api/checkpoint/1/", json={"title": "Test"}, headers=headers)
     assert response.status_code == 403
     assert response.json["msg"] == "Admins only!"
+
+
+def test_checkpoint_translation_crud(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    create_resp = test_client.post(
+        "/api/checkpoint/1/translations/",
+        json={"language": "cs", "title": "Kontrola 1", "description": "Prvni kontrola"},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+
+    get_translated = test_client.get("/api/checkpoint/1/?lang=cs", headers=headers)
+    assert get_translated.status_code == 200
+    assert get_translated.json["title"] == "Kontrola 1"
+    assert get_translated.json["description"] == "Prvni kontrola"
+
+    update_resp = test_client.put(
+        "/api/checkpoint/1/translations/cs/",
+        json={"title": "Upraveno", "description": "Upraveny popis"},
+        headers=headers,
+    )
+    assert update_resp.status_code == 200
+
+    get_updated = test_client.get("/api/checkpoint/1/?lang=cs", headers=headers)
+    assert get_updated.status_code == 200
+    assert get_updated.json["title"] == "Upraveno"
+    assert get_updated.json["description"] == "Upraveny popis"
+
+    delete_resp = test_client.delete("/api/checkpoint/1/translations/cs/", headers=headers)
+    assert delete_resp.status_code == 200
+
+    list_resp = test_client.get("/api/checkpoint/1/translations/", headers=headers)
+    assert list_resp.status_code == 200
+    assert all(item["language"] != "cs" for item in list_resp.json)

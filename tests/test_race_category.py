@@ -35,6 +35,10 @@ def test_add_race_category(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json == [{"id": 1, "name": "Kola", "description": "Na libovolném kole."}]
 
+    response = test_client.get("/api/race-category/?lang=cs", headers=headers)
+    assert response.status_code == 200
+    assert response.json == [{"id": 1, "name": "Kola", "description": "Na libovolném kole."}]
+
     response = test_client.post("/api/race-category/", json={"name": "Běh", "description": "Pro běžce."}, headers = headers)
     assert response.status_code == 201
     assert response.json == {"id": 2, "name": "Běh", "description": "Pro běžce."}
@@ -102,3 +106,31 @@ def test_delete_category_forbidden_non_admin(test_client, add_test_data, regular
     """Test deleting category as non-admin returns 403."""
     response = test_client.delete("/api/race-category/1/", headers=regular_user_auth_headers)
     assert response.status_code == 403
+
+
+def test_race_category_translation_crud(test_client, add_test_data, admin_auth_headers):
+    create_resp = test_client.post(
+        "/api/race-category/1/translations/",
+        json={"language": "cs", "name": "Kola CZ", "description": "Na libovolnem kole."},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+
+    list_resp = test_client.get("/api/race-category/1/translations/", headers=admin_auth_headers)
+    assert list_resp.status_code == 200
+    assert any(item["language"] == "cs" for item in list_resp.json)
+
+    update_resp = test_client.put(
+        "/api/race-category/1/translations/cs/",
+        json={"name": "Kola Upr", "description": "Upraveno"},
+        headers=admin_auth_headers,
+    )
+    assert update_resp.status_code == 200
+
+    translated_resp = test_client.get("/api/race-category/?lang=cs", headers=admin_auth_headers)
+    assert translated_resp.status_code == 200
+    assert translated_resp.json[0]["name"] == "Kola Upr"
+    assert translated_resp.json[0]["description"] == "Upraveno"
+
+    delete_resp = test_client.delete("/api/race-category/1/translations/cs/", headers=admin_auth_headers)
+    assert delete_resp.status_code == 200

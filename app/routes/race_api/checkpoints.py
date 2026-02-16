@@ -4,7 +4,8 @@ import logging
 from flask import Blueprint, jsonify, request, current_app
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race
+from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
+from app.utils import resolve_language
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
@@ -21,6 +22,18 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+def _apply_checkpoint_translation(checkpoint, language):
+  if not language:
+    return checkpoint.title, checkpoint.description
+  translation = CheckpointTranslation.query.filter_by(
+    checkpoint_id=checkpoint.id,
+    language=language,
+  ).first()
+  if translation:
+    return translation.title, translation.description
+  return checkpoint.title, checkpoint.description
+
 @checkpoints_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_checkpoints(race_id):
@@ -36,9 +49,15 @@ def get_checkpoints(race_id):
           type: integer
         required: true
         description: ID of the race
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
-        description: A list of checkpoints
+        description: A list of checkpoints (translated when available)
         content:
           application/json:
             schema:
@@ -59,14 +78,22 @@ def get_checkpoints(race_id):
                   numOfPoints:
                     type: integer
     """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
     checkpoints = Checkpoint.query.filter_by(race_id=race_id).all()
     return jsonify([
         {
             "id": checkpoint.id, 
-            "title": checkpoint.title, 
+            "title": _apply_checkpoint_translation(checkpoint, language)[0], 
             "latitude": checkpoint.latitude, 
             "longitude": checkpoint.longitude,
-            "description": checkpoint.description,
+            "description": _apply_checkpoint_translation(checkpoint, language)[1],
             "numOfPoints": checkpoint.numOfPoints
         }
         for checkpoint in checkpoints
@@ -292,9 +319,15 @@ def get_checkpoint(race_id, checkpoint_id):
           type: integer
         required: true
         description: ID of the checkpoint
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
-        description: Checkpoint details
+        description: Checkpoint details (translated when available)
         content:
           application/json:
             schema:
@@ -315,13 +348,22 @@ def get_checkpoint(race_id, checkpoint_id):
       404:
         description: Checkpoint not found
     """
-    checkpoint = Checkpoint.query.filter_by(race_id=race_id, id = checkpoint_id).first_or_404()
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
+    checkpoint = Checkpoint.query.filter_by(race_id=race_id, id=checkpoint_id).first_or_404()
+    title, description = _apply_checkpoint_translation(checkpoint, language)
     return jsonify({
         "id": checkpoint.id, 
-        "title": checkpoint.title, 
+      "title": title, 
         "latitude": checkpoint.latitude, 
         "longitude": checkpoint.longitude, 
-        "description": checkpoint.description, 
+      "description": description, 
         "numOfPoints": checkpoint.numOfPoints}), 200
 
 # tested by test_visits.py -> test_log_visit
@@ -681,11 +723,17 @@ def get_checkpoints_with_status(race_id, team_id):
           type: integer
         required: true
         description: ID of the team
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     security:
       - BearerAuth: []
     responses:
       200:
-        description: List of checkpoints with visit status
+        description: List of checkpoints with visit status (translated when available)
         content:
           application/json:
             schema:
@@ -725,6 +773,12 @@ def get_checkpoints_with_status(race_id, team_id):
 
     # Get all checkpoints for the race
     race = Race.query.filter_by(id=race_id).first_or_404()
+    requested_language = request.args.get("lang")
+    if requested_language and requested_language not in (race.supported_languages or []):
+      logger.warning(
+        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
+      )
+    language = resolve_language(race, user, requested_language)
     checkpoints = race.checkpoints
 
     # Get all visits for the race and team
@@ -737,10 +791,11 @@ def get_checkpoints_with_status(race_id, team_id):
     response = []
     for checkpoint in checkpoints:
         visit = visits_by_checkpoint.get(checkpoint.id)
+        title, description = _apply_checkpoint_translation(checkpoint, language)
         checkpoint_data = {
             "id": checkpoint.id,
-            "title": checkpoint.title,
-            "description": checkpoint.description,
+          "title": title,
+          "description": description,
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
             "visited": checkpoint.id in visits_by_checkpoint

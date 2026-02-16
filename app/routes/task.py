@@ -4,9 +4,9 @@ from flask import Blueprint, jsonify, current_app, request
 from marshmallow import ValidationError
 
 from app import db
-from app.models import Task, TaskLog, Image
+from app.models import Task, TaskLog, Image, TaskTranslation
 from app.routes.admin import admin_required
-from app.schemas import TaskUpdateSchema
+from app.schemas import TaskUpdateSchema, TaskTranslationCreateSchema, TaskTranslationUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,12 @@ def get_task(task_id):
           type: integer
         required: true
         description: ID of the task
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     security:
       - BearerAuth: []
     responses:
@@ -55,13 +61,25 @@ def get_task(task_id):
         description: Task not found
       403:
         description: Admins only
+      400:
+        description: Language not supported by race
     """
     task = Task.query.filter_by(id=task_id).first_or_404()
+    language = request.args.get("lang")
+    title = task.title
+    description = task.description
+    if language:
+      if language not in (task.race.supported_languages or []):
+        return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+      translation = TaskTranslation.query.filter_by(task_id=task_id, language=language).first()
+      if translation:
+        title = translation.title
+        description = translation.description
     return jsonify({
-        "id": task.id,
-        "title": task.title,
-        "description": task.description,
-        "numOfPoints": task.numOfPoints
+      "id": task.id,
+      "title": title,
+      "description": description,
+      "numOfPoints": task.numOfPoints
     }), 200
 
 # tested by test_task.py -> test_update_task
@@ -95,7 +113,7 @@ def update_task(task_id):
                 description: The description of the task
               numOfPoints:
                 type: integer
-                description: The number of points for completing
+                description: The number of points for completing the task
     security:
       - BearerAuth: []
     responses:
@@ -142,6 +160,233 @@ def update_task(task_id):
         "description": task.description,
         "numOfPoints": task.numOfPoints
     }), 200
+
+
+@task_bp.route('/<int:task_id>/translations/', methods=['GET'])
+@admin_required()
+def get_task_translations(task_id):
+  """
+  Get all translations for a task (admin only).
+  ---
+  tags:
+    - Tasks
+  parameters:
+    - in: path
+      name: task_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the task
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: List of task translations
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id:
+                  type: integer
+                language:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+  """
+  task = Task.query.filter_by(id=task_id).first_or_404()
+  logger.info(f"Retrieved {len(task.translations)} task translations for task {task_id}")
+  return jsonify([
+    {
+      "id": translation.id,
+      "language": translation.language,
+      "title": translation.title,
+      "description": translation.description,
+    }
+    for translation in task.translations
+  ]), 200
+
+
+@task_bp.route('/<int:task_id>/translations/', methods=['POST'])
+@admin_required()
+def create_task_translation(task_id):
+  """
+  Create a translation for a task (admin only).
+  ---
+  tags:
+    - Tasks
+  parameters:
+    - in: path
+      name: task_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the task
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            language:
+              type: string
+            title:
+              type: string
+            description:
+              type: string
+          required:
+            - language
+            - title
+  responses:
+    201:
+      description: Translation created
+    400:
+      description: Language not supported by race
+    409:
+      description: Translation already exists
+  """
+  task = Task.query.filter_by(id=task_id).first_or_404()
+  data = request.get_json(silent=True) or {}
+  validated = TaskTranslationCreateSchema().load(data)
+  if validated["language"] not in (task.race.supported_languages or []):
+    logger.warning(f"Task translation create rejected for task {task_id}: language {validated['language']} not supported")
+    return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+  existing = TaskTranslation.query.filter_by(
+    task_id=task_id,
+    language=validated["language"],
+  ).first()
+  if existing:
+    logger.warning(f"Task translation already exists for task {task_id} language {validated['language']}")
+    return jsonify({"message": "Translation already exists"}), 409
+
+  translation = TaskTranslation(
+    task_id=task_id,
+    language=validated["language"],
+    title=validated["title"],
+    description=validated.get("description"),
+  )
+  db.session.add(translation)
+  db.session.commit()
+  logger.info(f"Task translation created for task {task_id} language {translation.language}")
+  return jsonify({
+    "id": translation.id,
+    "language": translation.language,
+    "title": translation.title,
+    "description": translation.description,
+  }), 201
+
+
+@task_bp.route('/<int:task_id>/translations/<string:language>/', methods=['PUT'])
+@admin_required()
+def update_task_translation(task_id, language):
+  """
+  Update a translation for a task (admin only).
+  ---
+  tags:
+    - Tasks
+  parameters:
+    - in: path
+      name: task_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the task
+    - in: path
+      name: language
+      schema:
+        type: string
+      required: true
+      description: Translation language code
+  security:
+    - BearerAuth: []
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            title:
+              type: string
+            description:
+              type: string
+  responses:
+    200:
+      description: Translation updated
+    400:
+      description: Language not supported by race
+    404:
+      description: Translation not found
+  """
+  task = Task.query.filter_by(id=task_id).first_or_404()
+  if language not in (task.race.supported_languages or []):
+    logger.warning(f"Task translation update rejected for task {task_id}: language {language} not supported")
+    return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+  translation = TaskTranslation.query.filter_by(task_id=task_id, language=language).first()
+  if not translation:
+    logger.warning(f"Task translation not found for task {task_id} language {language}")
+    return jsonify({"message": "Translation not found"}), 404
+
+  data = request.get_json(silent=True) or {}
+  validated = TaskTranslationUpdateSchema().load(data, partial=True)
+  if "title" in validated:
+    translation.title = validated["title"]
+  if "description" in validated:
+    translation.description = validated["description"]
+
+  db.session.commit()
+  logger.info(f"Task translation updated for task {task_id} language {language}")
+  return jsonify({
+    "id": translation.id,
+    "language": translation.language,
+    "title": translation.title,
+    "description": translation.description,
+  }), 200
+
+
+@task_bp.route('/<int:task_id>/translations/<string:language>/', methods=['DELETE'])
+@admin_required()
+def delete_task_translation(task_id, language):
+  """
+  Delete a translation for a task (admin only).
+  ---
+  tags:
+    - Tasks
+  parameters:
+    - in: path
+      name: task_id
+      schema:
+        type: integer
+      required: true
+      description: ID of the task
+    - in: path
+      name: language
+      schema:
+        type: string
+      required: true
+      description: Translation language code
+  security:
+    - BearerAuth: []
+  responses:
+    200:
+      description: Translation deleted
+    404:
+      description: Translation not found
+  """
+  translation = TaskTranslation.query.filter_by(task_id=task_id, language=language).first_or_404()
+  db.session.delete(translation)
+  db.session.commit()
+  logger.info(f"Task translation deleted for task {task_id} language {language}")
+  return jsonify({"message": "Translation deleted."}), 200
 
 # tested by test_task.py -> test_delete_task
 @task_bp.route('/<int:task_id>/', methods=['DELETE'])

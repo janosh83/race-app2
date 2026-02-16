@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Checkpoint, User
+from app.models import Race, Checkpoint, User, CheckpointTranslation
 from datetime import datetime, timedelta
 
 
@@ -43,6 +43,15 @@ def add_test_data(test_app):
             race_id=race.id,
         )
         db.session.add_all([cp1, cp2])
+        db.session.commit()
+
+        translation = CheckpointTranslation(
+            checkpoint_id=cp1.id,
+            language="cs",
+            title="Kontrola 1",
+            description="Prvni kontrola",
+        )
+        db.session.add(translation)
         db.session.commit()
         yield
 
@@ -98,6 +107,17 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
             "numOfPoints": 1
         }
     ]
+
+    response = test_client.get("/api/race/1/checkpoints/1/?lang=cs", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Kontrola 1"
+    assert response.json["description"] == "Prvni kontrola"
+
+    response = test_client.get("/api/race/1/checkpoints/?lang=cs", headers=admin_auth_headers)
+    assert response.status_code == 200
+    by_id = {item["id"]: item for item in response.json}
+    assert by_id[1]["title"] == "Kontrola 1"
+    assert by_id[1]["description"] == "Prvni kontrola"
 
 def test_create_checkpoint(test_client, add_test_data, admin_auth_headers):
     response = test_client.post("/api/race/1/checkpoints/", json={

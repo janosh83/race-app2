@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Task, TaskLog, User, Team, Registration, RaceCategory
+from app.models import Race, Task, TaskLog, User, Team, Registration, RaceCategory, TaskTranslation
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -57,6 +57,15 @@ def add_test_data(test_app):
         db.session.add_all([task1, task2, task3])
         db.session.commit()
 
+        translation = TaskTranslation(
+            task_id=task1.id,
+            language="cs",
+            title="Ukol 1",
+            description="Prvni ukol",
+        )
+        db.session.add(translation)
+        db.session.commit()
+
 def test_get_all_tasks(test_client, add_test_data):
     """Test getting all tasks for a race"""
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
@@ -85,6 +94,11 @@ def test_get_single_task(test_client, add_test_data):
     assert response.json["title"] == "Task 2"
     assert response.json["description"] == "Second task"
     assert response.json["numOfPoints"] == 10
+
+    response = test_client.get("/api/race/1/tasks/1/?lang=cs", headers=headers)
+    assert response.status_code == 200
+    assert response.json["title"] == "Ukol 1"
+    assert response.json["description"] == "Prvni ukol"
 
     # Test non-existent task
     response = test_client.get("/api/race/1/tasks/999/", headers=headers)
@@ -200,3 +214,16 @@ def test_create_task_invalid_race_404(test_client, add_test_data):
     )
     assert resp.status_code == 404
     assert resp.json.get("message") == "Race not found"
+
+
+def test_get_tasks_with_translation_lang_param(test_client, add_test_data):
+    """Translated fields are returned when lang is provided."""
+    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.get("/api/race/1/tasks/?lang=cs", headers=headers)
+    assert response.status_code == 200
+    tasks_by_id = {item["id"]: item for item in response.json}
+    assert tasks_by_id[1]["title"] == "Ukol 1"
+    assert tasks_by_id[1]["description"] == "Prvni ukol"
+    assert tasks_by_id[2]["title"] == "Task 2"

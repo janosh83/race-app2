@@ -1,6 +1,7 @@
 import pytest
 from app import create_app, db
 from app.models import Race, Checkpoint, CheckpointLog, User
+from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -41,6 +42,8 @@ def test_get_all_races(test_client, add_test_data):
     assert response.json[0]["id"] == 1
     assert response.json[0]["name"] == "Jarní jízda"
     assert response.json[0]["description"] == "24 hodin objevování Česka"
+    assert response.json[0]["supported_languages"] == SUPPORTED_LANGUAGES
+    assert response.json[0]["default_language"] == DEFAULT_LANGUAGE
     # testing more races is done below as part of test_create_race
 
     # TODO: test also empty race list
@@ -54,6 +57,8 @@ def test_get_single_race(test_client, add_test_data):
     assert response.json["id"] == 1
     assert response.json["name"] == "Jarní jízda"
     assert response.json["description"] == "24 hodin objevování Česka"
+    assert response.json["supported_languages"] == SUPPORTED_LANGUAGES
+    assert response.json["default_language"] == DEFAULT_LANGUAGE
 
     response = test_client.get("/api/race/2/") # non existing race
     assert response.status_code == 404
@@ -82,6 +87,8 @@ def test_create_race(test_client, add_test_data):
     assert response.json["id"] == 2
     assert response.json["name"] == "Hill Bill Rally"
     assert response.json["description"] == "Roadtrip po Balkáně."
+    assert response.json["supported_languages"] == SUPPORTED_LANGUAGES
+    assert response.json["default_language"] == DEFAULT_LANGUAGE
 
     response = test_client.get("/api/race/") # get all races to see added race
     assert response.status_code == 200
@@ -156,6 +163,14 @@ def test_update_race(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json["name"] == "Final Name"
     assert response.json["description"] == "Final Description"
+
+    response = test_client.put("/api/race/1/", json={
+        "supported_languages": ["en", "cs"],
+        "default_language": "cs"
+    }, headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+    assert response.json["supported_languages"] == ["en", "cs"]
+    assert response.json["default_language"] == "cs"
 
 
 def test_update_race_not_found(test_client):
