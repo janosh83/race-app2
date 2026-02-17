@@ -13,6 +13,7 @@
   },
   "activeRace": {
     "selectTitle": "Select Active Race",
+    "supportedLanguages": "Supported languages",
     "unnamedRace": "Unnamed race",
     "startShowing": "Start showing checkpoints",
     "endShowing": "End showing checkpoints",

@@ -13,6 +13,7 @@
   },
   "activeRace": {
     "selectTitle": "Aktives Rennen auswahlen",
+    "supportedLanguages": "Unterstützte Sprachen",
     "unnamedRace": "Unbenanntes Rennen",
     "startShowing": "Beginn der Checkpoint-Anzeige",
     "endShowing": "Ende der Checkpoint-Anzeige",

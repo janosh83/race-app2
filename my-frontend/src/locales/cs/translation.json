@@ -13,6 +13,7 @@
   },
   "activeRace": {
     "selectTitle": "Vyberte aktivní závod",
+    "supportedLanguages": "Podporované jazyky",
     "unnamedRace": "Závod bez názvu",
     "startShowing": "Začátek zobrazování checkpointů",
     "endShowing": "Konec zobrazování checkpointů",

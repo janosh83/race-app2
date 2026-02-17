@@ -4,6 +4,15 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { formatDate, useTime } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
+import enFlag from '../assets/flags/en.svg';
+import csFlag from '../assets/flags/cs.svg';
+import deFlag from '../assets/flags/de.svg';
+
+const LANGUAGE_FLAGS = {
+  en: enFlag,
+  cs: csFlag,
+  de: deFlag
+};
 
 function ActiveRace() {
   const { t } = useTranslation();
@@ -57,6 +66,23 @@ function ActiveRace() {
           <div className="card-body">
             <h4 className="card-title">{normalizeName(activeRace)}</h4>
             <p className="card-text">{normalizeDescription(activeRace)}</p>
+
+            {activeRace.supported_languages && activeRace.supported_languages.length > 0 && (
+              <div className="mb-3">
+                <p className="text-muted small mb-2">{t('activeRace.supportedLanguages')}:</p>
+                <div className="d-flex gap-2">
+                  {activeRace.supported_languages.map(lang => (
+                    <img
+                      key={lang}
+                      src={LANGUAGE_FLAGS[lang]}
+                      alt={lang}
+                      title={lang}
+                      style={{ height: '24px', width: '32px', objectFit: 'cover' }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <ul className="list-group list-group-flush">
               <li className="list-group-item">

@@ -61,6 +61,16 @@ export function TimeProvider({ children }) {
       return []; 
     }
   });
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    try {
+      const stored = localStorage.getItem('selectedLanguage') || 'en';
+      logger.info('CONTEXT', 'Initialized selectedLanguage from localStorage', { language: stored });
+      return stored;
+    } catch { 
+      logger.warn('CONTEXT', 'Failed to parse selectedLanguage from localStorage');
+      return 'en'; 
+    }
+  });
   const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
 
   const intervalRef = useRef(null);
@@ -111,6 +121,12 @@ export function TimeProvider({ children }) {
     logger.info('CONTEXT', 'Updating signed races', { count: safeRaces.length });
     setSignedRaces(safeRaces);
     localStorage.setItem('signedRaces', JSON.stringify(safeRaces));
+  };
+
+  const setSelectedLanguageAndPersist = (language) => {
+    logger.info('CONTEXT', 'Setting selected language', { language });
+    setSelectedLanguage(language);
+    localStorage.setItem('selectedLanguage', language);
   };
 
   async function refreshSignedRaces() {
@@ -170,7 +186,7 @@ export function TimeProvider({ children }) {
   }, [activeRace, signedRaces]);
 
   return (
-    <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, refreshSignedRaces }}>
+    <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, refreshSignedRaces, selectedLanguage, setSelectedLanguage: setSelectedLanguageAndPersist }}>
       {children}
     </TimeContext.Provider>
   );

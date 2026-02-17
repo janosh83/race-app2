@@ -3,9 +3,10 @@ import { logger } from '../utils/logger';
 
 export const raceApi = {
   // Fetch checkpoints status for a team in a race
-  getCheckpointsStatus: (raceId, teamId) => {
-    logger.info('RACE', 'Fetching checkpoint status', { raceId, teamId });
-    return apiFetch(`/api/race/${raceId}/checkpoints/${teamId}/status/`).then(result => {
+  getCheckpointsStatus: (raceId, teamId, language) => {
+    const url = `/api/race/${raceId}/checkpoints/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');
+    logger.info('RACE', 'Fetching checkpoint status', { raceId, teamId, language });
+    return apiFetch(url).then(result => {
       logger.success('RACE', 'Checkpoints fetched', { count: result?.length || 0 });
       return result;
     }).catch(err => {
@@ -15,9 +16,10 @@ export const raceApi = {
   },
 
   // Fetch tasks status for a team in a race
-  getTasksStatus: (raceId, teamId) => {
-    logger.info('RACE', 'Fetching task status', { raceId, teamId });
-    return apiFetch(`/api/race/${raceId}/tasks/${teamId}/status/`).then(result => {
+  getTasksStatus: (raceId, teamId, language) => {
+    const url = `/api/race/${raceId}/tasks/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');
+    logger.info('RACE', 'Fetching task status', { raceId, teamId, language });
+    return apiFetch(url).then(result => {
       logger.success('RACE', 'Tasks fetched', { count: result?.length || 0 });
       return result;
     }).catch(err => {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { userApi } from '../services/userApi';
+import { useTime } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
 import enFlag from '../assets/flags/en.svg';
 import csFlag from '../assets/flags/cs.svg';
@@ -14,13 +15,18 @@ const LANGUAGE_OPTIONS = [
 
 export default function LanguageSwitcher({ className = '' }) {
   const { i18n, t } = useTranslation();
+  const { setSelectedLanguage } = useTime();
   const current = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
 
   const handleChange = async (event) => {
     const next = event.target.value;
     
-    // Always update frontend immediately
+    // Update frontend UI language
     i18n.changeLanguage(next);
+    
+    // Update API language parameter
+    setSelectedLanguage(next);
+    logger.info('LANG', 'Language changed', { language: next });
     
     // Try to persist to backend if user is logged in
     try {

@@ -40,7 +40,7 @@ function Map({ topOffset = 56 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
-  const { activeRace, timeInfo } = useTime();
+  const { activeRace, timeInfo, selectedLanguage } = useTime();
   const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
   const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -53,11 +53,11 @@ function Map({ topOffset = 56 }) {
     if (!activeRaceId || !activeTeamId) return;
     
     const fetchCheckpoints = () => {
-      logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId });
+      logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
       setCheckpointError(false);
       
       raceApi
-        .getCheckpointsStatus(activeRaceId, activeTeamId)
+        .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
           logger.success('RACE', 'Checkpoints loaded for map', { count: data?.length || 0 });
           setCheckpoints(data);
@@ -75,7 +75,7 @@ function Map({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId]);
+  }, [activeRaceId, activeTeamId, selectedLanguage]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -303,7 +303,7 @@ function Map({ topOffset = 56 }) {
       }
 
       await raceApi.logVisitWithImage(activeRaceId, formData);
-      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage);
       logger.success('RACE', 'Checkpoint visit logged successfully');
       setCheckpoints(data);
       setSelectedCheckpoint(null);
@@ -331,7 +331,7 @@ function Map({ topOffset = 56 }) {
     logger.info('RACE', 'Deleting checkpoint visit', { checkpointId: selectedCheckpoint.id });
     try {
       await raceApi.deleteVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
-      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId);
+      const data = await raceApi.getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage);
       logger.success('RACE', 'Checkpoint visit deleted successfully');
       setCheckpoints(data);
       setSelectedCheckpoint(null);
@@ -352,7 +352,7 @@ function Map({ topOffset = 56 }) {
     setCheckpointError(false);
     
     raceApi
-      .getCheckpointsStatus(activeRaceId, activeTeamId)
+      .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
       .then((data) => {
         logger.success('RACE', 'Checkpoints loaded after retry', { count: data?.length || 0 });
         setCheckpoints(data);

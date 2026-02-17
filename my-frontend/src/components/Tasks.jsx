@@ -22,7 +22,7 @@ function Tasks({ topOffset = 56 }) {
     return () => clearInterval(id);
   }, []);
 
-  const { activeRace, timeInfo } = useTime();
+  const { activeRace, timeInfo, selectedLanguage } = useTime();
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -40,11 +40,11 @@ function Tasks({ topOffset = 56 }) {
     if (!activeRaceId || !activeTeamId) return;
     
     const fetchTasks = () => {
-      logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId });
+      logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
       setTaskError(false);
       
       raceApi
-        .getTasksStatus(activeRaceId, activeTeamId)
+        .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
           logger.success('RACE', 'Tasks loaded', { count: data?.length || 0 });
           setTasks(data);
@@ -62,7 +62,7 @@ function Tasks({ topOffset = 56 }) {
     };
 
     fetchTasks();
-  }, [activeRaceId, activeTeamId]);
+  }, [activeRaceId, activeTeamId, selectedLanguage]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
@@ -86,7 +86,7 @@ function Tasks({ topOffset = 56 }) {
 
   const refreshTasks = async () => {
     try {
-      const data = await raceApi.getTasksStatus(activeRaceId, activeTeamId);
+      const data = await raceApi.getTasksStatus(activeRaceId, activeTeamId, selectedLanguage);
       logger.success('RACE', 'Tasks refreshed', { count: data?.length || 0 });
       setTasks(data);
       setTaskError(false);
@@ -163,7 +163,7 @@ function Tasks({ topOffset = 56 }) {
     setTaskError(false);
     
     raceApi
-      .getTasksStatus(activeRaceId, activeTeamId)
+      .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
       .then((data) => {
         logger.success('RACE', 'Tasks loaded after retry', { count: data?.length || 0 });
         setTasks(data);
