@@ -8,6 +8,8 @@ import CategoryForm from './CategoryForm';
 import Standings from './Standings';
 import VisitsList from './VisitsList';
 import { adminApi } from '../../services/adminApi';
+import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+import { LANGUAGE_LABELS } from '../../config/languages';
 
 function formatIso(iso) {
   if (!iso) return '—';
@@ -25,6 +27,8 @@ function AdminDashboard() {
   const [checkpoints, setCheckpoints] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [translations, setTranslations] = useState([]);
+  const [viewingTranslationLang, setViewingTranslationLang] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -74,8 +78,18 @@ function AdminDashboard() {
           setCategories([]);
         }
       };
+      const fetchTranslations = async () => {
+        try {
+          const data = await adminApi.getRaceTranslations(selected.id);
+          setTranslations(Array.isArray(data) ? data : (data?.data || []));
+        } catch (e) {
+          console.error('Failed to load translations', e);
+          setTranslations([]);
+        }
+      };
       fetchCheckpoints();
       fetchCategories();
+      fetchTranslations();
       const fetchTasks = async () => {
         try {
           const data = await adminApi.getTasksByRaceID(selected.id);
@@ -90,6 +104,7 @@ function AdminDashboard() {
       setCheckpoints([]);
       setCategories([]);
       setTasks([]);
+      setTranslations([]);
     }
   }, [selected]);
 
@@ -103,6 +118,7 @@ function AdminDashboard() {
     setSelected(race);
     setCreatingNew(false);
     setEditingRace(null);
+    setViewingTranslationLang(null);
     setActiveSubmenu('checkpoints'); // reset to first tab
   };
 
@@ -151,7 +167,10 @@ function AdminDashboard() {
               {selected ? (
                 <>
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h4>Manage: {selected.name || selected.title || `#${selected.id}`}</h4>
+                    <h4>Manage: {viewingTranslationLang 
+                      ? (translations.find(t => t.language === viewingTranslationLang)?.name || selected.name || selected.title || `#${selected.id}`)
+                      : (selected.name || selected.title || `#${selected.id}`)
+                    }</h4>
                     <div>
                       <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>Edit race</button>
                       <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>Close</button>
@@ -161,11 +180,16 @@ function AdminDashboard() {
                   {/* Description and time constraints */}
                   <div className="card mb-3">
                     <div className="card-body">
-                      {selected.description ? (
-                        <p className="mb-2">{selected.description}</p>
-                      ) : (
-                        <p className="mb-2 text-muted">No description</p>
-                      )}
+                      {(() => {
+                        const desc = viewingTranslationLang 
+                          ? (translations.find(t => t.language === viewingTranslationLang)?.description || selected.description)
+                          : selected.description;
+                        return desc ? (
+                          <p className="mb-2">{desc}</p>
+                        ) : (
+                          <p className="mb-2 text-muted">No description</p>
+                        );
+                      })()}
 
                       <div className="small text-muted">
                         <div>
@@ -179,6 +203,32 @@ function AdminDashboard() {
                           {formatIso(selected.start_logging_at ?? selected.start_logging)}
                           {' — '}
                           {formatIso(selected.end_logging_at ?? selected.end_logging)}
+                        </div>
+                        <div className="mt-2 pt-2 border-top">
+                          <div>
+                            <strong>Default language:</strong>{' '}
+                            {selected.default_language ? `${LANGUAGE_LABELS[selected.default_language] || selected.default_language} (${selected.default_language})` : 'Not set'}
+                          </div>
+                          <div>
+                            <strong>Supported languages:</strong>{' '}
+                            {selected.supported_languages && selected.supported_languages.length > 0 
+                              ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
+                              : 'None'}
+                          </div>
+                          <div className="mt-2">
+                            <strong>Existing translations:</strong> 
+                            {translations && translations.length > 0 ? (
+                              <div className="mt-1">
+                                <LanguageFlagsDisplay 
+                                  languages={translations.map(t => t.language)}
+                                  selectedLanguage={viewingTranslationLang}
+                                  onClick={(lang) => setViewingTranslationLang(viewingTranslationLang === lang ? null : lang)}
+                                />
+                              </div>
+                            ) : (
+                              <span className="text-muted"> None yet</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

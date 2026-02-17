@@ -4,15 +4,8 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { formatDate, useTime } from '../contexts/TimeContext';
 import { logger } from '../utils/logger';
-import enFlag from '../assets/flags/en.svg';
-import csFlag from '../assets/flags/cs.svg';
-import deFlag from '../assets/flags/de.svg';
-
-const LANGUAGE_FLAGS = {
-  en: enFlag,
-  cs: csFlag,
-  de: deFlag
-};
+import LanguageFlagsDisplay from './LanguageFlagsDisplay';
+import { LANGUAGE_FLAGS } from '../config/languages';
 
 function ActiveRace() {
   const { t } = useTranslation();
@@ -70,17 +63,11 @@ function ActiveRace() {
             {activeRace.supported_languages && activeRace.supported_languages.length > 0 && (
               <div className="mb-3">
                 <p className="text-muted small mb-2">{t('activeRace.supportedLanguages')}:</p>
-                <div className="d-flex gap-2">
-                  {activeRace.supported_languages.map(lang => (
-                    <img
-                      key={lang}
-                      src={LANGUAGE_FLAGS[lang]}
-                      alt={lang}
-                      title={lang}
-                      style={{ height: '24px', width: '32px', objectFit: 'cover' }}
-                    />
-                  ))}
-                </div>
+                <LanguageFlagsDisplay 
+                  languages={activeRace.supported_languages}
+                  flagWidth={32}
+                  flagHeight={24}
+                />
               </div>
             )}
 

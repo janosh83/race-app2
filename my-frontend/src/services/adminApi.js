@@ -59,5 +59,30 @@ export const adminApi = {
   addRaceCategory: (raceId, raceCategoryId) => apiFetch(`/api/race/${raceId}/categories/`, { method: 'POST', body: { race_category_id: raceCategoryId } }),
   removeRaceCategory: (raceId, raceCategoryId) => apiFetch(`/api/race/${raceId}/categories/`, { method: 'DELETE', body: { race_category_id: raceCategoryId } }),
 
+  // Translation management endpoints
+  // Race translations
+  getRaceTranslations: (raceId) => apiFetch(`/api/race/${raceId}/translations/`),
+  createRaceTranslation: (raceId, language, payload) => apiFetch(`/api/race/${raceId}/translations/`, { method: 'POST', body: { ...payload, language } }),
+  updateRaceTranslation: (raceId, language, payload) => apiFetch(`/api/race/${raceId}/translations/${language}/`, { method: 'PUT', body: payload }),
+  deleteRaceTranslation: (raceId, language) => apiFetch(`/api/race/${raceId}/translations/${language}/`, { method: 'DELETE' }),
+
+  // Checkpoint translations
+  getCheckpointTranslations: (checkpointId) => apiFetch(`/api/checkpoint/${checkpointId}/translations/`),
+  createCheckpointTranslation: (checkpointId, language, payload) => apiFetch(`/api/checkpoint/${checkpointId}/translations/`, { method: 'POST', body: { ...payload, language } }),
+  updateCheckpointTranslation: (checkpointId, language, payload) => apiFetch(`/api/checkpoint/${checkpointId}/translations/${language}/`, { method: 'PUT', body: payload }),
+  deleteCheckpointTranslation: (checkpointId, language) => apiFetch(`/api/checkpoint/${checkpointId}/translations/${language}/`, { method: 'DELETE' }),
+
+  // Task translations
+  getTaskTranslations: (taskId) => apiFetch(`/api/task/${taskId}/translations/`),
+  createTaskTranslation: (taskId, language, payload) => apiFetch(`/api/task/${taskId}/translations/`, { method: 'POST', body: { ...payload, language } }),
+  updateTaskTranslation: (taskId, language, payload) => apiFetch(`/api/task/${taskId}/translations/${language}/`, { method: 'PUT', body: payload }),
+  deleteTaskTranslation: (taskId, language) => apiFetch(`/api/task/${taskId}/translations/${language}/`, { method: 'DELETE' }),
+
+  // Race category translations
+  getCategoryTranslations: (categoryId) => apiFetch(`/api/race-category/${categoryId}/translations/`),
+  createCategoryTranslation: (categoryId, language, payload) => apiFetch(`/api/race-category/${categoryId}/translations/`, { method: 'POST', body: { ...payload, language } }),
+  updateCategoryTranslation: (categoryId, language, payload) => apiFetch(`/api/race-category/${categoryId}/translations/${language}/`, { method: 'PUT', body: payload }),
+  deleteCategoryTranslation: (categoryId, language) => apiFetch(`/api/race-category/${categoryId}/translations/${language}/`, { method: 'DELETE' }),
+
   // Add other necessary endpoints...
 };

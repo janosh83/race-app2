@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
+import TranslationManager from './TranslationManager';
+import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
 
 export default function RaceForm({ race = null, onSaved = null, onCreated = null, onCancel = null }) {
   const [name, setName] = useState('');
@@ -9,6 +11,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
   const [endLogging, setEndLogging] = useState('');
+  const [defaultLanguage, setDefaultLanguage] = useState('');
+  const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
   const isEdit = Boolean(race && race.id);
@@ -17,6 +21,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     if (race) {
       setName(race.name || '');
       setDescription(race.description || '');
+      setDefaultLanguage(race.default_language || '');
+      setSupportedLanguages(Array.isArray(race.supported_languages) ? race.supported_languages : []);
       // try to parse ISO -> local datetime-local value
       const toLocal = (iso) => {
         if (!iso) return '';
@@ -36,6 +42,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     } else {
       setName('');
       setDescription('');
+      setDefaultLanguage('');
+      setSupportedLanguages([]);
       setStartShow('');
       setEndShow('');
       setStartLogging('');
@@ -75,6 +83,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       const payload = {
         name,
         description,
+        default_language: defaultLanguage || null,
+        supported_languages: supportedLanguages.length > 0 ? supportedLanguages : null,
         start_showing_checkpoints_at: toIso(startShow),
         end_showing_checkpoints_at: toIso(endShow),
         start_logging_at: toIso(startLogging),
@@ -106,7 +116,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mb-3 card p-3">
+    <>
+      <form onSubmit={handleSubmit} className="mb-3 card p-3">
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h4 className="mb-0">{isEdit ? 'Edit race' : 'Create race'}</h4>
         <div>
@@ -141,6 +152,52 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         />
       </div>
 
+      <div className="mb-3">
+        <label className="form-label small mb-2">Supported Languages</label>
+        <div className="d-flex gap-3">
+          {SUPPORTED_LANGUAGES.map(lang => (
+            <div key={lang} className="form-check">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id={`lang-${lang}`}
+                checked={supportedLanguages.includes(lang)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSupportedLanguages(prev => [...prev, lang]);
+                  } else {
+                    setSupportedLanguages(prev => prev.filter(l => l !== lang));
+                    if (defaultLanguage === lang) setDefaultLanguage('');
+                  }
+                }}
+              />
+              <label className="form-check-label small" htmlFor={`lang-${lang}`}>
+                {LANGUAGE_LABELS[lang]}
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {supportedLanguages.length > 0 && (
+        <div className="mb-3">
+          <label htmlFor="defaultLanguage" className="form-label small">Default Language</label>
+          <select
+            id="defaultLanguage"
+            className="form-select form-select-sm"
+            value={defaultLanguage}
+            onChange={e => setDefaultLanguage(e.target.value)}
+          >
+            <option value="">— Select default language —</option>
+            {supportedLanguages.map(lang => (
+              <option key={lang} value={lang}>
+                {LANGUAGE_LABELS[lang]} ({lang})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="row g-2 mb-2">
         <div className="col">
           <label className="form-label small">Start showing</label>
@@ -173,5 +230,18 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         />
       )}
     </form>
+
+    {/* Translation Manager - shown below the form when editing */}
+    {isEdit && race && race.id && (
+      <div className="mt-3">
+        <TranslationManager
+          entityType="race"
+          entityId={race.id}
+          entityName={race.name || race.title}
+          fields={{ name: 'Name', description: 'Description' }}
+        />
+      </div>
+    )}
+    </>
   );
 }
