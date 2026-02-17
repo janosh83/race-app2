@@ -21,6 +21,7 @@ tasks_bp = Blueprint('tasks', __name__)
 # Get the absolute path to the app directory for image uploads
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
 
+# TODO: Move this into some constants/utils
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -85,10 +86,10 @@ def get_tasks(race_id):
     tasks = Task.query.filter_by(race_id=race_id).all()
     return jsonify([
         {
-            "id": task.id, 
-        "title": _apply_task_translation(task, language)[0], 
-        "description": _apply_task_translation(task, language)[1],
-        "numOfPoints": task.numOfPoints
+          "id": task.id, 
+          "title": _apply_task_translation(task, language)[0], 
+          "description": _apply_task_translation(task, language)[1],
+          "numOfPoints": task.numOfPoints
         }
         for task in tasks
     ])

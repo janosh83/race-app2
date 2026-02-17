@@ -7,7 +7,6 @@ from app.models import RaceCategory, RaceCategoryTranslation
 from app.routes.admin import admin_required
 from app.schemas import (
   RaceCategoryCreateSchema,
-  RaceCategoryUpdateSchema,
   RaceCategoryTranslationCreateSchema,
   RaceCategoryTranslationUpdateSchema,
 )
@@ -272,7 +271,6 @@ def create_race_category_translation(category_id):
       409:
         description: Translation already exists
     """
-    category = RaceCategory.query.filter_by(id=category_id).first_or_404()
     data = request.get_json(silent=True) or {}
     validated = RaceCategoryTranslationCreateSchema().load(data)
 

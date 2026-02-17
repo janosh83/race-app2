@@ -794,8 +794,8 @@ def get_checkpoints_with_status(race_id, team_id):
         title, description = _apply_checkpoint_translation(checkpoint, language)
         checkpoint_data = {
             "id": checkpoint.id,
-          "title": title,
-          "description": description,
+            "title": title,
+            "description": description,
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
             "visited": checkpoint.id in visits_by_checkpoint
