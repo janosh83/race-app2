@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Checkpoint, CheckpointLog, User
+from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from datetime import datetime, timedelta
 
@@ -32,7 +32,10 @@ def add_test_data(test_app):
         check1.race_id = 1
         check2.race_id = 1
 
-        db.session.add_all([race1, check1, check2])
+        # Add Czech translation for race1
+        race1_cs = RaceTranslation(race_id=1, language="cs", name="Jarní jízda CZ", description="24 hodin objevování Česka CZ")
+
+        db.session.add_all([race1, check1, check2, race1_cs])
         db.session.commit()
 
 def test_get_all_races(test_client, add_test_data):
@@ -45,6 +48,13 @@ def test_get_all_races(test_client, add_test_data):
     assert response.json[0]["supported_languages"] == SUPPORTED_LANGUAGES
     assert response.json[0]["default_language"] == DEFAULT_LANGUAGE
     # testing more races is done below as part of test_create_race
+
+    # Test with Czech language translation
+    response = test_client.get("/api/race/?lang=cs")
+    assert response.status_code == 200
+    assert response.json[0]["id"] == 1
+    assert response.json[0]["name"] == "Jarní jízda CZ"
+    assert response.json[0]["description"] == "24 hodin objevování Česka CZ"
 
     # TODO: test also empty race list
 
@@ -59,6 +69,12 @@ def test_get_single_race(test_client, add_test_data):
     assert response.json["description"] == "24 hodin objevování Česka"
     assert response.json["supported_languages"] == SUPPORTED_LANGUAGES
     assert response.json["default_language"] == DEFAULT_LANGUAGE
+
+    # Test with Czech language translation
+    response = test_client.get("/api/race/1/?lang=cs")
+    assert response.status_code == 200
+    assert response.json["name"] == "Jarní jízda CZ"
+    assert response.json["description"] == "24 hodin objevování Česka CZ"
 
     response = test_client.get("/api/race/2/") # non existing race
     assert response.status_code == 404
@@ -426,6 +442,82 @@ def test_delete_race_with_task_logs(test_client, test_app):
         response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 400
         assert "task completions" in response.json["message"]
+
+
+def test_race_translation_crud(test_client, add_test_data, admin_auth_headers):
+    """Test creating, updating, and deleting a race translation."""
+    # Use 'de' (German) which is supported globally but not already in fixture
+    create_resp = test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "de", "name": "Frühjahrsfahrt", "description": "24 Stunden Erkundung"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json["language"] == "de"
+    assert create_resp.json["name"] == "Frühjahrsfahrt"
+
+    # Get translated race
+    get_translated = test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers)
+    assert get_translated.status_code == 200
+    assert get_translated.json["name"] == "Frühjahrsfahrt"
+    assert get_translated.json["description"] == "24 Stunden Erkundung"
+
+    # Update translation
+    update_resp = test_client.put(
+        "/api/race/1/translations/de/",
+        json={"name": "Aktualisierte Fahrt", "description": "Aktualisierte Beschreibung"},
+        headers=admin_auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json["name"] == "Aktualisierte Fahrt"
+
+    # Get updated translation
+    get_updated = test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers)
+    assert get_updated.status_code == 200
+    assert get_updated.json["name"] == "Aktualisierte Fahrt"
+    assert get_updated.json["description"] == "Aktualisierte Beschreibung"
+
+    # Delete translation
+    delete_resp = test_client.delete("/api/race/1/translations/de/", headers=admin_auth_headers)
+    assert delete_resp.status_code == 200
+
+    # List translations (should not have 'de' anymore)
+    list_resp = test_client.get("/api/race/1/translations/", headers=admin_auth_headers)
+    assert list_resp.status_code == 200
+    assert all(item["language"] != "de" for item in list_resp.json)
+
+
+def test_race_translation_unsupported_language(test_client, add_test_data, admin_auth_headers):
+    """Test that unsupported language returns 400 error from schema validation."""
+    # "xx" is not in SUPPORTED_LANGUAGES, so schema validation catches it
+    create_resp = test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "xx", "name": "Test", "description": "Test"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 400
+    # Schema validation error message
+    assert "Must be one of" in create_resp.json["errors"]["language"][0]
+
+
+def test_race_translation_duplicate(test_client, add_test_data, admin_auth_headers):
+    """Test that duplicate language translation returns 409 error."""
+    # Create first translation using 'de'
+    test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "de", "name": "Test", "description": "Test"},
+        headers=admin_auth_headers,
+    )
+    
+    # Try to create duplicate with same language
+    create_resp = test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "de", "name": "Another", "description": "Another"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 409
+    assert "already exists" in create_resp.json["message"]
+
 
 
 

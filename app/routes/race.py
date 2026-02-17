@@ -4,14 +4,14 @@ from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 
 from app import db
-from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image
+from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image, RaceTranslation
 from app.routes.race_api.checkpoints import checkpoints_bp
 from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.admin import admin_required
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
-from app.schemas import RaceCreateSchema, RaceUpdateSchema
+from app.schemas import RaceCreateSchema, RaceUpdateSchema, RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,13 @@ def get_all_races():
     ---
     tags:
       - Races
+    parameters:
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
         description: A list of all races
@@ -40,10 +47,38 @@ def get_all_races():
                 $ref: '#/components/schemas/RaceObject'
     """
     races = Race.query.all()
-    return jsonify([{"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
-                    "end_logging_at": race.end_logging_at, "supported_languages": race.supported_languages,
-                    "default_language": race.default_language} for race in races])
+    language = request.args.get("lang")
+    
+    result = []
+    for race in races:
+        name = race.name
+        description = race.description
+        
+        if language:
+            if language in (race.supported_languages or []):
+                translation = RaceTranslation.query.filter_by(
+                    race_id=race.id,
+                    language=language,
+                ).first()
+                if translation:
+                    name = translation.name
+                    description = translation.description
+            else:
+                logger.warning(f"Race {race.id} requested with unsupported language {language}, using default")
+        
+        result.append({
+            "id": race.id,
+            "name": name,
+            "description": description,
+            "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+            "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+            "start_logging_at": race.start_logging_at,
+            "end_logging_at": race.end_logging_at,
+            "supported_languages": race.supported_languages,
+            "default_language": race.default_language
+        })
+    
+    return jsonify(result)
 
 # tested by test_races.py -> test_get_single_race
 @race_bp.route("/<int:race_id>/", methods=["GET"])
@@ -60,6 +95,12 @@ def get_single_race(race_id):
           type: integer
         required: true
         description: ID of the race
+      - in: query
+        name: lang
+        schema:
+          type: string
+        required: false
+        description: Optional language code for translated fields
     responses:
       200:
         description: Details of a specific race.
@@ -71,7 +112,21 @@ def get_single_race(race_id):
         description: Race not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    return jsonify({"id": race.id, "name": race.name, "description": race.description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+    language = request.args.get("lang")
+    name = race.name
+    description = race.description
+    if language:
+        if language not in (race.supported_languages or []):
+            logger.warning(f"Race {race_id} requested with unsupported language {language}, using default")
+        else:
+            translation = RaceTranslation.query.filter_by(
+                race_id=race_id,
+                language=language,
+            ).first()
+            if translation:
+                name = translation.name
+                description = translation.description
+    return jsonify({"id": race.id, "name": name, "description": description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
                     "end_logging_at": race.end_logging_at, "supported_languages": race.supported_languages,
                     "default_language": race.default_language}), 200
@@ -287,6 +342,255 @@ def delete_race(race_id):
         db.session.commit()
         logger.info(f"Race {race_id} ({race.name}) deleted successfully")
         return jsonify({"message": "Race deleted successfully"}), 200
+
+
+#
+# Race Translations
+#
+
+@race_bp.route('/<int:race_id>/translations/', methods=['GET'])
+@admin_required()
+def get_race_translations(race_id):
+    """
+    Get all translations for a race (admin only).
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: List of race translations
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  language:
+                    type: string
+                  name:
+                    type: string
+                  description:
+                    type: string
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    logger.info(
+        f"Retrieved {len(race.translations)} race translations for race {race_id}"
+    )
+    return jsonify([
+        {
+            "id": translation.id,
+            "language": translation.language,
+            "name": translation.name,
+            "description": translation.description,
+        }
+        for translation in race.translations
+    ]), 200
+
+
+@race_bp.route('/<int:race_id>/translations/', methods=['POST'])
+@admin_required()
+def create_race_translation(race_id):
+    """
+    Create a translation for a race (admin only).
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              language:
+                type: string
+              name:
+                type: string
+              description:
+                type: string
+            required:
+              - language
+              - name
+    responses:
+      201:
+        description: Translation created
+      400:
+        description: Language not supported by race
+      409:
+        description: Translation already exists
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    data = request.get_json(silent=True) or {}
+    validated = RaceTranslationCreateSchema().load(data)
+    if validated["language"] not in (race.supported_languages or []):
+        logger.warning(
+            f"Race translation create rejected for race {race_id}: "
+            f"language {validated['language']} not supported"
+        )
+        return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+    existing = RaceTranslation.query.filter_by(
+        race_id=race_id,
+        language=validated["language"],
+    ).first()
+    if existing:
+        logger.warning(
+            f"Race translation already exists for race {race_id} language {validated['language']}"
+        )
+        return jsonify({"message": "Translation already exists"}), 409
+
+    translation = RaceTranslation(
+        race_id=race_id,
+        language=validated["language"],
+        name=validated["name"],
+        description=validated.get("description"),
+    )
+    db.session.add(translation)
+    db.session.commit()
+    logger.info(
+        f"Race translation created for race {race_id} language {translation.language}"
+    )
+    return jsonify({
+        "id": translation.id,
+        "language": translation.language,
+        "name": translation.name,
+        "description": translation.description,
+    }), 201
+
+
+@race_bp.route('/<int:race_id>/translations/<string:language>/', methods=['PUT'])
+@admin_required()
+def update_race_translation(race_id, language):
+    """
+    Update a translation for a race (admin only).
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: language
+        schema:
+          type: string
+        required: true
+        description: Translation language code
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+    responses:
+      200:
+        description: Translation updated
+      400:
+        description: Language not supported by race
+      404:
+        description: Translation not found
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    if language not in (race.supported_languages or []):
+        logger.warning(
+            f"Race translation update rejected for race {race_id}: "
+            f"language {language} not supported"
+        )
+        return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
+
+    translation = RaceTranslation.query.filter_by(
+        race_id=race_id,
+        language=language,
+    ).first()
+    if not translation:
+        logger.warning(f"Race translation not found for race {race_id} language {language}")
+        return jsonify({"message": "Translation not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    validated = RaceTranslationUpdateSchema().load(data, partial=True)
+    if "name" in validated:
+        translation.name = validated["name"]
+    if "description" in validated:
+        translation.description = validated["description"]
+
+    db.session.commit()
+    logger.info(f"Race translation updated for race {race_id} language {language}")
+    return jsonify({
+        "id": translation.id,
+        "language": translation.language,
+        "name": translation.name,
+        "description": translation.description,
+    }), 200
+
+
+@race_bp.route('/<int:race_id>/translations/<string:language>/', methods=['DELETE'])
+@admin_required()
+def delete_race_translation(race_id, language):
+    """
+    Delete a translation for a race (admin only).
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: language
+        schema:
+          type: string
+        required: true
+        description: Translation language code
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Translation deleted
+      404:
+        description: Translation not found
+    """
+    translation = RaceTranslation.query.filter_by(
+        race_id=race_id,
+        language=language,
+    ).first_or_404()
+    db.session.delete(translation)
+    db.session.commit()
+    logger.info(f"Race translation deleted for race {race_id} language {language}")
+    return jsonify({"message": "Translation deleted."}), 200
 
 
 #
