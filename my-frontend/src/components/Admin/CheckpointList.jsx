@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
+import TranslationManager from './TranslationManager';
+import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
-export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {} }) {
-  const [jsonText, setJsonText] = useState('');
+export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
+  const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  const [checkpointTranslations, setCheckpointTranslations] = useState({});
   const [toast, setToast] = useState(null);
   const [editForm, setEditForm] = useState({
     title: '',
@@ -15,6 +19,48 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     longitude: '',
     numOfPoints: ''
   });
+
+  // Fetch translations for all checkpoints
+  useEffect(() => {
+    const fetchAllTranslations = async () => {
+      const checkpointIds = checkpoints.map(cp => cp.id ?? cp.checkpoint_id).filter(Boolean);
+      const currentIds = Object.keys(checkpointTranslations).map(Number);
+      
+      // Only fetch for checkpoints we don't have translations for yet
+      const idsToFetch = checkpointIds.filter(id => !currentIds.includes(id));
+      
+      if (idsToFetch.length === 0) {
+        // Clean up translations for removed checkpoints
+        const removedIds = currentIds.filter(id => !checkpointIds.includes(id));
+        if (removedIds.length > 0) {
+          setCheckpointTranslations(prev => {
+            const cleanedMap = { ...prev };
+            removedIds.forEach(id => delete cleanedMap[id]);
+            return cleanedMap;
+          });
+        }
+        return;
+      }
+      
+      const newTranslations = {};
+      for (const cpId of idsToFetch) {
+        try {
+          const data = await adminApi.getCheckpointTranslations(cpId);
+          newTranslations[cpId] = Array.isArray(data) ? data : (data?.data || []);
+        } catch (e) {
+          console.error(`Failed to load translations for checkpoint ${cpId}`, e);
+          newTranslations[cpId] = [];
+        }
+      }
+      
+      setCheckpointTranslations(prev => ({ ...prev, ...newTranslations }));
+    };
+
+    if (checkpoints.length > 0) {
+      fetchAllTranslations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkpoints.map(cp => cp.id ?? cp.checkpoint_id).join(',')]);
 
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this checkpoint?')) return;
@@ -100,16 +146,37 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     return null;
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setSelectedFile(file);
+    setImportError(null);
+  };
+
   const handleImport = async (e) => {
     e.preventDefault();
     setImportError(null);
+    
+    if (!selectedFile) {
+      setImportError('Please select a JSON file');
+      return;
+    }
+    
     if (!raceId) {
       setImportError('Race ID is missing. Select a race first.');
       return;
     }
+    
+    // Read file content
+    const fileContent = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => resolve(event.target.result);
+      reader.onerror = (error) => reject(error);
+      reader.readAsText(selectedFile);
+    });
+    
     let parsed;
     try {
-      parsed = JSON.parse(jsonText);
+      parsed = JSON.parse(fileContent);
     } catch (err) {
       setImportError('Invalid JSON: ' + err.message);
       return;
@@ -135,11 +202,43 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
         numOfPoints: it.numOfPoints ?? 0
       }));
       const created = await adminApi.addCheckpoint(raceId, payload);
-      // notify parent and clear textarea
-      onImported(Array.isArray(created) ? created : [created]);
-      setJsonText('');
+      const checkpoints = Array.isArray(created) ? created : [created];
+      
+      // Import translations for each checkpoint
+      let translationsCount = 0;
+      for (let i = 0; i < checkpoints.length; i++) {
+        const checkpoint = checkpoints[i];
+        const sourceData = parsed[i];
+        const translations = sourceData.translations || [];
+        
+        for (const trans of translations) {
+          if (trans.language) {
+            try {
+              const translationPayload = {
+                name: trans.name ?? trans.title ?? null,
+                description: trans.description ?? null
+              };
+              await adminApi.createCheckpointTranslation(checkpoint.id, trans.language, translationPayload);
+              translationsCount++;
+            } catch (e) {
+              console.error(`Failed to create translation ${trans.language} for checkpoint ${checkpoint.id}`, e);
+            }
+          }
+        }
+      }
+      
+      // notify parent and clear file selection
+      onImported(checkpoints);
+      setSelectedFile(null);
+      // Reset file input
+      const fileInput = document.getElementById('checkpoint-file-input');
+      if (fileInput) fileInput.value = '';
+      
+      const msg = translationsCount > 0 
+        ? `Imported ${checkpoints.length} checkpoints with ${translationsCount} translations`
+        : `Imported ${checkpoints.length} checkpoints successfully`;
       setToast({
-        message: `Imported ${Array.isArray(created) ? created.length : 1} checkpoints successfully`,
+        message: msg,
         type: 'success',
         duration: 5000
       });
@@ -159,35 +258,74 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
         {checkpoints.length === 0 ? (
           <div className="text-muted">No checkpoints</div>
         ) : (
-          <table className="table table-sm">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th className="text-muted">Coords</th>
-                <th className="text-muted">Points</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {checkpoints.map(cp => (
-                <tr key={cp.id ?? cp.checkpoint_id ?? cp.name}>
-                  <td>{cp.name ?? cp.title}</td>
-                  <td>{cp.description }</td>
-                  <td className="text-muted">
-                    {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
-                      ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
-                      : '—'}
-                  </td>
-                  <td className="text-muted">{cp.numOfPoints}</td>
-                  <td>
-                    <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(cp)}>Edit</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(cp.id ?? cp.checkpoint_id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="list-group">
+            {checkpoints.map(cp => {
+              const cpId = cp.id ?? cp.checkpoint_id;
+              const isExpanded = expandedId === cpId;
+              const translations = checkpointTranslations[cpId] || [];
+              const translationLanguages = translations.map(t => t.language);
+              
+              return (
+                <div key={cpId} className="list-group-item">
+                  <div className="d-flex justify-content-between align-items-start">
+                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : cpId)}>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
+                        <strong>{cp.name ?? cp.title}</strong>
+                        {translationLanguages.length > 0 && (
+                          <LanguageFlagsDisplay 
+                            languages={translationLanguages}
+                            flagWidth={20}
+                            flagHeight={14}
+                          />
+                        )}
+                        <span className="badge bg-secondary">{cp.numOfPoints} pts</span>
+                      </div>
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(cp); }}>Edit</button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>Delete</button>
+                    </div>
+                  </div>
+                  
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-top">
+                      <div className="row">
+                        <div className="col-md-6">
+                          <h6 className="text-muted small">Details</h6>
+                          <dl className="row small">
+                            <dt className="col-sm-4">Description:</dt>
+                            <dd className="col-sm-8">{cp.description || <span className="text-muted">—</span>}</dd>
+                            
+                            <dt className="col-sm-4">Coordinates:</dt>
+                            <dd className="col-sm-8">
+                              {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
+                                ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
+                                : <span className="text-muted">—</span>}
+                            </dd>
+                            
+                            <dt className="col-sm-4">Points:</dt>
+                            <dd className="col-sm-8">{cp.numOfPoints}</dd>
+                          </dl>
+                        </div>
+                        
+                        <div className="col-md-6">
+                          <h6 className="text-muted small">Translations</h6>
+                          <TranslationManager
+                            entityType="checkpoint"
+                            entityId={cpId}
+                            entityName={cp.name ?? cp.title}
+                            fields={{ title: 'Title', description: 'Description' }}
+                            supportedLanguages={supportedLanguages}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -263,24 +401,35 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
-          <label className="form-label">Import checkpoints (JSON array)</label>
-          <textarea
+          <label className="form-label">Import checkpoints from JSON file</label>
+          <input
+            id="checkpoint-file-input"
+            type="file"
+            accept=".json"
             className="form-control mb-2"
-            rows={6}
-            placeholder='[{"title":"CP1","description":"some description", "lat":49.87,"lng":14.89,"numOfPoints":1}, {"title":"CP2",...}]'
-            value={jsonText}
-            onChange={e => setJsonText(e.target.value)}
+            onChange={handleFileChange}
             disabled={importing}
           />
           {importError && <div className="alert alert-danger">{importError}</div>}
           <div className="d-flex gap-2">
-            <button className="btn btn-primary" type="submit" disabled={importing}>
+            <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
               {importing ? 'Importing…' : 'Import JSON'}
             </button>
-            <button type="button" className="btn btn-outline-secondary" onClick={() => setJsonText('')} disabled={importing}>Clear</button>
+            <button 
+              type="button" 
+              className="btn btn-outline-secondary" 
+              onClick={() => {
+                setSelectedFile(null);
+                const fileInput = document.getElementById('checkpoint-file-input');
+                if (fileInput) fileInput.value = '';
+              }} 
+              disabled={importing || !selectedFile}
+            >
+              Clear
+            </button>
           </div>
           <div className="small text-muted mt-2">
-            JSON must be an array of objects. Supported fields: title, description, lat/latitude/y, lng/longitude/x, numOfPoints.
+            JSON must be an array of objects. Supported fields: title, description, lat/latitude/y, lng/longitude/x, numOfPoints, translations.
           </div>
         </form>
       </div>

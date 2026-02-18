@@ -216,18 +216,18 @@ function AdminDashboard() {
                               : 'None'}
                           </div>
                           <div className="mt-2">
-                            <strong>Existing translations:</strong> 
-                            {translations && translations.length > 0 ? (
-                              <div className="mt-1">
+                            <div className="d-flex align-items-center gap-2">
+                              <strong>Existing translations:</strong>
+                              {translations && translations.length > 0 ? (
                                 <LanguageFlagsDisplay 
                                   languages={translations.map(t => t.language)}
                                   selectedLanguage={viewingTranslationLang}
                                   onClick={(lang) => setViewingTranslationLang(viewingTranslationLang === lang ? null : lang)}
                                 />
-                              </div>
-                            ) : (
-                              <span className="text-muted"> None yet</span>
-                            )}
+                              ) : (
+                                <span className="text-muted">None yet</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -268,6 +268,7 @@ function AdminDashboard() {
                     <CheckpointList
                       checkpoints={checkpoints}
                       raceId={selected.id}
+                      supportedLanguages={selected.supported_languages || []}
                       onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
                       onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
                       onUpdate={(id, updatedData) => setCheckpoints(prev => prev.map(cp => cp.id === id ? { ...cp, ...updatedData } : cp))}
@@ -275,6 +276,7 @@ function AdminDashboard() {
                     <TaskList
                       tasks={tasks}
                       raceId={selected.id}
+                      supportedLanguages={selected.supported_languages || []}
                       onRemove={(id) => setTasks(prev => prev.filter(t => t.id !== id))}
                       onImported={(items) => setTasks(prev => [...items, ...prev])}
                       onUpdate={(id, updatedData) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedData } : t))}

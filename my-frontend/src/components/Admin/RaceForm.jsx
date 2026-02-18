@@ -239,6 +239,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           entityId={race.id}
           entityName={race.name || race.title}
           fields={{ name: 'Name', description: 'Description' }}
+          supportedLanguages={supportedLanguages}
         />
       </div>
     )}

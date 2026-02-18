@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
 
-function TranslationManager({ raceId, entityType, entityId, entityName, fields = {} }) {
+function TranslationManager({ raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
   const [translations, setTranslations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -88,7 +88,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
 
   const fieldLabels = fields || { name: 'Name', title: 'Title', description: 'Description' };
   const existingLanguages = translations.map(t => t.language);
-  const missingLanguages = SUPPORTED_LANGUAGES.filter(lang => !existingLanguages.includes(lang));
+  const missingLanguages = supportedLanguages.filter(lang => !existingLanguages.includes(lang));
 
   if (!entityId) {
     return <div className="text-muted">Select an item to manage translations</div>;
