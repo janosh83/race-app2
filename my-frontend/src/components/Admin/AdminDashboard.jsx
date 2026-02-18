@@ -55,7 +55,7 @@ function AdminDashboard() {
       .catch(err => {
         logger.error('ADMIN', 'Failed to load races', err);
         if (!mounted) return;
-        setError('Failed to load races');
+        setError(t('admin.dashboard.errorLoadRaces'));
       })
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };

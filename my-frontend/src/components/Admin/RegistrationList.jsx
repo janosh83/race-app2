@@ -219,7 +219,7 @@ export default function RegistrationList({ raceId }) {
         <table className="table table-sm">
           <thead>
             <tr>
-              <th>Team</th>
+              <th>{t('admin.registrations.tableTeam')}</th>
               <th>{t('admin.registrations.tableCategory')}</th>
               <th>{t('admin.registrations.tableMembers')}</th>
               <th>{t('admin.registrations.tableEmailSent')}</th>

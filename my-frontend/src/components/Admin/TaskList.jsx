@@ -266,7 +266,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                             flagHeight={14}
                           />
                         )}
-                        <span className="badge bg-secondary">{task.numOfPoints ?? task.points ?? 0} pts</span>
+                        <span className="badge bg-secondary">{task.numOfPoints ?? task.points ?? 0} {t('admin.common.pointsShort')}</span>
                       </div>
                     </div>
                     <div className="d-flex gap-1">

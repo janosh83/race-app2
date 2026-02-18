@@ -282,7 +282,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                             flagHeight={14}
                           />
                         )}
-                        <span className="badge bg-secondary">{cp.numOfPoints} pts</span>
+                        <span className="badge bg-secondary">{cp.numOfPoints} {t('admin.common.pointsShort')}</span>
                       </div>
                     </div>
                     <div className="d-flex gap-1">

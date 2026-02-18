@@ -143,11 +143,13 @@
   },
   "admin": {
     "common": {
-      "unknownError": "Neznámá chyba"
+      "unknownError": "Neznámá chyba",
+      "pointsShort": "b."
     },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Načítám závody…",
+      "errorLoadRaces": "Nepodařilo se načíst závody",
       "newRace": "Nový závod",
       "manage": "Správa: {{name}}",
       "editRace": "Upravit závod",

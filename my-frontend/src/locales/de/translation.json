@@ -143,11 +143,13 @@
   },
   "admin": {
     "common": {
-      "unknownError": "Unbekannter Fehler"
+      "unknownError": "Unbekannter Fehler",
+      "pointsShort": "Pkt."
     },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Rennen werden geladen…",
+      "errorLoadRaces": "Rennen konnten nicht geladen werden",
       "newRace": "Neues Rennen",
       "manage": "Verwalten: {{name}}",
       "editRace": "Rennen bearbeiten",

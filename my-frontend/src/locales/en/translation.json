@@ -143,11 +143,13 @@
   },
   "admin": {
     "common": {
-      "unknownError": "Unknown error"
+      "unknownError": "Unknown error",
+      "pointsShort": "pts"
     },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Loading races…",
+      "errorLoadRaces": "Failed to load races",
       "newRace": "New race",
       "manage": "Manage: {{name}}",
       "editRace": "Edit race",
