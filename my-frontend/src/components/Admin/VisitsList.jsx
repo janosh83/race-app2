@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
@@ -12,62 +13,8 @@ function formatDate(iso) {
   }
 }
 
-// Determine if a warning indicator should be shown for distance validation
-function getDistanceWarning(visit) {
-  const imageDistance = visit.image_distance_km;
-  const userDistance = visit.user_distance_km;
-  const THRESHOLD_KM = 0.2; // 200 meters
-  
-  // Both positions not available
-  if (imageDistance === null && imageDistance === undefined &&
-      userDistance === null && userDistance === undefined) {
-    return {
-      show: true,
-      reason: 'No position data',
-      className: 'bg-secondary'
-    };
-  }
-  
-  // Only one distance available and it's > 200m
-  if ((imageDistance !== null && imageDistance !== undefined) &&
-      (userDistance === null || userDistance === undefined)) {
-    if (imageDistance > THRESHOLD_KM) {
-      return {
-        show: true,
-        reason: `Image: ${(imageDistance * 1000).toFixed(0)}m`,
-        className: 'bg-warning'
-      };
-    }
-  }
-  
-  if ((userDistance !== null && userDistance !== undefined) &&
-      (imageDistance === null || imageDistance === undefined)) {
-    if (userDistance > THRESHOLD_KM) {
-      return {
-        show: true,
-        reason: `User: ${(userDistance * 1000).toFixed(0)}m`,
-        className: 'bg-warning'
-      };
-    }
-  }
-  
-  // Both available and lower of two is > 200m
-  if ((imageDistance !== null && imageDistance !== undefined) &&
-      (userDistance !== null && userDistance !== undefined)) {
-    const minDistance = Math.min(imageDistance, userDistance);
-    if (minDistance > THRESHOLD_KM) {
-      return {
-        show: true,
-        reason: `Min: ${(minDistance * 1000).toFixed(0)}m`,
-        className: 'bg-danger'
-      };
-    }
-  }
-  
-  return { show: false };
-}
-
 export default function VisitsList({ teamId, raceId }) {
+  const { t } = useTranslation();
   const [visits, setVisits] = useState([]);
   const [taskCompletions, setTaskCompletions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -88,39 +35,96 @@ export default function VisitsList({ teamId, raceId }) {
         setTaskCompletions(Array.isArray(tasksData) ? tasksData : (tasksData?.data || []));
       } catch (err) {
         logger.error('ADMIN', 'Failed to load visits or tasks', err);
-        setError('Failed to load visits or tasks');
+        setError(t('admin.visits.errorLoad'));
       } finally {
         setLoading(false);
       }
     };
 
     if (teamId && raceId) fetchData();
-  }, [teamId, raceId]);
+  }, [teamId, raceId, t]);
 
   const handleDeleteVisit = async (visitId) => {
-    if (window.confirm('Are you sure you want to delete this visit?')) {
+    if (window.confirm(t('admin.visits.confirmDeleteVisit'))) {
       try {
         await adminApi.deleteVisit(visitId);
         setVisits(visits.filter(visit => visit.id !== visitId));
       } catch (err) {
         logger.error('ADMIN', 'Failed to delete visit', err);
+        setError(t('admin.visits.errorDeleteVisit'));
       }
     }
   };
 
   const handleDeleteTaskCompletion = async (taskLogId) => {
-    if (window.confirm('Are you sure you want to delete this task completion?')) {
+    if (window.confirm(t('admin.visits.confirmDeleteTaskCompletion'))) {
       try {
         await adminApi.deleteTaskCompletion(taskLogId);
         setTaskCompletions(taskCompletions.filter(task => task.id !== taskLogId));
       } catch (err) {
         logger.error('ADMIN', 'Failed to delete task completion', err);
+        setError(t('admin.visits.errorDeleteTaskCompletion'));
       }
     }
   };
 
-  if (loading) return <div>Loading visits and tasks...</div>;
+  if (loading) return <div>{t('admin.visits.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
+
+  // Determine if a warning indicator should be shown for distance validation
+  const getDistanceWarning = (visit) => {
+    const imageDistance = visit.image_distance_km;
+    const userDistance = visit.user_distance_km;
+    const THRESHOLD_KM = 0.2; // 200 meters
+    
+    // Both positions not available
+    if (imageDistance === null && imageDistance === undefined &&
+        userDistance === null && userDistance === undefined) {
+      return {
+        show: true,
+        reason: t('admin.visits.noPositionData'),
+        className: 'bg-secondary'
+      };
+    }
+    
+    // Only one distance available and it's > 200m
+    if ((imageDistance !== null && imageDistance !== undefined) &&
+        (userDistance === null || userDistance === undefined)) {
+      if (imageDistance > THRESHOLD_KM) {
+        return {
+          show: true,
+          reason: t('admin.visits.distanceImage', { meters: (imageDistance * 1000).toFixed(0) }),
+          className: 'bg-warning'
+        };
+      }
+    }
+    
+    if ((userDistance !== null && userDistance !== undefined) &&
+        (imageDistance === null || imageDistance === undefined)) {
+      if (userDistance > THRESHOLD_KM) {
+        return {
+          show: true,
+          reason: t('admin.visits.distanceUserValue', { meters: (userDistance * 1000).toFixed(0) }),
+          className: 'bg-warning'
+        };
+      }
+    }
+    
+    // Both available and lower of two is > 200m
+    if ((imageDistance !== null && imageDistance !== undefined) &&
+        (userDistance !== null && userDistance !== undefined)) {
+      const minDistance = Math.min(imageDistance, userDistance);
+      if (minDistance > THRESHOLD_KM) {
+        return {
+          show: true,
+          reason: t('admin.visits.distanceMin', { meters: (minDistance * 1000).toFixed(0) }),
+          className: 'bg-danger'
+        };
+      }
+    }
+    
+    return { show: false };
+  };
 
   const allItems = [
     ...visits.map(v => ({ ...v, type: 'visit', sortTime: v.created_at })),
@@ -154,7 +158,7 @@ export default function VisitsList({ teamId, raceId }) {
           <div style={{ maxWidth: '100%', maxHeight: '100%', position: 'relative' }}>
             <img 
               src={selectedImage.url}
-              alt="Checkpoint visit"
+              alt={t('admin.visits.imageAltCheckpointVisit')}
               style={{
                 maxWidth: '100%',
                 maxHeight: '90vh',
@@ -207,7 +211,7 @@ export default function VisitsList({ teamId, raceId }) {
       )}
 
       {allItems.length === 0 ? (
-        <div className="text-muted">No visits or task completions</div>
+        <div className="text-muted">{t('admin.visits.noItems')}</div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
           {allItems.map(item => {
@@ -246,7 +250,7 @@ export default function VisitsList({ teamId, raceId }) {
                   >
                     <img
                       src={item.image_url}
-                      alt={`${item.checkpoint} visit`}
+                      alt={t('admin.visits.imageAltCheckpointVisit')}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -272,7 +276,7 @@ export default function VisitsList({ teamId, raceId }) {
                       onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
                       className="hover-indicator"
                     >
-                      Click to view
+                      {t('admin.visits.clickToView')}
                     </div>
                   </div>
                 ) : (
@@ -284,7 +288,7 @@ export default function VisitsList({ teamId, raceId }) {
                       color: '#999'
                     }}
                   >
-                    📷 No image
+                    {t('admin.visits.noImage')}
                   </div>
                 )}
 
@@ -294,11 +298,11 @@ export default function VisitsList({ teamId, raceId }) {
                   <div style={{ marginBottom: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                       <span className={`badge ${item.type === 'visit' ? 'bg-primary' : 'bg-success'}`}>
-                        {item.type === 'visit' ? '🚩 Checkpoint' : '✓ Task'}
+                        {item.type === 'visit' ? t('admin.visits.badgeCheckpoint') : t('admin.visits.badgeTask')}
                       </span>
                     </div>
                     <h6 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-                      {item.type === 'visit' ? (item.checkpoint || `#${item.checkpoint_id}`) : (item.task || item.task_title || 'Task')}
+                      {item.type === 'visit' ? (item.checkpoint || `#${item.checkpoint_id}`) : (item.task || item.task_title || t('admin.visits.unknownTask'))}
                     </h6>
                     <div style={{ fontSize: '12px', color: '#666' }}>
                       {formatDate(item.created_at)}
@@ -316,7 +320,7 @@ export default function VisitsList({ teamId, raceId }) {
                     }}>
                       <div style={{ marginBottom: '4px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>📷 Checkpoint:</span>
+                          <span>{t('admin.visits.distanceCheckpoint')}</span>
                           <span style={{ fontWeight: '600' }}>
                             {imageDistance !== null && imageDistance !== undefined 
                               ? `${(imageDistance * 1000).toFixed(0)}m` 
@@ -324,7 +328,7 @@ export default function VisitsList({ teamId, raceId }) {
                           </span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>👤 User:</span>
+                          <span>{t('admin.visits.distanceUser')}</span>
                           <span style={{ fontWeight: '600' }}>
                             {userDistance !== null && userDistance !== undefined 
                               ? `${(userDistance * 1000).toFixed(0)}m` 
@@ -356,7 +360,7 @@ export default function VisitsList({ teamId, raceId }) {
                       className="btn btn-sm btn-danger w-100"
                       onClick={() => item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id)}
                     >
-                      🗑️ Delete
+                      {t('admin.visits.delete')}
                     </button>
                   </div>
                 </div>

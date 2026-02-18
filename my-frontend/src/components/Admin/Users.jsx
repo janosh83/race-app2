@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import { logger } from '../../utils/logger';
 
 export default function Users() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -33,7 +35,7 @@ export default function Users() {
       setUsers(list || []);
     } catch (err) {
       logger.error('ADMIN', 'Failed to load users', err);
-      setError('Failed to load users');
+      setError(t('admin.users.errorLoad'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,7 @@ export default function Users() {
   const handleCreate = async () => {
     setFormError(null);
     if (!email.trim() || !password.trim()) {
-      setFormError('Email and password are required');
+      setFormError(t('admin.users.errorEmailPasswordRequired'));
       return;
     }
     setSaving(true);
@@ -64,20 +66,20 @@ export default function Users() {
       await load();
     } catch (err) {
       logger.error('ADMIN', 'Failed to create user', err);
-      setFormError('Failed to create user');
+      setFormError(t('admin.users.errorCreate'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (userId) => {
-    if (!window.confirm('Delete this user?')) return;
+    if (!window.confirm(t('admin.users.confirmDelete'))) return;
     try {
       await adminApi.deleteUser(userId);
       setUsers(users.filter(u => u.id !== userId));
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete user', err);
-      setError('Failed to delete user');
+      setError(t('admin.users.errorDelete'));
     }
   };
 
@@ -114,14 +116,14 @@ export default function Users() {
       setUsers(users.map(u => u.id === editingId ? { ...u, ...payload } : u));
       setEditingId(null);
       setToast({
-        message: 'User updated successfully',
+        message: t('admin.users.updateSuccess'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to update user', err);
       setToast({
-        message: 'Update failed: ' + (err?.message || 'Unknown error'),
+        message: t('admin.users.updateFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -141,8 +143,8 @@ export default function Users() {
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-3">
-        <h3 className="mb-0">Users</h3>
-        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>Refresh</button>
+        <h3 className="mb-0">{t('admin.users.title')}</h3>
+        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>{t('admin.users.refresh')}</button>
       </div>
 
       {formError && <div className="alert alert-warning py-2">{formError}</div>}
@@ -150,18 +152,18 @@ export default function Users() {
 
       <div className="card mb-3">
         <div className="card-body">
-          <h5 className="card-title">Create user</h5>
+          <h5 className="card-title">{t('admin.users.createTitle')}</h5>
           <div className="row g-2 align-items-end">
             <div className="col-md-3">
-              <label className="form-label">Name</label>
+              <label className="form-label">{t('admin.users.name')}</label>
               <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="col-md-3">
-              <label className="form-label">Email</label>
+              <label className="form-label">{t('admin.users.email')}</label>
               <input className="form-control" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="col-md-3">
-              <label className="form-label">Password</label>
+              <label className="form-label">{t('admin.users.password')}</label>
               <input className="form-control" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <div className="col-md-2 form-check mt-4 ms-2">
@@ -172,11 +174,11 @@ export default function Users() {
                 checked={isAdmin}
                 onChange={(e) => setIsAdmin(e.target.checked)}
               />
-              <label className="form-check-label" htmlFor="isAdmin">Admin</label>
+              <label className="form-check-label" htmlFor="isAdmin">{t('admin.users.admin')}</label>
             </div>
             <div className="col-md-1">
               <button className="btn btn-primary w-100" disabled={saving} onClick={handleCreate}>
-                {saving ? 'Saving…' : 'Create'}
+                {saving ? t('admin.users.saving') : t('admin.users.create')}
               </button>
             </div>
           </div>
@@ -184,29 +186,29 @@ export default function Users() {
       </div>
 
       {loading ? (
-        <div>Loading users…</div>
+        <div>{t('admin.users.loading')}</div>
       ) : (
         <table className="table table-sm">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Admin</th>
-              <th>Actions</th>
+              <th>{t('admin.users.name')}</th>
+              <th>{t('admin.users.email')}</th>
+              <th>{t('admin.users.admin')}</th>
+              <th>{t('admin.users.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {(!users || users.length === 0) && (
-              <tr><td colSpan="4" className="text-muted">No users</td></tr>
+              <tr><td colSpan="4" className="text-muted">{t('admin.users.noUsers')}</td></tr>
             )}
             {users.map(user => (
               <tr key={user.id}>
                 <td>{user.name || '—'}</td>
                 <td>{user.email}</td>
-                <td>{user.is_administrator ? 'Yes' : 'No'}</td>
+                <td>{user.is_administrator ? t('admin.teamCreation.adminYes') : t('admin.teamCreation.adminNo')}</td>
                 <td>
-                  <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(user)}>Edit</button>
-                  <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(user.id)}>Delete</button>
+                  <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(user)}>{t('admin.users.edit')}</button>
+                  <button className="btn btn-sm btn-outline-danger" onClick={() => handleDelete(user.id)}>{t('admin.users.delete')}</button>
                 </td>
               </tr>
             ))}
@@ -220,13 +222,13 @@ export default function Users() {
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Edit User</h5>
+                <h5 className="modal-title">{t('admin.users.editTitle')}</h5>
                 <button type="button" className="btn-close" onClick={handleEditCancel}></button>
               </div>
               <form onSubmit={handleEditSubmit}>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Name</label>
+                    <label className="form-label">{t('admin.users.name')}</label>
                     <input
                       type="text"
                       className="form-control"
@@ -235,7 +237,7 @@ export default function Users() {
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Email</label>
+                    <label className="form-label">{t('admin.users.email')}</label>
                     <input
                       type="email"
                       className="form-control"
@@ -245,13 +247,13 @@ export default function Users() {
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Password (leave empty to keep current)</label>
+                    <label className="form-label">{t('admin.users.passwordHint')}</label>
                     <input
                       type="password"
                       className="form-control"
                       value={editForm.password}
                       onChange={(e) => handleEditChange('password', e.target.value)}
-                      placeholder="New password (optional)"
+                      placeholder={t('admin.users.passwordPlaceholder')}
                     />
                   </div>
                   <div className="form-check">
@@ -263,13 +265,13 @@ export default function Users() {
                       onChange={(e) => handleEditChange('isAdmin', e.target.checked)}
                     />
                     <label className="form-check-label" htmlFor="editAdmin">
-                      Administrator
+                      {t('admin.users.administrator')}
                     </label>
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>{t('admin.users.cancel')}</button>
+                  <button type="submit" className="btn btn-primary">{t('admin.users.saveChanges')}</button>
                 </div>
               </form>
             </div>

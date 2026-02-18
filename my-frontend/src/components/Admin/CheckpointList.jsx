@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
@@ -6,6 +7,7 @@ import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import { logger } from '../../utils/logger';
 
 export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
+  const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
@@ -64,19 +66,19 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
   }, [checkpoints.map(cp => cp.id ?? cp.checkpoint_id).join(',')]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this checkpoint?')) return;
+    if (!window.confirm(t('admin.checkpoints.deleteConfirm'))) return;
     try {
       await adminApi.deleteCheckpoint(id);
       onRemove(id);
       setToast({
-        message: 'Checkpoint deleted successfully',
+        message: t('admin.checkpoints.deleted'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete checkpoint', err);
       setToast({
-        message: 'Delete failed: ' + (err?.message || 'Unknown error'),
+        message: t('admin.checkpoints.deleteFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -115,14 +117,14 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       onUpdate(editingId, payload);
       setEditingId(null);
       setToast({
-        message: 'Checkpoint updated successfully',
+        message: t('admin.checkpoints.updated'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to update checkpoint', err);
       setToast({
-        message: 'Update failed: ' + (err?.message || 'Unknown error'),
+        message: t('admin.checkpoints.updateFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -142,8 +144,8 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
   const validateItem = (it) => {
     // minimal validation: name present
-    if (!it || typeof it !== 'object') return 'Item is not an object';
-    if (!it.name && !it.title) return 'Missing "name"';
+    if (!it || typeof it !== 'object') return t('admin.checkpoints.validationItemNotObject');
+    if (!it.name && !it.title) return t('admin.checkpoints.validationMissingName');
     return null;
   };
 
@@ -158,12 +160,12 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     setImportError(null);
     
     if (!selectedFile) {
-      setImportError('Please select a JSON file');
+      setImportError(t('admin.checkpoints.validationSelectFile'));
       return;
     }
     
     if (!raceId) {
-      setImportError('Race ID is missing. Select a race first.');
+      setImportError(t('admin.checkpoints.validationMissingRace'));
       return;
     }
     
@@ -179,16 +181,16 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     try {
       parsed = JSON.parse(fileContent);
     } catch (err) {
-      setImportError('Invalid JSON: ' + err.message);
+      setImportError(t('admin.checkpoints.validationInvalidJson', { message: err.message }));
       return;
     }
     if (!Array.isArray(parsed)) {
-      setImportError('Expected JSON array of checkpoints');
+      setImportError(t('admin.checkpoints.validationExpectedArray'));
       return;
     }
     const errors = parsed.map(validateItem).filter(Boolean);
     if (errors.length) {
-      setImportError('Validation failed: ' + errors[0]);
+      setImportError(t('admin.checkpoints.validationFailed', { error: errors[0] }));
       return;
     }
 
@@ -236,8 +238,8 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       if (fileInput) fileInput.value = '';
       
       const msg = translationsCount > 0 
-        ? `Imported ${checkpoints.length} checkpoints with ${translationsCount} translations`
-        : `Imported ${checkpoints.length} checkpoints successfully`;
+        ? t('admin.checkpoints.importSuccessWithTranslations', { count: checkpoints.length, translations: translationsCount })
+        : t('admin.checkpoints.importSuccess', { count: checkpoints.length });
       setToast({
         message: msg,
         type: 'success',
@@ -245,7 +247,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       });
     } catch (err) {
       logger.error('ADMIN', 'Import failed', err);
-      setImportError(err?.message || 'Import failed');
+      setImportError(err?.message || t('admin.common.unknownError'));
     } finally {
       setImporting(false);
     }
@@ -253,11 +255,11 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
   return (
     <div className="mb-3">
-      <h5>Checkpoints</h5>
+      <h5>{t('admin.checkpoints.title')}</h5>
 
       <div className="mb-2">
         {checkpoints.length === 0 ? (
-          <div className="text-muted">No checkpoints</div>
+          <div className="text-muted">{t('admin.checkpoints.none')}</div>
         ) : (
           <div className="list-group">
             {checkpoints.map(cp => {
@@ -284,8 +286,8 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                       </div>
                     </div>
                     <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(cp); }}>Edit</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>Delete</button>
+                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(cp); }}>{t('admin.translationManager.edit')}</button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
                   
@@ -293,30 +295,30 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                     <div className="mt-3 pt-3 border-top">
                       <div className="row">
                         <div className="col-md-6">
-                          <h6 className="text-muted small">Details</h6>
+                          <h6 className="text-muted small">{t('admin.checkpoints.details')}</h6>
                           <dl className="row small">
-                            <dt className="col-sm-4">Description:</dt>
+                            <dt className="col-sm-4">{t('admin.checkpoints.labelDescription')}</dt>
                             <dd className="col-sm-8">{cp.description || <span className="text-muted">—</span>}</dd>
                             
-                            <dt className="col-sm-4">Coordinates:</dt>
+                            <dt className="col-sm-4">{t('admin.checkpoints.labelCoordinates')}</dt>
                             <dd className="col-sm-8">
                               {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
                                 ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
                                 : <span className="text-muted">—</span>}
                             </dd>
                             
-                            <dt className="col-sm-4">Points:</dt>
+                            <dt className="col-sm-4">{t('admin.checkpoints.labelPoints')}</dt>
                             <dd className="col-sm-8">{cp.numOfPoints}</dd>
                           </dl>
                         </div>
                         
                         <div className="col-md-6">
-                          <h6 className="text-muted small">Translations</h6>
+                          <h6 className="text-muted small">{t('admin.checkpoints.translations')}</h6>
                           <TranslationManager
                             entityType="checkpoint"
                             entityId={cpId}
                             entityName={cp.name ?? cp.title}
-                            fields={{ title: 'Title', description: 'Description' }}
+                            fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
                             supportedLanguages={supportedLanguages}
                           />
                         </div>
@@ -336,13 +338,13 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Edit Checkpoint</h5>
+                <h5 className="modal-title">{t('admin.checkpoints.editTitle')}</h5>
                 <button type="button" className="btn-close" onClick={handleEditCancel}></button>
               </div>
               <form onSubmit={handleEditSubmit}>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Title</label>
+                    <label className="form-label">{t('admin.checkpoints.fieldTitle')}</label>
                     <input
                       type="text"
                       className="form-control"
@@ -352,7 +354,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Description</label>
+                    <label className="form-label">{t('admin.checkpoints.fieldDescription')}</label>
                     <textarea
                       className="form-control"
                       rows="3"
@@ -361,7 +363,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Latitude</label>
+                    <label className="form-label">{t('admin.checkpoints.fieldLatitude')}</label>
                     <input
                       type="number"
                       step="0.0001"
@@ -371,7 +373,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Longitude</label>
+                    <label className="form-label">{t('admin.checkpoints.fieldLongitude')}</label>
                     <input
                       type="number"
                       step="0.0001"
@@ -381,7 +383,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Number of Points</label>
+                    <label className="form-label">{t('admin.checkpoints.fieldPoints')}</label>
                     <input
                       type="number"
                       className="form-control"
@@ -391,8 +393,8 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>{t('admin.checkpoints.cancel')}</button>
+                  <button type="submit" className="btn btn-primary">{t('admin.checkpoints.saveChanges')}</button>
                 </div>
               </form>
             </div>
@@ -402,7 +404,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
-          <label className="form-label">Import checkpoints from JSON file</label>
+          <label className="form-label">{t('admin.checkpoints.importTitle')}</label>
           <input
             id="checkpoint-file-input"
             type="file"
@@ -414,7 +416,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           {importError && <div className="alert alert-danger">{importError}</div>}
           <div className="d-flex gap-2">
             <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
-              {importing ? 'Importing…' : 'Import JSON'}
+              {importing ? t('admin.checkpoints.importing') : t('admin.checkpoints.import')}
             </button>
             <button 
               type="button" 
@@ -426,11 +428,11 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
               }} 
               disabled={importing || !selectedFile}
             >
-              Clear
+              {t('admin.checkpoints.clear')}
             </button>
           </div>
           <div className="small text-muted mt-2">
-            JSON must be an array of objects. Supported fields: title, description, lat/latitude/y, lng/longitude/x, numOfPoints, translations.
+            {t('admin.checkpoints.importHelp')}
           </div>
         </form>
       </div>

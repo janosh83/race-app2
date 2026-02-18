@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import TeamCreation from './TeamCreation';
 import RegistrationImporter from './RegistrationImporter';
@@ -6,6 +7,7 @@ import { logger } from '../../utils/logger';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId }) {
+  const { t } = useTranslation();
   const [registrations, setRegistrations] = useState([]);
   const [teams, setTeams] = useState([]);
   const [raceCategories, setRaceCategories] = useState([]);
@@ -30,7 +32,7 @@ export default function RegistrationList({ raceId }) {
       setRegistrations(regs || []);
     } catch (err) {
       logger.error('ADMIN', 'Failed to load registrations', err);
-      setError('Failed to load registrations');
+      setError(t('admin.registrations.errorLoad'));
     } finally {
       setLoading(false);
     }
@@ -55,7 +57,7 @@ export default function RegistrationList({ raceId }) {
       if (!selectedCategoryId && (c || []).length > 0) setSelectedCategoryId((c[0]?.id ?? '').toString());
     } catch (err) {
       logger.error('ADMIN', 'Failed to load teams or categories', err);
-      setError('Failed to load teams or categories');
+      setError(t('admin.registrations.errorLoadMeta'));
     } finally {
       setMetaLoading(false);
     }
@@ -73,7 +75,7 @@ export default function RegistrationList({ raceId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
-  const handleDeleteRegistration = async (teamId) => {    if (!window.confirm('Are you sure you want to delete this registration?')) {
+  const handleDeleteRegistration = async (teamId) => {    if (!window.confirm(t('admin.registrations.confirmDelete'))) {
       return;
     }
     try {
@@ -81,13 +83,13 @@ export default function RegistrationList({ raceId }) {
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete registration', err);
-      setError('Failed to delete registration');
+      setError(t('admin.registrations.errorDelete'));
     }
   };
 
   const handleRegister = async () => {    setFormError(null);
     if (!selectedTeamId || !selectedCategoryId) {
-      setFormError('Select a team and a category');
+      setFormError(t('admin.registrations.formErrorSelect'));
       return;
     }
     setSavingRegistration(true);
@@ -99,24 +101,24 @@ export default function RegistrationList({ raceId }) {
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to register team', err);
-      setFormError('Failed to register team');
+      setFormError(t('admin.registrations.errorRegister'));
     } finally {
       setSavingRegistration(false);
     }
   };
 
   const handleSendEmails = async () => {
-    if (!window.confirm('Send registration confirmation emails to all registered team members?')) {
+    if (!window.confirm(t('admin.registrations.confirmSendEmails'))) {
       return;
     }
     setSendingEmails(true);
     setError(null);
     try {
       const result = await adminApi.sendRegistrationEmails(raceId);
-      alert(`Emails sent successfully!\nSent: ${result.sent}\nFailed: ${result.failed}`);
+      alert(t('admin.registrations.emailsSent', { sent: result.sent, failed: result.failed }));
     } catch (err) {
       logger.error('ADMIN', 'Failed to send emails', err);
-      setError('Failed to send registration emails');
+      setError(t('admin.registrations.errorSendEmails'));
     } finally {
       setSendingEmails(false);
     }
@@ -134,7 +136,7 @@ export default function RegistrationList({ raceId }) {
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to toggle disqualification', err);
-      setError('Failed to update disqualification');
+      setError(t('admin.registrations.errorToggleDisqualification'));
     }
   };
 
@@ -143,8 +145,8 @@ export default function RegistrationList({ raceId }) {
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-2">
-        <h4 className="me-3">Registrations & Race Categories</h4>
-        <button type="button" className="btn btn-sm btn-outline-secondary ms-auto" onClick={refreshAll}>Refresh</button>
+        <h4 className="me-3">{t('admin.registrations.title')}</h4>
+        <button type="button" className="btn btn-sm btn-outline-secondary ms-auto" onClick={refreshAll}>{t('admin.registrations.refresh')}</button>
       </div>
 
       {formError && <div className="alert alert-warning py-2 mb-3">{formError}</div>}
@@ -167,9 +169,9 @@ export default function RegistrationList({ raceId }) {
       <div className="row g-3 mb-3">
         <div className="col-12">
           <div className="card h-100 p-3">
-            <h5 className="mb-3">Register team to race</h5>
+            <h5 className="mb-3">{t('admin.registrations.registerCardTitle')}</h5>
             <div className="mb-2">
-              <label className="form-label">Team</label>
+              <label className="form-label">{t('admin.registrations.teamLabel')}</label>
               <select
                 className="form-select"
                 value={selectedTeamId}
@@ -179,11 +181,11 @@ export default function RegistrationList({ raceId }) {
                 {(teams || []).map(team => (
                   <option key={team.id} value={team.id}>{team.name}</option>
                 ))}
-                {(!teams || teams.length === 0) && <option value="">No teams</option>}
+                {(!teams || teams.length === 0) && <option value="">{t('admin.registrations.noTeams')}</option>}
               </select>
             </div>
             <div className="mb-3">
-              <label className="form-label">Race category</label>
+              <label className="form-label">{t('admin.registrations.categoryLabel')}</label>
               <select
                 className="form-select"
                 value={selectedCategoryId}
@@ -193,7 +195,7 @@ export default function RegistrationList({ raceId }) {
                 {(raceCategories || []).map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
-                {(!raceCategories || raceCategories.length === 0) && <option value="">No categories</option>}
+                {(!raceCategories || raceCategories.length === 0) && <option value="">{t('admin.registrations.noCategories')}</option>}
               </select>
             </div>
             <button
@@ -202,32 +204,32 @@ export default function RegistrationList({ raceId }) {
               disabled={savingRegistration || !selectedTeamId || !selectedCategoryId}
               onClick={handleRegister}
             >
-              {savingRegistration ? 'Registering…' : 'Register team'}
+              {savingRegistration ? t('admin.registrations.registering') : t('admin.registrations.registerButton')}
             </button>
-            {metaLoading && <div className="mt-2 text-muted small">Loading teams and categories…</div>}
+            {metaLoading && <div className="mt-2 text-muted small">{t('admin.registrations.loadingMeta')}</div>}
           </div>
         </div>
       </div>
 
         <div className="border rounded p-3 mb-3">
-        {loading && <div className="mb-3">Loading registrations…</div>}
+        {loading && <div className="mb-3">{t('admin.registrations.loadingRegistrations')}</div>}
 
-        <h5 className="mb-3">Current Registrations</h5>
+        <h5 className="mb-3">{t('admin.registrations.currentRegistrations')}</h5>
 
         <table className="table table-sm">
           <thead>
             <tr>
               <th>Team</th>
-              <th>Category</th>
-              <th>Members</th>
-              <th>Email Sent</th>
-              <th>Disqualified</th>
-              <th style={{ width: 140 }}>Actions</th>
+              <th>{t('admin.registrations.tableCategory')}</th>
+              <th>{t('admin.registrations.tableMembers')}</th>
+              <th>{t('admin.registrations.tableEmailSent')}</th>
+              <th>{t('admin.registrations.tableDisqualified')}</th>
+              <th style={{ width: 140 }}>{t('admin.registrations.tableActions')}</th>
             </tr>
           </thead>
           <tbody>
             {(!registrations || registrations.length === 0) && (
-              <tr><td colSpan="6" className="text-muted">No registrations</td></tr>
+              <tr><td colSpan="6" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
             )}
             {registrations.map((reg, idx) => {
               const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
@@ -246,32 +248,32 @@ export default function RegistrationList({ raceId }) {
                   <td className="text-muted small">{membersDisplay}</td>
                   <td>
                     {emailSent ? (
-                      <span className="badge bg-success">✓ Sent</span>
+                      <span className="badge bg-success">{t('admin.registrations.emailSent')}</span>
                     ) : (
-                      <span className="badge bg-secondary">Not sent</span>
+                      <span className="badge bg-secondary">{t('admin.registrations.notSent')}</span>
                     )}
                   </td>
                   <td>
                     {disqualified ? (
-                      <span className="badge bg-danger">Disqualified</span>
+                      <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>
                     ) : (
-                      <span className="badge bg-success">Eligible</span>
+                      <span className="badge bg-success">{t('admin.registrations.eligible')}</span>
                     )}
                   </td>
                   <td>
                     <button
                       className="btn btn-sm btn-outline-warning me-2"
                       onClick={() => handleToggleDisqualification(teamId, disqualified)}
-                      title={disqualified ? 'Reinstate team' : 'Disqualify team'}
+                      title={disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
                     >
-                      {disqualified ? 'Reinstate' : 'Disqualify'}
+                      {disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
                     </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
                       onClick={() => handleDeleteRegistration(teamId)}
-                      title="Delete registration"
+                      title={t('admin.registrations.deleteRegistration')}
                     >
-                      Delete
+                      {t('admin.registrations.delete')}
                     </button>
                   </td>
                 </tr>
@@ -286,7 +288,7 @@ export default function RegistrationList({ raceId }) {
             onClick={handleSendEmails}
             disabled={sendingEmails || !registrations || registrations.length === 0}
           >
-            {sendingEmails ? 'Sending...' : 'Send Registration Emails'}
+            {sendingEmails ? t('admin.registrations.sending') : t('admin.registrations.sendEmails')}
           </button>
         </div>
 

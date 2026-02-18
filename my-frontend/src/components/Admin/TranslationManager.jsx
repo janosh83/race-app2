@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
 import { logger } from '../../utils/logger';
+import { useTranslation } from 'react-i18next';
 
 function TranslationManager({ raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
+  const { t } = useTranslation();
   const [translations, setTranslations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -20,7 +22,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
   useEffect(() => {
     if (!entityId) return;
     fetchTranslations();
-  }, [entityId, entityType]);
+  }, [entityId, entityType, t]);
 
   const fetchTranslations = async () => {
     setLoading(true);
@@ -31,7 +33,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       setTranslations(Array.isArray(data) ? data : (data?.data || []));
     } catch (err) {
       logger.error('ADMIN', 'Failed to fetch translations', err);
-      setError('Failed to load translations');
+      setError(t('admin.translationManager.errorLoad'));
     } finally {
       setLoading(false);
     }
@@ -70,12 +72,12 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       setFormData({});
     } catch (err) {
       logger.error('ADMIN', 'Failed to save translation', err);
-      setError('Failed to save translation');
+      setError(t('admin.translationManager.saveError'));
     }
   };
 
   const handleDelete = async (language) => {
-    if (!window.confirm(`Delete ${LANGUAGE_LABELS[language]} translation?`)) return;
+    if (!window.confirm(t('admin.translationManager.deleteConfirm', { language: LANGUAGE_LABELS[language] || language }))) return;
     setError(null);
     try {
       const methods = apiMethods[entityType];
@@ -83,26 +85,32 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       await fetchTranslations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete translation', err);
-      setError('Failed to delete translation');
+      setError(t('admin.translationManager.deleteError'));
     }
   };
 
-  const fieldLabels = fields || { name: 'Name', title: 'Title', description: 'Description' };
+  const fieldLabels = Object.keys(fields || {}).length > 0
+    ? fields
+    : {
+        name: t('admin.translationManager.fieldName'),
+        title: t('admin.translationManager.fieldTitle'),
+        description: t('admin.translationManager.fieldDescription')
+      };
   const existingLanguages = translations.map(t => t.language);
   const missingLanguages = supportedLanguages.filter(lang => !existingLanguages.includes(lang));
 
   if (!entityId) {
-    return <div className="text-muted">Select an item to manage translations</div>;
+    return <div className="text-muted">{t('admin.translationManager.selectItem')}</div>;
   }
 
   return (
     <div className="card">
       <div className="card-header bg-light">
-        <h6 className="mb-0">Translations for {entityName}</h6>
+        <h6 className="mb-0">{t('admin.translationManager.title', { name: entityName })}</h6>
       </div>
       <div className="card-body">
         {error && <div className="alert alert-danger alert-sm mb-2">{error}</div>}
-        {loading && <div className="text-muted">Loading translations…</div>}
+        {loading && <div className="text-muted">{t('admin.translationManager.loading')}</div>}
 
         {!loading && (
           <>
@@ -136,16 +144,16 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
                   ))}
                 </div>
                 <div className="d-flex gap-2">
-                  <button className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
-                  <button className="btn btn-sm btn-secondary" onClick={() => { setEditingLanguage(null); setFormData({}); }}>Cancel</button>
+                  <button className="btn btn-sm btn-primary" onClick={handleSave}>{t('admin.translationManager.save')}</button>
+                  <button className="btn btn-sm btn-secondary" onClick={() => { setEditingLanguage(null); setFormData({}); }}>{t('admin.translationManager.cancel')}</button>
                 </div>
               </div>
             ) : null}
 
             <div>
-              <h6 className="mb-2 text-muted small">Existing Translations</h6>
+              <h6 className="mb-2 text-muted small">{t('admin.translationManager.existingTitle')}</h6>
               {existingLanguages.length === 0 ? (
-                <p className="text-muted small">No translations yet</p>
+                <p className="text-muted small">{t('admin.translationManager.noTranslations')}</p>
               ) : (
                 <div className="list-group list-group-sm mb-3">
                   {translations.map(trans => (
@@ -153,7 +161,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
                       <div>
                         <strong className="small">{LANGUAGE_LABELS[trans.language]}</strong>
                         <div className="text-muted small">
-                          {trans.name || trans.title || '(no name/title)'}
+                          {trans.name || trans.title || t('admin.translationManager.noNameTitle')}
                         </div>
                       </div>
                       <div className="d-flex gap-1">
@@ -162,14 +170,14 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
                           onClick={() => handleEdit(trans)}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                         >
-                          Edit
+                          {t('admin.translationManager.edit')}
                         </button>
                         <button
                           className="btn btn-xs btn-outline-danger"
                           onClick={() => handleDelete(trans.language)}
                           style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
                         >
-                          Delete
+                          {t('admin.translationManager.delete')}
                         </button>
                       </div>
                     </div>
@@ -179,7 +187,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
 
               {missingLanguages.length > 0 && (
                 <>
-                  <h6 className="mb-2 text-muted small">Add Translation</h6>
+                  <h6 className="mb-2 text-muted small">{t('admin.translationManager.addTitle')}</h6>
                   <div className="d-flex gap-1">
                     {missingLanguages.map(lang => (
                       <button

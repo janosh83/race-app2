@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
@@ -30,6 +31,7 @@ function normalizeResults(payload) {
 }
 
 export default function Standings({ raceId, onTeamClick }) {
+  const { t } = useTranslation();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,7 +48,7 @@ export default function Standings({ raceId, onTeamClick }) {
         if (mounted) setStandings(list);
       } catch (err) {
         logger.error('ADMIN', 'Failed to load standings', err);
-        if (mounted) setError(err?.message || 'Failed to load standings');
+        if (mounted) setError(err?.message || t('admin.standings.errorLoad'));
       } finally {
         if (mounted) setLoading(false);
       }
@@ -59,7 +61,7 @@ export default function Standings({ raceId, onTeamClick }) {
     }
 
     return () => { mounted = false; };
-  }, [raceId]);
+  }, [raceId, t]);
 
   const handleToggleDisqualification = async (teamId, current) => {
     if (!raceId || !teamId) return;
@@ -69,11 +71,11 @@ export default function Standings({ raceId, onTeamClick }) {
       setStandings(normalizeResults(refreshed));
     } catch (err) {
       logger.error('ADMIN', 'Failed to toggle disqualification', err);
-      setError(err?.message || 'Failed to update disqualification');
+      setError(err?.message || t('admin.standings.errorToggleDisqualification'));
     }
   };
 
-  if (loading) return <div>Loading standings…</div>;
+  if (loading) return <div>{t('admin.standings.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
   // Helper function to compute position labels for a set of results
@@ -120,7 +122,7 @@ export default function Standings({ raceId, onTeamClick }) {
   // Group results by category
   const categoriesMap = new Map();
   standings.forEach(item => {
-    const cat = item.category || 'Uncategorized';
+    const cat = item.category || t('admin.standings.uncategorized');
     if (!categoriesMap.has(cat)) {
       categoriesMap.set(cat, []);
     }
@@ -144,13 +146,13 @@ export default function Standings({ raceId, onTeamClick }) {
     <table className="table table-sm">
       <thead>
         <tr>
-          <th style={{ width: '90px' }}>Position</th>
-          <th>Team</th>
-          {showCategory && <th>Category</th>}
-          <th className="text-end">Points for Checkpoints</th>
-          <th className="text-end">Points for Tasks</th>
-          <th className="text-end">Total Points</th>
-          <th style={{ width: '150px' }}>Disqualification</th>
+          <th style={{ width: '90px' }}>{t('admin.standings.position')}</th>
+          <th>{t('admin.standings.team')}</th>
+          {showCategory && <th>{t('admin.standings.category')}</th>}
+          <th className="text-end">{t('admin.standings.pointsCheckpoints')}</th>
+          <th className="text-end">{t('admin.standings.pointsTasks')}</th>
+          <th className="text-end">{t('admin.standings.totalPoints')}</th>
+          <th style={{ width: '150px' }}>{t('admin.standings.disqualification')}</th>
         </tr>
       </thead>
       <tbody>
@@ -171,14 +173,14 @@ export default function Standings({ raceId, onTeamClick }) {
             <td>
               <div className="d-flex align-items-center gap-2">
                 <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                  {row.disqualified ? 'Disqualified' : 'Eligible'}
+                  {row.disqualified ? t('admin.standings.disqualified') : t('admin.standings.eligible')}
                 </span>
                 <button
                   type="button"
                   className="btn btn-sm btn-outline-warning"
                   onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
                 >
-                  {row.disqualified ? 'Reinstate' : 'Disqualify'}
+                  {row.disqualified ? t('admin.standings.reinstate') : t('admin.standings.disqualify')}
                 </button>
               </div>
             </td>
@@ -191,27 +193,27 @@ export default function Standings({ raceId, onTeamClick }) {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="mb-0">Current Standings</h3>
+        <h3 className="mb-0">{t('admin.standings.current')}</h3>
         <div className="btn-group" role="group">
           <button
             type="button"
             className={`btn btn-sm ${viewMode === 'overall' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick={() => setViewMode('overall')}
           >
-            Overall
+            {t('admin.standings.overall')}
           </button>
           <button
             type="button"
             className={`btn btn-sm ${viewMode === 'byCategory' ? 'btn-primary' : 'btn-outline-primary'}`}
             onClick={() => setViewMode('byCategory')}
           >
-            By Category
+            {t('admin.standings.byCategory')}
           </button>
         </div>
       </div>
 
       {standings.length === 0 ? (
-        <div className="text-muted">No standings available</div>
+        <div className="text-muted">{t('admin.standings.noStandings')}</div>
       ) : (
         <>
           {viewMode === 'overall' ? (

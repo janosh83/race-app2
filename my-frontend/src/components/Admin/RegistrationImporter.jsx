@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 
 export default function RegistrationImporter({ 
@@ -9,6 +10,7 @@ export default function RegistrationImporter({
   raceCategories, 
   onImportComplete 
 }) {
+  const { t } = useTranslation();
   const [importRows, setImportRows] = useState([]);
   const [importing, setImporting] = useState(false);
   const [importReport, setImportReport] = useState(null);
@@ -94,7 +96,7 @@ export default function RegistrationImporter({
       const g = grouped.get(key);
       if (!g.category && row.category) g.category = row.category;
       if (g.category && row.category && g.category !== row.category) {
-        report.errors.push(`Team ${row.team} has multiple categories: '${g.category}' vs '${row.category}' (using first)`);
+        report.errors.push(t('admin.registrationImporter.errorTeamMultipleCategories', { team: row.team, first: g.category, second: row.category }));
       }
     }
 
@@ -109,7 +111,7 @@ export default function RegistrationImporter({
             teamByName.set(g.team.toLowerCase(), created);
             report.createdTeams.push(g.team);
           } catch (e) {
-            report.errors.push(`Failed to create team '${g.team}': ${e?.message || e}`);
+            report.errors.push(t('admin.registrationImporter.errorCreateTeam', { team: g.team, message: e?.message || e }));
             continue;
           }
         } else {
@@ -132,7 +134,7 @@ export default function RegistrationImporter({
             report.createdRegistrations.push({ team: g.team, category: cat.name });
             regByTeamId.set(teamId, { team_id: teamId, category: cat.name });
           } catch (e) {
-            report.errors.push(`Failed to register team '${g.team}' to category '${cat?.name || g.category}': ${e?.message || e}`);
+            report.errors.push(t('admin.registrationImporter.errorRegisterTeam', { team: g.team, category: cat?.name || g.category, message: e?.message || e }));
           }
         }
 
@@ -149,7 +151,7 @@ export default function RegistrationImporter({
               usersByEmail.set(emailKey, createdU);
               report.createdUsers.push(m.email);
             } catch (e) {
-              report.errors.push(`Failed to create user '${m.email}': ${e?.message || e}`);
+              report.errors.push(t('admin.registrationImporter.errorCreateUser', { email: m.email, message: e?.message || e }));
               continue;
             }
           } else {
@@ -163,7 +165,7 @@ export default function RegistrationImporter({
             await adminApi.addTeamMembers(teamId, { user_ids: uniqueIds });
             report.addedMembers.push({ team: g.team, count: uniqueIds.length });
           } catch (e) {
-            report.errors.push(`Failed adding members to team '${g.team}': ${e?.message || e}`);
+            report.errors.push(t('admin.registrationImporter.errorAddMembers', { team: g.team, message: e?.message || e }));
           }
         }
       }
@@ -176,7 +178,7 @@ export default function RegistrationImporter({
 
   return (
     <div>
-      <h6 className="mb-2">Import teams & members (CSV/TSV)</h6>
+      <h6 className="mb-2">{t('admin.registrationImporter.title')}</h6>
       <div className="mb-2">
         <div className="input-group">
           <input
@@ -191,24 +193,24 @@ export default function RegistrationImporter({
             disabled={importing || importRows.length === 0}
             onClick={runImport}
           >
-            {importing ? 'Importing…' : 'Import' }
+            {importing ? t('admin.registrationImporter.importing') : t('admin.registrationImporter.import') }
           </button>
         </div>
       </div>
       {importReport && (
         <div className="mt-3">
-          <h6>Import report</h6>
+          <h6>{t('admin.registrationImporter.reportTitle')}</h6>
           <ul className="small">
-            <li><strong>Teams created:</strong> {importReport.createdTeams.length}</li>
-            <li><strong>Registrations created:</strong> {importReport.createdRegistrations.length}</li>
-            <li><strong>Users created:</strong> {importReport.createdUsers.length}</li>
-            <li><strong>Existing users matched:</strong> {importReport.existingUsers.length}</li>
-            <li><strong>Members added:</strong> {importReport.addedMembers.reduce((a,b)=>a+b.count,0)}</li>
+            <li><strong>{t('admin.registrationImporter.teamsCreated')}:</strong> {importReport.createdTeams.length}</li>
+            <li><strong>{t('admin.registrationImporter.registrationsCreated')}:</strong> {importReport.createdRegistrations.length}</li>
+            <li><strong>{t('admin.registrationImporter.usersCreated')}:</strong> {importReport.createdUsers.length}</li>
+            <li><strong>{t('admin.registrationImporter.existingUsers')}:</strong> {importReport.existingUsers.length}</li>
+            <li><strong>{t('admin.registrationImporter.membersAdded')}:</strong> {importReport.addedMembers.reduce((a,b)=>a+b.count,0)}</li>
             {importReport.missingCategories.length > 0 && (
-              <li className="text-warning"><strong>Missing categories:</strong> {importReport.missingCategories.map(m => `${m.team} (${m.category})`).join('; ')}</li>
+              <li className="text-warning"><strong>{t('admin.registrationImporter.missingCategories')}:</strong> {importReport.missingCategories.map(m => `${m.team} (${m.category})`).join('; ')}</li>
             )}
             {importReport.errors.length > 0 && (
-              <li className="text-danger"><strong>Errors:</strong> {importReport.errors.join(' | ')}</li>
+              <li className="text-danger"><strong>{t('admin.registrationImporter.errors')}:</strong> {importReport.errors.join(' | ')}</li>
             )}
           </ul>
         </div>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import RaceList from './RaceList';
 import RaceForm from './RaceForm';
 import RegistrationList from './RegistrationList';
@@ -23,6 +24,7 @@ function formatIso(iso) {
 }
 
 function AdminDashboard() {
+  const { t } = useTranslation();
   const [races, setRaces] = useState([]);
   const [selected, setSelected] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
@@ -142,16 +144,16 @@ function AdminDashboard() {
 
   return (
     <div className="container mt-4">
-      <h2>Admin</h2>
+      <h2>{t('admin.dashboard.title')}</h2>
 
-      {loading && <div>Loading races…</div>}
+      {loading && <div>{t('admin.dashboard.loadingRaces')}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row">
         <div className="col-md-4">
           <RaceList races={races} onSelect={handleManage} />
           <div className="mt-2 d-grid">
-            <button className="btn btn-success" onClick={handleNewClick}>New race</button>
+            <button className="btn btn-success" onClick={handleNewClick}>{t('admin.dashboard.newRace')}</button>
           </div>
         </div>
 
@@ -168,13 +170,14 @@ function AdminDashboard() {
               {selected ? (
                 <>
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h4>Manage: {viewingTranslationLang 
+                    <h4>{t('admin.dashboard.manage', {
+                      name: viewingTranslationLang 
                       ? (translations.find(t => t.language === viewingTranslationLang)?.name || selected.name || selected.title || `#${selected.id}`)
                       : (selected.name || selected.title || `#${selected.id}`)
-                    }</h4>
+                    })}</h4>
                     <div>
-                      <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>Edit race</button>
-                      <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>Close</button>
+                      <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>{t('admin.dashboard.editRace')}</button>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>{t('admin.dashboard.close')}</button>
                     </div>
                   </div>
 
@@ -188,37 +191,37 @@ function AdminDashboard() {
                         return desc ? (
                           <p className="mb-2">{desc}</p>
                         ) : (
-                          <p className="mb-2 text-muted">No description</p>
+                          <p className="mb-2 text-muted">{t('admin.dashboard.noDescription')}</p>
                         );
                       })()}
 
                       <div className="small text-muted">
                         <div>
-                          <strong>Showing checkpoints:</strong>{' '}
+                          <strong>{t('admin.dashboard.showingCheckpoints')}:</strong>{' '}
                           {formatIso(selected.start_showing_checkpoints_at ?? selected.start_showing_checkpoints ?? selected.start_showing)}
                           {' — '}
                           {formatIso(selected.end_showing_checkpoints_at ?? selected.end_showing_checkpoints ?? selected.end_showing)}
                         </div>
                         <div>
-                          <strong>Logging window:</strong>{' '}
+                          <strong>{t('admin.dashboard.loggingWindow')}:</strong>{' '}
                           {formatIso(selected.start_logging_at ?? selected.start_logging)}
                           {' — '}
                           {formatIso(selected.end_logging_at ?? selected.end_logging)}
                         </div>
                         <div className="mt-2 pt-2 border-top">
                           <div>
-                            <strong>Default language:</strong>{' '}
-                            {selected.default_language ? `${LANGUAGE_LABELS[selected.default_language] || selected.default_language} (${selected.default_language})` : 'Not set'}
+                            <strong>{t('admin.dashboard.defaultLanguage')}:</strong>{' '}
+                            {selected.default_language ? `${LANGUAGE_LABELS[selected.default_language] || selected.default_language} (${selected.default_language})` : t('admin.dashboard.notSet')}
                           </div>
                           <div>
-                            <strong>Supported languages:</strong>{' '}
+                            <strong>{t('admin.dashboard.supportedLanguages')}:</strong>{' '}
                             {selected.supported_languages && selected.supported_languages.length > 0 
                               ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
-                              : 'None'}
+                              : t('admin.dashboard.none')}
                           </div>
                           <div className="mt-2">
                             <div className="d-flex align-items-center gap-2">
-                              <strong>Existing translations:</strong>
+                              <strong>{t('admin.dashboard.existingTranslations')}:</strong>
                               {translations && translations.length > 0 ? (
                                 <LanguageFlagsDisplay 
                                   languages={translations.map(t => t.language)}
@@ -226,7 +229,7 @@ function AdminDashboard() {
                                   onClick={(lang) => setViewingTranslationLang(viewingTranslationLang === lang ? null : lang)}
                                 />
                               ) : (
-                                <span className="text-muted">None yet</span>
+                                <span className="text-muted">{t('admin.dashboard.noneYet')}</span>
                               )}
                             </div>
                           </div>
@@ -242,7 +245,7 @@ function AdminDashboard() {
                         className={`nav-link ${activeSubmenu === 'checkpoints' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('checkpoints')}
                       >
-                        Checkpoints & Tasks
+                        {t('admin.dashboard.tabCheckpointsTasks')}
                       </button>
                     </li>
                     <li className="nav-item">
@@ -250,7 +253,7 @@ function AdminDashboard() {
                         className={`nav-link ${activeSubmenu === 'registrations' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('registrations')}
                       >
-                        Registrations & Categories
+                        {t('admin.dashboard.tabRegistrationsCategories')}
                       </button>
                     </li>
                     <li className="nav-item">
@@ -258,7 +261,7 @@ function AdminDashboard() {
                         className={`nav-link ${activeSubmenu === 'progress' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('progress')}
                       >
-                        Visits & Results
+                        {t('admin.dashboard.tabVisitsResults')}
                       </button>
                     </li>
                   </ul>
@@ -299,8 +302,8 @@ function AdminDashboard() {
                         <div className="card mt-3">
                           <div className="card-body">
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                              <h5 className="mb-0">Visits — team #{visitingTeam}</h5>
-                              <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>Close</button>
+                              <h5 className="mb-0">{t('admin.dashboard.visitsTeam', { id: visitingTeam })}</h5>
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>{t('admin.dashboard.close')}</button>
                             </div>
                             <VisitsList teamId={visitingTeam} raceId={selected.id}/>
                           </div>
@@ -310,7 +313,7 @@ function AdminDashboard() {
                   )}
                 </>
               ) : (
-                <div className="mt-3 text-muted">Select a race or click "New race" to create one</div>
+                <div className="mt-3 text-muted">{t('admin.dashboard.selectRacePrompt')}</div>
               )}
             </>
           )}

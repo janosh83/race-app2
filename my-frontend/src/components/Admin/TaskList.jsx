@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
@@ -6,6 +7,7 @@ import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import { logger } from '../../utils/logger';
 
 export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
+  const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
@@ -62,19 +64,19 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   }, [tasks.map(t => t.id ?? t.task_id).join(',')]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this task?')) return;
+    if (!window.confirm(t('admin.tasks.deleteConfirm'))) return;
     try {
       await adminApi.deleteTask(id);
       onRemove(id);
       setToast({
-        message: 'Task deleted successfully',
+        message: t('admin.tasks.deleted'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete task', err);
       setToast({
-        message: 'Delete failed: ' + (err?.message || 'Unknown error'),
+        message: t('admin.tasks.deleteFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -109,14 +111,14 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       onUpdate(editingId, payload);
       setEditingId(null);
       setToast({
-        message: 'Task updated successfully',
+        message: t('admin.tasks.updated'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to update task', err);
       setToast({
-        message: 'Update failed: ' + (err?.message || 'Unknown error'),
+        message: t('admin.tasks.updateFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -133,8 +135,8 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   };
 
   const validateItem = (it) => {
-    if (!it || typeof it !== 'object') return 'Item is not an object';
-    if (!it.name && !it.title) return 'Missing "name" or "title"';
+    if (!it || typeof it !== 'object') return t('admin.tasks.validationItemNotObject');
+    if (!it.name && !it.title) return t('admin.tasks.validationMissingNameOrTitle');
     return null;
   };
 
@@ -149,12 +151,12 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     setImportError(null);
     
     if (!selectedFile) {
-      setImportError('Please select a JSON file');
+      setImportError(t('admin.tasks.validationSelectFile'));
       return;
     }
     
     if (!raceId) {
-      setImportError('Race ID is missing. Select a race first.');
+      setImportError(t('admin.tasks.validationMissingRace'));
       return;
     }
     
@@ -170,16 +172,16 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     try {
       parsed = JSON.parse(fileContent);
     } catch (err) {
-      setImportError('Invalid JSON: ' + err.message);
+      setImportError(t('admin.tasks.validationInvalidJson', { message: err.message }));
       return;
     }
     if (!Array.isArray(parsed)) {
-      setImportError('Expected JSON array of tasks');
+      setImportError(t('admin.tasks.validationExpectedArray'));
       return;
     }
     const errors = parsed.map(validateItem).filter(Boolean);
     if (errors.length) {
-      setImportError('Validation failed: ' + errors[0]);
+      setImportError(t('admin.tasks.validationFailed', { error: errors[0] }));
       return;
     }
 
@@ -220,8 +222,8 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       if (fileInput) fileInput.value = '';
       
       const msg = translationsCount > 0
-        ? `Imported ${created.length} tasks with ${translationsCount} translations`
-        : `Imported ${created.length} tasks successfully`;
+        ? t('admin.tasks.importSuccessWithTranslations', { count: created.length, translations: translationsCount })
+        : t('admin.tasks.importSuccess', { count: created.length });
       setToast({
         message: msg,
         type: 'success',
@@ -229,7 +231,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       });
     } catch (err) {
       logger.error('ADMIN', 'Import failed', err);
-      setImportError(err?.message || 'Import failed');
+      setImportError(err?.message || t('admin.common.unknownError'));
     } finally {
       setImporting(false);
     }
@@ -237,11 +239,11 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
 
   return (
     <div className="mb-3">
-      <h5>Tasks</h5>
+      <h5>{t('admin.tasks.title')}</h5>
 
       <div className="mb-2">
         {tasks.length === 0 ? (
-          <div className="text-muted">No tasks</div>
+          <div className="text-muted">{t('admin.tasks.none')}</div>
         ) : (
           <div className="list-group">
             {tasks.map(task => {
@@ -268,8 +270,8 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                       </div>
                     </div>
                     <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(task); }}>Edit</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(taskId); }}>Delete</button>
+                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(task); }}>{t('admin.translationManager.edit')}</button>
+                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(taskId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
                   
@@ -277,23 +279,23 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                     <div className="mt-3 pt-3 border-top">
                       <div className="row">
                         <div className="col-md-6">
-                          <h6 className="text-muted small">Details</h6>
+                          <h6 className="text-muted small">{t('admin.tasks.details')}</h6>
                           <dl className="row small">
-                            <dt className="col-sm-4">Description:</dt>
+                            <dt className="col-sm-4">{t('admin.tasks.labelDescription')}</dt>
                             <dd className="col-sm-8">{task.description || <span className="text-muted">—</span>}</dd>
                             
-                            <dt className="col-sm-4">Points:</dt>
+                            <dt className="col-sm-4">{t('admin.tasks.labelPoints')}</dt>
                             <dd className="col-sm-8">{task.numOfPoints ?? task.points ?? 0}</dd>
                           </dl>
                         </div>
                         
                         <div className="col-md-6">
-                          <h6 className="text-muted small">Translations</h6>
+                          <h6 className="text-muted small">{t('admin.tasks.translations')}</h6>
                           <TranslationManager
                             entityType="task"
                             entityId={taskId}
                             entityName={task.title ?? task.name}
-                            fields={{ title: 'Title', description: 'Description' }}
+                            fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
                             supportedLanguages={supportedLanguages}
                           />
                         </div>
@@ -313,13 +315,13 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Edit Task</h5>
+                <h5 className="modal-title">{t('admin.tasks.editTitle')}</h5>
                 <button type="button" className="btn-close" onClick={handleEditCancel}></button>
               </div>
               <form onSubmit={handleEditSubmit}>
                 <div className="modal-body">
                   <div className="mb-3">
-                    <label className="form-label">Title</label>
+                    <label className="form-label">{t('admin.tasks.fieldTitle')}</label>
                     <input
                       type="text"
                       className="form-control"
@@ -329,7 +331,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Description</label>
+                    <label className="form-label">{t('admin.tasks.fieldDescription')}</label>
                     <textarea
                       className="form-control"
                       rows="3"
@@ -338,7 +340,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                     />
                   </div>
                   <div className="mb-3">
-                    <label className="form-label">Number of Points</label>
+                    <label className="form-label">{t('admin.tasks.fieldPoints')}</label>
                     <input
                       type="number"
                       className="form-control"
@@ -348,8 +350,8 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Changes</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>{t('admin.tasks.cancel')}</button>
+                  <button type="submit" className="btn btn-primary">{t('admin.tasks.saveChanges')}</button>
                 </div>
               </form>
             </div>
@@ -359,7 +361,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
-          <label className="form-label">Import tasks from JSON file</label>
+          <label className="form-label">{t('admin.tasks.importTitle')}</label>
           <input
             id="task-file-input"
             type="file"
@@ -371,7 +373,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           {importError && <div className="alert alert-danger">{importError}</div>}
           <div className="d-flex gap-2">
             <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
-              {importing ? 'Importing…' : 'Import JSON'}
+              {importing ? t('admin.tasks.importing') : t('admin.tasks.import')}
             </button>
             <button 
               type="button" 
@@ -383,11 +385,11 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               }} 
               disabled={importing || !selectedFile}
             >
-              Clear
+              {t('admin.tasks.clear')}
             </button>
           </div>
           <div className="small text-muted mt-2">
-            JSON must be an array of objects. Supported fields: title/name, description, numOfPoints/points, translations.
+            {t('admin.tasks.importHelp')}
           </div>
         </form>
       </div>

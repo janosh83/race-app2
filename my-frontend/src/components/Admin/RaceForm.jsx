@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
@@ -6,6 +7,7 @@ import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
 import { logger } from '../../utils/logger';
 
 export default function RaceForm({ race = null, onSaved = null, onCreated = null, onCancel = null }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [startShow, setStartShow] = useState('');
@@ -59,22 +61,22 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   useEffect(() => {
     setValidationError('');
     if (startShow && endShow && startShow > endShow) {
-      setValidationError('Start showing must be before end showing.');
+      setValidationError(t('admin.raceForm.validationStartShowBeforeEndShow'));
       return;
     }
     if (startLogging && endLogging && startLogging > endLogging) {
-      setValidationError('Start logging must be before end logging.');
+      setValidationError(t('admin.raceForm.validationStartLogBeforeEndLog'));
       return;
     }
     if (startLogging && startShow && startLogging < startShow) {
-      setValidationError('Start logging cannot be before start showing.');
+      setValidationError(t('admin.raceForm.validationStartLogNotBeforeShow'));
       return;
     }
     if (endLogging && endShow && endLogging > endShow) {
-      setValidationError('End logging cannot be after end showing.');
+      setValidationError(t('admin.raceForm.validationEndLogNotAfterShow'));
       return;
     }
-  }, [startShow, endShow, startLogging, endLogging]);
+  }, [startShow, endShow, startLogging, endLogging, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -100,14 +102,14 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       if (onSaved) onSaved(saved);
       if (!isEdit && onCreated) onCreated(saved);
       setToast({
-        message: isEdit ? 'Race updated successfully' : 'Race created successfully',
+        message: isEdit ? t('admin.raceForm.toastUpdated') : t('admin.raceForm.toastCreated'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
       logger.error('ADMIN', 'Failed to save race', err);
       setToast({
-        message: 'Failed to save race: ' + (err?.message || 'Unknown error'),
+        message: t('admin.raceForm.toastSaveFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
@@ -120,10 +122,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     <>
       <form onSubmit={handleSubmit} className="mb-3 card p-3">
       <div className="d-flex justify-content-between align-items-center mb-2">
-        <h4 className="mb-0">{isEdit ? 'Edit race' : 'Create race'}</h4>
+        <h4 className="mb-0">{isEdit ? t('admin.raceForm.editTitle') : t('admin.raceForm.createTitle')}</h4>
         <div>
-          {onCancel && <button type="button" className="btn btn-sm btn-outline-secondary me-2" onClick={onCancel}>Cancel</button>}
-          <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !!validationError}>{saving ? 'Saving…' : (isEdit ? 'Save' : 'Create')}</button>
+          {onCancel && <button type="button" className="btn btn-sm btn-outline-secondary me-2" onClick={onCancel}>{t('admin.raceForm.cancel')}</button>}
+          <button className="btn btn-primary btn-sm" type="submit" disabled={saving || !!validationError}>{saving ? t('admin.raceForm.saving') : (isEdit ? t('admin.raceForm.save') : t('admin.raceForm.create'))}</button>
         </div>
       </div>
 
@@ -138,7 +140,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           className="form-control"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="Race name"
+          placeholder={t('admin.raceForm.namePlaceholder')}
           required
         />
       </div>
@@ -148,13 +150,13 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           className="form-control"
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder="Description"
+          placeholder={t('admin.raceForm.descriptionPlaceholder')}
           rows={2}
         />
       </div>
 
       <div className="mb-3">
-        <label className="form-label small mb-2">Supported Languages</label>
+        <label className="form-label small mb-2">{t('admin.raceForm.supportedLanguages')}</label>
         <div className="d-flex gap-3">
           {SUPPORTED_LANGUAGES.map(lang => (
             <div key={lang} className="form-check">
@@ -182,14 +184,14 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
 
       {supportedLanguages.length > 0 && (
         <div className="mb-3">
-          <label htmlFor="defaultLanguage" className="form-label small">Default Language</label>
+          <label htmlFor="defaultLanguage" className="form-label small">{t('admin.raceForm.defaultLanguage')}</label>
           <select
             id="defaultLanguage"
             className="form-select form-select-sm"
             value={defaultLanguage}
             onChange={e => setDefaultLanguage(e.target.value)}
           >
-            <option value="">— Select default language —</option>
+            <option value="">{t('admin.raceForm.selectDefaultLanguage')}</option>
             {supportedLanguages.map(lang => (
               <option key={lang} value={lang}>
                 {LANGUAGE_LABELS[lang]} ({lang})
@@ -201,22 +203,22 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
 
       <div className="row g-2 mb-2">
         <div className="col">
-          <label className="form-label small">Start showing</label>
+          <label className="form-label small">{t('admin.raceForm.startShowing')}</label>
           <input className="form-control" type="datetime-local" value={startShow} onChange={e => setStartShow(e.target.value)} />
         </div>
         <div className="col">
-          <label className="form-label small">End showing</label>
+          <label className="form-label small">{t('admin.raceForm.endShowing')}</label>
           <input className="form-control" type="datetime-local" value={endShow} onChange={e => setEndShow(e.target.value)} />
         </div>
       </div>
 
       <div className="row g-2 mb-3">
         <div className="col">
-          <label className="form-label small">Start logging</label>
+          <label className="form-label small">{t('admin.raceForm.startLogging')}</label>
           <input className="form-control" type="datetime-local" value={startLogging} onChange={e => setStartLogging(e.target.value)} />
         </div>
         <div className="col">
-          <label className="form-label small">End logging</label>
+          <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
           <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
         </div>
       </div>
@@ -239,7 +241,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           entityType="race"
           entityId={race.id}
           entityName={race.name || race.title}
-          fields={{ name: 'Name', description: 'Description' }}
+          fields={{ name: t('admin.raceForm.translationFieldName'), description: t('admin.raceForm.translationFieldDescription') }}
           supportedLanguages={supportedLanguages}
         />
       </div>

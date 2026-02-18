@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
 export default function CheckpointVisits({ checkpointId }) {
+  const { t } = useTranslation();
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -16,7 +18,7 @@ export default function CheckpointVisits({ checkpointId }) {
         setVisits(data);
       } catch (err) {
         logger.error('ADMIN', 'Failed to load visits for checkpoint', err);
-        setError('Failed to load visits');
+        setError(t('admin.checkpointVisits.errorLoad'));
       } finally {
         setLoading(false);
       }
@@ -26,27 +28,28 @@ export default function CheckpointVisits({ checkpointId }) {
   }, [checkpointId]);
 
   const handleDelete = async (visitId) => {
-    if (window.confirm('Are you sure you want to delete this visit?')) {
+    if (window.confirm(t('admin.checkpointVisits.confirmDelete'))) {
       try {
         await adminApi.deleteVisit(visitId);
         setVisits(visits.filter(visit => visit.id !== visitId));
       } catch (err) {
         logger.error('ADMIN', 'Failed to delete visit', err);
+        setError(t('admin.checkpointVisits.errorDelete'));
       }
     }
   };
 
-  if (loading) return <div>Loading visits...</div>;
+  if (loading) return <div>{t('admin.checkpointVisits.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
   return (
     <div>
-      <h3>Visits for Checkpoint</h3>
+      <h3>{t('admin.checkpointVisits.title')}</h3>
       <ul>
         {visits.map(visit => (
           <li key={visit.id}>
-            <span>{visit.time} - {visit.image && <img src={visit.image} alt="Visit" width="50" />}</span>
-            <button onClick={() => handleDelete(visit.id)}>Delete</button>
+            <span>{visit.time} - {visit.image && <img src={visit.image} alt={t('admin.visits.imageAltCheckpointVisit')} width="50" />}</span>
+            <button onClick={() => handleDelete(visit.id)}>{t('admin.checkpointVisits.delete')}</button>
           </li>
         ))}
       </ul>

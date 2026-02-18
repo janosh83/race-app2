@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
 export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdded }) {
+  const { t } = useTranslation();
   const [newTeamName, setNewTeamName] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [userSearch, setUserSearch] = useState('');
@@ -23,7 +25,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
       if (created?.id) setSelectedTeamId(created.id.toString());
     } catch (err) {
       logger.error('ADMIN', 'Failed to create team', err);
-      setError('Failed to create team');
+      setError(t('admin.teamCreation.errorCreate'));
     } finally {
       setSavingTeam(false);
     }
@@ -32,12 +34,12 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
   const handleAddMembers = async () => {
     setError(null);
     if (!selectedTeamId) {
-      setError('Select a team first');
+      setError(t('admin.teamCreation.errorSelectTeam'));
       return;
     }
     const ids = selectedUserIds.filter(n => Number.isInteger(n));
     if (ids.length === 0) {
-      setError('Select at least one user');
+      setError(t('admin.teamCreation.errorSelectUsers'));
       return;
     }
     setSavingMembers(true);
@@ -47,7 +49,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
       if (onMembersAdded) onMembersAdded();
     } catch (err) {
       logger.error('ADMIN', 'Failed to add members', err);
-      setError('Failed to add members');
+      setError(t('admin.teamCreation.errorAddMembers'));
     } finally {
       setSavingMembers(false);
     }
@@ -55,16 +57,16 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
 
   return (
     <div className="card h-100 p-3">
-      <h5 className="mb-3">Create team</h5>
+      <h5 className="mb-3">{t('admin.teamCreation.title')}</h5>
       
       {error && <div className="alert alert-danger py-2 mb-2">{error}</div>}
       
       <div className="mb-2">
-        <label className="form-label">Team name</label>
+        <label className="form-label">{t('admin.teamCreation.teamName')}</label>
         <div className="input-group">
           <input
             className="form-control"
-            placeholder="Team name"
+            placeholder={t('admin.teamCreation.teamName')}
             value={newTeamName}
             onChange={(e) => setNewTeamName(e.target.value)}
           />
@@ -74,18 +76,18 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
             disabled={savingTeam}
             onClick={handleCreateTeam}
           >
-            {savingTeam ? 'Creating…' : 'Create'}
+            {savingTeam ? t('admin.teamCreation.creating') : t('admin.teamCreation.create')}
           </button>
         </div>
       </div>
 
       <hr />
-      <h6 className="mb-2">Add members by user name</h6>
+      <h6 className="mb-2">{t('admin.teamCreation.addMembersTitle')}</h6>
       <div className="mb-2">
-        <label className="form-label">Search users</label>
+        <label className="form-label">{t('admin.teamCreation.searchUsers')}</label>
         <input
           className="form-control"
-          placeholder="Type name or email to filter"
+          placeholder={t('admin.teamCreation.searchPlaceholder')}
           value={userSearch}
           onChange={(e) => setUserSearch(e.target.value)}
         />
@@ -95,9 +97,9 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
           <thead>
             <tr>
               <th style={{ width: 40 }}></th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Admin</th>
+              <th>{t('admin.teamCreation.tableName')}</th>
+              <th>{t('admin.teamCreation.tableEmail')}</th>
+              <th>{t('admin.teamCreation.tableAdmin')}</th>
             </tr>
           </thead>
           <tbody>
@@ -130,18 +132,18 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
                     </td>
                     <td>{u.name || '—'}</td>
                     <td>{u.email}</td>
-                    <td>{u.is_administrator ? 'Yes' : 'No'}</td>
+                    <td>{u.is_administrator ? t('admin.teamCreation.adminYes') : t('admin.teamCreation.adminNo')}</td>
                   </tr>
                 );
               })}
             {(!users || users.length === 0) && (
-              <tr><td colSpan={4} className="text-muted">No users</td></tr>
+              <tr><td colSpan={4} className="text-muted">{t('admin.teamCreation.noUsers')}</td></tr>
             )}
           </tbody>
         </table>
       </div>
       <div className="mb-2">
-        <label className="form-label">Team</label>
+        <label className="form-label">{t('admin.teamCreation.teamLabel')}</label>
         <div className="input-group">
           <select
             className="form-select"
@@ -151,7 +153,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
             {(teams || []).map(team => (
               <option key={team.id} value={team.id}>{team.name}</option>
             ))}
-            {(!teams || teams.length === 0) && <option value="">No teams</option>}
+            {(!teams || teams.length === 0) && <option value="">{t('admin.registrations.noTeams')}</option>}
           </select>
           <button
             type="button"
@@ -159,7 +161,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
             disabled={savingMembers || !selectedTeamId}
             onClick={handleAddMembers}
           >
-            {savingMembers ? 'Adding…' : 'Add members'}
+            {savingMembers ? t('admin.teamCreation.adding') : t('admin.teamCreation.addMembers')}
           </button>
         </div>
       </div>
