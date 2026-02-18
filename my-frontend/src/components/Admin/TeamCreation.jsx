@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
 
 export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdded }) {
   const [newTeamName, setNewTeamName] = useState('');
@@ -21,7 +22,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
       if (onTeamCreated) onTeamCreated(created);
       if (created?.id) setSelectedTeamId(created.id.toString());
     } catch (err) {
-      console.error('Failed to create team', err);
+      logger.error('ADMIN', 'Failed to create team', err);
       setError('Failed to create team');
     } finally {
       setSavingTeam(false);
@@ -45,7 +46,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
       setSelectedUserIds([]);
       if (onMembersAdded) onMembersAdded();
     } catch (err) {
-      console.error('Failed to add members', err);
+      logger.error('ADMIN', 'Failed to add members', err);
       setError('Failed to add members');
     } finally {
       setSavingMembers(false);

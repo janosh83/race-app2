@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -86,7 +87,7 @@ export default function VisitsList({ teamId, raceId }) {
         setVisits(Array.isArray(visitsData) ? visitsData : (visitsData?.data || []));
         setTaskCompletions(Array.isArray(tasksData) ? tasksData : (tasksData?.data || []));
       } catch (err) {
-        console.error('Failed to load visits or tasks', err);
+        logger.error('ADMIN', 'Failed to load visits or tasks', err);
         setError('Failed to load visits or tasks');
       } finally {
         setLoading(false);
@@ -102,7 +103,7 @@ export default function VisitsList({ teamId, raceId }) {
         await adminApi.deleteVisit(visitId);
         setVisits(visits.filter(visit => visit.id !== visitId));
       } catch (err) {
-        console.error('Failed to delete visit', err);
+        logger.error('ADMIN', 'Failed to delete visit', err);
       }
     }
   };
@@ -113,7 +114,7 @@ export default function VisitsList({ teamId, raceId }) {
         await adminApi.deleteTaskCompletion(taskLogId);
         setTaskCompletions(taskCompletions.filter(task => task.id !== taskLogId));
       } catch (err) {
-        console.error('Failed to delete task completion', err);
+        logger.error('ADMIN', 'Failed to delete task completion', err);
       }
     }
   };

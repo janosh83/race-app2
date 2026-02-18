@@ -3,6 +3,7 @@ import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
+import { logger } from '../../utils/logger';
 
 export default function RaceForm({ race = null, onSaved = null, onCreated = null, onCancel = null }) {
   const [name, setName] = useState('');
@@ -104,7 +105,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to save race', err);
+      logger.error('ADMIN', 'Failed to save race', err);
       setToast({
         message: 'Failed to save race: ' + (err?.message || 'Unknown error'),
         type: 'error',

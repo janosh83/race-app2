@@ -3,6 +3,7 @@ import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+import { logger } from '../../utils/logger';
 
 export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -48,7 +49,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           const data = await adminApi.getCheckpointTranslations(cpId);
           newTranslations[cpId] = Array.isArray(data) ? data : (data?.data || []);
         } catch (e) {
-          console.error(`Failed to load translations for checkpoint ${cpId}`, e);
+          logger.error('ADMIN', `Failed to load translations for checkpoint ${cpId}`, e);
           newTranslations[cpId] = [];
         }
       }
@@ -73,7 +74,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to delete checkpoint', err);
+      logger.error('ADMIN', 'Failed to delete checkpoint', err);
       setToast({
         message: 'Delete failed: ' + (err?.message || 'Unknown error'),
         type: 'error',
@@ -119,7 +120,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to update checkpoint', err);
+      logger.error('ADMIN', 'Failed to update checkpoint', err);
       setToast({
         message: 'Update failed: ' + (err?.message || 'Unknown error'),
         type: 'error',
@@ -221,7 +222,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
               await adminApi.createCheckpointTranslation(checkpoint.id, trans.language, translationPayload);
               translationsCount++;
             } catch (e) {
-              console.error(`Failed to create translation ${trans.language} for checkpoint ${checkpoint.id}`, e);
+              logger.error('ADMIN', `Failed to create translation ${trans.language} for checkpoint ${checkpoint.id}`, e);
             }
           }
         }
@@ -243,7 +244,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
         duration: 5000
       });
     } catch (err) {
-      console.error('Import failed', err);
+      logger.error('ADMIN', 'Import failed', err);
       setImportError(err?.message || 'Import failed');
     } finally {
       setImporting(false);

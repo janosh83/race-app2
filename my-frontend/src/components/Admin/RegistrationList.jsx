@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
 import TeamCreation from './TeamCreation';
 import RegistrationImporter from './RegistrationImporter';
+import { logger } from '../../utils/logger';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId }) {
@@ -28,7 +29,7 @@ export default function RegistrationList({ raceId }) {
       const regs = Array.isArray(payload) ? payload : (payload?.data || payload?.results || payload?.registrations || []);
       setRegistrations(regs || []);
     } catch (err) {
-      console.error(err);
+      logger.error('ADMIN', 'Failed to load registrations', err);
       setError('Failed to load registrations');
     } finally {
       setLoading(false);
@@ -53,7 +54,7 @@ export default function RegistrationList({ raceId }) {
       if (!selectedTeamId && (t || []).length > 0) setSelectedTeamId((t[0]?.id ?? '').toString());
       if (!selectedCategoryId && (c || []).length > 0) setSelectedCategoryId((c[0]?.id ?? '').toString());
     } catch (err) {
-      console.error('Failed to load teams or categories', err);
+      logger.error('ADMIN', 'Failed to load teams or categories', err);
       setError('Failed to load teams or categories');
     } finally {
       setMetaLoading(false);
@@ -79,7 +80,7 @@ export default function RegistrationList({ raceId }) {
       await adminApi.deleteRegistration(raceId, teamId);
       await loadRegistrations();
     } catch (err) {
-      console.error('Failed to delete registration', err);
+      logger.error('ADMIN', 'Failed to delete registration', err);
       setError('Failed to delete registration');
     }
   };
@@ -97,7 +98,7 @@ export default function RegistrationList({ raceId }) {
       });
       await loadRegistrations();
     } catch (err) {
-      console.error('Failed to register team', err);
+      logger.error('ADMIN', 'Failed to register team', err);
       setFormError('Failed to register team');
     } finally {
       setSavingRegistration(false);
@@ -114,7 +115,7 @@ export default function RegistrationList({ raceId }) {
       const result = await adminApi.sendRegistrationEmails(raceId);
       alert(`Emails sent successfully!\nSent: ${result.sent}\nFailed: ${result.failed}`);
     } catch (err) {
-      console.error('Failed to send emails', err);
+      logger.error('ADMIN', 'Failed to send emails', err);
       setError('Failed to send registration emails');
     } finally {
       setSendingEmails(false);
@@ -132,7 +133,7 @@ export default function RegistrationList({ raceId }) {
       await adminApi.setDisqualification(raceId, teamId, !current);
       await loadRegistrations();
     } catch (err) {
-      console.error('Failed to toggle disqualification', err);
+      logger.error('ADMIN', 'Failed to toggle disqualification', err);
       setError('Failed to update disqualification');
     }
   };

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
+import { logger } from '../../utils/logger';
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -31,7 +32,7 @@ export default function Users() {
       const list = Array.isArray(payload) ? payload : (payload?.data || []);
       setUsers(list || []);
     } catch (err) {
-      console.error('Failed to load users', err);
+      logger.error('ADMIN', 'Failed to load users', err);
       setError('Failed to load users');
     } finally {
       setLoading(false);
@@ -62,7 +63,7 @@ export default function Users() {
       setIsAdmin(false);
       await load();
     } catch (err) {
-      console.error('Failed to create user', err);
+      logger.error('ADMIN', 'Failed to create user', err);
       setFormError('Failed to create user');
     } finally {
       setSaving(false);
@@ -75,7 +76,7 @@ export default function Users() {
       await adminApi.deleteUser(userId);
       setUsers(users.filter(u => u.id !== userId));
     } catch (err) {
-      console.error('Failed to delete user', err);
+      logger.error('ADMIN', 'Failed to delete user', err);
       setError('Failed to delete user');
     }
   };
@@ -118,7 +119,7 @@ export default function Users() {
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to update user', err);
+      logger.error('ADMIN', 'Failed to update user', err);
       setToast({
         message: 'Update failed: ' + (err?.message || 'Unknown error'),
         type: 'error',

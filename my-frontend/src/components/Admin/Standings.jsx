@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
 
 function normalizeResults(payload) {
   if (!payload) return [];
@@ -44,7 +45,7 @@ export default function Standings({ raceId, onTeamClick }) {
         const list = normalizeResults(payload);
         if (mounted) setStandings(list);
       } catch (err) {
-        console.error('Failed to load standings', err);
+        logger.error('ADMIN', 'Failed to load standings', err);
         if (mounted) setError(err?.message || 'Failed to load standings');
       } finally {
         if (mounted) setLoading(false);
@@ -67,7 +68,7 @@ export default function Standings({ raceId, onTeamClick }) {
       const refreshed = await adminApi.getResults(raceId);
       setStandings(normalizeResults(refreshed));
     } catch (err) {
-      console.error('Failed to toggle disqualification', err);
+      logger.error('ADMIN', 'Failed to toggle disqualification', err);
       setError(err?.message || 'Failed to update disqualification');
     }
   };

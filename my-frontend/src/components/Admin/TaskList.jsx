@@ -3,6 +3,7 @@ import { adminApi } from '../../services/adminApi';
 import Toast from '../Toast';
 import TranslationManager from './TranslationManager';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+import { logger } from '../../utils/logger';
 
 export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -46,7 +47,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           const data = await adminApi.getTaskTranslations(taskId);
           newTranslations[taskId] = Array.isArray(data) ? data : (data?.data || []);
         } catch (e) {
-          console.error(`Failed to load translations for task ${taskId}`, e);
+          logger.error('ADMIN', `Failed to load translations for task ${taskId}`, e);
           newTranslations[taskId] = [];
         }
       }
@@ -71,7 +72,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to delete task', err);
+      logger.error('ADMIN', 'Failed to delete task', err);
       setToast({
         message: 'Delete failed: ' + (err?.message || 'Unknown error'),
         type: 'error',
@@ -113,7 +114,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         duration: 5000
       });
     } catch (err) {
-      console.error('Failed to update task', err);
+      logger.error('ADMIN', 'Failed to update task', err);
       setToast({
         message: 'Update failed: ' + (err?.message || 'Unknown error'),
         type: 'error',
@@ -207,7 +208,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               await adminApi.createTaskTranslation(task.id, trans.language, translationPayload);
               translationsCount++;
             } catch (e) {
-              console.error(`Failed to create translation ${trans.language} for task ${task.id}`, e);
+              logger.error('ADMIN', `Failed to create translation ${trans.language} for task ${task.id}`, e);
             }
           }
         }
@@ -227,7 +228,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         duration: 5000
       });
     } catch (err) {
-      console.error('Import failed', err);
+      logger.error('ADMIN', 'Import failed', err);
       setImportError(err?.message || 'Import failed');
     } finally {
       setImporting(false);

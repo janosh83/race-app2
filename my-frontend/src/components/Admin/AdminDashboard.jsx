@@ -10,6 +10,7 @@ import VisitsList from './VisitsList';
 import { adminApi } from '../../services/adminApi';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import { LANGUAGE_LABELS } from '../../config/languages';
+import { logger } from '../../utils/logger';
 
 function formatIso(iso) {
   if (!iso) return '—';
@@ -50,7 +51,7 @@ function AdminDashboard() {
         setRaces(Array.isArray(res) ? res : (res?.data || []));
       })
       .catch(err => {
-        console.error('Failed to load races', err);
+        logger.error('ADMIN', 'Failed to load races', err);
         if (!mounted) return;
         setError('Failed to load races');
       })
@@ -65,7 +66,7 @@ function AdminDashboard() {
           const data = await adminApi.getCheckpointsByRaceID(selected.id);
           setCheckpoints(Array.isArray(data) ? data : (data?.data || []));
         } catch (e) {
-          console.error('Failed to load checkpoints', e);
+          logger.error('ADMIN', 'Failed to load checkpoints', e);
           setCheckpoints([]);
         }
       };
@@ -74,7 +75,7 @@ function AdminDashboard() {
           const data = await adminApi.listCategories();
           setCategories(Array.isArray(data) ? data : (data?.data || []));
         } catch (e) {
-          console.error('Failed to load categories', e);
+          logger.error('ADMIN', 'Failed to load categories', e);
           setCategories([]);
         }
       };
@@ -83,7 +84,7 @@ function AdminDashboard() {
           const data = await adminApi.getRaceTranslations(selected.id);
           setTranslations(Array.isArray(data) ? data : (data?.data || []));
         } catch (e) {
-          console.error('Failed to load translations', e);
+          logger.error('ADMIN', 'Failed to load translations', e);
           setTranslations([]);
         }
       };
@@ -95,7 +96,7 @@ function AdminDashboard() {
           const data = await adminApi.getTasksByRaceID(selected.id);
           setTasks(Array.isArray(data) ? data : (data?.data || []));
         } catch (e) {
-          console.error('Failed to load tasks', e);
+          logger.error('ADMIN', 'Failed to load tasks', e);
           setTasks([]);
         }
       };

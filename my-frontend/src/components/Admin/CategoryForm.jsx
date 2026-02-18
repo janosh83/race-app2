@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
 
 export default function CategoryForm({ raceId }) {
   const [allCategories, setAllCategories] = useState([]);
@@ -19,7 +20,7 @@ export default function CategoryForm({ raceId }) {
       setAllCategories(Array.isArray(cats) ? cats : (cats?.data || []));
       setAssigned(Array.isArray(raceCats) ? raceCats : (raceCats?.data || []));
     } catch (err) {
-      console.error('Failed to load categories', err);
+      logger.error('ADMIN', 'Failed to load categories', err);
       setError('Failed to load categories');
     } finally {
       setLoading(false);
@@ -38,7 +39,7 @@ export default function CategoryForm({ raceId }) {
       await adminApi.addRaceCategory(raceId, catId);
       await load();
     } catch (err) {
-      console.error('Failed to assign category', err);
+      logger.error('ADMIN', 'Failed to assign category', err);
       setError('Failed to assign category');
     }
   };
@@ -49,7 +50,7 @@ export default function CategoryForm({ raceId }) {
       await adminApi.removeRaceCategory(raceId, catId);
       await load();
     } catch (err) {
-      console.error('Failed to unassign category', err);
+      logger.error('ADMIN', 'Failed to unassign category', err);
       setError('Failed to unassign category');
     }
   };
@@ -65,7 +66,7 @@ export default function CategoryForm({ raceId }) {
         await load();
       }
     } catch (err) {
-      console.error('Failed to create category', err);
+      logger.error('ADMIN', 'Failed to create category', err);
       setError('Failed to create category');
     }
   };

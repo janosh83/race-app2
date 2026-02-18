@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/adminApi';
 import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
+import { logger } from '../../utils/logger';
 
 function TranslationManager({ raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
   const [translations, setTranslations] = useState([]);
@@ -29,7 +30,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       const data = await methods.get(entityId);
       setTranslations(Array.isArray(data) ? data : (data?.data || []));
     } catch (err) {
-      console.error('Failed to fetch translations', err);
+      logger.error('ADMIN', 'Failed to fetch translations', err);
       setError('Failed to load translations');
     } finally {
       setLoading(false);
@@ -68,7 +69,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       setEditingLanguage(null);
       setFormData({});
     } catch (err) {
-      console.error('Failed to save translation', err);
+      logger.error('ADMIN', 'Failed to save translation', err);
       setError('Failed to save translation');
     }
   };
@@ -81,7 +82,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
       await methods.delete(entityId, language);
       await fetchTranslations();
     } catch (err) {
-      console.error('Failed to delete translation', err);
+      logger.error('ADMIN', 'Failed to delete translation', err);
       setError('Failed to delete translation');
     }
   };

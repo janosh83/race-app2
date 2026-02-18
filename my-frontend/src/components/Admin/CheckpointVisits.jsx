@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
 
 export default function CheckpointVisits({ checkpointId }) {
   const [visits, setVisits] = useState([]);
@@ -14,7 +15,7 @@ export default function CheckpointVisits({ checkpointId }) {
         const data = await adminApi.getVisitsByCheckpoint(checkpointId); // Ensure this endpoint exists
         setVisits(data);
       } catch (err) {
-        console.error('Failed to load visits for checkpoint', err);
+        logger.error('ADMIN', 'Failed to load visits for checkpoint', err);
         setError('Failed to load visits');
       } finally {
         setLoading(false);
@@ -30,7 +31,7 @@ export default function CheckpointVisits({ checkpointId }) {
         await adminApi.deleteVisit(visitId);
         setVisits(visits.filter(visit => visit.id !== visitId));
       } catch (err) {
-        console.error('Failed to delete visit', err);
+        logger.error('ADMIN', 'Failed to delete visit', err);
       }
     }
   };
