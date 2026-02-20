@@ -15,6 +15,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   const [expandedId, setExpandedId] = useState(null);
   const [taskTranslations, setTaskTranslations] = useState({});
   const [toast, setToast] = useState(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [editForm, setEditForm] = useState({
     title: '',
     description: '',
@@ -361,7 +362,20 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
 
       <div className="card card-body">
         <form onSubmit={handleImport}>
-          <label className="form-label">{t('admin.tasks.importTitle')}</label>
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <label className="form-label mb-0">{t('admin.tasks.importTitle')}</label>
+            <button
+              type="button"
+              className="btn btn-sm btn-link p-0"
+              onClick={() => setShowHelpModal(true)}
+              title={t('admin.tasks.importHelpTitle')}
+            >
+              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+              </svg>
+            </button>
+          </div>
           <input
             id="task-file-input"
             type="file"
@@ -393,6 +407,72 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           </div>
         </form>
       </div>
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('admin.tasks.importHelpTitle')}</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowHelpModal(false)}
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <h6>{t('admin.tasks.importHelpFormat')}</h6>
+                <p className="text-muted">{t('admin.tasks.importHelpDescription')}</p>
+                
+                <h6 className="mt-3">{t('admin.tasks.importHelpFields')}</h6>
+                <ul>
+                  <li><strong>title</strong> {t('admin.tasks.importHelpFieldTitle')}</li>
+                  <li><strong>description</strong> {t('admin.tasks.importHelpFieldDesc')}</li>
+                  <li><strong>numOfPoints</strong> {t('admin.tasks.importHelpFieldPoints')}</li>
+                  <li><strong>translations</strong> {t('admin.tasks.importHelpFieldTranslations')}</li>
+                </ul>
+                
+                <h6 className="mt-3">{t('admin.tasks.importHelpExample')}</h6>
+                <pre className="bg-light p-3 rounded border" style={{ fontSize: '12px', overflow: 'auto' }}>{`[
+  {
+    "title": "Complete the quiz",
+    "description": "Answer all questions correctly",
+    "numOfPoints": 15,
+    "translations": [
+      {
+        "language": "cs",
+        "title": "Vyplnit kvíz",
+        "description": "Správně odpověděte na všechny otázky"
+      },
+      {
+        "language": "de",
+        "title": "Quiz ausfuellen",
+        "description": "Beantworten Sie alle Fragen korrekt"
+      }
+    ]
+  },
+  {
+    "title": "Take a photo",
+    "description": "Capture your team at the location",
+    "numOfPoints": 10
+  }
+]`}</pre>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowHelpModal(false)}
+                >
+                  {t('admin.tasks.cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast notification */}
       {toast && (
