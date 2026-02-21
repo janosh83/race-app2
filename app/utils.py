@@ -68,7 +68,7 @@ def extract_image_coordinates(image_path: str) -> tuple:
     """
     try:
         image = Image.open(image_path)
-        exif_data = image._getexif()
+        exif_data = image.getexif()
 
         if not exif_data:
             logger.debug("No EXIF data found in image: %s", image_path)

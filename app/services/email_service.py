@@ -1,11 +1,13 @@
 """
 Email service for sending transactional emails.
 """
+import secrets
+import smtplib
+
 from flask_mail import Message
 from flask import current_app, render_template
 from app import mail
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
-import secrets
 
 
 class EmailService:
@@ -50,8 +52,8 @@ class EmailService:
             )
             mail.send(msg)
             return True
-        except Exception as e:
-            current_app.logger.error(f"Failed to send email to {recipient}: {e}")
+        except (smtplib.SMTPException, ConnectionError, OSError, KeyError, ValueError, RuntimeError) as err:
+            current_app.logger.error("Failed to send email to %s: %s", recipient, err)
             return False
     
     @staticmethod
