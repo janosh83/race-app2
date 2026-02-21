@@ -11,5 +11,6 @@ aiosmtpd
 python-dotenv
 pytest
 pytest-mock
+pytest-cov
 marshmallow
 Pillow
