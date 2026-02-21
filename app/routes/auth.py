@@ -1,7 +1,6 @@
-from functools import wraps
 from datetime import datetime, timedelta
 import logging
-
+from flask import current_app
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from marshmallow import ValidationError
@@ -90,7 +89,7 @@ def register():
     validated = AuthRegisterSchema().load(data)
 
     if User.query.filter_by(email=validated['email']).first():
-        logger.error(f"Registration attempt for existing user: {validated['email']}")
+        logger.error("Registration attempt for existing user: %s", validated['email'])
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(
@@ -102,8 +101,7 @@ def register():
     user.set_password(validated['password'])
     db.session.add(user)
     db.session.commit()
-    
-    logger.info(f"New user registered: {user.email} (ID: {user.id}, admin: {user.is_administrator})")
+    logger.info("New user registered: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({"msg": "User created successfully"}), 201
 
 # tested by test_auth.py -> test_auth_login
@@ -199,25 +197,25 @@ def login():
 
     user = User.query.filter_by(email=validated['email']).first()
     if not user or not user.check_password(validated['password']):
-        logger.error(f"Failed login attempt for email: {validated.get('email', 'unknown')}")
+        logger.error("Failed login attempt for email: %s", validated.get('email', 'unknown'))
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
-      access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
+        access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
     else:
-      access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
+        access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
 
     # Issue refresh token with longer lifetime for silent re-auth
     refresh_token = create_refresh_token(identity=str(user.id))
-    
-    logger.info(f"User logged in: {user.email} (ID: {user.id}, admin: {user.is_administrator})")
-    
-    # Fetch teams and races associated with the user   
+
+    logger.info("User logged in: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
+
+    # Fetch teams and races associated with the user
     races_by_user = (
         db.session.query(Registration,
-            Race.id.label("race_id"), 
-            Team.id.label("team_id"), 
-            Race.name.label("race_name"), 
+            Race.id.label("race_id"),
+            Team.id.label("team_id"),
+            Race.name.label("race_name"),
             Race.description.label("race_description"),
             RaceCategory.name.label("race_category"),
             Race.start_showing_checkpoints_at,
@@ -232,9 +230,9 @@ def login():
         .all()
     )
 
-    registered_races = [{"race_id": race.race_id, 
-              "team_id": race.team_id, 
-              "race_name": race.race_name, 
+    registered_races = [{"race_id": race.race_id,
+              "team_id": race.team_id,
+              "race_name": race.race_name,
               "race_category": race.race_category,
               "race_description": race.race_description,
               "start_showing_checkpoints": race.start_showing_checkpoints_at,
@@ -281,10 +279,10 @@ def protected():
       404:
         description: Not found (production environment)
     """
-    from flask import current_app
+
     if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
         return jsonify({"error": "Not found"}), 404
-    
+
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, user {current_user_id}!"}), 200
 
@@ -313,10 +311,9 @@ def admin():
       404:
         description: Not found (production environment)
     """
-    from flask import current_app
     if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
         return jsonify({"error": "Not found"}), 404
-    
+
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
@@ -346,7 +343,7 @@ def refresh():
     """
     user_id = get_jwt_identity()
     # Look up current admin flag to keep claims in sync
-    from app.models import User
+
     user = User.query.filter_by(id=int(user_id)).first()
     is_admin = bool(user.is_administrator) if user else False
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
@@ -402,23 +399,23 @@ def request_password_reset():
 
     email = validated['email']
     user = User.query.filter_by(email=email).first()
-    
+
     # Always return success message for security (don't reveal if email exists)
     if user:
         # Generate reset token
         reset_token = generate_reset_token()
         expiry = datetime.now() + timedelta(hours=1)
-        
+
         # Save token to user
         user.set_reset_token(reset_token, expiry)
         db.session.commit()
-        
+
         # Send email with user's preferred language
         EmailService.send_password_reset_email(user.email, reset_token, language=user.preferred_language)
-        logger.info(f"Password reset email sent to user: {user.email} (ID: {user.id}, language: {user.preferred_language})")
+        logger.info("Password reset email sent to user: %s (ID: %s, language: %s)", user.email, user.id, user.preferred_language)
     else:
-        logger.warning(f"Password reset requested for non-existent email: {email}")
-    
+        logger.warning("Password reset requested for non-existent email: %s", email)
+
     return jsonify({"msg": "If the email exists, a password reset link has been sent"}), 200
 
 @auth_bp.route('/reset-password/', methods=['POST'])
@@ -475,25 +472,25 @@ def reset_password():
 
     token = validated['token']
     new_password = validated['new_password']
-    
+
     # Find user by token
     user = User.query.filter_by(reset_token=token).first()
-    
+
     if not user or not user.reset_token_expiry:
-        logger.warning(f"Password reset attempt with invalid token: {token[:10]}...")
+        logger.warning("Password reset attempt with invalid token: %s...", token[:10])
         return jsonify({"msg": "Invalid or expired token"}), 400
-    
+
     # Check if token is expired
     if datetime.now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
-        logger.warning(f"Password reset attempt with expired token for user: {user.email}")
+        logger.warning("Password reset attempt with expired token for user: %s", user.email)
         return jsonify({"msg": "Token has expired"}), 400
-    
+
     # Reset password
     user.set_password(new_password)
     user.clear_reset_token()
     db.session.commit()
-    
-    logger.info(f"Password successfully reset for user: {user.email} (ID: {user.id})")
+
+    logger.info("Password successfully reset for user: %s (ID: %s)", user.email, user.id)
     return jsonify({"msg": "Password reset successfully"}), 200

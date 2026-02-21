@@ -1,9 +1,9 @@
+import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models import Registration, Team, Race, RaceCategory, User, team_members
 from app.routes.admin import admin_required
 from app import db
-import logging
 from app.schemas import UserCreateSchema, UserUpdateSchema
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ def create_user():
     data = UserCreateSchema().load(payload)
 
     if User.query.filter_by(email=data['email']).first():
-        logger.error(f"Admin user creation attempt for existing email: {data['email']}")
+        logger.error("Admin user creation attempt for existing email: %s", data['email'])
         return jsonify({"msg": "User with this email already exists"}), 409
 
     user = User(
@@ -115,7 +115,7 @@ def create_user():
     db.session.add(user)
     db.session.commit()
     
-    logger.info(f"Admin created user: {user.email} (ID: {user.id}, admin: {user.is_administrator})")
+    logger.info("Admin created user: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({
         "id": user.id,
         "name": user.name,
@@ -129,7 +129,7 @@ def create_user():
 @jwt_required()
 def update_user(user_id):
     """
-  Update a user (self or admin).
+    Update a user (self or admin).
     ---
     tags:
       - Admin Users
@@ -180,11 +180,11 @@ def update_user(user_id):
     current_user_id = int(get_jwt_identity())
     current_user = User.query.filter_by(id=current_user_id).first()
     if not current_user:
-      return jsonify({"msg": "User not found"}), 404
+        return jsonify({"msg": "User not found"}), 404
 
     is_admin = bool(current_user.is_administrator)
     if not is_admin and user_id != current_user_id:
-      return jsonify({"msg": "Forbidden"}), 403
+        return jsonify({"msg": "Forbidden"}), 403
 
     user = User.query.filter_by(id=user_id).first_or_404()
     payload = request.get_json(silent=True) or {}
@@ -192,41 +192,41 @@ def update_user(user_id):
     
     updated_fields = []
     if 'name' in data:
-      user.name = data['name']
-      updated_fields.append('name')
+        user.name = data['name']
+        updated_fields.append('name')
     
     if 'email' in data and data['email'] != user.email:
-      # Check if email is already taken
-      existing = User.query.filter_by(email=data['email']).first()
-      if existing:
-        logger.warning(f"User {user_id} update failed: email {data['email']} already taken")
-        return jsonify({"msg": "Email already taken"}), 409
-      user.email = data['email']
-      updated_fields.append('email')
+        # Check if email is already taken
+        existing = User.query.filter_by(email=data['email']).first()
+        if existing:
+            logger.warning("User %s update failed: email %s already taken", user_id, data['email'])
+            return jsonify({"msg": "Email already taken"}), 409
+        user.email = data['email']
+        updated_fields.append('email')
     
     if 'password' in data and data['password']:
-      user.set_password(data['password'])
-      updated_fields.append('password')
+        user.set_password(data['password'])
+        updated_fields.append('password')
     
     if 'is_administrator' in data:
-      if not is_admin:
-        return jsonify({"msg": "Forbidden"}), 403
-      user.is_administrator = data['is_administrator']
-      updated_fields.append('is_administrator')
+        if not is_admin:
+            return jsonify({"msg": "Forbidden"}), 403
+        user.is_administrator = data['is_administrator']
+        updated_fields.append('is_administrator')
 
     if 'preferred_language' in data:
-      user.preferred_language = data['preferred_language']
-      updated_fields.append('preferred_language')
+        user.preferred_language = data['preferred_language']
+        updated_fields.append('preferred_language')
 
     db.session.commit()
     
-    logger.info(f"User {user_id} updated by admin - fields: {', '.join(updated_fields)}")
+    logger.info("User %s updated by admin - fields: %s", user_id, ', '.join(updated_fields))
     return jsonify({
-      "id": user.id,
-      "name": user.name,
-      "email": user.email,
-      "is_administrator": user.is_administrator,
-      "preferred_language": user.preferred_language
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "is_administrator": user.is_administrator,
+        "preferred_language": user.preferred_language
     }), 200
 
 
@@ -271,7 +271,7 @@ def delete_user(user_id):
     db.session.delete(user)
     db.session.commit()
     
-    logger.info(f"User {user_id} ({user_email}) deleted by admin")
+    logger.info("User %s (%s) deleted by admin", user_id, user_email)
     return jsonify({"msg": "User deleted successfully"}), 200
 
 

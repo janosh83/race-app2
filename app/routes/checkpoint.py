@@ -1,7 +1,6 @@
 import os
 import logging
 from flask import Blueprint, jsonify, current_app, request
-from marshmallow import ValidationError
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image, CheckpointTranslation
@@ -166,7 +165,7 @@ def update_checkpoint(checkpoint_id):
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     data = request.get_json() or {}
     validated = CheckpointUpdateSchema().load(data)
-    
+
     updated_fields = []
     if 'title' in validated:
         checkpoint.title = validated['title']
@@ -183,9 +182,9 @@ def update_checkpoint(checkpoint_id):
     if 'numOfPoints' in validated:
         checkpoint.numOfPoints = validated['numOfPoints']
         updated_fields.append('numOfPoints')
-    
+
     db.session.commit()
-    logger.info(f"Checkpoint {checkpoint_id} updated - fields: {', '.join(updated_fields)}")
+    logger.info("Checkpoint %s updated - fields: %s", checkpoint_id, ', '.join(updated_fields))
     return jsonify({
         "id": checkpoint.id,
         "title": checkpoint.title,
@@ -234,7 +233,9 @@ def get_checkpoint_translations(checkpoint_id):
     """
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     logger.info(
-        f"Retrieved {len(checkpoint.translations)} checkpoint translations for checkpoint {checkpoint_id}"
+        "Retrieved %s checkpoint translations for checkpoint %s",
+        len(checkpoint.translations),
+        checkpoint_id
     )
     return jsonify([
         {
@@ -293,8 +294,9 @@ def create_checkpoint_translation(checkpoint_id):
     validated = CheckpointTranslationCreateSchema().load(data)
     if validated["language"] not in (checkpoint.race.supported_languages or []):
         logger.warning(
-            f"Checkpoint translation create rejected for checkpoint {checkpoint_id}: "
-            f"language {validated['language']} not supported"
+            "Checkpoint translation create rejected for checkpoint %s: language %s not supported",
+            checkpoint_id,
+            validated["language"]
         )
         return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
@@ -304,7 +306,9 @@ def create_checkpoint_translation(checkpoint_id):
     ).first()
     if existing:
         logger.warning(
-            f"Checkpoint translation already exists for checkpoint {checkpoint_id} language {validated['language']}"
+            "Checkpoint translation already exists for checkpoint %s language %s",
+            checkpoint_id,
+            validated["language"]
         )
         return jsonify({"message": "Translation already exists"}), 409
 
@@ -317,7 +321,9 @@ def create_checkpoint_translation(checkpoint_id):
     db.session.add(translation)
     db.session.commit()
     logger.info(
-        f"Checkpoint translation created for checkpoint {checkpoint_id} language {translation.language}"
+        "Checkpoint translation created for checkpoint %s language %s",
+        checkpoint_id,
+        translation.language
     )
     return jsonify({
         "id": translation.id,
@@ -372,8 +378,9 @@ def update_checkpoint_translation(checkpoint_id, language):
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     if language not in (checkpoint.race.supported_languages or []):
         logger.warning(
-            f"Checkpoint translation update rejected for checkpoint {checkpoint_id}: "
-            f"language {language} not supported"
+            "Checkpoint translation update rejected for checkpoint %s: language %s not supported",
+            checkpoint_id,
+            language
         )
         return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
@@ -382,7 +389,7 @@ def update_checkpoint_translation(checkpoint_id, language):
         language=language,
     ).first()
     if not translation:
-        logger.warning(f"Checkpoint translation not found for checkpoint {checkpoint_id} language {language}")
+        logger.warning("Checkpoint translation not found for checkpoint %s language %s", checkpoint_id, language)
         return jsonify({"message": "Translation not found"}), 404
 
     data = request.get_json(silent=True) or {}
@@ -393,7 +400,7 @@ def update_checkpoint_translation(checkpoint_id, language):
         translation.description = validated["description"]
 
     db.session.commit()
-    logger.info(f"Checkpoint translation updated for checkpoint {checkpoint_id} language {language}")
+    logger.info("Checkpoint translation updated for checkpoint %s language %s", checkpoint_id, language)
     return jsonify({
         "id": translation.id,
         "language": translation.language,
@@ -437,7 +444,7 @@ def delete_checkpoint_translation(checkpoint_id, language):
     ).first_or_404()
     db.session.delete(translation)
     db.session.commit()
-    logger.info(f"Checkpoint translation deleted for checkpoint {checkpoint_id} language {language}")
+    logger.info("Checkpoint translation deleted for checkpoint %s language %s", checkpoint_id, language)
     return jsonify({"message": "Translation deleted."}), 200
 
 # tested by test_checkpoint.py -> test_delete_checkpoint
@@ -477,7 +484,7 @@ def delete_checkpoint(checkpoint_id):
     # delete associated logs and images
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     logs = CheckpointLog.query.filter_by(checkpoint_id=checkpoint_id).all()
-    
+
     deleted_images = 0
     for log in logs:
         if log.image_id:
@@ -489,12 +496,17 @@ def delete_checkpoint(checkpoint_id):
                     if os.path.exists(image_path):
                         os.remove(image_path)
                         deleted_images += 1
-                except Exception as e:
-                    logger.error(f"Error deleting image file {image.filename} for checkpoint {checkpoint_id}: {e}")
+                except OSError as e:
+                    logger.error(
+                        "Error deleting image file %s for checkpoint %s: %s",
+                        image.filename,
+                        checkpoint_id,
+                        e
+                    )
                 db.session.delete(image)
         db.session.delete(log)
-    
-    logger.info(f"Checkpoint {checkpoint_id} deleted with {len(logs)} logs and {deleted_images} images")
+
+    logger.info("Checkpoint %s deleted with %s logs and %s images", checkpoint_id, len(logs), deleted_images)
     db.session.delete(checkpoint)
     db.session.commit()
     return jsonify({"message": "Checkpoint and associated logs deleted."}), 200

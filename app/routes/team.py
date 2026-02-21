@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 
@@ -6,6 +7,8 @@ from app import db
 from app.models import Team, Race, User, Registration, RaceCategory
 from app.routes.admin import admin_required
 from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
+from app.services.email_service import EmailService, generate_reset_token
+from app.models import team_members
 
 logger = logging.getLogger(__name__)
 
@@ -136,21 +139,21 @@ def get_team_by_race(race_id):
 
     results = []
     for team_id, team_name, category_name, email_sent, disqualified in registrations:
-      team = Team.query.filter_by(id=team_id).first()
-      members = []
-      if team and team.members:
-        members = [
-          {"id": user.id, "name": user.name, "email": user.email}
-          for user in team.members
-        ]
-      results.append({
-        "id": team_id,
-        "name": team_name,
-        "race_category": category_name,
-        "members": members,
-        "email_sent": email_sent,
-        "disqualified": bool(disqualified),
-      })
+        team = Team.query.filter_by(id=team_id).first()
+        members = []
+        if team and team.members:
+            members = [
+                {"id": user.id, "name": user.name, "email": user.email}
+                for user in team.members
+            ]
+        results.append({
+            "id": team_id,
+            "name": team_name,
+            "race_category": category_name,
+            "members": members,
+            "email_sent": email_sent,
+            "disqualified": bool(disqualified),
+        })
 
     return jsonify(results), 200
 
@@ -200,21 +203,19 @@ def sign_up(race_id):
     """
     data = request.get_json() or {}
     validated = TeamSignUpSchema().load(data)
-    
+
     team = Team.query.filter_by(id=validated['team_id']).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
     race_category = RaceCategory.query.filter_by(id=validated['race_category_id']).first_or_404()
 
     if race_category in race.categories:
-        
-      registration = Registration(race_id=race.id, team_id=team.id, race_category_id=validated['race_category_id'])
-      db.session.add(registration)
-      db.session.commit()
-      logger.info(f"Team {team.id} ({team.name}) registered for race {race_id} in category {race_category.name}")
-      return jsonify({"team_id": validated['team_id'], "race_id": race_id, "race_category": race_category.name}), 201
-    
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=validated['race_category_id'])
+        db.session.add(registration)
+        db.session.commit()
+        logger.info("Team %s (%s) registered for race %s in category %s", team.id, team.name, race_id, race_category.name)
+        return jsonify({"team_id": validated['team_id'], "race_id": race_id, "race_category": race_category.name}), 201
     else:
-        logger.error(f"Team {team.id} attempted to register for unavailable category {race_category.id} in race {race_id}")
+        logger.error("Team %s attempted to register for unavailable category %s in race %s", team.id, race_category.id, race_id)
         return jsonify({"message": "Category not available for the race"}), 400
 
 # delete registration (unregister team from race)
@@ -262,7 +263,7 @@ def delete_registration(race_id, team_id):
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
     db.session.delete(registration)
     db.session.commit()
-    logger.info(f"Registration deleted: team {team_id} unregistered from race {race_id}")
+    logger.info("Registration deleted: team %s unregistered from race %s", team_id, race_id)
     return jsonify({"message": "Registration deleted successfully"}), 200
 
 # toggle disqualified status of a team
@@ -330,17 +331,17 @@ def toggle_disqualification(race_id, team_id):
 
     data = request.get_json() or {}
     try:
-      validated = TeamDisqualifySchema().load(data)
+        validated = TeamDisqualifySchema().load(data)
     except ValidationError as err:
-      return jsonify({"errors": err.messages}), 400
+        return jsonify({"errors": err.messages}), 400
 
     disqualified = validated['disqualified']
     registration.disqualified = disqualified
     db.session.commit()
-  
+
     action = "disqualified" if disqualified else "reverted to competing status"
-    logger.info(f"Team {team_id} {action} in race {race_id}")
-  
+    logger.info("Team %s %s in race %s", team_id, action, race_id)
+
     message = f"Team {'disqualified' if disqualified else 'reverted to competing status'} successfully"
     return jsonify({
         "message": message,
@@ -391,41 +392,38 @@ def send_registration_emails(race_id):
       403:
         description: Forbidden - admin access required
     """
-    from app.services.email_service import EmailService, generate_reset_token
-    from app.models import team_members
-    from datetime import datetime, timedelta
-    
+
     race = Race.query.filter_by(id=race_id).first_or_404()
-    
+
     # Get only registrations where email hasn't been sent yet
     registrations = Registration.query.filter_by(race_id=race_id, email_sent=False).all()
-    
-    logger.info(f"Starting registration email send for race {race_id} - {len(registrations)} registrations pending")
-    
+
+    logger.info("Starting registration email send for race %s - %s registrations pending", race_id, len(registrations))
+
     sent_count = 0
     failed_count = 0
 
     # FIXME: this can be optimized by clever database joins
-    
+
     for registration in registrations:
         team = Team.query.filter_by(id=registration.team_id).first()
         if not team:
             continue
-        
+
         # Get race category name
         race_category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
         race_category_name = race_category.name if race_category else "N/A"
-            
+
         # Get all team members
         members = User.query.join(team_members).filter(team_members.c.team_id == team.id).all()
-        
+
         registration_success = True
         for member in members:
             try:
                 # Generate password reset token for user
                 reset_token = generate_reset_token()
                 member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
-                
+
                 success = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
@@ -440,20 +438,20 @@ def send_registration_emails(race_id):
                 else:
                     failed_count += 1
                     registration_success = False
-                    logger.error(f"Failed to send registration email to {member.email} for team {team.id}")
-            except Exception as e:
+                    logger.error("Failed to send registration email to %s for team %s", member.email, team.id)
+            except (OSError, ValueError, TypeError) as e:
                 failed_count += 1
                 registration_success = False
-                logger.error(f"Exception sending registration email to {member.email}: {e}")
-        
+                logger.error("Exception sending registration email to %s: %s", member.email, e)
+
         # Mark registration as email sent only if all team members received email
         if registration_success and len(members) > 0:
             registration.email_sent = True
-    
+
     db.session.commit()
-    
-    logger.info(f"Registration emails completed for race {race_id} - sent: {sent_count}, failed: {failed_count}")
-    
+
+    logger.info("Registration emails completed for race %s - sent: %s, failed: %s", race_id, sent_count, failed_count)
+
     return jsonify({
         "message": f"Sent {sent_count} emails successfully",
         "sent": sent_count,
@@ -495,7 +493,7 @@ def create_team():
     new_team = Team(name=validated['name'])
     db.session.add(new_team)
     db.session.commit()
-    logger.info(f"New team created: {new_team.name} (ID: {new_team.id})")
+    logger.info("New team created: %s (ID: %s)", new_team.name, new_team.id)
     return jsonify({"id": new_team.id, "name": new_team.name}), 201
 
 # add members to team
@@ -553,7 +551,7 @@ def add_members(team_id):
         user = User.query.filter_by(id=user_id).first_or_404()
         team.members.append(user)
     db.session.commit()
-    logger.info(f"Added {len(validated['user_ids'])} members to team {team_id}: {validated['user_ids']}")
+    logger.info("Added %s members to team %s: %s", len(validated['user_ids']), team_id, validated['user_ids'])
     return jsonify({"team_id": team.id, "user_ids": validated['user_ids']}), 201
 
 # get members of team
@@ -586,6 +584,7 @@ def get_members(team_id):
         description: Team not found
     """
     team = Team.query.filter_by(id=team_id).first_or_404()
+    logger.info("Retrieved members for team %s (ID: %s) - %s members found", team.name, team.id, len(team.members))
     return jsonify([{"id": user.id, "name": user.name} for user in team.members])
 
 
@@ -613,6 +612,7 @@ def remove_all_members(team_id):
     team = Team.query.filter_by(id=team_id).first_or_404()
     team.members.clear()
     db.session.commit()
+    logger.info("All members removed from team %s (ID: %s)", team.name, team.id)
     return jsonify({"message": "All members removed successfully"}), 200
 
 
@@ -644,4 +644,5 @@ def delete_team(team_id):
         return jsonify({"message": "Cannot delete the team, it has members associated with it."}), 400
     db.session.delete(team)
     db.session.commit()
-    return jsonify({"message": "Team deleted successfully"}), 200   
+    logger.info("Team deleted successfully: %s (ID: %s)", team.name, team.id)
+    return jsonify({"message": "Team deleted successfully"}), 200

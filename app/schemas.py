@@ -65,9 +65,6 @@ class CheckpointLogSchema(Schema):
     user_distance_km = fields.Float(load_default=None)
 
 
-
-
-
 class TaskCreateSchema(Schema):
     title = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")

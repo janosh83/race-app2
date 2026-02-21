@@ -1,17 +1,18 @@
-from unittest import result
 import logging
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory, Registration, Team, Checkpoint, Task, Image, RaceTranslation
+from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory
+from app.models import Registration, Team, Checkpoint, Task, RaceTranslation
 from app.routes.race_api.checkpoints import checkpoints_bp
 from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.admin import admin_required
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.utils import parse_datetime
-from app.schemas import RaceCreateSchema, RaceUpdateSchema, RaceTranslationCreateSchema, RaceTranslationUpdateSchema
+from app.schemas import RaceCreateSchema, RaceUpdateSchema
+from app.schemas import RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
@@ -48,12 +49,12 @@ def get_all_races():
     """
     races = Race.query.all()
     language = request.args.get("lang")
-    
+
     result = []
     for race in races:
         name = race.name
         description = race.description
-        
+
         if language:
             if language in (race.supported_languages or []):
                 translation = RaceTranslation.query.filter_by(
@@ -64,8 +65,8 @@ def get_all_races():
                     name = translation.name
                     description = translation.description
             else:
-                logger.warning(f"Race {race.id} requested with unsupported language {language}, using default")
-        
+                logger.warning("Race %s requested with unsupported language %s, using default", race.id, language)
+
         result.append({
             "id": race.id,
             "name": name,
@@ -77,7 +78,7 @@ def get_all_races():
             "supported_languages": race.supported_languages,
             "default_language": race.default_language
         })
-    
+
     return jsonify(result)
 
 # tested by test_races.py -> test_get_single_race
@@ -117,7 +118,7 @@ def get_single_race(race_id):
     description = race.description
     if language:
         if language not in (race.supported_languages or []):
-            logger.warning(f"Race {race_id} requested with unsupported language {language}, using default")
+            logger.warning("Race %s requested with unsupported language %s, using default", race_id, language)
         else:
             translation = RaceTranslation.query.filter_by(
                 race_id=race_id,
@@ -126,9 +127,14 @@ def get_single_race(race_id):
             if translation:
                 name = translation.name
                 description = translation.description
-    return jsonify({"id": race.id, "name": name, "description": description, "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at, "start_logging_at": race.start_logging_at,
-                    "end_logging_at": race.end_logging_at, "supported_languages": race.supported_languages,
+    return jsonify({"id": race.id,
+                    "name": name,
+                    "description": description,
+                    "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+                    "start_logging_at": race.start_logging_at,
+                    "end_logging_at": race.end_logging_at,
+                    "supported_languages": race.supported_languages,
                     "default_language": race.default_language}), 200
 
 # add race
@@ -174,16 +180,16 @@ def create_race():
     start_logging_at = parse_datetime(data['start_logging_at'])
     end_logging_at = parse_datetime(data['end_logging_at'])
     new_race = Race(name=data['name'],
-                    description=data['description'], 
+                    description=data['description'],
                     start_showing_checkpoints_at=start_showing_checkpoints_at,
-                    end_showing_checkpoints_at=end_showing_checkpoints_at, 
+                    end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
                     end_logging_at=end_logging_at,
                     supported_languages=data.get("supported_languages", list(SUPPORTED_LANGUAGES)),
                     default_language=data.get("default_language", DEFAULT_LANGUAGE))
     db.session.add(new_race)
     db.session.commit()
-    logger.info(f"New race created: {new_race.name} (ID: {new_race.id})")
+    logger.info("New race created: %s (ID: %s)", new_race.name, new_race.id)
     return jsonify({
       "id": new_race.id,
       "name": new_race.name,
@@ -212,10 +218,10 @@ def update_race(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
 
     if "supported_languages" in data or "default_language" in data:
-      supported = data.get("supported_languages", race.supported_languages or list(SUPPORTED_LANGUAGES))
-      default = data.get("default_language", race.default_language or DEFAULT_LANGUAGE)
-      if default not in supported:
-        raise ValidationError({"default_language": ["default_language must be in supported_languages"]})
+        supported = data.get("supported_languages", race.supported_languages or list(SUPPORTED_LANGUAGES))
+        default = data.get("default_language", race.default_language or DEFAULT_LANGUAGE)
+        if default not in supported:
+            raise ValidationError({"default_language": ["default_language must be in supported_languages"]})
 
     # simple scalar fields
     if 'name' in data:
@@ -223,9 +229,9 @@ def update_race(race_id):
     if 'description' in data:
         race.description = data.get('description')
     if 'supported_languages' in data:
-      race.supported_languages = data.get('supported_languages')
+        race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
-      race.default_language = data.get('default_language')
+        race.default_language = data.get('default_language')
 
     # datetime fields (accept several possible keys but prefer explicit *_at keys)
     if 'start_showing_checkpoints_at' in data:
@@ -250,8 +256,7 @@ def update_race(race_id):
 
     db.session.add(race)
     db.session.commit()
-    
-    logger.info(f"Race {race_id} updated: {race.name}")
+    logger.info("Race %s updated: %s", race_id, race.name)
     return jsonify({
         "id": race.id,
         "name": race.name,
@@ -270,7 +275,7 @@ def update_race(race_id):
 @admin_required()
 def delete_race(race_id):
     """
-    Delete a race by its ID.  
+    Delete a race by its ID.
     Only possible if the race has no checkpoints, teams, or visits associated.
     ---
     tags:
@@ -319,28 +324,28 @@ def delete_race(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     if race:
         if race.checkpoints:
-            logger.error(f"Cannot delete race {race_id}: has {len(race.checkpoints)} checkpoints")
+            logger.error("Cannot delete race %s: has %s checkpoints", race_id, len(race.checkpoints))
             return jsonify({"message": "Cannot delete the race, it has checkpoints associated with it."}), 400
         if race.registrations:
-            logger.error(f"Cannot delete race {race_id}: has {len(race.registrations)} registrations")
+            logger.error("Cannot delete race %s: has %s registrations", race_id, len(race.registrations))
             return jsonify({"message": "Cannot delete the race, it has registrations associated with it."}), 400
         if race.tasks:
-            logger.error(f"Cannot delete race {race_id}: has {len(race.tasks)} tasks")
+            logger.error("Cannot delete race %s: has %s tasks", race_id, len(race.tasks))
             return jsonify({"message": "Cannot delete the race, it has tasks associated with it."}), 400
 
         checkpoint_logs = CheckpointLog.query.filter_by(race_id=race_id).all()
         if checkpoint_logs:
-            logger.error(f"Cannot delete race {race_id}: has {len(checkpoint_logs)} checkpoint visits")
+            logger.error("Cannot delete race %s: has %s checkpoint visits", race_id, len(checkpoint_logs))
             return jsonify({"message": "Cannot delete the race, it has visits associated with it."}), 400
-        
+
         task_logs = TaskLog.query.filter_by(race_id=race_id).all()
         if task_logs:
-            logger.error(f"Cannot delete race {race_id}: has {len(task_logs)} task completions")
+            logger.error("Cannot delete race %s: has %s task completions", race_id, len(task_logs))
             return jsonify({"message": "Cannot delete the race, it has task completions associated with it."}), 400
 
         db.session.delete(race)
         db.session.commit()
-        logger.info(f"Race {race_id} ({race.name}) deleted successfully")
+        logger.info("Race %s (%s) deleted successfully", race_id, race.name)
         return jsonify({"message": "Race deleted successfully"}), 200
 
 
@@ -385,9 +390,7 @@ def get_race_translations(race_id):
                     type: string
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    logger.info(
-        f"Retrieved {len(race.translations)} race translations for race {race_id}"
-    )
+    logger.info("Retrieved %s race translations for race %s", len(race.translations), race_id)
     return jsonify([
         {
             "id": translation.id,
@@ -445,8 +448,9 @@ def create_race_translation(race_id):
     validated = RaceTranslationCreateSchema().load(data)
     if validated["language"] not in (race.supported_languages or []):
         logger.warning(
-            f"Race translation create rejected for race {race_id}: "
-            f"language {validated['language']} not supported"
+            "Race translation create rejected for race %s: language %s not supported",
+            race_id,
+            validated["language"]
         )
         return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
@@ -455,9 +459,7 @@ def create_race_translation(race_id):
         language=validated["language"],
     ).first()
     if existing:
-        logger.warning(
-            f"Race translation already exists for race {race_id} language {validated['language']}"
-        )
+        logger.warning("Race translation already exists for race %s language %s", race_id, validated["language"])
         return jsonify({"message": "Translation already exists"}), 409
 
     translation = RaceTranslation(
@@ -468,9 +470,7 @@ def create_race_translation(race_id):
     )
     db.session.add(translation)
     db.session.commit()
-    logger.info(
-        f"Race translation created for race {race_id} language {translation.language}"
-    )
+    logger.info("Race translation created for race %s language %s", race_id, translation.language)
     return jsonify({
         "id": translation.id,
         "language": translation.language,
@@ -524,8 +524,9 @@ def update_race_translation(race_id, language):
     race = Race.query.filter_by(id=race_id).first_or_404()
     if language not in (race.supported_languages or []):
         logger.warning(
-            f"Race translation update rejected for race {race_id}: "
-            f"language {language} not supported"
+            "Race translation update rejected for race %s: language %s not supported",
+            race_id,
+            language
         )
         return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
@@ -534,7 +535,7 @@ def update_race_translation(race_id, language):
         language=language,
     ).first()
     if not translation:
-        logger.warning(f"Race translation not found for race {race_id} language {language}")
+        logger.warning("Race translation not found for race %s language %s", race_id, language)
         return jsonify({"message": "Translation not found"}), 404
 
     data = request.get_json(silent=True) or {}
@@ -545,7 +546,7 @@ def update_race_translation(race_id, language):
         translation.description = validated["description"]
 
     db.session.commit()
-    logger.info(f"Race translation updated for race {race_id} language {language}")
+    logger.info("Race translation updated for race %s language %s", race_id, language)
     return jsonify({
         "id": translation.id,
         "language": translation.language,
@@ -589,7 +590,7 @@ def delete_race_translation(race_id, language):
     ).first_or_404()
     db.session.delete(translation)
     db.session.commit()
-    logger.info(f"Race translation deleted for race {race_id} language {language}")
+    logger.info("Race translation deleted for race %s language %s", race_id, language)
     return jsonify({"message": "Translation deleted."}), 200
 
 
@@ -640,7 +641,7 @@ def get_visits_by_race_and_team(race_id, team_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         return 403
-    
+
     visits = (
       db.session.query(
         CheckpointLog.id,
@@ -922,7 +923,7 @@ def get_race_results(race_id):
         .filter(Registration.race_id == race_id)
         .order_by(Registration.team_id)
         .all())
-    
+
     checkpoints_points = (db.session.query(CheckpointLog.team_id, db.func.sum(Checkpoint.numOfPoints).label("total_points"))
         .select_from(CheckpointLog)
         .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
@@ -930,7 +931,7 @@ def get_race_results(race_id):
         .group_by(CheckpointLog.team_id)
         .order_by(CheckpointLog.team_id)
         .all())
-    
+
     tasks_points = (db.session.query(TaskLog.team_id, db.func.sum(Task.numOfPoints).label("total_points"))
         .select_from(TaskLog)
         .join(Task, TaskLog.task_id == Task.id)
@@ -938,7 +939,7 @@ def get_race_results(race_id):
         .group_by(TaskLog.team_id)
         .order_by(TaskLog.team_id)
         .all())
-    
+
     result = []
     checkpoint_idx = 0
     task_idx = 0
@@ -962,6 +963,5 @@ def get_race_results(race_id):
             "points_for_checkpoints": points_for_checkpoints,
             "points_for_tasks": points_for_tasks,
             "total_points": points_for_checkpoints + points_for_tasks})
-              
 
     return jsonify(result), 200

@@ -1,12 +1,12 @@
 import logging
 from flask import Blueprint, jsonify, request
-
+from marshmallow import ValidationError
+from flask_jwt_extended import get_jwt_identity
+from app.schemas import RaceCategoryAssignSchema
 from app import db
 from app.models import Race, RaceCategory, RaceCategoryTranslation, User
 from app.utils import resolve_language
 from app.routes.admin import admin_required
-from flask_jwt_extended import get_jwt_identity
-from app.schemas import RaceCategoryAssignSchema
 
 logger = logging.getLogger(__name__)
 
@@ -67,25 +67,25 @@ def add_race_category(race_id):
     """
     data = request.get_json() or {}
     try:
-      validated_data = RaceCategoryAssignSchema().load(data)
-    except Exception as err:
-      return jsonify({"message": "Missing required field: race_category_id"}), 400
+        validated_data = RaceCategoryAssignSchema().load(data)
+    except ValidationError:
+        return jsonify({"message": "Missing required field: race_category_id"}), 400
 
     race = Race.query.filter_by(id=race_id).first_or_404()
     if not race:
-        logger.error(f"Attempt to add category to non-existent race {race_id}")
+        logger.error("Attempt to add category to non-existent race %s", race_id)
         return jsonify({"message": "Race not found"}), 404
 
     race_category = RaceCategory.query.filter_by(id=validated_data["race_category_id"]).first_or_404()
     if not race_category:
-        logger.error(f"Attempt to add non-existent category {validated_data['race_category_id']} to race {race_id}")
+        logger.error("Attempt to add non-existent category %s to race %s", validated_data['race_category_id'], race_id)
         return jsonify({"message": "Race category not found"}), 404
     
     race.categories.append(race_category)
     db.session.add(race)
     db.session.commit()
     
-    logger.info(f"Category {race_category.id} ({race_category.name}) added to race {race_id}")
+    logger.info("Category %s (%s) added to race %s", race_category.id, race_category.name, race_id)
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
 
 # tested by test_race_categories.py -> test_with_race
@@ -140,22 +140,24 @@ def get_race_categories(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
-      logger.warning(
-        f"Unsupported race category language '{requested_language}' requested for race {race_id}; using fallback"
-      )
+        logger.warning(
+            "Unsupported race category language '%s' requested for race %s; using fallback",
+            requested_language,
+            race_id
+        )
     language = resolve_language(race, user, requested_language)
     response = []
     for category in race.categories:
-      name = category.name
-      description = category.description
-      translation = RaceCategoryTranslation.query.filter_by(
-        race_category_id=category.id,
-        language=language,
-      ).first()
-      if translation:
-        name = translation.name
-        description = translation.description
-      response.append({"id": category.id, "name": name, "description": description})
+        name = category.name
+        description = category.description
+        translation = RaceCategoryTranslation.query.filter_by(
+            race_category_id=category.id,
+            language=language,
+        ).first()
+        if translation:
+            name = translation.name
+            description = translation.description
+        response.append({"id": category.id, "name": name, "description": description})
     return jsonify(response)
 
 
@@ -214,22 +216,22 @@ def remove_race_category(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     data = request.get_json() or {}
     try:
-      validated_data = RaceCategoryAssignSchema().load(data)
-    except Exception as err:
-      logger.error(f"Error validating request data: {err}")
-      return jsonify({"message": "Missing required field: race_category_id"}), 400
+        validated_data = RaceCategoryAssignSchema().load(data)
+    except ValidationError as err:
+        logger.error("Error validating request data: %s", err)
+        return jsonify({"message": "Missing required field: race_category_id"}), 400
     race_category_id = validated_data["race_category_id"]
 
     race_category = RaceCategory.query.filter_by(id=race_category_id).first_or_404()
 
     # if the category is not assigned, return 404
     if race_category not in race.categories:
-        logger.error(f"Attempt to remove unassigned category {race_category_id} from race {race_id}")
+        logger.error("Attempt to remove unassigned category %s from race %s", race_category_id, race_id)
         return jsonify({"message": "Category not assigned to this race"}), 404
 
     race.categories.remove(race_category)
     db.session.add(race)
     db.session.commit()
-    
-    logger.info(f"Category {race_category_id} ({race_category.name}) removed from race {race_id}")
+
+    logger.info("Category %s (%s) removed from race %s", race_category_id, race_category.name, race_id)
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200

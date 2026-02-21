@@ -56,22 +56,22 @@ def get_race_categories():
     """
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in SUPPORTED_LANGUAGES:
-      logger.warning(f"Unsupported race category language '{requested_language}' requested")
-      return jsonify({"errors": {"language": ["Unsupported language"]}}), 400
+        logger.warning("Unsupported race category language '%s' requested", requested_language)
+        return jsonify({"errors": {"language": ["Unsupported language"]}}), 400
     categories = RaceCategory.query.all()
     language = requested_language or DEFAULT_LANGUAGE
     response = []
     for category in categories:
-      name = category.name
-      description = category.description
-      translation = RaceCategoryTranslation.query.filter_by(
-        race_category_id=category.id,
-        language=language,
-      ).first()
-      if translation:
-        name = translation.name
-        description = translation.description
-      response.append({"id": category.id, "name": name, "description": description})
+        name = category.name
+        description = category.description
+        translation = RaceCategoryTranslation.query.filter_by(
+            race_category_id=category.id,
+            language=language,
+        ).first()
+        if translation:
+            name = translation.name
+            description = translation.description
+        response.append({"id": category.id, "name": name, "description": description})
     return jsonify(response), 200
 
 # create new race category
@@ -128,15 +128,15 @@ def create_race_category():
     """
     data = request.get_json() or {}
     try:
-      validated = RaceCategoryCreateSchema().load(data)
+        validated = RaceCategoryCreateSchema().load(data)
     except ValidationError as err:
-      if 'name' in err.messages:
-        return jsonify({"msg": "Missing race category name"}), 400
-      return jsonify({"errors": err.messages}), 400
+        if 'name' in err.messages:
+            return jsonify({"msg": "Missing race category name"}), 400
+        return jsonify({"errors": err.messages}), 400
     new_category = RaceCategory(name=validated['name'], description=validated.get('description', ''))
     db.session.add(new_category)
     db.session.commit()
-    logger.info(f"Race category created: {new_category.name} (ID: {new_category.id})")
+    logger.info("Race category created: %s (ID: %s)", new_category.name, new_category.id)
     return jsonify({"id": new_category.id, "name": new_category.name, "description": new_category.description}), 201
 
 # delete race category
@@ -219,7 +219,7 @@ def get_race_category_translations(category_id):
     """
     category = RaceCategory.query.filter_by(id=category_id).first_or_404()
     logger.info(
-        f"Retrieved {len(category.translations)} race category translations for category {category_id}"
+        "Retrieved %d race category translations for category %s", len(category.translations), category_id
     )
     return jsonify([
         {
@@ -280,7 +280,7 @@ def create_race_category_translation(category_id):
     ).first()
     if existing:
         logger.warning(
-            f"Race category translation already exists for category {category_id} language {validated['language']}"
+            "Race category translation already exists for category %s language %s", category_id, validated["language"]
         )
         return jsonify({"message": "Translation already exists"}), 409
 
@@ -293,7 +293,7 @@ def create_race_category_translation(category_id):
     db.session.add(translation)
     db.session.commit()
     logger.info(
-        f"Race category translation created for category {category_id} language {translation.language}"
+        "Race category translation created for category %s language %s", category_id, translation.language
     )
     return jsonify({
         "id": translation.id,
@@ -348,9 +348,7 @@ def update_race_category_translation(category_id, language):
         language=language,
     ).first()
     if not translation:
-        logger.warning(
-            f"Race category translation not found for category {category_id} language {language}"
-        )
+        logger.warning("Race category translation not found for category %s language %s", category_id, language)
         return jsonify({"message": "Translation not found"}), 404
 
     data = request.get_json(silent=True) or {}
@@ -361,7 +359,7 @@ def update_race_category_translation(category_id, language):
         translation.description = validated["description"]
 
     db.session.commit()
-    logger.info(f"Race category translation updated for category {category_id} language {language}")
+    logger.info("Race category translation updated for category %s language %s", category_id, language)
     return jsonify({
         "id": translation.id,
         "language": translation.language,
@@ -405,5 +403,5 @@ def delete_race_category_translation(category_id, language):
     ).first_or_404()
     db.session.delete(translation)
     db.session.commit()
-    logger.info(f"Race category translation deleted for category {category_id} language {language}")
+    logger.info("Race category translation deleted for category %s language %s", category_id, language)
     return jsonify({"message": "Translation deleted."}), 200

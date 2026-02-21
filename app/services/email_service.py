@@ -120,9 +120,9 @@ class EmailService:
             race_category=race_category,
             reset_link=reset_link
         )
-        
+
         return EmailService._send_email(subject, user_email, None, body_html)
-    
+
 
 def generate_reset_token():
     """Generate a secure random token for password reset."""

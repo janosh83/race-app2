@@ -1,14 +1,15 @@
+import logging
+import sys
+import os
 from flask import Flask, jsonify
+from flask import send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
 from flasgger import Swagger
 from flask_cors import CORS
 from flask_mail import Mail
-import os
 from marshmallow import ValidationError
-import logging
-import sys
 
 # database initialization
 db = SQLAlchemy()
@@ -93,7 +94,6 @@ def create_app(config_class=None):
                         }
                     }
                 }
-                        
             }
         }
     }
@@ -139,7 +139,7 @@ def create_app(config_class=None):
     # Keep Werkzeug request logs at INFO for visibility when developing
     logging.getLogger('werkzeug').setLevel(logging.INFO)
 
-    # blueprint registration
+    # Import blueprints here to avoid circular imports
     from app.routes.auth import auth_bp
     from app.routes.checkpoint import checkpoint_bp
     from app.routes.race import race_bp
@@ -147,6 +147,8 @@ def create_app(config_class=None):
     from app.routes.task import task_bp
     from app.routes.team import team_bp
     from app.routes.user import user_bp
+
+    # blueprint registration
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(checkpoint_bp, url_prefix="/api/checkpoint")
     app.register_blueprint(race_bp, url_prefix="/api/race")
@@ -160,8 +162,6 @@ def create_app(config_class=None):
         return jsonify({"errors": err.messages}), 400
 
     # Serve static images with CORS support
-    from flask import send_from_directory
-    
     images_folder = app.config['IMAGE_UPLOAD_FOLDER']
     os.makedirs(images_folder, exist_ok=True)
     

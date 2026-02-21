@@ -1,15 +1,16 @@
 import os
 import uuid
 import logging
+from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from werkzeug.utils import secure_filename
+from marshmallow import ValidationError
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language
+from app.utils import resolve_language, allowed_file
 from app.routes.admin import admin_required
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from werkzeug.utils import secure_filename
-from datetime import datetime
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 from app.utils import extract_image_coordinates, calculate_distance
 
@@ -18,21 +19,17 @@ logger = logging.getLogger(__name__)
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
 def _apply_checkpoint_translation(checkpoint, language):
-  if not language:
+    if not language:
+        return checkpoint.title, checkpoint.description
+    translation = CheckpointTranslation.query.filter_by(
+        checkpoint_id=checkpoint.id,
+        language=language,
+    ).first()
+    if translation:
+        return translation.title, translation.description
+    logger.debug("No translation found for checkpoint %s in language '%s'", checkpoint.id, language)
     return checkpoint.title, checkpoint.description
-  translation = CheckpointTranslation.query.filter_by(
-    checkpoint_id=checkpoint.id,
-    language=language,
-  ).first()
-  if translation:
-    return translation.title, translation.description
-  return checkpoint.title, checkpoint.description
 
 @checkpoints_bp.route('/', methods=['GET'])
 @jwt_required()
@@ -82,16 +79,18 @@ def get_checkpoints(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
-      logger.warning(
-        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
-      )
+        logger.warning(
+        "Unsupported checkpoint language '%s' requested for race %s; using fallback",
+        requested_language,
+        race_id,
+        )
     language = resolve_language(race, user, requested_language)
     checkpoints = Checkpoint.query.filter_by(race_id=race_id).all()
     return jsonify([
         {
-            "id": checkpoint.id, 
-            "title": _apply_checkpoint_translation(checkpoint, language)[0], 
-            "latitude": checkpoint.latitude, 
+            "id": checkpoint.id,
+            "title": _apply_checkpoint_translation(checkpoint, language)[0],
+            "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
             "description": _apply_checkpoint_translation(checkpoint, language)[1],
             "numOfPoints": checkpoint.numOfPoints
@@ -248,47 +247,47 @@ def create_checkpoint(race_id):
     """
     race = Race.query.filter_by(id=race_id).first()
     if not race:
-      logger.error(f"Attempt to create checkpoint for non-existent race ID: {race_id}")
-      return jsonify({"message": "Race not found"}), 404
+        logger.error("Attempt to create checkpoint for non-existent race ID: %s", race_id)
+        return jsonify({"message": "Race not found"}), 404
 
     schema = CheckpointCreateSchema()
 
     if request.content_type and request.content_type.startswith('multipart/form-data'):
-      raw_items = [request.form.to_dict()]
+        raw_items = [request.form.to_dict()]
     else:
-      payload = request.get_json(silent=True)
-      if payload is None:
-        logger.error(f"Invalid or missing JSON body in checkpoint creation for race {race_id}")
-        return jsonify({"message": "Invalid or missing JSON body"}), 400
-      raw_items = payload if isinstance(payload, list) else [payload]
+        payload = request.get_json(silent=True)
+        if payload is None:
+            logger.error("Invalid or missing JSON body in checkpoint creation for race %s", race_id)
+            return jsonify({"message": "Invalid or missing JSON body"}), 400
+        raw_items = payload if isinstance(payload, list) else [payload]
 
     try:
-      loaded = schema.load(raw_items, many=True)
-    except Exception as err:
-      logger.warning(f"Checkpoint creation validation failed for race {race_id}: {err}")
-      messages = getattr(err, 'messages', str(err))
-      return jsonify({"errors": messages}), 400
+        loaded = schema.load(raw_items, many=True)
+    except ValidationError as err:
+        logger.warning("Checkpoint creation validation failed for race %s: %s", race_id, err)
+        messages = getattr(err, 'messages', str(err))
+        return jsonify({"errors": messages}), 400
 
     created = []
     for entry in loaded:
-      new_checkpoint = Checkpoint(
-        title=entry.get('title'),
-        latitude=entry.get('latitude'),
-        longitude=entry.get('longitude'),
-        description=entry.get('description'),
-        numOfPoints=entry.get('numOfPoints'),
-        race_id=race_id
-      )
-      db.session.add(new_checkpoint)
-      created.append(new_checkpoint)
+        new_checkpoint = Checkpoint(
+            title=entry.get('title'),
+            latitude=entry.get('latitude'),
+            longitude=entry.get('longitude'),
+            description=entry.get('description'),
+            numOfPoints=entry.get('numOfPoints'),
+            race_id=race_id
+        )
+        db.session.add(new_checkpoint)
+        created.append(new_checkpoint)
 
     # commit once for all created records
     db.session.commit()
-    logger.info(f"Created {len(created)} checkpoint(s) for race {race_id}")
+    logger.info("Created %s checkpoint(s) for race %s", len(created), race_id)
 
-    result = [{"id": cp.id, 
-               "title": cp.title, 
-               "description": cp.description, 
+    result = [{"id": cp.id,
+               "title": cp.title,
+               "description": cp.description,
                "latitude": cp.latitude, "longitude": cp.longitude,
                "numOfPoints": cp.numOfPoints } for cp in created]
     # return single object when one created to remain backwards-compatible
@@ -352,18 +351,20 @@ def get_checkpoint(race_id, checkpoint_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
-      logger.warning(
-        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
-      )
+        logger.warning(
+        "Unsupported checkpoint language '%s' requested for race %s; using fallback",
+        requested_language,
+        race_id,
+        )
     language = resolve_language(race, user, requested_language)
     checkpoint = Checkpoint.query.filter_by(race_id=race_id, id=checkpoint_id).first_or_404()
     title, description = _apply_checkpoint_translation(checkpoint, language)
     return jsonify({
-        "id": checkpoint.id, 
-      "title": title, 
-        "latitude": checkpoint.latitude, 
-        "longitude": checkpoint.longitude, 
-      "description": description, 
+        "id": checkpoint.id,
+      "title": title,
+        "latitude": checkpoint.latitude,
+        "longitude": checkpoint.longitude,
+      "description": description,
         "numOfPoints": checkpoint.numOfPoints}), 200
 
 # tested by test_visits.py -> test_log_visit
@@ -444,17 +445,17 @@ def log_visit(race_id):
     """
     # Accept both JSON and multipart/form-data
     if request.content_type and request.content_type.startswith('multipart/form-data'):
-      raw_data = request.form.to_dict()
-      file = request.files.get('image')
+        raw_data = request.form.to_dict()
+        file = request.files.get('image')
     else:
-      raw_data = request.get_json(silent=True) or {}
-      file = None
+        raw_data = request.get_json(silent=True) or {}
+        file = None
 
     try:
-      data = CheckpointLogSchema().load(raw_data)
-    except Exception as err:
-      logger.error(f"Checkpoint log validation failed for race {race_id}: {err}")
-      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
+        data = CheckpointLogSchema().load(raw_data)
+    except ValidationError as err:
+        logger.error("Checkpoint log validation failed for race %s: %s", race_id, err)
+        return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
@@ -464,13 +465,13 @@ def log_visit(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.error(f"Attempt to log visit outside logging period for race {race_id} by user {user.id}")
+        logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race =  user_is_in_team and registration
-    
+
     image_id = None
     image_latitude = None
     image_longitude = None
@@ -483,104 +484,115 @@ def log_visit(race_id):
     if 'user_latitude' in data and 'user_longitude' in data:
         user_latitude = data.get('user_latitude')
         user_longitude = data.get('user_longitude')
-    
+
     if is_administrator or is_signed_to_race:
-      if file and allowed_file(file.filename):
-        # Generate unique filename: timestamp_uuid_original.ext
-        original_filename = secure_filename(file.filename)
-        file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        unique_id = uuid.uuid4().hex[:8]
-        filename = f"{timestamp}_{unique_id}.{file_ext}"
-        
-        images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-        os.makedirs(images_folder, exist_ok=True)
-        filepath = os.path.join(images_folder, filename)
-        try:
-            file.save(filepath)
-            
-            # Extract image coordinates from EXIF metadata
-            image_latitude, image_longitude = extract_image_coordinates(filepath)
-            if image_latitude is not None and image_longitude is not None:
-                logger.info(f"Extracted GPS coordinates from image: ({image_latitude}, {image_longitude})")
-            else:
-                logger.info(f"No GPS coordinates found in image EXIF metadata for {filename}")
-            
-            image = Image(filename=filename)
-            db.session.add(image)
-            db.session.commit() # not sure if it is needed here
-            image_id = image.id
-            logger.info(f"Image {filename} saved for checkpoint visit (race {race_id}, team {data['team_id']})")
-        except Exception as e:
-            logger.error(f"Failed to save image for checkpoint visit: {e}")
-            # Continue without image
-            image_id = None
-      
-      # Get checkpoint details for location validation
-      checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+        if file and allowed_file(file.filename):
+            # Generate unique filename: timestamp_uuid_original.ext
+            original_filename = secure_filename(file.filename)
+            file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            unique_id = uuid.uuid4().hex[:8]
+            filename = f"{timestamp}_{unique_id}.{file_ext}"
 
-      # Calculate distance if image coordinates are available
-      if image_latitude is not None and image_longitude is not None:
-        image_distance_km = calculate_distance(
-          checkpoint.latitude, checkpoint.longitude,
-          image_latitude, image_longitude
+            images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+            os.makedirs(images_folder, exist_ok=True)
+            filepath = os.path.join(images_folder, filename)
+            try:
+                file.save(filepath)
+
+                image_latitude, image_longitude = extract_image_coordinates(filepath)
+                if image_latitude is not None and image_longitude is not None:
+                    logger.info("Extracted GPS coordinates from image: (%s, %s)", image_latitude, image_longitude)
+                else:
+                    logger.info("No GPS coordinates found in image EXIF metadata for %s", filename)
+
+                image = Image(filename=filename)
+                db.session.add(image)
+                db.session.commit()  # not sure if it is needed here
+                image_id = image.id
+                logger.info(
+                    "Image %s saved for checkpoint visit (race %s, team %s)",
+                    filename,
+                    race_id,
+                    data['team_id'],
+                )
+            except (OSError, ValueError) as err:
+                logger.error("Failed to save image for checkpoint visit: %s", err)
+                image_id = None
+
+        # Get checkpoint details for location validation
+        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+
+        # Calculate distance if image coordinates are available
+        if image_latitude is not None and image_longitude is not None:
+            image_distance_km = calculate_distance(
+                checkpoint.latitude, checkpoint.longitude,
+                image_latitude, image_longitude
+            )
+
+        # Calculate distance if user coordinates are available
+        if user_latitude is not None and user_longitude is not None:
+            user_distance_km = calculate_distance(
+                checkpoint.latitude, checkpoint.longitude,
+                user_latitude, user_longitude
+            )
+
+        # log visit (always, regardless of user/image coordinates presence)
+        new_log = CheckpointLog(
+            checkpoint_id=data['checkpoint_id'],
+            team_id=data['team_id'],
+            race_id=race_id,
+            image_id=image_id,
+            image_latitude=image_latitude,
+            image_longitude=image_longitude,
+            image_distance_km=image_distance_km,
+            user_latitude=user_latitude,
+            user_longitude=user_longitude,
+            user_distance_km=user_distance_km
+        )
+        db.session.add(new_log)
+        db.session.commit()
+        logger.info(
+            "Checkpoint visit logged: race %s, checkpoint %s, team %s, user %s",
+            race_id,
+            data['checkpoint_id'],
+            data['team_id'],
+            user.id,
         )
 
-      # Calculate distance if user coordinates are available
-      if user_latitude is not None and user_longitude is not None:
-        user_distance_km = calculate_distance(
-          checkpoint.latitude, checkpoint.longitude,
-          user_latitude, user_longitude
-        )
+        response_data = {
+            "id": new_log.id,
+            "checkpoint_id": new_log.checkpoint_id,
+            "team_id": new_log.team_id,
+            "race_id": race_id,
+            "image_id": image_id
+        }
 
-      # log visit (always, regardless of user/image coordinates presence)
-      new_log = CheckpointLog(
-        checkpoint_id=data['checkpoint_id'],
-        team_id=data['team_id'],
-        race_id=race_id,
-        image_id=image_id,
-        image_latitude=image_latitude,
-        image_longitude=image_longitude,
-        image_distance_km=image_distance_km,
-        user_latitude=user_latitude,
-        user_longitude=user_longitude,
-        user_distance_km=user_distance_km
-      )
-      db.session.add(new_log)
-      db.session.commit()
-      logger.info(
-        f"Checkpoint visit logged: race {race_id}, checkpoint {data['checkpoint_id']}, "
-        f"team {data['team_id']}, user {user.id}"
-      )
+        # Include proximity information if image coordinates are available
+        if image_latitude is not None and image_longitude is not None:
+            response_data["image_distance_km"] = round(image_distance_km, 3)
+            response_data["image_latitude"] = image_latitude
+            response_data["image_longitude"] = image_longitude
+            logger.info("Image taken %.3f km from checkpoint", image_distance_km)
 
-      response_data = {
-        "id": new_log.id,
-        "checkpoint_id": new_log.checkpoint_id,
-        "team_id": new_log.team_id,
-        "race_id": race_id,
-        "image_id": image_id
-      }
+        # Include user location information if available
+        if user_latitude is not None and user_longitude is not None:
+            response_data["user_distance_km"] = round(user_distance_km, 3) if user_distance_km is not None else None
+            response_data["user_latitude"] = user_latitude
+            response_data["user_longitude"] = user_longitude
+            if user_distance_km is not None:
+                logger.info(
+                "User was %.3f km from checkpoint when logging visit", user_distance_km
+                )
 
-      # Include proximity information if image coordinates are available
-      if image_latitude is not None and image_longitude is not None:
-        response_data["image_distance_km"] = round(image_distance_km, 3)
-        response_data["image_latitude"] = image_latitude
-        response_data["image_longitude"] = image_longitude
-        logger.info(f"Image taken {image_distance_km:.3f} km from checkpoint")
-
-      # Include user location information if available
-      if user_latitude is not None and user_longitude is not None:
-        response_data["user_distance_km"] = round(user_distance_km, 3) if user_distance_km is not None else None
-        response_data["user_latitude"] = user_latitude
-        response_data["user_longitude"] = user_longitude
-        if user_distance_km is not None:
-          logger.info(
-            f"User was {user_distance_km:.3f} km from checkpoint when logging visit"
-          )
-
-      return jsonify(response_data), 201
+        return jsonify(response_data), 201
     else:
-        logger.warning(f"Unauthorized checkpoint visit log attempt by user {user.id} for team {data['team_id']} in race {race_id}")
+        logger.warning(
+            "Unauthorized checkpoint visit log attempt by user %s for team %s in race %s",
+            user.id,
+            data['team_id'],
+            race_id,
+        )
         return jsonify({"message": "You are not authorized to log this visit."}), 403
 
 # tested by test_visits.py -> test_unlog_visits
@@ -648,34 +660,32 @@ def unlog_visit(race_id):
     """
     raw_data = request.get_json(silent=True) or {}
     try:
-      data = CheckpointLogSchema().load(raw_data)
-    except Exception as err:
-      logger.error(f"Checkpoint unlog validation failed for race {race_id}: {err}")
-      return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
+        data = CheckpointLogSchema().load(raw_data)
+    except ValidationError as err:
+        logger.error("Checkpoint unlog validation failed for race %s: %s", race_id, err)
+        return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
-    # check if user is admin or member of the team
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
     now = datetime.now()
-    # allow logging only when inside logging period or if admin
-    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.error(f"Unlog attempt outside logging period for race {race_id} by user {user.id}")
+    if not (race.start_logging_at < now < race.end_logging_at) and not is_administrator:
+        logger.error("Unlog attempt outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
     is_signed_to_race = user_is_in_team and registration
-    
+
     if is_administrator or is_signed_to_race:
         log = CheckpointLog.query.filter_by(
             checkpoint_id=data["checkpoint_id"],
             team_id=data["team_id"],
             race_id=race_id
         ).first()
+
         if log:
-            # Delete associated image file and record if present
             if log.image_id:
                 image = Image.query.filter_by(id=log.image_id).first_or_404()
                 if image:
@@ -684,21 +694,33 @@ def unlog_visit(race_id):
                     try:
                         if os.path.exists(image_path):
                             os.remove(image_path)
-                            logger.info(f"Deleted image file {image.filename} for checkpoint log {log.id}")
-                    except Exception as e:
-                        logger.error(f"Error deleting image file {image.filename}: {e}")
+                            logger.info("Deleted image file %s for checkpoint log %s", image.filename, log.id)
+                    except OSError as err:
+                        logger.error("Error deleting image file %s: %s", image.filename, err)
                     db.session.delete(image)
+
             db.session.delete(log)
             db.session.commit()
-            logger.info(f"Checkpoint visit unlogged - race: {race_id}, team: {data['team_id']}, checkpoint: {data['checkpoint_id']}, user: {user.id}")
+            logger.info(
+                "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
+                race_id,
+                data['team_id'],
+                data['checkpoint_id'],
+                user.id,
+            )
             return jsonify({"message": "Log deleted successfully."}), 200
-        else:
-            logger.error(f"Unlog attempt for non-existent log - race: {race_id}, team: {data['team_id']}, checkpoint: {data['checkpoint_id']}")
-            return jsonify({"message": "Log not found."}), 404
-    else:
-        logger.error(f"Unauthorized unlog attempt by user {user.id} for team {data['team_id']}")
-        return jsonify({"message": "You are not authorized to delete this visit."}), 403
-    
+
+        logger.error(
+          "Unlog attempt for non-existent log - race: %s, team: %s, checkpoint: %s",
+          race_id,
+          data['team_id'],
+          data['checkpoint_id'],
+        )
+        return jsonify({"message": "Log not found."}), 404
+
+    logger.error("Unauthorized unlog attempt by user %s for team %s", user.id, data['team_id'])
+    return jsonify({"message": "You are not authorized to delete this visit."}), 403
+
 # get all visits for selected team and race with status
 # tested by test_visits.py -> test_get_checkpoints_with_status
 @checkpoints_bp.route("/<int:team_id>/status/", methods=["GET"])
@@ -768,16 +790,18 @@ def get_checkpoints_with_status(race_id, team_id):
     # Check if the user is authorized to view this team's data
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
-        logger.error(f"Unauthorized access attempt to team {team_id} checkpoints by user {user.id}")
+        logger.error("Unauthorized access attempt to team %s checkpoints by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403
 
     # Get all checkpoints for the race
     race = Race.query.filter_by(id=race_id).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
-      logger.warning(
-        f"Unsupported checkpoint language '{requested_language}' requested for race {race_id}; using fallback"
-      )
+        logger.warning(
+        "Unsupported checkpoint language '%s' requested for race %s; using fallback",
+        requested_language,
+        race_id,
+        )
     language = resolve_language(race, user, requested_language)
     checkpoints = race.checkpoints
 
@@ -785,7 +809,13 @@ def get_checkpoints_with_status(race_id, team_id):
     visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
     visits_by_checkpoint = {visit.checkpoint_id: visit for visit in visits}
 
-    logger.info(f"Retrieved {len(checkpoints)} checkpoints with status for race {race_id}, team {team_id}, user {user.id}")
+    logger.info(
+        "Retrieved %s checkpoints with status for race %s, team %s, user %s",
+        len(checkpoints),
+        race_id,
+        team_id,
+        user.id,
+    )
 
     # Build the response
     response = []
