@@ -1,8 +1,10 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import ActiveRacePage from './ActiveRacePage';
+
 import { selectActiveRace } from '../../utils/activeRaceUtils';
+
+import ActiveRacePage from './ActiveRacePage';
 
 // Mock dependencies
 vi.mock('../../utils/activeRaceUtils');

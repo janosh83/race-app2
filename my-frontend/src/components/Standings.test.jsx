@@ -1,8 +1,11 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import Standings from './Standings';
+import React from 'react';
+
+
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+
+import Standings from './Standings';
 
 // Mock dependencies
 vi.mock('../services/raceApi');

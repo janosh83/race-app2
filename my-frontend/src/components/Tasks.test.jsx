@@ -1,9 +1,12 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Tasks from './Tasks';
+import React from 'react';
+
+import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
-import * as TimeContext from '../contexts/TimeContext';
+
+import Tasks from './Tasks';
+
 
 // Mock dependencies
 vi.mock('../services/raceApi');

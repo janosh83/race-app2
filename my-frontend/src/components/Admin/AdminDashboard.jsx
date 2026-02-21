@@ -1,17 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import RaceList from './RaceList';
-import RaceForm from './RaceForm';
-import RegistrationList from './RegistrationList';
-import CheckpointList from './CheckpointList';
-import TaskList from './TaskList';
-import CategoryForm from './CategoryForm';
-import Standings from './Standings';
-import VisitsList from './VisitsList';
-import { adminApi } from '../../services/adminApi';
-import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+
 import { LANGUAGE_LABELS } from '../../config/languages';
+import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+
+import CategoryForm from './CategoryForm';
+import CheckpointList from './CheckpointList';
+import RaceForm from './RaceForm';
+import RaceList from './RaceList';
+import RegistrationList from './RegistrationList';
+import Standings from './Standings';
+import TaskList from './TaskList';
+import VisitsList from './VisitsList';
+
 
 function formatIso(iso) {
   if (!iso) return '—';
@@ -29,7 +32,7 @@ function AdminDashboard() {
   const [selected, setSelected] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [, setCategories] = useState([]);
   const [translations, setTranslations] = useState([]);
   const [viewingTranslationLang, setViewingTranslationLang] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +42,7 @@ function AdminDashboard() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
   const [visitingTeam, setVisitingTeam] = useState(null);
-  
+
   // submenu state for selected race
   const [activeSubmenu, setActiveSubmenu] = useState('checkpoints'); // 'checkpoints', 'registrations', 'progress'
 
@@ -59,7 +62,7 @@ function AdminDashboard() {
       })
       .finally(() => mounted && setLoading(false));
     return () => { mounted = false; };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (selected) {
@@ -171,7 +174,7 @@ function AdminDashboard() {
                 <>
                   <div className="d-flex justify-content-between align-items-center mb-2">
                     <h4>{t('admin.dashboard.manage', {
-                      name: viewingTranslationLang 
+                      name: viewingTranslationLang
                       ? (translations.find(t => t.language === viewingTranslationLang)?.name || selected.name || selected.title || `#${selected.id}`)
                       : (selected.name || selected.title || `#${selected.id}`)
                     })}</h4>
@@ -185,7 +188,7 @@ function AdminDashboard() {
                   <div className="card mb-3">
                     <div className="card-body">
                       {(() => {
-                        const desc = viewingTranslationLang 
+                        const desc = viewingTranslationLang
                           ? (translations.find(t => t.language === viewingTranslationLang)?.description || selected.description)
                           : selected.description;
                         return desc ? (
@@ -215,7 +218,7 @@ function AdminDashboard() {
                           </div>
                           <div>
                             <strong>{t('admin.dashboard.supportedLanguages')}:</strong>{' '}
-                            {selected.supported_languages && selected.supported_languages.length > 0 
+                            {selected.supported_languages && selected.supported_languages.length > 0
                               ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
                               : t('admin.dashboard.none')}
                           </div>
@@ -223,7 +226,7 @@ function AdminDashboard() {
                             <div className="d-flex align-items-center gap-2">
                               <strong>{t('admin.dashboard.existingTranslations')}:</strong>
                               {translations && translations.length > 0 ? (
-                                <LanguageFlagsDisplay 
+                                <LanguageFlagsDisplay
                                   languages={translations.map(t => t.language)}
                                   selectedLanguage={viewingTranslationLang}
                                   onClick={(lang) => setViewingTranslationLang(viewingTranslationLang === lang ? null : lang)}
@@ -241,7 +244,7 @@ function AdminDashboard() {
                   {/* Submenu tabs */}
                   <ul className="nav nav-tabs mb-3">
                     <li className="nav-item">
-                      <button 
+                      <button
                         className={`nav-link ${activeSubmenu === 'checkpoints' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('checkpoints')}
                       >
@@ -249,7 +252,7 @@ function AdminDashboard() {
                       </button>
                     </li>
                     <li className="nav-item">
-                      <button 
+                      <button
                         className={`nav-link ${activeSubmenu === 'registrations' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('registrations')}
                       >
@@ -257,7 +260,7 @@ function AdminDashboard() {
                       </button>
                     </li>
                     <li className="nav-item">
-                      <button 
+                      <button
                         className={`nav-link ${activeSubmenu === 'progress' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('progress')}
                       >

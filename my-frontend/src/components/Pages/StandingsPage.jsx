@@ -1,4 +1,5 @@
 import React from 'react';
+
 import Standings from '../Standings';
 
 function StandingsPage() {

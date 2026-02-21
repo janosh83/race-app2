@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { adminApi } from '../../services/adminApi';
-import Toast from '../Toast';
-import TranslationManager from './TranslationManager';
-import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import { logger } from '../../utils/logger';
+import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+import Toast from '../Toast';
+
+import TranslationManager from './TranslationManager';
 
 export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
   const { t } = useTranslation();

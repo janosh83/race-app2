@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { formatDate } from '../contexts/TimeContext';
 
 function StatusBadge({ topOffset = 56, isShown, loggingAllowed, timeInfo, itemName = 'Content' }) {

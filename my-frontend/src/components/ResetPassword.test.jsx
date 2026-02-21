@@ -1,8 +1,10 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import ResetPassword from './ResetPassword';
+
 import { authApi } from '../services/authApi';
+
+import ResetPassword from './ResetPassword';
 
 // Mock dependencies
 vi.mock('../services/authApi');

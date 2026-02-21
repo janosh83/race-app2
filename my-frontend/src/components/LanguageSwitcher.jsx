@@ -1,11 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { userApi } from '../services/userApi';
-import { useTime } from '../contexts/TimeContext';
-import { logger } from '../utils/logger';
-import enFlag from '../assets/flags/en.svg';
+
 import csFlag from '../assets/flags/cs.svg';
 import deFlag from '../assets/flags/de.svg';
+import enFlag from '../assets/flags/en.svg';
+import { useTime } from '../contexts/TimeContext';
+import { userApi } from '../services/userApi';
+import { logger } from '../utils/logger';
 
 const LANGUAGE_OPTIONS = [
   { value: 'en', label: 'EN', flag: enFlag },

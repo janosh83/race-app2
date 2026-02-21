@@ -1,13 +1,15 @@
+import L from 'leaflet';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import L from 'leaflet';
+
 import 'leaflet/dist/leaflet.css';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
-import { raceApi } from '../services/raceApi';
 import { useTime, formatDate } from '../contexts/TimeContext';
-import { logger } from '../utils/logger';
-import StatusBadge from './StatusBadge';
+import { raceApi } from '../services/raceApi';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { resizeImageWithExif } from '../utils/image';
+import { logger } from '../utils/logger';
+
+import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 function Map({ topOffset = 56 }) {
@@ -51,11 +53,11 @@ function Map({ topOffset = 56 }) {
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
-    
+
     const fetchCheckpoints = () => {
       logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
       setCheckpointError(false);
-      
+
       raceApi
         .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
@@ -75,7 +77,7 @@ function Map({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId, selectedLanguage]);
+  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -109,10 +111,10 @@ function Map({ topOffset = 56 }) {
       const onPos = (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         logger.info('GEOLOCATION', 'Position update', { lat: latitude.toFixed(4), lng: longitude.toFixed(4) });
-        
+
         // Store latest position for immediate use in checkpoint logging (no geolocation delay)
         userLocationRef.current = { latitude, longitude, accuracy, timestamp: Date.now() };
-        
+
         // create or update a small blue circle marker
         if (userMarkerRef.current) {
           userMarkerRef.current.setLatLng([latitude, longitude]);
@@ -136,9 +138,9 @@ function Map({ topOffset = 56 }) {
 
       // get initial position with relaxed accuracy for faster initial acquisition
       logger.info('GEOLOCATION', 'Starting continuous location monitoring');
-      navigator.geolocation.getCurrentPosition(onPos, onErr, { 
+      navigator.geolocation.getCurrentPosition(onPos, onErr, {
         enableHighAccuracy: false,  // Use standard accuracy for faster initial position
-        timeout: 5000 
+        timeout: 5000
       });
       // watch for updates continuously with relaxed settings
       geoWatchIdRef.current = navigator.geolocation.watchPosition(onPos, onErr, {
@@ -155,7 +157,7 @@ function Map({ topOffset = 56 }) {
           navigator.geolocation.clearWatch(geoWatchIdRef.current);
           geoWatchIdRef.current = null;
         }
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
       if (userMarkerRef.current && mapInstance.current) {
         mapInstance.current.removeLayer(userMarkerRef.current);
         userMarkerRef.current = null;
@@ -253,7 +255,7 @@ function Map({ topOffset = 56 }) {
     if (updated) {
       setSelectedCheckpoint(updated);
     }
-  }, [checkpoints, selectedCheckpoint?.id]);
+  }, [checkpoints, selectedCheckpoint]);
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -350,7 +352,7 @@ function Map({ topOffset = 56 }) {
     logger.info('RACE', 'Retrying checkpoint fetch', { raceId: activeRaceId, teamId: activeTeamId });
     setToast(null);
     setCheckpointError(false);
-    
+
     raceApi
       .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
       .then((data) => {
@@ -448,7 +450,7 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
-      <StatusBadge 
+      <StatusBadge
         topOffset={topOffset}
         isShown={showCheckpoints}
         loggingAllowed={loggingAllowed}
@@ -472,7 +474,7 @@ function Map({ topOffset = 56 }) {
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h3>{selectedCheckpoint.title}</h3>
-              <button 
+              <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleCloseOverlay}
               >
@@ -496,7 +498,7 @@ function Map({ topOffset = 56 }) {
               <div className="mb-3">
                 <label className="form-label">{t('map.visitPhotoLabel')}</label>
                 <div>
-                  <img 
+                  <img
                     src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
                     alt={t('map.visitPhotoAlt')}
                     style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
@@ -523,24 +525,24 @@ function Map({ topOffset = 56 }) {
                   <>
                     <div className="mb-3">
                       <label className="form-label">{t('map.attachPhoto')}</label>
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         className="form-control"
                         accept="image/*"
                         onChange={handleImageSelect}
                       />
                       {imagePreview && (
                         <div className="mt-2">
-                          <img 
-                            src={imagePreview} 
-                            alt="Preview" 
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
                             style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }}
                           />
                         </div>
                       )}
                     </div>
                     <div className="d-grid gap-2">
-                      <button 
+                      <button
                         className="btn btn-primary btn-lg"
                         onClick={handleLogVisit}
                       >
@@ -551,7 +553,7 @@ function Map({ topOffset = 56 }) {
                 )}
                 {loggingAllowed && selectedCheckpoint.visited && (
                   <div className="d-grid gap-2">
-                    <button 
+                    <button
                       className="btn btn-danger btn-lg"
                       onClick={handleDeleteVisit}
                     >
@@ -561,8 +563,8 @@ function Map({ topOffset = 56 }) {
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
-                    {selectedCheckpoint.visited 
-                      ? t('map.visitLoggedReadOnly') 
+                    {selectedCheckpoint.visited
+                      ? t('map.visitLoggedReadOnly')
                       : t('map.loggingNotOpen')}
                   </div>
                 )}

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { LANGUAGE_LABELS, LANGUAGE_FLAGS } from '../config/languages';
 
 /**

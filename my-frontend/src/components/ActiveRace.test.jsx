@@ -1,9 +1,12 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
+
 import * as TimeContext from '../contexts/TimeContext';
-import ActiveRace from './ActiveRace';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+
+import ActiveRace from './ActiveRace';
+
 
 // Mock utilities
 vi.mock('../utils/api');

@@ -1,9 +1,11 @@
+import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter, MemoryRouter } from 'react-router-dom';
-import RaceLayout from './RaceLayout';
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { MemoryRouter } from 'react-router-dom';
+
 import * as TimeContext from '../../contexts/TimeContext';
+import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+
+import RaceLayout from './RaceLayout';
 
 // Mock dependencies
 vi.mock('../../utils/api');
@@ -286,7 +288,7 @@ describe('RaceLayout Component', () => {
       renderWithProviders();
 
       const toggleButton = screen.getByRole('button', { name: 'Toggle navigation' });
-      
+
       // Open navbar
       fireEvent.click(toggleButton);
       expect(toggleButton).toHaveAttribute('aria-expanded', 'true');

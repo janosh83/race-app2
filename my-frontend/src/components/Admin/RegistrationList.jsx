@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { adminApi } from '../../services/adminApi';
-import TeamCreation from './TeamCreation';
-import RegistrationImporter from './RegistrationImporter';
 import { logger } from '../../utils/logger';
+
+import RegistrationImporter from './RegistrationImporter';
+import TeamCreation from './TeamCreation';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId }) {

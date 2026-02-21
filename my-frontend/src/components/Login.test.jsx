@@ -1,9 +1,11 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
+
 import { TimeProvider } from '../contexts/TimeContext';
-import Login from './Login';
 import { authApi } from '../services/authApi';
+
+import Login from './Login';
 
 // Mock the authApi
 vi.mock('../services/authApi');

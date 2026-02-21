@@ -1,9 +1,12 @@
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Map from './Map';
+
+import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
-import * as TimeContext from '../contexts/TimeContext';
+
+import Map from './Map';
+
 
 // Mock CSS imports
 vi.mock('leaflet/dist/leaflet.css', () => {});
@@ -35,21 +38,21 @@ vi.mock('leaflet', () => {
   return {
     __esModule: true,
     default: {
-      map(element) {
+      map(_element) {
         return mockMap;
       },
-      tileLayer(url, options) {
+      tileLayer(_url, _options) {
         return {
           addTo: vi.fn(() => mockMap),
         };
       },
-      marker(coords, options) {
+      marker(_coords, _options) {
         return {
           addTo: vi.fn(() => mockMap),
           on: vi.fn(),
         };
       },
-      circleMarker(coords, options) {
+      circleMarker(_coords, _options) {
         return {
           addTo: vi.fn(() => mockMap),
           setLatLng: vi.fn(() => ({})),
@@ -89,18 +92,18 @@ describe('Map Component', () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.useFakeTimers();
-    
+
     // Mock geolocation
     global.navigator.geolocation = mockGeolocation;
-    
+
     // Mock TimeContext
     vi.spyOn(TimeContext, 'useTime').mockReturnValue({
       activeRace: { race_id: 1, team_id: 10 },
       timeInfo: { state: 'LOGGING' },
     });
-    
+
     vi.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
-    
+
     // Mock environment variables
     vi.stubEnv('VITE_MAPY_API_KEY', 'test-api-key');
     vi.stubEnv('VITE_API_URL', 'http://test-api.com');
@@ -153,7 +156,7 @@ describe('Map Component', () => {
         { id: 1, title: 'CP1', latitude: 50.0, longitude: 14.0, visited: false },
         { id: 2, title: 'CP2', latitude: 50.1, longitude: 14.1, visited: true },
       ];
-      
+
       raceApi.getCheckpointsStatus.mockResolvedValue(mockCheckpoints);
 
       render(<Map />);
@@ -189,7 +192,7 @@ describe('Map Component', () => {
   describe('Logging state badge', () => {
     test('shows "Logging open" badge when logging is allowed', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
-      
+
       render(<Map />);
 
       expect(screen.getByText('Logging open')).toBeInTheDocument();
@@ -211,7 +214,7 @@ describe('Map Component', () => {
   describe('Checkpoint overlay', () => {
     test('does not show overlay initially', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
-      
+
       render(<Map />);
 
       expect(screen.queryByText('✕ Close')).not.toBeInTheDocument();
@@ -225,14 +228,14 @@ describe('Map Component', () => {
         visited: true,
         image_filename: 'test.jpg',
       };
-      
+
       raceApi.getCheckpointsStatus.mockResolvedValue([checkpoint]);
-      
+
       const { rerender } = render(<Map />);
-      
+
       // Simulate checkpoint selection (this would normally happen via marker click)
       rerender(<Map />);
-      
+
       // Since we can't click Leaflet markers in tests, we'll test the overlay rendering logic
       // by checking that the component structure exists
       expect(screen.queryByText('Test Checkpoint')).not.toBeInTheDocument();
@@ -269,7 +272,7 @@ describe('Map Component', () => {
   describe('Upload overlay', () => {
     test('does not show upload overlay initially', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
-      
+
       render(<Map />);
 
       expect(screen.queryByText('Uploading...')).not.toBeInTheDocument();
@@ -280,9 +283,9 @@ describe('Map Component', () => {
     test('cleans up geolocation watch on unmount', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
       mockGeolocation.watchPosition.mockReturnValue(123);
-      
+
       const { unmount } = render(<Map />);
-      
+
       unmount();
 
       expect(mockGeolocation.clearWatch).toHaveBeenCalled();
@@ -342,7 +345,7 @@ describe('Map Component', () => {
   describe('Custom topOffset prop', () => {
     test('uses default topOffset of 56', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
-      
+
       render(<Map />);
 
       const badge = screen.getByText('Logging open').closest('div');
@@ -351,7 +354,7 @@ describe('Map Component', () => {
 
     test('uses custom topOffset when provided', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
-      
+
       render(<Map topOffset={100} />);
 
       const badge = screen.getByText('Logging open').closest('div');

@@ -1,7 +1,10 @@
-import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
-import { TimeProvider, useTime, formatDate } from './TimeContext';
+import React from 'react';
+
 import { apiFetch } from '../utils/api';
+
+import { TimeProvider, useTime, formatDate } from './TimeContext';
+
 
 // Mock apiFetch
 vi.mock('../utils/api');

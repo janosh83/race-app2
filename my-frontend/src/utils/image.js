@@ -53,7 +53,7 @@ export async function resizeImageWithExif(file, { maxSize = 1000, quality = 0.9 
     try {
       const exifObj = piexif.load(originalDataUrl);
       exifStr = piexif.dump(exifObj);
-    } catch (err) {
+    } catch {
       exifStr = '';
     }
   }

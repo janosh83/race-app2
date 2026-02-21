@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 // jest-dom adds custom jest matchers for asserting on DOM nodes.
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
@@ -10,26 +11,26 @@ const originalLog = console.log;
 const originalWarn = console.warn;
 const originalError = console.error;
 
-console.log = (...args) => {
+console.log = (..._args) => {
   // Only suppress logger output (starts with %c[)
-  if (typeof args[0] === 'string' && args[0].includes('%c[')) {
+  if (typeof _args[0] === 'string' && _args[0].includes('%c[')) {
     return;
   }
-  originalLog(...args);
+  originalLog(..._args);
 };
 
-console.warn = (...args) => {
+console.warn = (..._args) => {
   // Only suppress logger output (starts with %c[)
-  if (typeof args[0] === 'string' && args[0].includes('%c[')) {
+  if (typeof _args[0] === 'string' && _args[0].includes('%c[')) {
     return;
   }
-  originalWarn(...args);
+  originalWarn(..._args);
 };
 
-console.error = (...args) => {
+console.error = (..._args) => {
   // Only suppress logger output (starts with %c[)
-  if (typeof args[0] === 'string' && args[0].includes('%c[')) {
+  if (typeof _args[0] === 'string' && _args[0].includes('%c[')) {
     return;
   }
-  originalError(...args);
+  originalError(..._args);
 };

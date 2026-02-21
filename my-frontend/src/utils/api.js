@@ -29,7 +29,7 @@ export function isTokenExpired(token, marginSeconds = 10) {
   return Date.now() > (expMs - marginSeconds * 1000);
 }
 
-export function logoutAndRedirect(loginPath = '/login') {
+export function logoutAndRedirect(_loginPath = '/login') {
   logger.info('AUTH', 'Logging out and redirecting to login');
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
@@ -39,11 +39,15 @@ export function logoutAndRedirect(loginPath = '/login') {
   localStorage.removeItem('activeSection');
   try {
     sessionStorage.removeItem('initialLoad');
-  } catch {}
+  } catch {
+    void 0;
+  }
   // Notify app to sync auth state immediately
   try {
     window.dispatchEvent(new Event('auth-update'));
-  } catch {}
+  } catch {
+    void 0;
+  }
   // Replace history entry to prevent back navigation; fall back to href in tests
   // Redirect to root (/) so server serves index.html; React Router will redirect to /login
   try {
@@ -145,10 +149,10 @@ export async function apiFetch(path, opts = {}) {
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
   const method = opts.method || 'GET';
   let token = localStorage.getItem('accessToken');
-  
+
   // Log the request
   logger.apiRequest(method, path, opts.body);
-  
+
   // Check if token is expired or about to expire (within 2 minutes)
   if (token && !noAuth && isTokenExpired(token, 120)) {
     try {
@@ -158,7 +162,7 @@ export async function apiFetch(path, opts = {}) {
       logger.error('API', `Token refresh failed for ${method} ${path}`, err.message);
     }
   }
-  
+
   const headers = new Headers(opts.headers || {});
   headers.set('Accept', 'application/json');
   if (token && !noAuth) headers.set('Authorization', `Bearer ${token}`);
@@ -179,10 +183,10 @@ export async function apiFetch(path, opts = {}) {
       body,
       signal,
     });
-    
+
     // Log the response
     logger.apiResponse(method, path, res.status, res.ok ? 'Success' : 'Failed');
-    
+
     const result = await handleResponse(res, { noRedirectOnAuthFailure });
     return result;
   } catch (err) {

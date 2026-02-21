@@ -1,5 +1,6 @@
-import { resizeImageWithExif } from './image';
 import piexif from 'piexifjs';
+
+import { resizeImageWithExif } from './image';
 
 vi.mock('piexifjs', () => {
   const passthrough = vi.fn((_, dataUrl) => dataUrl);

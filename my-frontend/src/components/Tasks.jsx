@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
-import { raceApi } from '../services/raceApi';
+
 import { useTime, formatDate } from '../contexts/TimeContext';
-import StatusBadge from './StatusBadge';
+import { raceApi } from '../services/raceApi';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
+
+import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 function Tasks({ topOffset = 56 }) {
@@ -38,11 +40,11 @@ function Tasks({ topOffset = 56 }) {
   // Fetch tasks with status
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
-    
+
     const fetchTasks = () => {
       logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
       setTaskError(false);
-      
+
       raceApi
         .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
@@ -62,7 +64,7 @@ function Tasks({ topOffset = 56 }) {
     };
 
     fetchTasks();
-  }, [activeRaceId, activeTeamId, selectedLanguage]);
+  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
@@ -161,7 +163,7 @@ function Tasks({ topOffset = 56 }) {
     logger.info('RACE', 'Retrying task fetch', { raceId: activeRaceId, teamId: activeTeamId });
     setToast(null);
     setTaskError(false);
-    
+
     raceApi
       .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
       .then((data) => {
@@ -258,7 +260,7 @@ function Tasks({ topOffset = 56 }) {
         </div>
       )}
 
-      <StatusBadge 
+      <StatusBadge
         topOffset={topOffset}
         isShown={showTasks}
         loggingAllowed={loggingAllowed}

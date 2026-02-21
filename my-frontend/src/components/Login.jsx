@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { selectActiveRace } from '../utils/activeRaceUtils';
+import { useNavigate } from 'react-router-dom';
+
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
+import { selectActiveRace } from '../utils/activeRaceUtils';
 import { logger } from '../utils/logger';
+
 import LanguageSwitcher from './LanguageSwitcher';
 
 function Login() {
@@ -36,7 +38,7 @@ function Login() {
                 }
 
                 // choose active race (if exactly one candidate)
-                const { activeRaceId, candidates } = selectActiveRace(data.signed_races || []);
+                const { activeRaceId } = selectActiveRace(data.signed_races || []);
 
                 if (activeRaceId) {
                     // find the full signed_race object to persist (may contain team_id)
@@ -54,7 +56,7 @@ function Login() {
                     // Notify app about auth change and go directly to map (one race auto-selected)
                     window.dispatchEvent(new Event('auth-update'));
                     navigate(`/race/${activeRaceId}/map`, { replace: true });
-                    
+
                 } else {
                     logger.info('RACE', 'Multiple race candidates available, user must select');
                     // no single candidate — clear any previous active race

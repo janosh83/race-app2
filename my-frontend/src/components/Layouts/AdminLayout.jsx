@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '../LanguageSwitcher';
+import { Outlet, useNavigate } from 'react-router-dom';
+
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 function AdminLayout() {
-  console.log('AdminLayout - Component rendering');
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
@@ -13,7 +13,6 @@ function AdminLayout() {
   const user = React.useMemo(() => {
     try {
       const userData = JSON.parse(localStorage.getItem('user') || 'null');
-      console.log('AdminLayout - User data:', userData);
       return userData;
     } catch {
       return null;
@@ -36,9 +35,7 @@ function AdminLayout() {
 
   // Redirect non-admins
   useEffect(() => {
-    console.log('AdminLayout - Checking admin status. User:', user, 'is_administrator:', user?.is_administrator);
     if (user && user.is_administrator === false) {
-      console.log('AdminLayout - Redirecting non-admin to /race');
       navigate('/race');
     }
   }, [user, navigate]);

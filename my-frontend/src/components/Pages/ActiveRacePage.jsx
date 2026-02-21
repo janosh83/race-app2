@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ActiveRace from '../ActiveRace';
-import { selectActiveRace } from '../../utils/activeRaceUtils';
+
 import { useTime } from '../../contexts/TimeContext';
+import { selectActiveRace } from '../../utils/activeRaceUtils';
+import ActiveRace from '../ActiveRace';
 
 function ActiveRacePage() {
   const navigate = useNavigate();

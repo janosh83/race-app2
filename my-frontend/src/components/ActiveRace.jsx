@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
-import { findCandidates } from '../utils/activeRaceUtils';
+
 import { formatDate, useTime } from '../contexts/TimeContext';
+import { findCandidates } from '../utils/activeRaceUtils';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { logger } from '../utils/logger';
+
 import LanguageFlagsDisplay from './LanguageFlagsDisplay';
-import { LANGUAGE_FLAGS } from '../config/languages';
+
 
 function ActiveRace() {
   const { t } = useTranslation();
@@ -36,7 +38,7 @@ function ActiveRace() {
       setActiveRace(candidates[0]);
     }
   }, [activeRace, candidates, setActiveRace]);
-  
+
 
   const handleSelect = (race) => {
     logger.info('RACE', 'User selected race', { race: race.name || race.race_id });
@@ -63,7 +65,7 @@ function ActiveRace() {
             {activeRace.supported_languages && activeRace.supported_languages.length > 0 && (
               <div className="mb-3">
                 <p className="text-muted small mb-2">{t('activeRace.supportedLanguages')}:</p>
-                <LanguageFlagsDisplay 
+                <LanguageFlagsDisplay
                   languages={activeRace.supported_languages}
                   flagWidth={32}
                   flagHeight={24}

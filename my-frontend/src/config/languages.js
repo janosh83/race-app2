@@ -1,6 +1,6 @@
-import enFlag from '../assets/flags/en.svg';
 import csFlag from '../assets/flags/cs.svg';
 import deFlag from '../assets/flags/de.svg';
+import enFlag from '../assets/flags/en.svg';
 
 export const SUPPORTED_LANGUAGES = ['en', 'cs', 'de'];
 

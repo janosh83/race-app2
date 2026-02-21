@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
@@ -25,7 +26,7 @@ export default function CheckpointVisits({ checkpointId }) {
     };
 
     fetchVisits();
-  }, [checkpointId]);
+  }, [checkpointId, t]);
 
   const handleDelete = async (visitId) => {
     if (window.confirm(t('admin.checkpointVisits.confirmDelete'))) {

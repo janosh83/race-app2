@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import LanguageSwitcher from '../LanguageSwitcher';
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { Outlet, useNavigate } from 'react-router-dom';
+
 import { useTime } from '../../contexts/TimeContext';
+import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import { logger } from '../../utils/logger';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 function RaceLayout() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ function RaceLayout() {
   const [navOpen, setNavOpen] = useState(false);
   const [navHeight, setNavHeight] = useState(56);
   const navRef = useRef(null);
-  const { activeRace, signedRaces } = useTime();
+  const { activeRace } = useTime();
 
   const user = React.useMemo(() => {
     try {
@@ -23,12 +24,12 @@ function RaceLayout() {
   }, []);
 
   // Measure navbar height for map offset
-  const measureNav = () => {
+  const measureNav = useCallback(() => {
     if (navRef.current) {
       const h = Math.ceil(navRef.current.getBoundingClientRect().height);
       if (h && h !== navHeight) setNavHeight(h);
     }
-  };
+  }, [navHeight]);
 
   useEffect(() => {
     measureNav();
@@ -39,13 +40,13 @@ function RaceLayout() {
       window.removeEventListener('resize', onResize);
       window.removeEventListener('orientationchange', onResize);
     };
-  }, []);
+  }, [measureNav]);
 
   useEffect(() => {
     measureNav();
     const t = setTimeout(measureNav, 300);
     return () => clearTimeout(t);
-  }, [navOpen]);
+  }, [navOpen, measureNav]);
 
   // Check token expiry
   useEffect(() => {

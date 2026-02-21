@@ -1,7 +1,10 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import ForgotPassword from './ForgotPassword';
+import React from 'react';
+
 import * as authApiModule from '../services/authApi';
+
+import ForgotPassword from './ForgotPassword';
+
 
 // Mock the authApi module
 vi.mock('../services/authApi');

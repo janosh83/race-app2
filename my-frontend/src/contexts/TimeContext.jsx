@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+
 import { apiFetch } from '../utils/api';
 import { logger } from '../utils/logger';
 
@@ -46,9 +47,9 @@ export function TimeProvider({ children }) {
       const stored = JSON.parse(localStorage.getItem('activeRace') || 'null');
       logger.info('CONTEXT', 'Initialized activeRace from localStorage', { race: stored?.race_name || stored?.name || 'none' });
       return stored;
-    } catch { 
+    } catch {
       logger.warn('CONTEXT', 'Failed to parse activeRace from localStorage');
-      return null; 
+      return null;
     }
   });
   const [signedRaces, setSignedRaces] = useState(() => {
@@ -56,9 +57,9 @@ export function TimeProvider({ children }) {
       const stored = JSON.parse(localStorage.getItem('signedRaces') || '[]');
       logger.info('CONTEXT', 'Initialized signedRaces from localStorage', { count: stored.length });
       return stored;
-    } catch { 
+    } catch {
       logger.warn('CONTEXT', 'Failed to parse signedRaces from localStorage');
-      return []; 
+      return [];
     }
   });
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
@@ -66,9 +67,9 @@ export function TimeProvider({ children }) {
       const stored = localStorage.getItem('selectedLanguage') || 'en';
       logger.info('CONTEXT', 'Initialized selectedLanguage from localStorage', { language: stored });
       return stored;
-    } catch { 
+    } catch {
       logger.warn('CONTEXT', 'Failed to parse selectedLanguage from localStorage');
-      return 'en'; 
+      return 'en';
     }
   });
   const [timeInfo, setTimeInfo] = useState({ state: 'UNKNOWN' });
@@ -105,7 +106,7 @@ export function TimeProvider({ children }) {
     };
   }, [activeRace]);
 
-  const setActiveRaceAndPersist = (race) => {
+  const setActiveRaceAndPersist = useCallback((race) => {
     if (!race) {
       logger.info('CONTEXT', 'Clearing active race');
       localStorage.removeItem('activeRace');
@@ -114,22 +115,22 @@ export function TimeProvider({ children }) {
       localStorage.setItem('activeRace', JSON.stringify(race));
     }
     setActiveRace(race);
-  };
+  }, []);
 
-  const setSignedRacesAndPersist = (races) => {
+  const setSignedRacesAndPersist = useCallback((races) => {
     const safeRaces = races || [];
     logger.info('CONTEXT', 'Updating signed races', { count: safeRaces.length });
     setSignedRaces(safeRaces);
     localStorage.setItem('signedRaces', JSON.stringify(safeRaces));
-  };
+  }, []);
 
-  const setSelectedLanguageAndPersist = (language) => {
+  const setSelectedLanguageAndPersist = useCallback((language) => {
     logger.info('CONTEXT', 'Setting selected language', { language });
     setSelectedLanguage(language);
     localStorage.setItem('selectedLanguage', language);
-  };
+  }, []);
 
-  async function refreshSignedRaces() {
+  const refreshSignedRaces = useCallback(async () => {
     logger.info('CONTEXT', 'Refreshing signed races from server');
     try {
       const data = await apiFetch('/api/user/signed-races/');
@@ -150,7 +151,7 @@ export function TimeProvider({ children }) {
       logger.error('CONTEXT', 'Failed to refresh signed races', e.message);
       // ignore errors; next refresh will try again
     }
-  }
+  }, [activeRace, setActiveRaceAndPersist, setSignedRacesAndPersist]);
 
   useEffect(() => {
     // Only set up refresh if user is logged in (has signed races)
@@ -164,7 +165,7 @@ export function TimeProvider({ children }) {
       logger.info('CONTEXT', 'Window focus detected, refreshing races');
       refreshSignedRaces();
     };
-    const onVisibility = () => { 
+    const onVisibility = () => {
       if (document.visibilityState === 'visible') {
         logger.info('CONTEXT', 'Tab became visible, refreshing races');
         refreshSignedRaces();
@@ -183,7 +184,7 @@ export function TimeProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisibility);
       if (refreshRef.current) clearInterval(refreshRef.current);
     };
-  }, [activeRace, signedRaces]);
+  }, [activeRace, refreshSignedRaces, signedRaces]);
 
   return (
     <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, refreshSignedRaces, selectedLanguage, setSelectedLanguage: setSelectedLanguageAndPersist }}>

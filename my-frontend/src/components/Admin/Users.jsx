@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { adminApi } from '../../services/adminApi';
-import Toast from '../Toast';
 import { logger } from '../../utils/logger';
+import Toast from '../Toast';
 
 export default function Users() {
   const { t } = useTranslation();
@@ -26,7 +27,7 @@ export default function Users() {
     isAdmin: false
   });
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -39,11 +40,11 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleCreate = async () => {
     setFormError(null);

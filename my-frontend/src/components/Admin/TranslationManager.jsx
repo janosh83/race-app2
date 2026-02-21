@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { adminApi } from '../../services/adminApi';
-import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
-import { logger } from '../../utils/logger';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-function TranslationManager({ raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
+import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
+import { adminApi } from '../../services/adminApi';
+import { logger } from '../../utils/logger';
+
+
+const API_METHODS = {
+  race: { get: adminApi.getRaceTranslations, create: adminApi.createRaceTranslation, update: adminApi.updateRaceTranslation, delete: adminApi.deleteRaceTranslation },
+  checkpoint: { get: adminApi.getCheckpointTranslations, create: adminApi.createCheckpointTranslation, update: adminApi.updateCheckpointTranslation, delete: adminApi.deleteCheckpointTranslation },
+  task: { get: adminApi.getTaskTranslations, create: adminApi.createTaskTranslation, update: adminApi.updateTaskTranslation, delete: adminApi.deleteTaskTranslation },
+  category: { get: adminApi.getCategoryTranslations, create: adminApi.createCategoryTranslation, update: adminApi.updateCategoryTranslation, delete: adminApi.deleteCategoryTranslation }
+};
+
+function TranslationManager({ raceId: _raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
   const { t } = useTranslation();
   const [translations, setTranslations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -12,23 +21,11 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
   const [editingLanguage, setEditingLanguage] = useState(null);
   const [formData, setFormData] = useState({});
 
-  const apiMethods = {
-    race: { get: adminApi.getRaceTranslations, create: adminApi.createRaceTranslation, update: adminApi.updateRaceTranslation, delete: adminApi.deleteRaceTranslation },
-    checkpoint: { get: adminApi.getCheckpointTranslations, create: adminApi.createCheckpointTranslation, update: adminApi.updateCheckpointTranslation, delete: adminApi.deleteCheckpointTranslation },
-    task: { get: adminApi.getTaskTranslations, create: adminApi.createTaskTranslation, update: adminApi.updateTaskTranslation, delete: adminApi.deleteTaskTranslation },
-    category: { get: adminApi.getCategoryTranslations, create: adminApi.createCategoryTranslation, update: adminApi.updateCategoryTranslation, delete: adminApi.deleteCategoryTranslation }
-  };
-
-  useEffect(() => {
-    if (!entityId) return;
-    fetchTranslations();
-  }, [entityId, entityType, t]);
-
-  const fetchTranslations = async () => {
+  const fetchTranslations = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const methods = apiMethods[entityType];
+      const methods = API_METHODS[entityType];
       const data = await methods.get(entityId);
       setTranslations(Array.isArray(data) ? data : (data?.data || []));
     } catch (err) {
@@ -37,7 +34,12 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
     } finally {
       setLoading(false);
     }
-  };
+  }, [entityId, entityType, t]);
+
+  useEffect(() => {
+    if (!entityId) return;
+    fetchTranslations();
+  }, [entityId, fetchTranslations]);
 
   const handleEdit = (translation) => {
     setEditingLanguage(translation.language);
@@ -58,15 +60,15 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
     if (!editingLanguage) return;
     setError(null);
     try {
-      const methods = apiMethods[entityType];
+      const methods = API_METHODS[entityType];
       const isNew = !translations.some(t => t.language === editingLanguage);
-      
+
       if (isNew) {
         await methods.create(entityId, editingLanguage, formData);
       } else {
         await methods.update(entityId, editingLanguage, formData);
       }
-      
+
       await fetchTranslations();
       setEditingLanguage(null);
       setFormData({});
@@ -80,7 +82,7 @@ function TranslationManager({ raceId, entityType, entityId, entityName, fields =
     if (!window.confirm(t('admin.translationManager.deleteConfirm', { language: LANGUAGE_LABELS[language] || language }))) return;
     setError(null);
     try {
-      const methods = apiMethods[entityType];
+      const methods = API_METHODS[entityType];
       await methods.delete(entityId, language);
       await fetchTranslations();
     } catch (err) {

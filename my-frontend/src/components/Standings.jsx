@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+
 import { raceApi } from '../services/raceApi';
+import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 function Standings() {
   const { t } = useTranslation();
@@ -81,7 +82,7 @@ function Standings() {
     };
 
     fetchResults();
-  }, []);
+  }, [t]);
 
   if (loading) return <div>{t('results.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;

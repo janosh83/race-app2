@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import ActiveRacePage from './components/Pages/ActiveRacePage';
-import AdminLayout from './components/Layouts/AdminLayout';
-import AdminPage from './components/Pages/AdminPage';
+
 import ForgotPassword from './components/ForgotPassword';
-import Login from './components/Login';
-import MapPage from './components/Pages/MapPage';
+import AdminLayout from './components/Layouts/AdminLayout';
 import RaceLayout from './components/Layouts/RaceLayout';
-import ResetPassword from './components/ResetPassword';
+import Login from './components/Login';
+import ActiveRacePage from './components/Pages/ActiveRacePage';
+import AdminPage from './components/Pages/AdminPage';
+import MapPage from './components/Pages/MapPage';
 import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
+import ResetPassword from './components/ResetPassword';
 import { TimeProvider } from './contexts/TimeContext';
 import { isTokenExpired } from './utils/api';
 import { logger } from './utils/logger';
@@ -28,23 +29,18 @@ function App() {
 
   useEffect(() => {
     const syncAuth = () => {
-      console.log('[AUTH] Starting auth check...');
       logger.info('ROUTING', 'Starting auth check');
-      
+
       const token = localStorage.getItem('accessToken');
-      console.log('[AUTH] Token retrieved:', { hasToken: !!token, tokenLength: token?.length });
       logger.info('ROUTING', 'Token retrieved', { hasToken: !!token });
-      
+
       const isExpired = token ? isTokenExpired(token) : true;
-      console.log('[AUTH] Token expiry check:', { isExpired, hasToken: !!token });
       logger.info('ROUTING', 'Token expiry check', { isExpired });
-      
+
       const loggedIn = !!(token && !isExpired);
-      console.log('[AUTH] Auth check complete:', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
       logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
-      
+
       setIsLoggedIn(loggedIn);
-      console.log('[AUTH] isLoggedIn state updated to:', loggedIn);
     };
 
     // Run immediately on mount
@@ -61,10 +57,9 @@ function App() {
       window.removeEventListener('focus', syncAuth);
     };
   }, []);
-  
+
   // Show loading state while checking auth
   if (isLoggedIn === null) {
-    console.log('[APP] Rendering loading state - auth check not complete yet');
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
         <p>Loading...</p>
@@ -72,9 +67,7 @@ function App() {
       </div>
     );
   }
-  
-  console.log('[APP] Auth check complete, rendering routes with isLoggedIn:', isLoggedIn);
-  
+
   return (
     <TimeProvider>
       <Router>
@@ -89,7 +82,7 @@ function App() {
               </LogOnce>
             )
           } />
-          
+
           <Route path="/forgot-password" element={
             isLoggedIn ? (
               <Navigate to="/race" replace />
@@ -99,7 +92,7 @@ function App() {
               </LogOnce>
             )
           } />
-          
+
           <Route path="/reset-password" element={
             isLoggedIn ? (
               <Navigate to="/race" replace />
