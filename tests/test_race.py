@@ -519,5 +519,48 @@ def test_race_translation_duplicate(test_client, add_test_data, admin_auth_heade
     assert "already exists" in create_resp.json["message"]
 
 
+def test_get_race_by_registration_slug_success(test_client, add_test_data, test_app):
+    """Public race registration endpoint returns race settings when enabled."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "jarni-jizda-2026"
+        race.registration_enabled = True
+        race.min_team_size = 2
+        race.max_team_size = 5
+        race.allow_team_registration = True
+        race.allow_individual_registration = False
+        db.session.commit()
+
+    response = test_client.get("/api/race/registration/jarni-jizda-2026/")
+    assert response.status_code == 200
+    assert response.json["id"] == 1
+    assert response.json["name"] == "Jarní jízda"
+    assert response.json["registration_slug"] == "jarni-jizda-2026"
+    assert response.json["registration_enabled"] is True
+    assert response.json["min_team_size"] == 2
+    assert response.json["max_team_size"] == 5
+    assert response.json["allow_team_registration"] is True
+    assert response.json["allow_individual_registration"] is False
+
+
+def test_get_race_by_registration_slug_disabled_returns_404(test_client, add_test_data, test_app):
+    """Public race registration endpoint returns 404 when registration is disabled."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "disabled-race"
+        race.registration_enabled = False
+        db.session.commit()
+
+    response = test_client.get("/api/race/registration/disabled-race/")
+    assert response.status_code == 404
+    assert "Registration is not enabled" in response.json["message"]
+
+
+def test_get_race_by_registration_slug_not_found(test_client, add_test_data):
+    """Public race registration endpoint returns 404 for unknown slug."""
+    response = test_client.get("/api/race/registration/non-existent-slug/")
+    assert response.status_code == 404
+
+
 
 

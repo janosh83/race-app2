@@ -8,6 +8,7 @@ import Login from './components/Login';
 import ActiveRacePage from './components/Pages/ActiveRacePage';
 import AdminPage from './components/Pages/AdminPage';
 import MapPage from './components/Pages/MapPage';
+import PublicRegistrationPage from './components/Pages/PublicRegistrationPage';
 import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
 import ResetPassword from './components/ResetPassword';
@@ -101,6 +102,12 @@ function App() {
                 <ResetPassword />
               </LogOnce>
             )
+          } />
+
+          <Route path="/register/:slug" element={
+            <LogOnce message="User accessing public registration route" data={{ isLoggedIn }}>
+              <PublicRegistrationPage />
+            </LogOnce>
           } />
 
           {/* Race routes - requires authentication */}

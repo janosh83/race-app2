@@ -2,6 +2,19 @@ import { apiFetch, fetchRaw } from '../utils/api';
 import { logger } from '../utils/logger';
 
 export const raceApi = {
+  getRegistrationBySlug: (slug, language) => {
+    const query = language ? `?lang=${encodeURIComponent(language)}` : '';
+    const url = `/api/race/registration/${encodeURIComponent(slug)}/${query}`;
+    logger.info('RACE', 'Fetching race registration by slug', { slug, language });
+    return apiFetch(url, { noAuth: true, noRedirectOnAuthFailure: true }).then(result => {
+      logger.success('RACE', 'Race registration fetched', { slug });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to fetch race registration by slug', err.message);
+      throw err;
+    });
+  },
+
   // Fetch checkpoints status for a team in a race
   getCheckpointsStatus: (raceId, teamId, language) => {
     const url = `/api/race/${raceId}/checkpoints/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');
