@@ -1,16 +1,6 @@
-flask
-SQLAlchemy
-Flask-SQLAlchemy
-flask-migrate
-flask-jwt-extended 
-bcrypt
-flasgger
-flask-cors
-flask-mail
+-r requirements.txt
+
 aiosmtpd
-python-dotenv
 pytest
 pytest-mock
 pytest-cov
-marshmallow
-Pillow

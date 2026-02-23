@@ -2,7 +2,7 @@ flask
 SQLAlchemy
 Flask-SQLAlchemy
 flask-migrate
-flask-jwt-extended 
+flask-jwt-extended
 bcrypt
 flasgger
 flask-cors
