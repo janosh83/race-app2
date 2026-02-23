@@ -94,6 +94,22 @@ export const raceApi = {
     });
   },
 
+  createRegistrationCheckoutSession: (slug, payload) => {
+    logger.info('RACE', 'Creating registration checkout session', { slug, mode: payload?.mode });
+    return apiFetch(`/api/race/registration/${encodeURIComponent(slug)}/checkout/`, {
+      method: 'POST',
+      body: payload,
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Registration checkout session created', { slug });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to create registration checkout session', err.message);
+      throw err;
+    });
+  },
+
   // Fetch checkpoints status for a team in a race
   getCheckpointsStatus: (raceId, teamId, language) => {
     const url = `/api/race/${raceId}/checkpoints/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');

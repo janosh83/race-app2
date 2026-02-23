@@ -32,6 +32,16 @@ class Config:
         'IMAGE_UPLOAD_FOLDER',
         os.path.join(BASE_DIR, 'static', 'images')
     )
+    STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+    STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
+    STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+    STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'eur')
+    STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS = int(
+        os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS', '5000')
+    )
+    STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS = int(
+        os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS', '2500')
+    )
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"  # Použití in-memory databáze

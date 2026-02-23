@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 import { authApi } from '../../services/authApi';
 import { raceApi } from '../../services/raceApi';
@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 
 function PublicRegistrationPage() {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -38,6 +39,17 @@ function PublicRegistrationPage() {
   const minTeamSize = race?.min_team_size || 1;
   const maxTeamSize = race?.max_team_size || 1;
   const categoryOptions = race?.categories || [];
+
+  useEffect(() => {
+    const checkoutStatus = searchParams.get('checkout');
+    if (checkoutStatus === 'success') {
+      setSuccessMessage('Payment confirmed. Thank you for completing registration payment.');
+      setError('');
+    } else if (checkoutStatus === 'cancel') {
+      setError('Payment was canceled. You can submit again to continue to checkout.');
+      setSuccessMessage('');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let isActive = true;
@@ -179,6 +191,20 @@ function PublicRegistrationPage() {
       }
 
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));
+      const baseUrl = window.location.origin;
+      const checkoutSession = await raceApi.createRegistrationCheckoutSession(slug, {
+        team_name: teamName.trim(),
+        mode,
+        members_count: members.length,
+        success_url: `${baseUrl}/register/${slug}?checkout=success`,
+        cancel_url: `${baseUrl}/register/${slug}?checkout=cancel`,
+      });
+
+      if (checkoutSession?.checkout_url) {
+        window.location.assign(checkoutSession.checkout_url);
+        return;
+      }
+
       setSuccessMessage('Registration submitted successfully. Your team has been registered for this race.');
       logger.success('RACE', 'Public registration submitted', { raceId: race.id, teamId });
     } catch (err) {

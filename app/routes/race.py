@@ -1,5 +1,5 @@
 import logging
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from marshmallow import ValidationError
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -14,6 +14,7 @@ from app.utils import parse_datetime
 from app.schemas import RaceCreateSchema, RaceUpdateSchema
 from app.schemas import RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
+from app.services.stripe_service import create_registration_checkout_session
 
 logger = logging.getLogger(__name__)
 
@@ -353,13 +354,13 @@ def get_race_by_registration_slug(registration_slug):
 
     categories = []
     for category in race.categories:
-      categories.append(
-        {
-          "id": category.id,
-          "name": category.name,
-          "description": category.description,
-        }
-      )
+        categories.append(
+            {
+                "id": category.id,
+                "name": category.name,
+                "description": category.description,
+            }
+        )
 
     return jsonify({
         "id": race.id,
@@ -375,6 +376,77 @@ def get_race_by_registration_slug(registration_slug):
         "supported_languages": race.supported_languages,
         "default_language": race.default_language,
     }), 200
+
+
+@race_bp.route('/registration/<string:registration_slug>/checkout/', methods=['POST'])
+def create_checkout_by_registration_slug(registration_slug):
+    """Create Stripe Checkout session for public race registration page."""
+    race = Race.query.filter_by(registration_slug=registration_slug).first_or_404()
+    if not race.registration_enabled:
+        return jsonify({"message": "Registration is not enabled for this race."}), 404
+
+    payload = request.get_json(silent=True) or {}
+    team_name = (payload.get('team_name') or '').strip()
+    mode = payload.get('mode') or 'team'
+    members_count = int(payload.get('members_count') or 1)
+
+    if mode not in ('team', 'individual'):
+        return jsonify({"message": "Invalid registration mode."}), 400
+
+    if mode == 'team' and not race.allow_team_registration:
+        return jsonify({"message": "Team registration is not enabled for this race."}), 400
+    if mode == 'individual' and not race.allow_individual_registration:
+        return jsonify({"message": "Individual registration is not enabled for this race."}), 400
+
+    if members_count < 1:
+        return jsonify({"message": "members_count must be at least 1."}), 400
+    if mode == 'team' and members_count > race.max_team_size:
+        return jsonify({"message": "Team is larger than allowed for this race."}), 400
+    if mode == 'team' and members_count < race.min_team_size:
+        return jsonify({"message": "Team is smaller than required for this race."}), 400
+    if mode == 'individual' and members_count != 1:
+        return jsonify({"message": "Individual registration requires exactly one member."}), 400
+
+    frontend_url = (current_app.config.get('FRONTEND_URL') or '').rstrip('/')
+    success_url = payload.get('success_url') or f"{frontend_url}/register/{registration_slug}?checkout=success"
+    cancel_url = payload.get('cancel_url') or f"{frontend_url}/register/{registration_slug}?checkout=cancel"
+
+    if mode == 'individual':
+        amount_cents = current_app.config.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS', 2500)
+    else:
+        amount_cents = current_app.config.get('STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS', 5000)
+
+    try:
+        session_data = create_registration_checkout_session(
+            secret_key=current_app.config.get('STRIPE_SECRET_KEY'),
+            success_url=success_url,
+            cancel_url=cancel_url,
+            currency=current_app.config.get('STRIPE_CURRENCY', 'eur'),
+            amount_cents=int(amount_cents),
+            race_name=race.name,
+            registration_slug=registration_slug,
+            team_name=team_name,
+            mode=mode,
+            members_count=members_count,
+        )
+    except ValueError as exc:
+        logger.error("Stripe checkout unavailable for race %s: %s", race.id, exc)
+        return jsonify({"message": "Payment provider is not configured."}), 503
+    except (RuntimeError, OSError, TypeError) as exc:
+        logger.error("Stripe checkout creation failed for race %s: %s", race.id, exc)
+        return jsonify({"message": "Unable to initialize checkout."}), 502
+
+    logger.info(
+        "Stripe checkout session created for race %s slug %s mode %s",
+        race.id,
+        registration_slug,
+        mode,
+    )
+    return jsonify({
+        "checkout_url": session_data['checkout_url'],
+        "session_id": session_data['session_id'],
+        "publishable_key": current_app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
+    }), 201
 
 # delete race
 # tested by test_races.py -> test_create_race

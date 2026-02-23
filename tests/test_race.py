@@ -24,7 +24,7 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_later, start_logging_at=some_time_earlier, end_logging_at=some_time_later)
 
         check1 = Checkpoint(title="Praha", latitude=50.0755381, longitude=14.4378005, description="Hlavní město České republiky", numOfPoints = 1)
@@ -92,7 +92,7 @@ def test_create_race(test_client, add_test_data):
     some_time_later = now + timedelta(minutes=10)
     # create the race
     response = test_client.post("/api/race/", json={
-        "name": "Hill Bill Rally", 
+        "name": "Hill Bill Rally",
         "description": "Roadtrip po Balkáně.",
         "start_showing_checkpoints_at": now.isoformat(),
         "end_showing_checkpoints_at": some_time_later.isoformat(),
@@ -114,7 +114,7 @@ def test_create_race(test_client, add_test_data):
     assert response.json[1]["name"] == "Hill Bill Rally"
     assert response.json[0]["description"] == "24 hodin objevování Česka"
     assert response.json[1]["description"] == "Roadtrip po Balkáně."
-    
+
 
     response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"}) # FIXME: test is failing due to checkpoints assigned to the race, TODO: write separate test for deleting race
     assert response.status_code == 400  # Cannot delete race with checkpoints
@@ -130,10 +130,10 @@ def test_create_race_requires_admin(test_client):
     test_client.post("/auth/register/", json={"name": "user", "email": "user@example.com", "password": "pass"})
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     now = datetime.now()
     later = now + timedelta(hours=1)
-    
+
     # try to create race as non-admin
     response = test_client.post("/api/race/", json={
         "name": "Test Race",
@@ -143,7 +143,7 @@ def test_create_race_requires_admin(test_client):
         "start_logging_at": now.isoformat(),
         "end_logging_at": later.isoformat()
     }, headers={"Authorization": f"Bearer {access_token}"})
-    
+
     assert response.status_code == 403
 
 
@@ -153,21 +153,21 @@ def test_update_race(test_client, add_test_data):
     test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     # update race name only
-    response = test_client.put("/api/race/1/", json={"name": "Updated Name"}, 
+    response = test_client.put("/api/race/1/", json={"name": "Updated Name"},
                               headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
     assert response.json["name"] == "Updated Name"
     assert response.json["description"] == "24 hodin objevování Česka"  # unchanged
-    
+
     # update description only
-    response = test_client.put("/api/race/1/", json={"description": "New description"}, 
+    response = test_client.put("/api/race/1/", json={"description": "New description"},
                               headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
     assert response.json["name"] == "Updated Name"  # still updated
     assert response.json["description"] == "New description"
-    
+
     # update multiple fields
     now = datetime.now()
     new_time = now + timedelta(days=1)
@@ -194,8 +194,8 @@ def test_update_race_not_found(test_client):
     test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
-    response = test_client.put("/api/race/999/", json={"name": "Test"}, 
+
+    response = test_client.put("/api/race/999/", json={"name": "Test"},
                               headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 404
 
@@ -206,8 +206,8 @@ def test_update_race_requires_admin(test_client, add_test_data):
     test_client.post("/auth/register/", json={"name": "user", "email": "user@example.com", "password": "pass"})
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
-    response = test_client.put("/api/race/1/", json={"name": "Hacked"}, 
+
+    response = test_client.put("/api/race/1/", json={"name": "Hacked"},
                               headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 403
 
@@ -218,10 +218,10 @@ def test_delete_race_success(test_client):
     test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     now = datetime.now()
     later = now + timedelta(hours=1)
-    
+
     response = test_client.post("/api/race/", json={
         "name": "Deletable Race",
         "description": "Will be deleted",
@@ -231,11 +231,11 @@ def test_delete_race_success(test_client):
         "end_logging_at": later.isoformat()
     }, headers={"Authorization": f"Bearer {access_token}"})
     race_id = response.json["id"]
-    
+
     # delete it
     response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
-    
+
     # verify it's gone
     response = test_client.get(f"/api/race/{race_id}/")
     assert response.status_code == 404
@@ -246,7 +246,7 @@ def test_delete_race_with_checkpoints(test_client, add_test_data):
     test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     # race 1 has checkpoints from fixture
     response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400
@@ -258,7 +258,7 @@ def test_delete_race_not_found(test_client):
     test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     response = test_client.delete("/api/race/999/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 404
 
@@ -268,7 +268,7 @@ def test_delete_race_requires_admin(test_client, add_test_data):
     test_client.post("/auth/register/", json={"name": "user", "email": "user@example.com", "password": "pass"})
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "pass"})
     access_token = response.json["access_token"]
-    
+
     response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 403
 
@@ -283,13 +283,13 @@ def test_get_races_empty(test_client):
 def test_delete_race_with_tasks(test_client, test_app):
     """Test that race with tasks cannot be deleted."""
     from app.models import Task
-    
+
     with test_app.app_context():
         # create admin
         test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
         response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
         access_token = response.json["access_token"]
-        
+
         # create a race
         now = datetime.now()
         later = now + timedelta(hours=1)
@@ -302,12 +302,12 @@ def test_delete_race_with_tasks(test_client, test_app):
             "end_logging_at": later.isoformat()
         }, headers={"Authorization": f"Bearer {access_token}"})
         race_id = response.json["id"]
-        
+
         # add a task to the race
         task = Task(title="Test Task", description="Task desc", numOfPoints=10, race_id=race_id)
         db.session.add(task)
         db.session.commit()
-        
+
         # try to delete race with tasks
         response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 400
@@ -317,13 +317,13 @@ def test_delete_race_with_tasks(test_client, test_app):
 def test_delete_race_with_registrations(test_client, test_app):
     """Test that race with registrations cannot be deleted."""
     from app.models import Team, RaceCategory, Registration
-    
+
     with test_app.app_context():
         # create admin
         test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
         response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
         access_token = response.json["access_token"]
-        
+
         # create a race
         now = datetime.now()
         later = now + timedelta(hours=1)
@@ -336,18 +336,18 @@ def test_delete_race_with_registrations(test_client, test_app):
             "end_logging_at": later.isoformat()
         }, headers={"Authorization": f"Bearer {access_token}"})
         race_id = response.json["id"]
-        
+
         # add team, category and registration
         team = Team(name="Test Team")
         category = RaceCategory(name="Test Category")
         db.session.add(team)
         db.session.add(category)
         db.session.commit()
-        
+
         registration = Registration(race_id=race_id, team_id=team.id, race_category_id=category.id)
         db.session.add(registration)
         db.session.commit()
-        
+
         # try to delete race with registrations
         response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 400
@@ -357,13 +357,13 @@ def test_delete_race_with_registrations(test_client, test_app):
 def test_delete_race_with_checkpoint_logs(test_client, test_app):
     """Test that race with checkpoint logs cannot be deleted."""
     from app.models import Team, User, Checkpoint
-    
+
     with test_app.app_context():
         # create admin
         test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
         response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
         access_token = response.json["access_token"]
-        
+
         # create a race
         now = datetime.now()
         later = now + timedelta(hours=1)
@@ -376,7 +376,7 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
             "end_logging_at": later.isoformat()
         }, headers={"Authorization": f"Bearer {access_token}"})
         race_id = response.json["id"]
-        
+
         # add checkpoint and log
         checkpoint = Checkpoint(title="CP1", latitude=50.0, longitude=14.0, numOfPoints=1, race_id=race_id)
         team = Team(name="Team")
@@ -384,15 +384,15 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
         db.session.add(checkpoint)
         db.session.add(team)
         db.session.commit()
-        
+
         log = CheckpointLog(checkpoint_id=checkpoint.id, team_id=team.id, race_id=race_id)
         db.session.add(log)
         db.session.commit()
-        
+
         # first remove the checkpoint relationship
         db.session.delete(checkpoint)
         db.session.commit()
-        
+
         # try to delete race with logs
         response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 400
@@ -402,13 +402,13 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
 def test_delete_race_with_task_logs(test_client, test_app):
     """Test that race with task logs cannot be deleted."""
     from app.models import Team, User, Task, TaskLog
-    
+
     with test_app.app_context():
         # create admin
         test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
         response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
         access_token = response.json["access_token"]
-        
+
         # create a race
         now = datetime.now()
         later = now + timedelta(hours=1)
@@ -421,7 +421,7 @@ def test_delete_race_with_task_logs(test_client, test_app):
             "end_logging_at": later.isoformat()
         }, headers={"Authorization": f"Bearer {access_token}"})
         race_id = response.json["id"]
-        
+
         # add task and log
         task = Task(title="Task", description="Desc", numOfPoints=10, race_id=race_id)
         team = Team(name="Team")
@@ -429,15 +429,15 @@ def test_delete_race_with_task_logs(test_client, test_app):
         db.session.add(task)
         db.session.add(team)
         db.session.commit()
-        
+
         task_log = TaskLog(task_id=task.id, team_id=team.id, race_id=race_id)
         db.session.add(task_log)
         db.session.commit()
-        
+
         # first remove the task relationship
         db.session.delete(task)
         db.session.commit()
-        
+
         # try to delete race with task logs
         response = test_client.delete(f"/api/race/{race_id}/", headers={"Authorization": f"Bearer {access_token}"})
         assert response.status_code == 400
@@ -508,7 +508,7 @@ def test_race_translation_duplicate(test_client, add_test_data, admin_auth_heade
         json={"language": "de", "name": "Test", "description": "Test"},
         headers=admin_auth_headers,
     )
-    
+
     # Try to create duplicate with same language
     create_resp = test_client.post(
         "/api/race/1/translations/",
@@ -561,6 +561,90 @@ def test_get_race_by_registration_slug_not_found(test_client, add_test_data):
     """Public race registration endpoint returns 404 for unknown slug."""
     response = test_client.get("/api/race/registration/non-existent-slug/")
     assert response.status_code == 404
+
+
+def test_create_checkout_by_registration_slug_success(test_client, add_test_data, test_app, monkeypatch):
+    """Checkout session endpoint returns a checkout URL when stripe service succeeds."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "jarni-jizda-2026"
+        race.registration_enabled = True
+        race.allow_team_registration = True
+        race.allow_individual_registration = True
+        race.min_team_size = 1
+        race.max_team_size = 5
+        db.session.commit()
+
+    def fake_checkout(**kwargs):
+        return {
+            "session_id": "cs_test_123",
+            "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_123",
+        }
+
+    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+
+    response = test_client.post(
+        "/api/race/registration/jarni-jizda-2026/checkout/",
+        json={
+            "team_name": "Road Runners",
+            "mode": "team",
+            "members_count": 2,
+            "success_url": "http://localhost:5173/register/jarni-jizda-2026?checkout=success",
+            "cancel_url": "http://localhost:5173/register/jarni-jizda-2026?checkout=cancel",
+        },
+    )
+    assert response.status_code == 201
+    assert response.json["session_id"] == "cs_test_123"
+    assert response.json["checkout_url"].startswith("https://checkout.stripe.com")
+
+
+def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_test_data, test_app):
+    """Checkout endpoint validates race registration mode configuration."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "team-only-race"
+        race.registration_enabled = True
+        race.allow_team_registration = True
+        race.allow_individual_registration = False
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/race/registration/team-only-race/checkout/",
+        json={
+            "team_name": "Solo Runner",
+            "mode": "individual",
+            "members_count": 1,
+        },
+    )
+    assert response.status_code == 400
+    assert "Individual registration is not enabled" in response.json["message"]
+
+
+def test_create_checkout_by_registration_slug_missing_stripe_config(test_client, add_test_data, test_app, monkeypatch):
+    """Checkout endpoint returns 503 when stripe is not configured."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "stripe-missing"
+        race.registration_enabled = True
+        race.allow_team_registration = True
+        race.allow_individual_registration = False
+        db.session.commit()
+
+    def fake_checkout(**kwargs):
+        raise ValueError("Stripe is not configured")
+
+    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+
+    response = test_client.post(
+        "/api/race/registration/stripe-missing/checkout/",
+        json={
+            "team_name": "Config Missing Team",
+            "mode": "team",
+            "members_count": 2,
+        },
+    )
+    assert response.status_code == 503
+    assert "Payment provider is not configured" in response.json["message"]
 
 
 
