@@ -50,6 +50,18 @@ MAIL_DEFAULT_SENDER=noreply@localhost.dev
 
 # Optional image storage override
 # IMAGE_UPLOAD_FOLDER=./app/static/images
+
+# Stripe (registration payments)
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_CURRENCY=eur
+STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+
+# Logging
+LOG_LEVEL=INFO
+LOG_REQUESTS=true
 ```
 
 Run database migrations:
@@ -179,6 +191,79 @@ MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
 ```
 
+### 4.3 Stripe payments (registration checkout)
+
+Backend uses Stripe Checkout for registration payments.
+
+Set backend environment variables:
+
+```env
+STRIPE_SECRET_KEY=sk_test_or_live_...
+STRIPE_PUBLISHABLE_KEY=pk_test_or_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CURRENCY=eur
+STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+```
+
+Webhook endpoint in backend:
+
+```text
+POST /api/race/registration/stripe/webhook/
+```
+
+Behavior summary:
+- Public registration creates checkout session via backend.
+- Stripe webhook `checkout.session.completed` confirms payment for the registration.
+- Duplicate webhook deliveries are handled idempotently (no duplicate side effects).
+- Team activation/race actions are gated by confirmed payment.
+
+Note: For local webhook testing, use Stripe CLI and forward events to your local backend.
+
+### 4.4 Stripe CLI local testing
+
+Use Stripe CLI to forward test webhooks to local backend.
+
+1) Install Stripe CLI:
+- macOS: `brew install stripe/stripe-cli/stripe`
+- Windows: install from Stripe docs, then verify with `stripe --version`
+
+2) Authenticate CLI:
+
+```bash
+stripe login
+```
+
+3) Start local backend (`http://localhost:5000`) and listen/forward events:
+
+```bash
+stripe listen --forward-to localhost:5000/api/race/registration/stripe/webhook/
+```
+
+CLI prints a webhook signing secret like `whsec_...`.
+Copy it into backend `.env`:
+
+```env
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+4) Trigger a test event:
+
+```bash
+stripe trigger checkout.session.completed
+```
+
+5) Verify behavior:
+- backend logs contain webhook processing with `request_id`,
+- payment for matching registration is marked confirmed,
+- duplicate deliveries remain idempotent.
+
+Optional (resend an event by id):
+
+```bash
+stripe events resend <event_id> --webhook-endpoint=<webhook_endpoint_id>
+```
+
 ## 5) Deployment on Render
 
 Use **two services**: backend web service + frontend static site.
@@ -213,6 +298,16 @@ MAIL_USE_TLS=true
 MAIL_USERNAME=your-brevo-email@example.com
 MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
+
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CURRENCY=eur
+STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+
+LOG_LEVEL=INFO
+LOG_REQUESTS=true
 ```
 
 After deploy, run migrations:
@@ -268,6 +363,12 @@ https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=<API_KEY>
 - Used in frontend map flow to capture user location during checkpoint/task logging.
 - Depends on browser permissions and HTTPS in production.
 
+### 6.4 Stripe API (Checkout + Webhooks)
+
+- Used by backend registration flow to create checkout sessions and verify webhook signatures.
+- Checkout confirmation source of truth is persisted in backend registration payment fields.
+- Webhook endpoint: `/api/race/registration/stripe/webhook/`.
+
 ## 7) Quality and Testing
 
 Backend tests:
@@ -297,3 +398,27 @@ npm run lint:fix
 - **Auth redirect loops:** verify `VITE_API_URL` points to the correct backend URL.
 - **Emails not sending:** verify SMTP credentials, sender identity, and backend logs.
 - **Map not loading:** verify `VITE_MAPY_API_KEY` is present and valid.
+- **Stripe checkout fails:** verify `STRIPE_SECRET_KEY` and frontend/backend URLs for return links.
+- **Stripe webhook rejected:** verify `STRIPE_WEBHOOK_SECRET` and request signature source.
+- **Missing request logs:** verify `LOG_REQUESTS=true` and suitable `LOG_LEVEL` (e.g., `INFO`).
+
+## 9) Logging and Request Tracing
+
+Backend logging now supports request correlation IDs and request timing.
+
+- Incoming `X-Request-ID` is reused if provided; otherwise backend generates one.
+- Response includes `X-Request-ID` for client-side correlation.
+- Request completion logs include method, path, status, duration, and remote address.
+
+Environment variables:
+
+```env
+LOG_LEVEL=INFO
+LOG_REQUESTS=true
+```
+
+Example log format:
+
+```text
+[2026-02-23 10:12:34,567] INFO in app [request_id=5db4...]: request_completed method=POST path=/api/race/registration/stripe/webhook/ status=200 duration_ms=32.17 remote_addr=127.0.0.1
+```

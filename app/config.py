@@ -42,6 +42,8 @@ class Config:
     STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS = int(
         os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS', '2500')
     )
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+    LOG_REQUESTS = os.environ.get('LOG_REQUESTS', 'true').lower() == 'true'
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"  # Použití in-memory databáze

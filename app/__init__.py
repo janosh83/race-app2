@@ -1,7 +1,9 @@
 import logging
 import sys
 import os
-from flask import Flask, jsonify
+import time
+import uuid
+from flask import Flask, jsonify, g, has_request_context, request
 from flask import send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -15,6 +17,76 @@ from marshmallow import ValidationError
 db = SQLAlchemy()
 migrate = Migrate()
 mail = Mail()
+
+
+class RequestContextFilter(logging.Filter):
+    """Inject request correlation id into all log records."""
+
+    def filter(self, record):
+        if has_request_context():
+            record.request_id = getattr(g, 'request_id', '-')
+        else:
+            record.request_id = '-'
+        return True
+
+
+def configure_logging(app):
+    """Configure application logging with request correlation support."""
+    log_level_name = app.config.get('LOG_LEVEL', 'INFO')
+    log_level = getattr(logging, str(log_level_name).upper(), logging.INFO)
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    formatter = logging.Formatter(
+        '[%(asctime)s] %(levelname)s in %(name)s [request_id=%(request_id)s]: %(message)s'
+    )
+    request_context_filter = RequestContextFilter()
+
+    if not any(isinstance(handler, logging.StreamHandler) for handler in root_logger.handlers):
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(log_level)
+        stream_handler.setFormatter(formatter)
+        stream_handler.addFilter(request_context_filter)
+        root_logger.addHandler(stream_handler)
+    else:
+        for handler in root_logger.handlers:
+            handler.setLevel(log_level)
+            if isinstance(handler, logging.StreamHandler):
+                handler.setFormatter(formatter)
+                if not any(isinstance(active_filter, RequestContextFilter) for active_filter in handler.filters):
+                    handler.addFilter(request_context_filter)
+
+    logging.getLogger('werkzeug').setLevel(log_level)
+
+
+def register_request_logging(app):
+    """Register per-request logging hooks with request id and duration."""
+
+    @app.before_request
+    def start_request_logging_context():
+        incoming_request_id = request.headers.get('X-Request-ID', '').strip()
+        g.request_id = incoming_request_id or uuid.uuid4().hex
+        g.request_started_at = time.perf_counter()
+
+    @app.after_request
+    def log_request_completion(response):
+        response.headers['X-Request-ID'] = getattr(g, 'request_id', '-')
+
+        if app.config.get('LOG_REQUESTS', True):
+            started_at = getattr(g, 'request_started_at', None)
+            duration_ms = ((time.perf_counter() - started_at) * 1000.0) if started_at is not None else 0.0
+
+            app.logger.info(
+                'request_completed method=%s path=%s status=%s duration_ms=%.2f remote_addr=%s',
+                request.method,
+                request.path,
+                response.status_code,
+                duration_ms,
+                request.remote_addr,
+            )
+
+        return response
 
 def create_app(config_class=None):
     if config_class is None:
@@ -121,23 +193,8 @@ def create_app(config_class=None):
          methods=["GET", "HEAD", "POST", "OPTIONS", "PUT", "PATCH", "DELETE"]
          )
 
-    # --- Logging configuration ---
-    # Ensure INFO-level logs from our modules appear in the terminal when running locally.
-    log_level_name = app.config.get('LOG_LEVEL', 'INFO')
-    log_level = getattr(logging, log_level_name.upper(), logging.INFO)
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-
-    # Attach a StreamHandler to stdout with a readable formatter if none exists.
-    if not any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers):
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(log_level)
-        stream_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s in %(name)s: %(message)s'))
-        root_logger.addHandler(stream_handler)
-
-    # Keep Werkzeug request logs at INFO for visibility when developing
-    logging.getLogger('werkzeug').setLevel(logging.INFO)
+    configure_logging(app)
+    register_request_logging(app)
 
     # Import blueprints here to avoid circular imports
     from app.routes.auth import auth_bp
@@ -164,7 +221,7 @@ def create_app(config_class=None):
     # Serve static images with CORS support
     images_folder = app.config['IMAGE_UPLOAD_FOLDER']
     os.makedirs(images_folder, exist_ok=True)
-    
+
     @app.route('/static/images/<filename>')
     def serve_image(filename):
         """Serve uploaded checkpoint images with CORS headers"""
