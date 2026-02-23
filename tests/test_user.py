@@ -90,16 +90,16 @@ def add_test_data(test_app):
         
         # Create registrations
         # Team1 signed for race1 with category1
-        reg1 = Registration(race_id=race1.id, team_id=team1.id, race_category_id=category1.id)
+        reg1 = Registration(race_id=race1.id, team_id=team1.id, race_category_id=category1.id, payment_confirmed=True)
         
         # Team2 signed for race2 with category2
-        reg2 = Registration(race_id=race2.id, team_id=team2.id, race_category_id=category2.id)
+        reg2 = Registration(race_id=race2.id, team_id=team2.id, race_category_id=category2.id, payment_confirmed=True)
         
         # Team3 signed for race1 with category2
-        reg3 = Registration(race_id=race1.id, team_id=team3.id, race_category_id=category2.id)
+        reg3 = Registration(race_id=race1.id, team_id=team3.id, race_category_id=category2.id, payment_confirmed=True)
         
         # Team4 signed for race3 with category1 (no members in this team)
-        reg4 = Registration(race_id=race3.id, team_id=team4.id, race_category_id=category1.id)
+        reg4 = Registration(race_id=race3.id, team_id=team4.id, race_category_id=category1.id, payment_confirmed=True)
         
         db.session.add_all([reg1, reg2, reg3, reg4])
         db.session.commit()

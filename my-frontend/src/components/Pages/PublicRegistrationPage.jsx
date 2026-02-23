@@ -11,8 +11,12 @@ function PublicRegistrationPage() {
   const [race, setRace] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('none');
+  const [confirmedTeamName, setConfirmedTeamName] = useState('');
+  const [confirmedTeamId, setConfirmedTeamId] = useState('');
   const [mode, setMode] = useState('team');
   const [teamName, setTeamName] = useState('');
   const [raceCategoryId, setRaceCategoryId] = useState('');
@@ -39,17 +43,73 @@ function PublicRegistrationPage() {
   const minTeamSize = race?.min_team_size || 1;
   const maxTeamSize = race?.max_team_size || 1;
   const categoryOptions = race?.categories || [];
+  const isCheckoutCanceled = searchParams.get('checkout') === 'cancel';
 
   useEffect(() => {
     const checkoutStatus = searchParams.get('checkout');
+    const teamId = searchParams.get('team_id');
+    const teamNameFromQuery = searchParams.get('team_name') || '';
+
+    if (!checkoutStatus) {
+      setPaymentStatus('none');
+      setConfirmedTeamId('');
+      setConfirmedTeamName('');
+      return;
+    }
+
     if (checkoutStatus === 'success') {
-      setSuccessMessage('Payment confirmed. Thank you for completing registration payment.');
-      setError('');
+      setConfirmedTeamId(teamId || '');
+      setConfirmedTeamName(teamNameFromQuery);
+
+      if (!teamId) {
+        setPaymentStatus('pending');
+        setSuccessMessage('');
+        setError('');
+        return;
+      }
+
+      let isActive = true;
+      const verifyPayment = async () => {
+        setCheckingPaymentStatus(true);
+        setPaymentStatus('verifying');
+        setSuccessMessage('');
+        setError('');
+
+        try {
+          const status = await raceApi.getRegistrationPaymentStatus(slug, teamId);
+          if (!isActive) return;
+
+          if (status?.payment_confirmed) {
+            setPaymentStatus('confirmed');
+            setError('');
+          } else {
+            setPaymentStatus('pending');
+            setError('');
+          }
+        } catch {
+          if (!isActive) return;
+          setPaymentStatus('pending');
+          setError('');
+        } finally {
+          if (isActive) {
+            setCheckingPaymentStatus(false);
+          }
+        }
+      };
+
+      verifyPayment();
+
+      return () => {
+        isActive = false;
+      };
     } else if (checkoutStatus === 'cancel') {
+      setPaymentStatus('none');
+      setConfirmedTeamId(teamId || '');
+      setConfirmedTeamName(teamNameFromQuery);
       setError('Payment was canceled. You can submit again to continue to checkout.');
       setSuccessMessage('');
     }
-  }, [searchParams]);
+  }, [searchParams, slug]);
 
   useEffect(() => {
     let isActive = true;
@@ -161,6 +221,9 @@ function PublicRegistrationPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setPaymentStatus('none');
+    setConfirmedTeamId('');
+    setConfirmedTeamName('');
     setError('');
     setSuccessMessage('');
 
@@ -197,8 +260,8 @@ function PublicRegistrationPage() {
         team_name: teamName.trim(),
         mode,
         members_count: members.length,
-        success_url: `${baseUrl}/register/${slug}?checkout=success`,
-        cancel_url: `${baseUrl}/register/${slug}?checkout=cancel`,
+        success_url: `${baseUrl}/register/${slug}?checkout=success&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
+        cancel_url: `${baseUrl}/register/${slug}?checkout=cancel&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
       });
 
       if (checkoutSession?.checkout_url) {
@@ -261,10 +324,41 @@ function PublicRegistrationPage() {
 
           <hr />
 
+          {paymentStatus === 'verifying' && (
+            <div className="alert alert-info" role="status">
+              Checkout completed. Verifying payment confirmation...
+            </div>
+          )}
+          {paymentStatus === 'pending' && (
+            <div className="alert alert-warning" role="status">
+              Checkout completed. Payment confirmation is pending. Please refresh shortly.
+            </div>
+          )}
+          {paymentStatus === 'confirmed' && (
+            <div className="alert alert-success" role="status">
+              Payment confirmed. Thank you for completing registration payment.
+            </div>
+          )}
           {successMessage && <div className="alert alert-success">{successMessage}</div>}
           {error && <div className="alert alert-danger">{error}</div>}
 
-          <form onSubmit={handleSubmit}>
+          {isCheckoutCanceled && paymentStatus !== 'confirmed' && (
+            <div className="border rounded p-3 bg-light mb-3">
+              <h3 className="h6 mb-2">Payment not completed</h3>
+              <p className="text-muted mb-3">Review your details below and submit registration again to continue to checkout.</p>
+              <dl className="row mb-2">
+                <dt className="col-sm-4 mb-0">Race</dt>
+                <dd className="col-sm-8 mb-0">{race.name}</dd>
+              </dl>
+              <dl className="row mb-0">
+                <dt className="col-sm-4 mb-0">Team</dt>
+                <dd className="col-sm-8 mb-0">{confirmedTeamName || teamName || (confirmedTeamId ? `Team #${confirmedTeamId}` : 'Your team')}</dd>
+              </dl>
+            </div>
+          )}
+
+          {paymentStatus !== 'confirmed' ? (
+            <form onSubmit={handleSubmit}>
             {isTeamAllowed && isIndividualAllowed && (
               <div className="mb-3">
                 <label className="form-label">Registration mode</label>
@@ -389,12 +483,25 @@ function PublicRegistrationPage() {
               </button>
             )}
 
-            <div>
-              <button type="submit" className="btn btn-primary" disabled={submitting || categoryOptions.length === 0}>
-                {submitting ? 'Submitting...' : 'Submit registration'}
-              </button>
+              <div>
+                <button type="submit" className="btn btn-primary" disabled={submitting || checkingPaymentStatus || categoryOptions.length === 0}>
+                  {submitting || checkingPaymentStatus ? 'Submitting...' : 'Submit registration'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="border rounded p-3 bg-light">
+              <h3 className="h6 mb-3">Registration complete</h3>
+              <dl className="row mb-2">
+                <dt className="col-sm-4 mb-0">Race</dt>
+                <dd className="col-sm-8 mb-0">{race.name}</dd>
+              </dl>
+              <dl className="row mb-0">
+                <dt className="col-sm-4 mb-0">Team</dt>
+                <dd className="col-sm-8 mb-0">{confirmedTeamName || teamName || (confirmedTeamId ? `Team #${confirmedTeamId}` : 'Your team')}</dd>
+              </dl>
             </div>
-          </form>
+          )}
         </div>
       </div>
     </div>

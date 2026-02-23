@@ -468,7 +468,11 @@ def log_visit(race_id):
         logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
-    registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
+    registration = Registration.query.filter_by(
+      race_id=race_id,
+      team_id=data['team_id'],
+      payment_confirmed=True,
+    ).first_or_404()
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race =  user_is_in_team and registration
 
@@ -675,7 +679,11 @@ def unlog_visit(race_id):
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
-    registration = Registration.query.filter_by(race_id=race_id, team_id=data['team_id']).first_or_404()
+    registration = Registration.query.filter_by(
+      race_id=race_id,
+      team_id=data['team_id'],
+      payment_confirmed=True,
+    ).first_or_404()
     is_signed_to_race = user_is_in_team and registration
 
     if is_administrator or is_signed_to_race:

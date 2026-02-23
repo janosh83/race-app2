@@ -350,6 +350,7 @@ def get_signed_races():
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
         .join(team_members, team_members.c.team_id == Team.id)
         .filter(team_members.c.user_id == int(current_user_id))
+        .filter(Registration.payment_confirmed.is_(True))
         .all()
     )
 

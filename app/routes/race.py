@@ -381,6 +381,34 @@ def get_race_by_registration_slug(registration_slug):
     }), 200
 
 
+@race_bp.route('/registration/<string:registration_slug>/payment-status/', methods=['GET'])
+def get_registration_payment_status_by_slug(registration_slug):
+    """Public endpoint returning payment confirmation state for a race registration."""
+    race = Race.query.filter_by(registration_slug=registration_slug).first_or_404()
+    if not race.registration_enabled:
+        return jsonify({"message": "Registration is not enabled for this race."}), 404
+
+    team_id_raw = request.args.get("team_id")
+    if not team_id_raw:
+        return jsonify({"message": "team_id is required."}), 400
+
+    try:
+        team_id = int(team_id_raw)
+    except (TypeError, ValueError):
+        return jsonify({"message": "team_id must be an integer."}), 400
+
+    registration = Registration.query.filter_by(race_id=race.id, team_id=team_id).first()
+    if not registration:
+        return jsonify({"message": "Registration not found."}), 404
+
+    return jsonify({
+        "race_id": race.id,
+        "team_id": team_id,
+        "payment_confirmed": bool(registration.payment_confirmed),
+        "payment_confirmed_at": registration.payment_confirmed_at.isoformat() if registration.payment_confirmed_at else None,
+    }), 200
+
+
 @race_bp.route('/registration/<string:registration_slug>/checkout/', methods=['POST'])
 def create_checkout_by_registration_slug(registration_slug):
     """Create Stripe Checkout session for public race registration page."""
@@ -515,6 +543,25 @@ def stripe_registration_webhook():
     if not registration:
         logger.error("Stripe webhook registration not found for race %s team %s", race_id, team_id)
         return jsonify({"message": "Registration not found."}), 404
+
+    if registration.payment_confirmed:
+      if registration.stripe_session_id == session_id:
+        logger.info(
+          "Stripe webhook duplicate event ignored for race %s team %s session %s",
+          race_id,
+          team_id,
+          session_id,
+        )
+        return jsonify({"message": "Payment already confirmed."}), 200
+
+      logger.warning(
+        "Stripe webhook received different session for already confirmed registration (race %s, team %s, existing %s, incoming %s)",
+        race_id,
+        team_id,
+        registration.stripe_session_id,
+        session_id,
+      )
+      return jsonify({"message": "Payment already confirmed."}), 200
 
     registration.payment_confirmed = True
     registration.payment_confirmed_at = datetime.now()

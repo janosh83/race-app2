@@ -110,6 +110,20 @@ export const raceApi = {
     });
   },
 
+  getRegistrationPaymentStatus: (slug, teamId) => {
+    logger.info('RACE', 'Fetching registration payment status', { slug, teamId });
+    return apiFetch(`/api/race/registration/${encodeURIComponent(slug)}/payment-status/?team_id=${encodeURIComponent(teamId)}`, {
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Registration payment status fetched', { slug, teamId });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to fetch registration payment status', err.message);
+      throw err;
+    });
+  },
+
   // Fetch checkpoints status for a team in a race
   getCheckpointsStatus: (raceId, teamId, language) => {
     const url = `/api/race/${raceId}/checkpoints/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');

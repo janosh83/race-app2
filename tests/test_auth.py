@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from app import db
-from app.models import User
+from app.models import User, Race, Team, RaceCategory, Registration
 from app.services.email_service import EmailService
 
 
@@ -47,6 +47,70 @@ def test_auth_login(test_client):
     assert "access_token" in response.json
     assert "user" in response.json
     assert "preferred_language" in response.json["user"]
+
+
+def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_app):
+    """Login payload should include only payment-confirmed signed races."""
+    with test_app.app_context():
+        now = datetime.now()
+        later = now + timedelta(hours=2)
+
+        race_paid = Race(
+            name="Paid Race",
+            description="Visible after payment",
+            start_showing_checkpoints_at=now,
+            end_showing_checkpoints_at=later,
+            start_logging_at=now,
+            end_logging_at=later,
+        )
+        race_unpaid = Race(
+            name="Unpaid Race",
+            description="Hidden until payment",
+            start_showing_checkpoints_at=now,
+            end_showing_checkpoints_at=later,
+            start_logging_at=now,
+            end_logging_at=later,
+        )
+
+        category = RaceCategory(name="General", description="General category")
+        user = User(name="Login User", email="signed-races@example.com")
+        user.set_password("pass")
+
+        team_paid = Team(name="Paid Team")
+        team_paid.members.append(user)
+        team_unpaid = Team(name="Unpaid Team")
+        team_unpaid.members.append(user)
+
+        db.session.add_all([race_paid, race_unpaid, category, user, team_paid, team_unpaid])
+        db.session.flush()
+
+        paid_registration = Registration(
+            race_id=race_paid.id,
+            team_id=team_paid.id,
+            race_category_id=category.id,
+            payment_confirmed=True,
+        )
+        unpaid_registration = Registration(
+            race_id=race_unpaid.id,
+            team_id=team_unpaid.id,
+            race_category_id=category.id,
+            payment_confirmed=False,
+        )
+        db.session.add_all([paid_registration, unpaid_registration])
+        db.session.commit()
+
+        expected_paid_race_id = race_paid.id
+
+    login_response = test_client.post(
+        "/auth/login/",
+        json={"email": "signed-races@example.com", "password": "pass"},
+    )
+
+    assert login_response.status_code == 200
+    signed_races = login_response.json["signed_races"]
+    assert len(signed_races) == 1
+    assert signed_races[0]["race_id"] == expected_paid_race_id
+    assert signed_races[0]["race_name"] == "Paid Race"
 
 def test_auth_protected(test_client):
     # test access to protected endpoint

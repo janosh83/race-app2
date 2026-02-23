@@ -728,6 +728,52 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         assert updated.stripe_session_id == "cs_webhook_123"
 
 
+def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):
+    """Public payment-status endpoint returns confirmation state for registration."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "status-race"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Status Category")
+        team = Team(name="Status Team")
+        db.session.add_all([category, team])
+        db.session.flush()
+        race.categories.append(category)
+
+        registration = Registration(
+            race_id=race.id,
+            team_id=team.id,
+            race_category_id=category.id,
+            payment_confirmed=True,
+            payment_confirmed_at=datetime.now(),
+        )
+        db.session.add(registration)
+        db.session.commit()
+        team_id = team.id
+
+    response = test_client.get(f"/api/race/registration/status-race/payment-status/?team_id={team_id}")
+
+    assert response.status_code == 200
+    assert response.json["team_id"] == team_id
+    assert response.json["payment_confirmed"] is True
+    assert response.json["payment_confirmed_at"] is not None
+
+
+def test_get_registration_payment_status_by_slug_requires_team_id(test_client, add_test_data, test_app):
+    """Payment-status endpoint rejects requests without team_id."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "status-race-missing-team"
+        race.registration_enabled = True
+        db.session.commit()
+
+    response = test_client.get("/api/race/registration/status-race-missing-team/payment-status/")
+
+    assert response.status_code == 400
+    assert response.json["message"] == "team_id is required."
+
+
 def test_stripe_registration_webhook_requires_configuration(test_client, add_test_data, monkeypatch):
     """Webhook endpoint returns 503 when stripe webhook is not configured."""
     monkeypatch.setattr(
@@ -743,6 +789,154 @@ def test_stripe_registration_webhook_requires_configuration(test_client, add_tes
 
     assert response.status_code == 503
     assert "Webhook is not configured" in response.json["message"]
+
+
+def test_stripe_registration_webhook_duplicate_event_is_idempotent(test_client, add_test_data, test_app, monkeypatch):
+    """Duplicate checkout.session.completed events should not resend emails."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-idempotent"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Webhook Idempotent")
+        team = Team(name="Idempotent Team")
+        user = User(name="Idempotent User", email="idempotent@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        race_id = race.id
+        team_id = team.id
+
+    fake_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_idempotent_1",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    send_calls = {"count": 0}
+
+    def fake_send_email(**kwargs):
+        send_calls["count"] += 1
+        return True
+
+    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
+
+    first = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+    second = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json["message"] == "Payment already confirmed."
+
+    with test_app.app_context():
+        updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+        assert updated.payment_confirmed is True
+        assert updated.stripe_session_id == "cs_idempotent_1"
+
+    assert send_calls["count"] == 1
+
+
+def test_stripe_registration_webhook_duplicate_with_different_session_is_idempotent(test_client, add_test_data, test_app, monkeypatch):
+    """Already confirmed registrations ignore completed events with a different session id."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-idempotent-different"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Webhook Idempotent Different")
+        team = Team(name="Idempotent Different Team")
+        user = User(name="Idempotent Different User", email="idempotent-different@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        race_id = race.id
+        team_id = team.id
+
+    first_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_idempotent_diff_1",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+    second_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_idempotent_diff_2",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    events = [first_event, second_event]
+    send_calls = {"count": 0}
+
+    def fake_construct_event(**kwargs):
+        return events.pop(0)
+
+    def fake_send_email(**kwargs):
+        send_calls["count"] += 1
+        return True
+
+    monkeypatch.setattr("app.routes.race.construct_stripe_event", fake_construct_event)
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
+
+    first = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+    second = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json["message"] == "Payment already confirmed."
+
+    with test_app.app_context():
+        updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+        assert updated.payment_confirmed is True
+        assert updated.stripe_session_id == "cs_idempotent_diff_1"
+
+    assert send_calls["count"] == 1
 
 
 

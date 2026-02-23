@@ -227,6 +227,7 @@ def login():
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
         .join(team_members, team_members.c.team_id == Team.id)
         .filter(team_members.c.user_id == user.id)
+        .filter(Registration.payment_confirmed.is_(True))
         .all()
     )
 

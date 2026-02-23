@@ -44,8 +44,8 @@ def add_test_data(test_app):
         db.session.commit()
 
         # Create registrations
-        registration1 = Registration(race_id=race1.id, team_id=team1.id, race_category_id=category1.id)
-        registration2 = Registration(race_id=race1.id, team_id=team2.id, race_category_id=category1.id)
+        registration1 = Registration(race_id=race1.id, team_id=team1.id, race_category_id=category1.id, payment_confirmed=True)
+        registration2 = Registration(race_id=race1.id, team_id=team2.id, race_category_id=category1.id, payment_confirmed=True)
         db.session.add_all([registration1, registration2])
         db.session.commit()
 

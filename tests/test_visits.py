@@ -50,9 +50,9 @@ def add_test_data(test_app):
         checkpoint2 = Checkpoint(title="Checkpoint 2", latitude=50.0, longitude=14.5, description="Description", numOfPoints=2, race_id=1)
         checkpoint3 = Checkpoint(title="Checkpoint 3", latitude=50.5, longitude=15.0, description="Description", numOfPoints=1, race_id=1)
 
-        registration1 = Registration(race_id=1, team_id=1, race_category_id=1)
-        registration2 = Registration(race_id=1, team_id=2, race_category_id=1)
-        registration3 = Registration(race_id=1, team_id=3, race_category_id=1)
+        registration1 = Registration(race_id=1, team_id=1, race_category_id=1, payment_confirmed=True)
+        registration2 = Registration(race_id=1, team_id=2, race_category_id=1, payment_confirmed=True)
+        registration3 = Registration(race_id=1, team_id=3, race_category_id=1, payment_confirmed=True)
 
         race1.race_categories = [race_category1]
         race1.registrations = [registration1, registration2, registration3]
@@ -95,7 +95,7 @@ def add_test_data_early_logginmg(test_app):
         checkpoint1 = Checkpoint(title="Checkpoint 1", latitude=50.0, longitude=14.0, description="Description", numOfPoints=1, race_id=1)
         checkpoint2 = Checkpoint(title="Checkpoint 2", latitude=50.0, longitude=14.5, description="Description", numOfPoints=2, race_id=1)
 
-        registration1 = Registration(race_id=1, team_id=1, race_category_id=1)
+        registration1 = Registration(race_id=1, team_id=1, race_category_id=1, payment_confirmed=True)
 
         race1.race_categories = [race_category1]
         race1.registrations = [registration1]
@@ -125,7 +125,7 @@ def add_test_data_late_logginmg(test_app):
         checkpoint1 = Checkpoint(title="Checkpoint 1", latitude=50.0, longitude=14.0, description="Description", numOfPoints=1, race_id=1)
         checkpoint2 = Checkpoint(title="Checkpoint 2", latitude=50.0, longitude=14.5, description="Description", numOfPoints=2, race_id=1)
 
-        registration1 = Registration(race_id=1, team_id=1, race_category_id=1)
+        registration1 = Registration(race_id=1, team_id=1, race_category_id=1, payment_confirmed=True)
 
         race1.race_categories = [race_category1]
         race1.registrations = [registration1]
@@ -437,6 +437,42 @@ def test_log_task_completion_unauthorized_forbidden(test_client, add_test_data):
     headers_other = {"Authorization": f"Bearer {response.json['access_token']}"}
     resp = test_client.post("/api/race/1/tasks/log/", json={"task_id": 1, "team_id": 1}, headers=headers_other)
     assert resp.status_code == 403
+
+
+def test_log_visit_requires_paid_registration(test_client, test_app, add_test_data):
+    """Team member cannot log checkpoint visit when payment is not confirmed."""
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = False
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    denied = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert denied.status_code == 404
+
+
+def test_log_task_requires_paid_registration(test_client, test_app, add_test_data):
+    """Team member cannot log task completion when payment is not confirmed."""
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = False
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    denied = test_client.post(
+        "/api/race/1/tasks/log/",
+        headers=headers,
+        json={"task_id": 1, "team_id": 1},
+    )
+    assert denied.status_code == 404
 
 
 def test_unlog_task_completion_unauthorized_forbidden_extra(test_client, add_test_data):
