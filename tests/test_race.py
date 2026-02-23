@@ -541,6 +541,7 @@ def test_get_race_by_registration_slug_success(test_client, add_test_data, test_
     assert response.json["max_team_size"] == 5
     assert response.json["allow_team_registration"] is True
     assert response.json["allow_individual_registration"] is False
+    assert isinstance(response.json["categories"], list)
 
 
 def test_get_race_by_registration_slug_disabled_returns_404(test_client, add_test_data, test_app):

@@ -15,6 +15,85 @@ export const raceApi = {
     });
   },
 
+  createTeamPublic: (name) => {
+    logger.info('RACE', 'Creating public team', { name });
+    return apiFetch('/api/team/', {
+      method: 'POST',
+      body: { name },
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Public team created', { teamId: result?.id });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to create public team', err.message);
+      throw err;
+    });
+  },
+
+  addTeamMembersPublic: (teamId, userIds) => {
+    logger.info('RACE', 'Adding members to public team', { teamId, memberCount: userIds?.length || 0 });
+    return apiFetch(`/api/team/${teamId}/members/`, {
+      method: 'POST',
+      body: { user_ids: userIds },
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Members added to public team', { teamId });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed adding members to public team', err.message);
+      throw err;
+    });
+  },
+
+  signUpTeamPublic: (raceId, teamId, raceCategoryId) => {
+    logger.info('RACE', 'Submitting public race registration', { raceId, teamId, raceCategoryId });
+    return apiFetch(`/api/team/race/${raceId}/`, {
+      method: 'POST',
+      body: {
+        team_id: teamId,
+        race_category_id: raceCategoryId,
+      },
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Public race registration submitted', { raceId, teamId });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Public race registration failed', err.message);
+      throw err;
+    });
+  },
+
+  getTeamsPublic: () => {
+    logger.info('RACE', 'Fetching teams for public registration');
+    return apiFetch('/api/team/', {
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Public teams fetched', { count: result?.length || 0 });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to fetch public teams', err.message);
+      throw err;
+    });
+  },
+
+  getTeamMembersPublic: (teamId) => {
+    logger.info('RACE', 'Fetching public team members', { teamId });
+    return apiFetch(`/api/team/${teamId}/members/`, {
+      noAuth: true,
+      noRedirectOnAuthFailure: true,
+    }).then(result => {
+      logger.success('RACE', 'Public team members fetched', { teamId, count: result?.length || 0 });
+      return result;
+    }).catch(err => {
+      logger.error('RACE', 'Failed to fetch public team members', err.message);
+      throw err;
+    });
+  },
+
   // Fetch checkpoints status for a team in a race
   getCheckpointsStatus: (raceId, teamId, language) => {
     const url = `/api/race/${raceId}/checkpoints/${teamId}/status/${language ? `?lang=${language}` : ''}`.replace(/\/$/, '');

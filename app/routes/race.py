@@ -351,6 +351,16 @@ def get_race_by_registration_slug(registration_slug):
             name = translation.name
             description = translation.description
 
+    categories = []
+    for category in race.categories:
+      categories.append(
+        {
+          "id": category.id,
+          "name": category.name,
+          "description": category.description,
+        }
+      )
+
     return jsonify({
         "id": race.id,
         "registration_slug": race.registration_slug,
@@ -361,6 +371,7 @@ def get_race_by_registration_slug(registration_slug):
         "max_team_size": race.max_team_size,
         "allow_team_registration": race.allow_team_registration,
         "allow_individual_registration": race.allow_individual_registration,
+        "categories": categories,
         "supported_languages": race.supported_languages,
         "default_language": race.default_language,
     }), 200
