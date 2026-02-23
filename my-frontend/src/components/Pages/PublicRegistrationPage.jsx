@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import { authApi } from '../../services/authApi';
@@ -6,6 +7,7 @@ import { raceApi } from '../../services/raceApi';
 import { logger } from '../../utils/logger';
 
 function PublicRegistrationPage() {
+  const { t } = useTranslation();
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const [race, setRace] = useState(null);
@@ -27,16 +29,16 @@ function PublicRegistrationPage() {
   const registrationModeLabel = useMemo(() => {
     if (!race) return '';
     if (race.allow_team_registration && race.allow_individual_registration) {
-      return 'Team and individual registration are available';
+      return t('publicRegistration.modeBoth');
     }
     if (race.allow_team_registration) {
-      return 'Team registration only';
+      return t('publicRegistration.modeTeamOnly');
     }
     if (race.allow_individual_registration) {
-      return 'Individual registration only';
+      return t('publicRegistration.modeIndividualOnly');
     }
-    return 'Registration mode is currently unavailable';
-  }, [race]);
+    return t('publicRegistration.modeUnavailable');
+  }, [race, t]);
 
   const isTeamAllowed = !!race?.allow_team_registration;
   const isIndividualAllowed = !!race?.allow_individual_registration;
@@ -106,10 +108,10 @@ function PublicRegistrationPage() {
       setPaymentStatus('none');
       setConfirmedTeamId(teamId || '');
       setConfirmedTeamName(teamNameFromQuery);
-      setError('Payment was canceled. You can submit again to continue to checkout.');
+      setError(t('publicRegistration.paymentCanceled'));
       setSuccessMessage('');
     }
-  }, [searchParams, slug]);
+  }, [searchParams, slug, t]);
 
   useEffect(() => {
     let isActive = true;
@@ -134,7 +136,7 @@ function PublicRegistrationPage() {
         }
       } catch (err) {
         if (!isActive) return;
-        const message = err?.message || 'Unable to load registration details.';
+        const message = err?.message || t('publicRegistration.loadFailed');
         setError(message);
         logger.error('RACE', 'Public registration page load failed', message);
       } finally {
@@ -147,7 +149,7 @@ function PublicRegistrationPage() {
     return () => {
       isActive = false;
     };
-  }, [slug]);
+  }, [slug, t]);
 
   const updateMember = (index, field, value) => {
     setMembers((previous) => previous.map((member, memberIndex) => {
@@ -169,24 +171,27 @@ function PublicRegistrationPage() {
 
   const validateBeforeSubmit = () => {
     if (!teamName.trim()) {
-      return 'Team name is required.';
+      return t('publicRegistration.validationTeamNameRequired');
     }
 
     if (!raceCategoryId) {
-      return 'Race category is required.';
+      return t('publicRegistration.validationCategoryRequired');
     }
 
     if (mode === 'individual' && members.length !== 1) {
-      return 'Individual registration requires exactly one member.';
+      return t('publicRegistration.validationIndividualRequiresOne');
     }
 
     if (mode === 'team' && (members.length < minTeamSize || members.length > maxTeamSize)) {
-      return `Team registration must have between ${minTeamSize} and ${maxTeamSize} members.`;
+      return t('publicRegistration.validationTeamSizeRange', {
+        min: minTeamSize,
+        max: maxTeamSize,
+      });
     }
 
     const hasInvalidMember = members.some((member) => !member.name.trim() || !member.email.trim() || !member.password);
     if (hasInvalidMember) {
-      return 'Each member must include name, email, and password.';
+      return t('publicRegistration.validationMemberFieldsRequired');
     }
 
     return '';
@@ -202,7 +207,10 @@ function PublicRegistrationPage() {
         const loginResult = await authApi.login(member.email.trim(), member.password);
         return loginResult?.user?.id;
       }
-      throw new Error(`Member ${member.email}: ${err?.message || 'Unable to create account'}`);
+      throw new Error(t('publicRegistration.memberCreateFailed', {
+        email: member.email,
+        message: err?.message || t('publicRegistration.unableCreateAccount'),
+      }));
     }
   };
 
@@ -239,7 +247,7 @@ function PublicRegistrationPage() {
       for (const member of members) {
         const userId = await resolveUserId(member);
         if (!userId) {
-          throw new Error(`Unable to resolve user ID for ${member.email}`);
+          throw new Error(t('publicRegistration.unableResolveUserId', { email: member.email }));
         }
         userIds.push(userId);
       }
@@ -269,10 +277,10 @@ function PublicRegistrationPage() {
         return;
       }
 
-      setSuccessMessage('Registration submitted successfully. Your team has been registered for this race.');
+      setSuccessMessage(t('publicRegistration.submittedSuccess'));
       logger.success('RACE', 'Public registration submitted', { raceId: race.id, teamId });
     } catch (err) {
-      const message = err?.message || 'Registration failed.';
+      const message = err?.message || t('publicRegistration.registrationFailed');
       setError(message);
       logger.error('RACE', 'Public registration submit failed', message);
     } finally {
@@ -280,13 +288,19 @@ function PublicRegistrationPage() {
     }
   };
 
+  const displayedTeamName = confirmedTeamName
+    || teamName
+    || (confirmedTeamId
+      ? t('publicRegistration.teamNumber', { id: confirmedTeamId })
+      : t('publicRegistration.yourTeamFallback'));
+
   if (loading) {
     return (
       <div className="container mt-5" style={{ maxWidth: '720px' }}>
         <div className="card">
           <div className="card-body">
-            <h1 className="h4">Loading registration...</h1>
-            <p className="mb-0 text-muted">Please wait while race details are being loaded.</p>
+            <h1 className="h4">{t('publicRegistration.loadingTitle')}</h1>
+            <p className="mb-0 text-muted">{t('publicRegistration.loadingMessage')}</p>
           </div>
         </div>
       </div>
@@ -298,8 +312,8 @@ function PublicRegistrationPage() {
       <div className="container mt-5" style={{ maxWidth: '720px' }}>
         <div className="card border-danger">
           <div className="card-body">
-            <h1 className="h4 text-danger">Registration unavailable</h1>
-            <p className="mb-0">{error || 'Race registration could not be found.'}</p>
+            <h1 className="h4 text-danger">{t('publicRegistration.unavailableTitle')}</h1>
+            <p className="mb-0">{error || t('publicRegistration.unavailableFallback')}</p>
           </div>
         </div>
       </div>
@@ -311,32 +325,32 @@ function PublicRegistrationPage() {
       <div className="card">
         <div className="card-body">
           <h1 className="h3 mb-2">{race.name}</h1>
-          <p className="text-muted">{race.description || 'No description provided.'}</p>
+          <p className="text-muted">{race.description || t('publicRegistration.noDescription')}</p>
 
           <hr />
 
-          <h2 className="h5">Registration settings</h2>
+          <h2 className="h5">{t('publicRegistration.settingsTitle')}</h2>
           <ul className="mb-0">
             <li>{registrationModeLabel}</li>
-            <li>Team size: {race.min_team_size} to {race.max_team_size}</li>
-            <li>Registration slug: {race.registration_slug}</li>
+            <li>{t('publicRegistration.teamSize', { min: race.min_team_size, max: race.max_team_size })}</li>
+            <li>{t('publicRegistration.registrationSlug', { slug: race.registration_slug })}</li>
           </ul>
 
           <hr />
 
           {paymentStatus === 'verifying' && (
             <div className="alert alert-info" role="status">
-              Checkout completed. Verifying payment confirmation...
+              {t('publicRegistration.paymentVerifying')}
             </div>
           )}
           {paymentStatus === 'pending' && (
             <div className="alert alert-warning" role="status">
-              Checkout completed. Payment confirmation is pending. Please refresh shortly.
+              {t('publicRegistration.paymentPending')}
             </div>
           )}
           {paymentStatus === 'confirmed' && (
             <div className="alert alert-success" role="status">
-              Payment confirmed. Thank you for completing registration payment.
+              {t('publicRegistration.paymentConfirmed')}
             </div>
           )}
           {successMessage && <div className="alert alert-success">{successMessage}</div>}
@@ -344,15 +358,15 @@ function PublicRegistrationPage() {
 
           {isCheckoutCanceled && paymentStatus !== 'confirmed' && (
             <div className="border rounded p-3 bg-light mb-3">
-              <h3 className="h6 mb-2">Payment not completed</h3>
-              <p className="text-muted mb-3">Review your details below and submit registration again to continue to checkout.</p>
+              <h3 className="h6 mb-2">{t('publicRegistration.paymentNotCompletedTitle')}</h3>
+              <p className="text-muted mb-3">{t('publicRegistration.paymentNotCompletedHelp')}</p>
               <dl className="row mb-2">
-                <dt className="col-sm-4 mb-0">Race</dt>
+                <dt className="col-sm-4 mb-0">{t('publicRegistration.raceLabel')}</dt>
                 <dd className="col-sm-8 mb-0">{race.name}</dd>
               </dl>
               <dl className="row mb-0">
-                <dt className="col-sm-4 mb-0">Team</dt>
-                <dd className="col-sm-8 mb-0">{confirmedTeamName || teamName || (confirmedTeamId ? `Team #${confirmedTeamId}` : 'Your team')}</dd>
+                <dt className="col-sm-4 mb-0">{t('publicRegistration.teamLabel')}</dt>
+                <dd className="col-sm-8 mb-0">{displayedTeamName}</dd>
               </dl>
             </div>
           )}
@@ -361,7 +375,7 @@ function PublicRegistrationPage() {
             <form onSubmit={handleSubmit}>
             {isTeamAllowed && isIndividualAllowed && (
               <div className="mb-3">
-                <label className="form-label">Registration mode</label>
+                <label className="form-label">{t('publicRegistration.registrationModeLabel')}</label>
                 <div className="d-flex gap-3">
                   <div className="form-check">
                     <input
@@ -376,7 +390,7 @@ function PublicRegistrationPage() {
                         setMembers(Array.from({ length: Math.max(minTeamSize, 1) }, () => ({ name: '', email: '', password: '' })));
                       }}
                     />
-                    <label className="form-check-label" htmlFor="mode-team">Team</label>
+                    <label className="form-check-label" htmlFor="mode-team">{t('publicRegistration.teamMode')}</label>
                   </div>
                   <div className="form-check">
                     <input
@@ -391,14 +405,14 @@ function PublicRegistrationPage() {
                         setMembers([{ name: '', email: '', password: '' }]);
                       }}
                     />
-                    <label className="form-check-label" htmlFor="mode-individual">Individual</label>
+                    <label className="form-check-label" htmlFor="mode-individual">{t('publicRegistration.individualMode')}</label>
                   </div>
                 </div>
               </div>
             )}
 
             <div className="mb-3">
-              <label htmlFor="team-name" className="form-label">Team name</label>
+              <label htmlFor="team-name" className="form-label">{t('publicRegistration.teamNameLabel')}</label>
               <input
                 id="team-name"
                 className="form-control"
@@ -409,7 +423,7 @@ function PublicRegistrationPage() {
             </div>
 
             <div className="mb-3">
-              <label htmlFor="race-category" className="form-label">Race category</label>
+              <label htmlFor="race-category" className="form-label">{t('publicRegistration.categoryLabel')}</label>
               <select
                 id="race-category"
                 className="form-select"
@@ -418,7 +432,7 @@ function PublicRegistrationPage() {
                 required
                 disabled={categoryOptions.length === 0}
               >
-                {categoryOptions.length === 0 && <option value="">No category available</option>}
+                {categoryOptions.length === 0 && <option value="">{t('publicRegistration.noCategoryAvailable')}</option>}
                 {categoryOptions.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -427,11 +441,11 @@ function PublicRegistrationPage() {
               </select>
             </div>
 
-            <h3 className="h6">Members</h3>
+            <h3 className="h6">{t('publicRegistration.membersTitle')}</h3>
             {members.map((member, index) => (
               <div key={`member-${index}`} className="border rounded p-3 mb-3">
                 <div className="mb-2">
-                  <label className="form-label">Name</label>
+                  <label className="form-label">{t('publicRegistration.nameLabel')}</label>
                   <input
                     className="form-control"
                     value={member.name}
@@ -440,7 +454,7 @@ function PublicRegistrationPage() {
                   />
                 </div>
                 <div className="mb-2">
-                  <label className="form-label">Email</label>
+                  <label className="form-label">{t('publicRegistration.emailLabel')}</label>
                   <input
                     className="form-control"
                     type="email"
@@ -450,7 +464,7 @@ function PublicRegistrationPage() {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Password</label>
+                  <label className="form-label">{t('publicRegistration.passwordLabel')}</label>
                   <input
                     className="form-control"
                     type="password"
@@ -466,7 +480,7 @@ function PublicRegistrationPage() {
                     onClick={() => removeMemberRow(index)}
                     disabled={members.length <= minTeamSize}
                   >
-                    Remove member
+                    {t('publicRegistration.removeMember')}
                   </button>
                 )}
               </div>
@@ -479,26 +493,26 @@ function PublicRegistrationPage() {
                 onClick={addMemberRow}
                 disabled={members.length >= maxTeamSize}
               >
-                Add member
+                {t('publicRegistration.addMember')}
               </button>
             )}
 
               <div>
                 <button type="submit" className="btn btn-primary" disabled={submitting || checkingPaymentStatus || categoryOptions.length === 0}>
-                  {submitting || checkingPaymentStatus ? 'Submitting...' : 'Submit registration'}
+                  {submitting || checkingPaymentStatus ? t('publicRegistration.submitting') : t('publicRegistration.submitRegistration')}
                 </button>
               </div>
             </form>
           ) : (
             <div className="border rounded p-3 bg-light">
-              <h3 className="h6 mb-3">Registration complete</h3>
+              <h3 className="h6 mb-3">{t('publicRegistration.registrationCompleteTitle')}</h3>
               <dl className="row mb-2">
-                <dt className="col-sm-4 mb-0">Race</dt>
+                <dt className="col-sm-4 mb-0">{t('publicRegistration.raceLabel')}</dt>
                 <dd className="col-sm-8 mb-0">{race.name}</dd>
               </dl>
               <dl className="row mb-0">
-                <dt className="col-sm-4 mb-0">Team</dt>
-                <dd className="col-sm-8 mb-0">{confirmedTeamName || teamName || (confirmedTeamId ? `Team #${confirmedTeamId}` : 'Your team')}</dd>
+                <dt className="col-sm-4 mb-0">{t('publicRegistration.teamLabel')}</dt>
+                <dd className="col-sm-8 mb-0">{displayedTeamName}</dd>
               </dl>
             </div>
           )}
