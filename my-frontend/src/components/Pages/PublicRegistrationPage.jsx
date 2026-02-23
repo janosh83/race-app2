@@ -193,6 +193,7 @@ function PublicRegistrationPage() {
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));
       const baseUrl = window.location.origin;
       const checkoutSession = await raceApi.createRegistrationCheckoutSession(slug, {
+        team_id: teamId,
         team_name: teamName.trim(),
         mode,
         members_count: members.length,

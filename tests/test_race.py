@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation
+from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RaceCategory
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from datetime import datetime, timedelta
 
@@ -573,7 +573,16 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         race.allow_individual_registration = True
         race.min_team_size = 1
         race.max_team_size = 5
+
+        category = RaceCategory(name="Open")
+        team = Team(name="Road Runners")
+        db.session.add_all([category, team])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
         db.session.commit()
+        team_id = team.id
 
     def fake_checkout(**kwargs):
         return {
@@ -587,6 +596,7 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         "/api/race/registration/jarni-jizda-2026/checkout/",
         json={
             "team_name": "Road Runners",
+            "team_id": team_id,
             "mode": "team",
             "members_count": 2,
             "success_url": "http://localhost:5173/register/jarni-jizda-2026?checkout=success",
@@ -606,12 +616,22 @@ def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_
         race.registration_enabled = True
         race.allow_team_registration = True
         race.allow_individual_registration = False
+
+        category = RaceCategory(name="Teams")
+        team = Team(name="Solo Runner")
+        db.session.add_all([category, team])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
         db.session.commit()
+        team_id = team.id
 
     response = test_client.post(
         "/api/race/registration/team-only-race/checkout/",
         json={
             "team_name": "Solo Runner",
+            "team_id": team_id,
             "mode": "individual",
             "members_count": 1,
         },
@@ -628,7 +648,16 @@ def test_create_checkout_by_registration_slug_missing_stripe_config(test_client,
         race.registration_enabled = True
         race.allow_team_registration = True
         race.allow_individual_registration = False
+
+        category = RaceCategory(name="Teams")
+        team = Team(name="Config Missing Team")
+        db.session.add_all([category, team])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
         db.session.commit()
+        team_id = team.id
 
     def fake_checkout(**kwargs):
         raise ValueError("Stripe is not configured")
@@ -639,12 +668,81 @@ def test_create_checkout_by_registration_slug_missing_stripe_config(test_client,
         "/api/race/registration/stripe-missing/checkout/",
         json={
             "team_name": "Config Missing Team",
+            "team_id": team_id,
             "mode": "team",
             "members_count": 2,
         },
     )
     assert response.status_code == 503
     assert "Payment provider is not configured" in response.json["message"]
+
+
+def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_test_data, test_app, monkeypatch):
+    """Stripe webhook marks registration as paid and sets session id."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-race"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Webhook")
+        team = Team(name="Webhook Team")
+        user = User(name="Webhook User", email="webhook@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+
+        race_id = race.id
+        team_id = team.id
+
+    fake_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_webhook_123",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", lambda **kwargs: True)
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    with test_app.app_context():
+        updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+        assert updated.payment_confirmed is True
+        assert updated.stripe_session_id == "cs_webhook_123"
+
+
+def test_stripe_registration_webhook_requires_configuration(test_client, add_test_data, monkeypatch):
+    """Webhook endpoint returns 503 when stripe webhook is not configured."""
+    monkeypatch.setattr(
+        "app.routes.race.construct_stripe_event",
+        lambda **kwargs: (_ for _ in ()).throw(ValueError("Stripe webhook is not configured")),
+    )
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 503
+    assert "Webhook is not configured" in response.json["message"]
 
 
 

@@ -10,6 +10,8 @@ def create_registration_checkout_session(
     team_name,
     mode,
     members_count,
+    race_id,
+    team_id,
 ):
     if not secret_key:
         raise ValueError("Stripe is not configured")
@@ -40,6 +42,8 @@ def create_registration_checkout_session(
         ],
         metadata={
             "registration_slug": registration_slug,
+            "race_id": str(race_id),
+            "team_id": str(team_id),
             "team_name": team_name,
             "mode": mode,
             "members_count": str(members_count),
@@ -50,3 +54,16 @@ def create_registration_checkout_session(
         "session_id": session.id,
         "checkout_url": session.url,
     }
+
+
+def construct_stripe_event(*, secret_key, payload, signature, webhook_secret):
+    if not secret_key or not webhook_secret:
+        raise ValueError("Stripe webhook is not configured")
+
+    try:
+        import stripe
+    except ImportError as exc:
+        raise ValueError("Stripe SDK is not installed") from exc
+
+    stripe.api_key = secret_key
+    return stripe.Webhook.construct_event(payload, signature, webhook_secret)

@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from marshmallow import ValidationError
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -15,6 +16,8 @@ from app.schemas import RaceCreateSchema, RaceUpdateSchema
 from app.schemas import RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from app.services.stripe_service import create_registration_checkout_session
+from app.services.stripe_service import construct_stripe_event
+from app.services.email_service import EmailService, generate_reset_token
 
 logger = logging.getLogger(__name__)
 
@@ -386,9 +389,25 @@ def create_checkout_by_registration_slug(registration_slug):
         return jsonify({"message": "Registration is not enabled for this race."}), 404
 
     payload = request.get_json(silent=True) or {}
+    team_id = payload.get('team_id')
     team_name = (payload.get('team_name') or '').strip()
     mode = payload.get('mode') or 'team'
     members_count = int(payload.get('members_count') or 1)
+
+    if not team_id:
+        return jsonify({"message": "team_id is required."}), 400
+
+    try:
+        team_id = int(team_id)
+    except (TypeError, ValueError):
+        return jsonify({"message": "team_id must be an integer."}), 400
+
+    registration = Registration.query.filter_by(race_id=race.id, team_id=team_id).first()
+    if not registration:
+        return jsonify({"message": "Registration must be created before checkout."}), 404
+
+    if registration.payment_confirmed:
+        return jsonify({"message": "Payment is already confirmed for this registration."}), 400
 
     if mode not in ('team', 'individual'):
         return jsonify({"message": "Invalid registration mode."}), 400
@@ -428,6 +447,8 @@ def create_checkout_by_registration_slug(registration_slug):
             team_name=team_name,
             mode=mode,
             members_count=members_count,
+            race_id=race.id,
+            team_id=team_id,
         )
     except ValueError as exc:
         logger.error("Stripe checkout unavailable for race %s: %s", race.id, exc)
@@ -442,11 +463,94 @@ def create_checkout_by_registration_slug(registration_slug):
         registration_slug,
         mode,
     )
+
+    registration.stripe_session_id = session_data['session_id']
+    db.session.commit()
+
     return jsonify({
         "checkout_url": session_data['checkout_url'],
         "session_id": session_data['session_id'],
         "publishable_key": current_app.config.get('STRIPE_PUBLISHABLE_KEY', ''),
     }), 201
+
+@race_bp.route('/registration/stripe/webhook/', methods=['POST'])
+def stripe_registration_webhook():
+    """Stripe webhook handler for registration checkout events."""
+    payload = request.get_data(as_text=False)
+    signature = request.headers.get('Stripe-Signature', '')
+
+    try:
+        event = construct_stripe_event(
+            secret_key=current_app.config.get('STRIPE_SECRET_KEY'),
+            payload=payload,
+            signature=signature,
+            webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
+        )
+    except ValueError as exc:
+        logger.error("Stripe webhook configuration error: %s", exc)
+        return jsonify({"message": "Webhook is not configured."}), 503
+    except (RuntimeError, OSError, TypeError) as exc:
+        logger.error("Stripe webhook signature verification failed: %s", exc)
+        return jsonify({"message": "Invalid webhook signature."}), 400
+
+    if event.get('type') != 'checkout.session.completed':
+        return jsonify({"message": "Event ignored"}), 200
+
+    session = event.get('data', {}).get('object', {})
+    metadata = session.get('metadata') or {}
+    session_id = session.get('id')
+
+    try:
+        race_id = int(metadata.get('race_id'))
+        team_id = int(metadata.get('team_id'))
+    except (TypeError, ValueError):
+        logger.error("Stripe webhook invalid race/team metadata: %s", metadata)
+        return jsonify({"message": "Missing metadata."}), 400
+
+    if not session_id:
+        logger.error("Stripe webhook missing session id")
+        return jsonify({"message": "Missing metadata."}), 400
+
+    registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+    if not registration:
+        logger.error("Stripe webhook registration not found for race %s team %s", race_id, team_id)
+        return jsonify({"message": "Registration not found."}), 404
+
+    registration.payment_confirmed = True
+    registration.payment_confirmed_at = datetime.now()
+    registration.stripe_session_id = session_id
+
+    race = Race.query.filter_by(id=registration.race_id).first()
+    team = Team.query.filter_by(id=registration.team_id).first()
+    category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
+
+    email_sent_for_all = True
+    if team and race:
+        for member in team.members:
+            reset_token = generate_reset_token()
+            member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+            sent = EmailService.send_registration_confirmation_email(
+                user_email=member.email,
+                user_name=member.name or member.email,
+                race_name=race.name,
+                team_name=team.name,
+                race_category=category.name if category else "N/A",
+                reset_token=reset_token,
+                language=member.preferred_language,
+            )
+            if not sent:
+                email_sent_for_all = False
+
+    registration.email_sent = email_sent_for_all and bool(team and team.members)
+    db.session.commit()
+
+    logger.info(
+        "Stripe payment confirmed for race %s team %s session %s",
+        race_id,
+        team_id,
+        session_id,
+    )
+    return jsonify({"message": "Payment confirmed."}), 200
 
 # delete race
 # tested by test_races.py -> test_create_race

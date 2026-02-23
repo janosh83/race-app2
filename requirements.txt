@@ -13,3 +13,4 @@ psycopg2-binary
 marshmallow
 Pillow
 stripe
+python-dateutil

@@ -55,6 +55,9 @@ class Registration(db.Model):
     race_category_id = db.Column(db.Integer, db.ForeignKey('race_category.id'), nullable=False)
     email_sent = db.Column(db.Boolean, default=False, nullable=False)
     disqualified = db.Column(db.Boolean, default=False, nullable=False)
+    payment_confirmed = db.Column(db.Boolean, default=False, nullable=False)
+    payment_confirmed_at = db.Column(db.DateTime, nullable=True)
+    stripe_session_id = db.Column(db.String(255), nullable=True, unique=True)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'team_id', name='uq_race_team'),
