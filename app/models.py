@@ -29,6 +29,10 @@ class Race(db.Model):
     end_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
     start_logging_at = db.Column(db.DateTime, nullable=False)
     end_logging_at = db.Column(db.DateTime, nullable=False)
+    min_team_size = db.Column(db.Integer, nullable=False, default=1)
+    max_team_size = db.Column(db.Integer, nullable=False, default=2)
+    allow_team_registration = db.Column(db.Boolean, nullable=False, default=True)
+    allow_individual_registration = db.Column(db.Boolean, nullable=False, default=False)
 
 
 class RaceTranslation(db.Model):
@@ -171,11 +175,11 @@ class User(db.Model):
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-    
+
     def set_reset_token(self, token, expiry):
         self.reset_token = token
         self.reset_token_expiry = expiry
-    
+
     def clear_reset_token(self):
         self.reset_token = None
         self.reset_token_expiry = None

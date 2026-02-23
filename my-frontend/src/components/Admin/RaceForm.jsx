@@ -16,6 +16,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
   const [endLogging, setEndLogging] = useState('');
+  const [minTeamSize, setMinTeamSize] = useState(1);
+  const [maxTeamSize, setMaxTeamSize] = useState(2);
+  const [allowTeamRegistration, setAllowTeamRegistration] = useState(true);
+  const [allowIndividualRegistration, setAllowIndividualRegistration] = useState(false);
   const [defaultLanguage, setDefaultLanguage] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -44,6 +48,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));
       setStartLogging(toLocal(race.start_logging_at ?? race.start_logging));
       setEndLogging(toLocal(race.end_logging_at ?? race.end_logging));
+      setMinTeamSize(Number(race.min_team_size ?? 1));
+      setMaxTeamSize(Number(race.max_team_size ?? 2));
+      setAllowTeamRegistration(Boolean(race.allow_team_registration ?? true));
+      setAllowIndividualRegistration(Boolean(race.allow_individual_registration ?? false));
     } else {
       setName('');
       setDescription('');
@@ -53,6 +61,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setEndShow('');
       setStartLogging('');
       setEndLogging('');
+      setMinTeamSize(1);
+      setMaxTeamSize(2);
+      setAllowTeamRegistration(true);
+      setAllowIndividualRegistration(false);
     }
   }, [race]);
 
@@ -78,7 +90,29 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setValidationError(t('admin.raceForm.validationEndLogNotAfterShow'));
       return;
     }
-  }, [startShow, endShow, startLogging, endLogging, t]);
+    if (Number(minTeamSize) < 1 || Number(maxTeamSize) < 1) {
+      setValidationError('Team size must be at least 1.');
+      return;
+    }
+    if (Number(minTeamSize) > Number(maxTeamSize)) {
+      setValidationError('Min team size must be less than or equal to max team size.');
+      return;
+    }
+    if (!allowTeamRegistration && !allowIndividualRegistration) {
+      setValidationError('At least one registration mode must be enabled.');
+      return;
+    }
+  }, [
+    startShow,
+    endShow,
+    startLogging,
+    endLogging,
+    minTeamSize,
+    maxTeamSize,
+    allowTeamRegistration,
+    allowIndividualRegistration,
+    t,
+  ]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -94,6 +128,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         end_showing_checkpoints_at: toIso(endShow),
         start_logging_at: toIso(startLogging),
         end_logging_at: toIso(endLogging),
+        min_team_size: Number(minTeamSize),
+        max_team_size: Number(maxTeamSize),
+        allow_team_registration: allowTeamRegistration,
+        allow_individual_registration: allowIndividualRegistration,
       };
       let saved;
       if (isEdit) {
@@ -222,6 +260,57 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         <div className="col">
           <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
           <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="row g-2 mb-3">
+        <div className="col">
+          <label className="form-label small">Min team size</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={minTeamSize}
+            onChange={e => setMinTeamSize(e.target.value)}
+          />
+        </div>
+        <div className="col">
+          <label className="form-label small">Max team size</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={maxTeamSize}
+            onChange={e => setMaxTeamSize(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label small d-block">Registration modes</label>
+        <div className="form-check">
+          <input
+            id="allow-team-registration"
+            className="form-check-input"
+            type="checkbox"
+            checked={allowTeamRegistration}
+            onChange={e => setAllowTeamRegistration(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="allow-team-registration">
+            Allow team registration
+          </label>
+        </div>
+        <div className="form-check">
+          <input
+            id="allow-individual-registration"
+            className="form-check-input"
+            type="checkbox"
+            checked={allowIndividualRegistration}
+            onChange={e => setAllowIndividualRegistration(e.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="allow-individual-registration">
+            Allow individual registration
+          </label>
         </div>
       </div>
 

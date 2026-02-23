@@ -129,6 +129,10 @@ class RaceCreateSchema(Schema):
         validate=validate.OneOf(SUPPORTED_LANGUAGES),
         load_default=DEFAULT_LANGUAGE,
     )
+    min_team_size = fields.Integer(load_default=1, validate=validate.Range(min=1))
+    max_team_size = fields.Integer(load_default=2, validate=validate.Range(min=1))
+    allow_team_registration = fields.Boolean(load_default=True)
+    allow_individual_registration = fields.Boolean(load_default=False)
 
     @validates_schema
     def validate_language_settings(self, data, **kwargs):
@@ -136,6 +140,19 @@ class RaceCreateSchema(Schema):
         default = data.get("default_language", DEFAULT_LANGUAGE)
         if default not in supported:
             raise ValidationError("default_language must be in supported_languages", field_name="default_language")
+
+        min_team_size = data.get("min_team_size", 1)
+        max_team_size = data.get("max_team_size", 2)
+        if min_team_size > max_team_size:
+            raise ValidationError("min_team_size must be <= max_team_size", field_name="min_team_size")
+
+        allow_team_registration = data.get("allow_team_registration", True)
+        allow_individual_registration = data.get("allow_individual_registration", False)
+        if not allow_team_registration and not allow_individual_registration:
+            raise ValidationError(
+                "At least one registration mode must be enabled",
+                field_name="allow_team_registration",
+            )
 
 
 class RaceUpdateSchema(Schema):
@@ -150,6 +167,25 @@ class RaceUpdateSchema(Schema):
         validate=validate.Length(min=1),
     )
     default_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    min_team_size = fields.Integer(validate=validate.Range(min=1))
+    max_team_size = fields.Integer(validate=validate.Range(min=1))
+    allow_team_registration = fields.Boolean()
+    allow_individual_registration = fields.Boolean()
+
+    @validates_schema
+    def validate_registration_settings(self, data, **kwargs):
+        min_team_size = data.get("min_team_size")
+        max_team_size = data.get("max_team_size")
+        if min_team_size is not None and max_team_size is not None and min_team_size > max_team_size:
+            raise ValidationError("min_team_size must be <= max_team_size", field_name="min_team_size")
+
+        allow_team_registration = data.get("allow_team_registration")
+        allow_individual_registration = data.get("allow_individual_registration")
+        if allow_team_registration is False and allow_individual_registration is False:
+            raise ValidationError(
+                "At least one registration mode must be enabled",
+                field_name="allow_team_registration",
+            )
 
 
 class RaceTranslationCreateSchema(Schema):

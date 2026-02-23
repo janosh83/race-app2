@@ -75,6 +75,10 @@ def get_all_races():
             "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
             "start_logging_at": race.start_logging_at,
             "end_logging_at": race.end_logging_at,
+            "min_team_size": race.min_team_size,
+            "max_team_size": race.max_team_size,
+            "allow_team_registration": race.allow_team_registration,
+            "allow_individual_registration": race.allow_individual_registration,
             "supported_languages": race.supported_languages,
             "default_language": race.default_language
         })
@@ -134,6 +138,10 @@ def get_single_race(race_id):
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
                     "start_logging_at": race.start_logging_at,
                     "end_logging_at": race.end_logging_at,
+                    "min_team_size": race.min_team_size,
+                    "max_team_size": race.max_team_size,
+                    "allow_team_registration": race.allow_team_registration,
+                    "allow_individual_registration": race.allow_individual_registration,
                     "supported_languages": race.supported_languages,
                     "default_language": race.default_language}), 200
 
@@ -185,6 +193,10 @@ def create_race():
                     end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
                     end_logging_at=end_logging_at,
+                    min_team_size=data.get("min_team_size", 1),
+                    max_team_size=data.get("max_team_size", 2),
+                    allow_team_registration=data.get("allow_team_registration", True),
+                    allow_individual_registration=data.get("allow_individual_registration", False),
                     supported_languages=data.get("supported_languages", list(SUPPORTED_LANGUAGES)),
                     default_language=data.get("default_language", DEFAULT_LANGUAGE))
     db.session.add(new_race)
@@ -194,6 +206,14 @@ def create_race():
       "id": new_race.id,
       "name": new_race.name,
       "description": new_race.description,
+      "start_showing_checkpoints_at": new_race.start_showing_checkpoints_at,
+      "end_showing_checkpoints_at": new_race.end_showing_checkpoints_at,
+      "start_logging_at": new_race.start_logging_at,
+      "end_logging_at": new_race.end_logging_at,
+      "min_team_size": new_race.min_team_size,
+      "max_team_size": new_race.max_team_size,
+      "allow_team_registration": new_race.allow_team_registration,
+      "allow_individual_registration": new_race.allow_individual_registration,
       "supported_languages": new_race.supported_languages,
       "default_language": new_race.default_language,
     }), 201
@@ -223,6 +243,16 @@ def update_race(race_id):
         if default not in supported:
             raise ValidationError({"default_language": ["default_language must be in supported_languages"]})
 
+    min_team_size = data.get("min_team_size", race.min_team_size)
+    max_team_size = data.get("max_team_size", race.max_team_size)
+    if min_team_size > max_team_size:
+        raise ValidationError({"min_team_size": ["min_team_size must be <= max_team_size"]})
+
+    allow_team_registration = data.get("allow_team_registration", race.allow_team_registration)
+    allow_individual_registration = data.get("allow_individual_registration", race.allow_individual_registration)
+    if not allow_team_registration and not allow_individual_registration:
+        raise ValidationError({"allow_team_registration": ["At least one registration mode must be enabled"]})
+
     # simple scalar fields
     if 'name' in data:
         race.name = data.get('name')
@@ -232,6 +262,14 @@ def update_race(race_id):
         race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
         race.default_language = data.get('default_language')
+    if 'min_team_size' in data:
+        race.min_team_size = data.get('min_team_size')
+    if 'max_team_size' in data:
+        race.max_team_size = data.get('max_team_size')
+    if 'allow_team_registration' in data:
+        race.allow_team_registration = data.get('allow_team_registration')
+    if 'allow_individual_registration' in data:
+        race.allow_individual_registration = data.get('allow_individual_registration')
 
     # datetime fields (accept several possible keys but prefer explicit *_at keys)
     if 'start_showing_checkpoints_at' in data:
@@ -265,6 +303,10 @@ def update_race(race_id):
         "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
         "start_logging_at": race.start_logging_at,
         "end_logging_at": race.end_logging_at,
+        "min_team_size": race.min_team_size,
+        "max_team_size": race.max_team_size,
+        "allow_team_registration": race.allow_team_registration,
+        "allow_individual_registration": race.allow_individual_registration,
         "supported_languages": race.supported_languages,
         "default_language": race.default_language,
     }), 200
