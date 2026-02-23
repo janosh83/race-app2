@@ -29,6 +29,8 @@ class Race(db.Model):
     end_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
     start_logging_at = db.Column(db.DateTime, nullable=False)
     end_logging_at = db.Column(db.DateTime, nullable=False)
+    registration_slug = db.Column(db.String(120), unique=True, nullable=True)
+    registration_enabled = db.Column(db.Boolean, nullable=False, default=False)
     min_team_size = db.Column(db.Integer, nullable=False, default=1)
     max_team_size = db.Column(db.Integer, nullable=False, default=2)
     allow_team_registration = db.Column(db.Boolean, nullable=False, default=True)

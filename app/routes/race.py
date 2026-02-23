@@ -75,6 +75,8 @@ def get_all_races():
             "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
             "start_logging_at": race.start_logging_at,
             "end_logging_at": race.end_logging_at,
+            "registration_slug": race.registration_slug,
+            "registration_enabled": race.registration_enabled,
             "min_team_size": race.min_team_size,
             "max_team_size": race.max_team_size,
             "allow_team_registration": race.allow_team_registration,
@@ -138,6 +140,8 @@ def get_single_race(race_id):
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
                     "start_logging_at": race.start_logging_at,
                     "end_logging_at": race.end_logging_at,
+                    "registration_slug": race.registration_slug,
+                    "registration_enabled": race.registration_enabled,
                     "min_team_size": race.min_team_size,
                     "max_team_size": race.max_team_size,
                     "allow_team_registration": race.allow_team_registration,
@@ -193,6 +197,8 @@ def create_race():
                     end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
                     end_logging_at=end_logging_at,
+                    registration_slug=data.get("registration_slug"),
+                    registration_enabled=data.get("registration_enabled", False),
                     min_team_size=data.get("min_team_size", 1),
                     max_team_size=data.get("max_team_size", 2),
                     allow_team_registration=data.get("allow_team_registration", True),
@@ -210,6 +216,8 @@ def create_race():
       "end_showing_checkpoints_at": new_race.end_showing_checkpoints_at,
       "start_logging_at": new_race.start_logging_at,
       "end_logging_at": new_race.end_logging_at,
+      "registration_slug": new_race.registration_slug,
+      "registration_enabled": new_race.registration_enabled,
       "min_team_size": new_race.min_team_size,
       "max_team_size": new_race.max_team_size,
       "allow_team_registration": new_race.allow_team_registration,
@@ -253,6 +261,11 @@ def update_race(race_id):
     if not allow_team_registration and not allow_individual_registration:
         raise ValidationError({"allow_team_registration": ["At least one registration mode must be enabled"]})
 
+    registration_enabled = data.get("registration_enabled", race.registration_enabled)
+    registration_slug = data.get("registration_slug", race.registration_slug)
+    if registration_enabled and not registration_slug:
+        raise ValidationError({"registration_slug": ["registration_slug is required when registration_enabled is true"]})
+
     # simple scalar fields
     if 'name' in data:
         race.name = data.get('name')
@@ -262,6 +275,10 @@ def update_race(race_id):
         race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
         race.default_language = data.get('default_language')
+    if 'registration_slug' in data:
+        race.registration_slug = data.get('registration_slug')
+    if 'registration_enabled' in data:
+        race.registration_enabled = data.get('registration_enabled')
     if 'min_team_size' in data:
         race.min_team_size = data.get('min_team_size')
     if 'max_team_size' in data:
@@ -303,6 +320,43 @@ def update_race(race_id):
         "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
         "start_logging_at": race.start_logging_at,
         "end_logging_at": race.end_logging_at,
+        "registration_slug": race.registration_slug,
+        "registration_enabled": race.registration_enabled,
+        "min_team_size": race.min_team_size,
+        "max_team_size": race.max_team_size,
+        "allow_team_registration": race.allow_team_registration,
+        "allow_individual_registration": race.allow_individual_registration,
+        "supported_languages": race.supported_languages,
+        "default_language": race.default_language,
+    }), 200
+
+
+
+@race_bp.route('/registration/<string:registration_slug>/', methods=['GET'])
+def get_race_by_registration_slug(registration_slug):
+    """Public endpoint for resolving race registration settings by race slug."""
+    race = Race.query.filter_by(registration_slug=registration_slug).first_or_404()
+    if not race.registration_enabled:
+        return jsonify({"message": "Registration is not enabled for this race."}), 404
+
+    language = request.args.get("lang")
+    name = race.name
+    description = race.description
+    if language and language in (race.supported_languages or []):
+        translation = RaceTranslation.query.filter_by(
+            race_id=race.id,
+            language=language,
+        ).first()
+        if translation:
+            name = translation.name
+            description = translation.description
+
+    return jsonify({
+        "id": race.id,
+        "registration_slug": race.registration_slug,
+        "registration_enabled": race.registration_enabled,
+        "name": name,
+        "description": description,
         "min_team_size": race.min_team_size,
         "max_team_size": race.max_team_size,
         "allow_team_registration": race.allow_team_registration,

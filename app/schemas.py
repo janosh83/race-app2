@@ -129,6 +129,12 @@ class RaceCreateSchema(Schema):
         validate=validate.OneOf(SUPPORTED_LANGUAGES),
         load_default=DEFAULT_LANGUAGE,
     )
+    registration_slug = fields.String(
+        load_default=None,
+        allow_none=True,
+        validate=validate.Regexp(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", error="registration_slug must be lowercase kebab-case"),
+    )
+    registration_enabled = fields.Boolean(load_default=False)
     min_team_size = fields.Integer(load_default=1, validate=validate.Range(min=1))
     max_team_size = fields.Integer(load_default=2, validate=validate.Range(min=1))
     allow_team_registration = fields.Boolean(load_default=True)
@@ -154,6 +160,11 @@ class RaceCreateSchema(Schema):
                 field_name="allow_team_registration",
             )
 
+        registration_enabled = data.get("registration_enabled", False)
+        registration_slug = data.get("registration_slug")
+        if registration_enabled and not registration_slug:
+            raise ValidationError("registration_slug is required when registration_enabled is true", field_name="registration_slug")
+
 
 class RaceUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
@@ -167,6 +178,11 @@ class RaceUpdateSchema(Schema):
         validate=validate.Length(min=1),
     )
     default_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    registration_slug = fields.String(
+        allow_none=True,
+        validate=validate.Regexp(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", error="registration_slug must be lowercase kebab-case"),
+    )
+    registration_enabled = fields.Boolean()
     min_team_size = fields.Integer(validate=validate.Range(min=1))
     max_team_size = fields.Integer(validate=validate.Range(min=1))
     allow_team_registration = fields.Boolean()
@@ -186,6 +202,11 @@ class RaceUpdateSchema(Schema):
                 "At least one registration mode must be enabled",
                 field_name="allow_team_registration",
             )
+
+        registration_enabled = data.get("registration_enabled")
+        registration_slug = data.get("registration_slug")
+        if registration_enabled is True and not registration_slug:
+            raise ValidationError("registration_slug is required when registration_enabled is true", field_name="registration_slug")
 
 
 class RaceTranslationCreateSchema(Schema):

@@ -16,6 +16,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
   const [endLogging, setEndLogging] = useState('');
+  const [registrationSlug, setRegistrationSlug] = useState('');
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [minTeamSize, setMinTeamSize] = useState(1);
   const [maxTeamSize, setMaxTeamSize] = useState(2);
   const [allowTeamRegistration, setAllowTeamRegistration] = useState(true);
@@ -48,6 +50,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));
       setStartLogging(toLocal(race.start_logging_at ?? race.start_logging));
       setEndLogging(toLocal(race.end_logging_at ?? race.end_logging));
+      setRegistrationSlug(race.registration_slug || '');
+      setRegistrationEnabled(Boolean(race.registration_enabled || false));
       setMinTeamSize(Number(race.min_team_size ?? 1));
       setMaxTeamSize(Number(race.max_team_size ?? 2));
       setAllowTeamRegistration(Boolean(race.allow_team_registration ?? true));
@@ -61,6 +65,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setEndShow('');
       setStartLogging('');
       setEndLogging('');
+      setRegistrationSlug('');
+      setRegistrationEnabled(false);
       setMinTeamSize(1);
       setMaxTeamSize(2);
       setAllowTeamRegistration(true);
@@ -102,11 +108,17 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setValidationError('At least one registration mode must be enabled.');
       return;
     }
+    if (registrationEnabled && !registrationSlug.trim()) {
+      setValidationError('Registration slug is required when registration is enabled.');
+      return;
+    }
   }, [
     startShow,
     endShow,
     startLogging,
     endLogging,
+    registrationSlug,
+    registrationEnabled,
     minTeamSize,
     maxTeamSize,
     allowTeamRegistration,
@@ -128,6 +140,8 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         end_showing_checkpoints_at: toIso(endShow),
         start_logging_at: toIso(startLogging),
         end_logging_at: toIso(endLogging),
+        registration_slug: registrationSlug.trim() || null,
+        registration_enabled: registrationEnabled,
         min_team_size: Number(minTeamSize),
         max_team_size: Number(maxTeamSize),
         allow_team_registration: allowTeamRegistration,
@@ -260,6 +274,34 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         <div className="col">
           <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
           <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="row g-2 mb-3">
+        <div className="col-md-8">
+          <label className="form-label small">Registration slug</label>
+          <input
+            className="form-control"
+            type="text"
+            value={registrationSlug}
+            onChange={e => setRegistrationSlug(e.target.value)}
+            placeholder="e.g. summer-rally-2026"
+          />
+          <div className="form-text">Lowercase kebab-case. Used in public URL.</div>
+        </div>
+        <div className="col-md-4 d-flex align-items-end">
+          <div className="form-check mb-2">
+            <input
+              id="registration-enabled"
+              className="form-check-input"
+              type="checkbox"
+              checked={registrationEnabled}
+              onChange={e => setRegistrationEnabled(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="registration-enabled">
+              Registration enabled
+            </label>
+          </div>
         </div>
       </div>
 
