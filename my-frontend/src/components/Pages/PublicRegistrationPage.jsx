@@ -530,24 +530,6 @@ function PublicRegistrationPage() {
 
               <div className="border rounded p-3 bg-light mb-3">
                 <div className="fw-semibold mb-1">{t('publicRegistration.priceTitle')}</div>
-                {isDriverCodriverStrategy && mode === 'team' ? (
-                  <div className="small text-muted mb-1">
-                    {t('publicRegistration.priceBreakdownRoles', {
-                      drivers: driverCount,
-                      driverPrice: formatPrice(race.registration_driver_amount_cents || 0),
-                      codrivers: codriverCount,
-                      codriverPrice: formatPrice(race.registration_codriver_amount_cents || 0),
-                    })}
-                  </div>
-                ) : (
-                  <div className="small text-muted mb-1">
-                    {t('publicRegistration.priceBreakdownMode', {
-                      mode: mode === 'team'
-                        ? t('publicRegistration.teamMode')
-                        : t('publicRegistration.individualMode'),
-                    })}
-                  </div>
-                )}
                 <div className="fw-semibold">
                   {t('publicRegistration.priceTotal', { total: formatPrice(registrationPrice) })}
                 </div>
