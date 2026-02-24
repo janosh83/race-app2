@@ -222,6 +222,38 @@ function AdminDashboard() {
                               ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
                               : t('admin.dashboard.none')}
                           </div>
+                          <div className="mt-2 pt-2 border-top">
+                            <div>
+                              <strong>{t('admin.dashboard.registrationSettings')}:</strong>
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationEnabled')}:</strong>{' '}
+                              {selected.registration_enabled ? t('admin.dashboard.yes') : t('admin.dashboard.no')}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationSlug')}:</strong>{' '}
+                              {selected.registration_slug ? (
+                                <a
+                                  href={`${window.location.origin}/register/${encodeURIComponent(selected.registration_slug)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {selected.registration_slug}
+                                </a>
+                              ) : t('admin.dashboard.notSet')}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.teamSizeRange')}:</strong>{' '}
+                              {selected.min_team_size ?? 1} — {selected.max_team_size ?? 2}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationModes')}:</strong>{' '}
+                              {[
+                                selected.allow_team_registration ? t('admin.dashboard.modeTeam') : null,
+                                selected.allow_individual_registration ? t('admin.dashboard.modeIndividual') : null,
+                              ].filter(Boolean).join(', ') || t('admin.dashboard.none')}
+                            </div>
+                          </div>
                           <div className="mt-2">
                             <div className="d-flex align-items-center gap-2">
                               <strong>{t('admin.dashboard.existingTranslations')}:</strong>

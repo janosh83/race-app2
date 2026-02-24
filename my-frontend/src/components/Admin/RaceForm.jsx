@@ -172,6 +172,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     }
   };
 
+  const registrationFormUrl = registrationSlug.trim()
+    ? `${window.location.origin}/register/${encodeURIComponent(registrationSlug.trim())}`
+    : '';
+
   return (
     <>
       <form onSubmit={handleSubmit} className="mb-3 card p-3">
@@ -287,7 +291,19 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
             onChange={e => setRegistrationSlug(e.target.value)}
             placeholder="e.g. summer-rally-2026"
           />
-          <div className="form-text">Lowercase kebab-case. Used in public URL.</div>
+          <div className="d-flex justify-content-between align-items-center mt-1">
+            <div className="form-text mb-0">Lowercase kebab-case. Used in public URL.</div>
+            {registrationFormUrl && (
+              <a
+                href={registrationFormUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm btn-outline-primary"
+              >
+                {t('admin.raceForm.openRegistrationForm')}
+              </a>
+            )}
+          </div>
         </div>
         <div className="col-md-4 d-flex align-items-end">
           <div className="form-check mb-2">
