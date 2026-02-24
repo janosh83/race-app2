@@ -22,6 +22,9 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [maxTeamSize, setMaxTeamSize] = useState(2);
   const [allowTeamRegistration, setAllowTeamRegistration] = useState(true);
   const [allowIndividualRegistration, setAllowIndividualRegistration] = useState(false);
+  const [registrationCurrency, setRegistrationCurrency] = useState('eur');
+  const [registrationTeamAmountCents, setRegistrationTeamAmountCents] = useState(5000);
+  const [registrationIndividualAmountCents, setRegistrationIndividualAmountCents] = useState(2500);
   const [defaultLanguage, setDefaultLanguage] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -56,6 +59,9 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setMaxTeamSize(Number(race.max_team_size ?? 2));
       setAllowTeamRegistration(Boolean(race.allow_team_registration ?? true));
       setAllowIndividualRegistration(Boolean(race.allow_individual_registration ?? false));
+      setRegistrationCurrency((race.registration_currency || 'eur').toLowerCase());
+      setRegistrationTeamAmountCents(Number(race.registration_team_amount_cents ?? 5000));
+      setRegistrationIndividualAmountCents(Number(race.registration_individual_amount_cents ?? 2500));
     } else {
       setName('');
       setDescription('');
@@ -71,6 +77,9 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setMaxTeamSize(2);
       setAllowTeamRegistration(true);
       setAllowIndividualRegistration(false);
+      setRegistrationCurrency('eur');
+      setRegistrationTeamAmountCents(5000);
+      setRegistrationIndividualAmountCents(2500);
     }
   }, [race]);
 
@@ -105,11 +114,29 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       return;
     }
     if (!allowTeamRegistration && !allowIndividualRegistration) {
-      setValidationError('At least one registration mode must be enabled.');
+      setValidationError(t('admin.raceForm.validationRegistrationModeRequired'));
       return;
     }
     if (registrationEnabled && !registrationSlug.trim()) {
-      setValidationError('Registration slug is required when registration is enabled.');
+      setValidationError(t('admin.raceForm.validationRegistrationSlugRequired'));
+      return;
+    }
+
+    const normalizedCurrency = registrationCurrency.trim().toLowerCase();
+    if (!/^[a-z]{3}$/.test(normalizedCurrency)) {
+      setValidationError(t('admin.raceForm.validationRegistrationCurrency'));
+      return;
+    }
+
+    const teamAmount = Number(registrationTeamAmountCents);
+    if (!Number.isInteger(teamAmount) || teamAmount < 1) {
+      setValidationError(t('admin.raceForm.validationRegistrationTeamAmount'));
+      return;
+    }
+
+    const individualAmount = Number(registrationIndividualAmountCents);
+    if (!Number.isInteger(individualAmount) || individualAmount < 1) {
+      setValidationError(t('admin.raceForm.validationRegistrationIndividualAmount'));
       return;
     }
   }, [
@@ -123,6 +150,9 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     maxTeamSize,
     allowTeamRegistration,
     allowIndividualRegistration,
+    registrationCurrency,
+    registrationTeamAmountCents,
+    registrationIndividualAmountCents,
     t,
   ]);
 
@@ -146,6 +176,9 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         max_team_size: Number(maxTeamSize),
         allow_team_registration: allowTeamRegistration,
         allow_individual_registration: allowIndividualRegistration,
+        registration_currency: registrationCurrency.trim().toLowerCase(),
+        registration_team_amount_cents: Number(registrationTeamAmountCents),
+        registration_individual_amount_cents: Number(registrationIndividualAmountCents),
       };
       let saved;
       if (isEdit) {
@@ -369,6 +402,40 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           <label className="form-check-label" htmlFor="allow-individual-registration">
             Allow individual registration
           </label>
+        </div>
+      </div>
+
+      <div className="row g-2 mb-3">
+        <div className="col-md-4">
+          <label className="form-label small">{t('admin.raceForm.registrationCurrency')}</label>
+          <input
+            className="form-control"
+            type="text"
+            maxLength={3}
+            value={registrationCurrency}
+            onChange={e => setRegistrationCurrency(e.target.value)}
+            placeholder="eur"
+          />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label small">{t('admin.raceForm.registrationTeamAmountCents')}</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={registrationTeamAmountCents}
+            onChange={e => setRegistrationTeamAmountCents(e.target.value)}
+          />
+        </div>
+        <div className="col-md-4">
+          <label className="form-label small">{t('admin.raceForm.registrationIndividualAmountCents')}</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={registrationIndividualAmountCents}
+            onChange={e => setRegistrationIndividualAmountCents(e.target.value)}
+          />
         </div>
       </div>
 

@@ -253,6 +253,18 @@ function AdminDashboard() {
                                 selected.allow_individual_registration ? t('admin.dashboard.modeIndividual') : null,
                               ].filter(Boolean).join(', ') || t('admin.dashboard.none')}
                             </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationCurrency')}:</strong>{' '}
+                              {(selected.registration_currency || 'eur').toUpperCase()}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationTeamAmountCents')}:</strong>{' '}
+                              {selected.registration_team_amount_cents ?? 5000}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.registrationIndividualAmountCents')}:</strong>{' '}
+                              {selected.registration_individual_amount_cents ?? 2500}
+                            </div>
                           </div>
                           <div className="mt-2">
                             <div className="d-flex align-items-center gap-2">

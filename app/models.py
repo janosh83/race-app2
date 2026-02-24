@@ -35,6 +35,9 @@ class Race(db.Model):
     max_team_size = db.Column(db.Integer, nullable=False, default=2)
     allow_team_registration = db.Column(db.Boolean, nullable=False, default=True)
     allow_individual_registration = db.Column(db.Boolean, nullable=False, default=False)
+    registration_currency = db.Column(db.String(3), nullable=False, default='eur')
+    registration_team_amount_cents = db.Column(db.Integer, nullable=False, default=5000)
+    registration_individual_amount_cents = db.Column(db.Integer, nullable=False, default=2500)
 
 
 class RaceTranslation(db.Model):

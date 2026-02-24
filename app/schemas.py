@@ -139,6 +139,20 @@ class RaceCreateSchema(Schema):
     max_team_size = fields.Integer(load_default=2, validate=validate.Range(min=1))
     allow_team_registration = fields.Boolean(load_default=True)
     allow_individual_registration = fields.Boolean(load_default=False)
+    registration_currency = fields.String(
+        load_default="eur",
+        validate=validate.Regexp(r"^[A-Za-z]{3}$", error="registration_currency must be a 3-letter ISO code"),
+    )
+    registration_team_amount_cents = fields.Integer(load_default=5000, validate=validate.Range(min=1))
+    registration_individual_amount_cents = fields.Integer(load_default=2500, validate=validate.Range(min=1))
+
+    @pre_load
+    def normalize_registration_currency(self, data, **kwargs):
+        normalized = dict(data)
+        currency = normalized.get("registration_currency")
+        if isinstance(currency, str):
+            normalized["registration_currency"] = currency.strip().lower()
+        return normalized
 
     @validates_schema
     def validate_language_settings(self, data, **kwargs):
@@ -187,6 +201,19 @@ class RaceUpdateSchema(Schema):
     max_team_size = fields.Integer(validate=validate.Range(min=1))
     allow_team_registration = fields.Boolean()
     allow_individual_registration = fields.Boolean()
+    registration_currency = fields.String(
+        validate=validate.Regexp(r"^[A-Za-z]{3}$", error="registration_currency must be a 3-letter ISO code"),
+    )
+    registration_team_amount_cents = fields.Integer(validate=validate.Range(min=1))
+    registration_individual_amount_cents = fields.Integer(validate=validate.Range(min=1))
+
+    @pre_load
+    def normalize_registration_currency(self, data, **kwargs):
+        normalized = dict(data)
+        currency = normalized.get("registration_currency")
+        if isinstance(currency, str):
+            normalized["registration_currency"] = currency.strip().lower()
+        return normalized
 
     @validates_schema
     def validate_registration_settings(self, data, **kwargs):

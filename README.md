@@ -52,6 +52,8 @@ MAIL_DEFAULT_SENDER=noreply@localhost.dev
 # IMAGE_UPLOAD_FOLDER=./app/static/images
 
 # Stripe (registration payments)
+# Per-race currency/pricing is configured in Admin UI.
+# Variables below are fallback defaults for races without explicit pricing.
 STRIPE_SECRET_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
@@ -201,6 +203,7 @@ Set backend environment variables:
 STRIPE_SECRET_KEY=sk_test_or_live_...
 STRIPE_PUBLISHABLE_KEY=pk_test_or_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+# fallback defaults if a race has no pricing configured
 STRIPE_CURRENCY=eur
 STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
 STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
@@ -302,6 +305,7 @@ MAIL_DEFAULT_SENDER=noreply@yourdomain.com
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
+# fallback defaults if a race has no pricing configured
 STRIPE_CURRENCY=eur
 STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
 STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500

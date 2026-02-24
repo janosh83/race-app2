@@ -573,6 +573,8 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         race.allow_individual_registration = True
         race.min_team_size = 1
         race.max_team_size = 5
+        race.registration_currency = "usd"
+        race.registration_team_amount_cents = 7777
 
         category = RaceCategory(name="Open")
         team = Team(name="Road Runners")
@@ -584,7 +586,10 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         db.session.commit()
         team_id = team.id
 
+    called = {}
+
     def fake_checkout(**kwargs):
+        called.update(kwargs)
         return {
             "session_id": "cs_test_123",
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_123",
@@ -606,6 +611,8 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
     assert response.status_code == 201
     assert response.json["session_id"] == "cs_test_123"
     assert response.json["checkout_url"].startswith("https://checkout.stripe.com")
+    assert called["currency"] == "usd"
+    assert called["amount_cents"] == 7777
 
 
 def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_test_data, test_app):
