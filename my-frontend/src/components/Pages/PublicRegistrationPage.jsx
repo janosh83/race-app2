@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router-dom';
 
 import { authApi } from '../../services/authApi';
 import { raceApi } from '../../services/raceApi';
 import { logger } from '../../utils/logger';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 function PublicRegistrationPage() {
   const { t } = useTranslation();
@@ -25,20 +26,6 @@ function PublicRegistrationPage() {
   const [members, setMembers] = useState([
     { name: '', email: '', password: '' },
   ]);
-
-  const registrationModeLabel = useMemo(() => {
-    if (!race) return '';
-    if (race.allow_team_registration && race.allow_individual_registration) {
-      return t('publicRegistration.modeBoth');
-    }
-    if (race.allow_team_registration) {
-      return t('publicRegistration.modeTeamOnly');
-    }
-    if (race.allow_individual_registration) {
-      return t('publicRegistration.modeIndividualOnly');
-    }
-    return t('publicRegistration.modeUnavailable');
-  }, [race, t]);
 
   const isTeamAllowed = !!race?.allow_team_registration;
   const isIndividualAllowed = !!race?.allow_individual_registration;
@@ -324,17 +311,15 @@ function PublicRegistrationPage() {
     <div className="container mt-5" style={{ maxWidth: '720px' }}>
       <div className="card">
         <div className="card-body">
-          <h1 className="h3 mb-2">{race.name}</h1>
-          <p className="text-muted">{race.description || t('publicRegistration.noDescription')}</p>
-
-          <hr />
-
-          <h2 className="h5">{t('publicRegistration.settingsTitle')}</h2>
-          <ul className="mb-0">
-            <li>{registrationModeLabel}</li>
-            <li>{t('publicRegistration.teamSize', { min: race.min_team_size, max: race.max_team_size })}</li>
-            <li>{t('publicRegistration.registrationSlug', { slug: race.registration_slug })}</li>
-          </ul>
+          <div className="d-flex justify-content-between align-items-start gap-3">
+            <div className="flex-grow-1">
+              <h1 className="h3 mb-2">{race.name}</h1>
+              <p className="text-muted">{race.description || t('publicRegistration.noDescription')}</p>
+            </div>
+            <div style={{ minWidth: '92px' }}>
+              <LanguageSwitcher />
+            </div>
+          </div>
 
           <hr />
 
@@ -441,7 +426,9 @@ function PublicRegistrationPage() {
               </select>
             </div>
 
-            <h3 className="h6">{t('publicRegistration.membersTitle')}</h3>
+            <h3 className="h6">
+              {t('publicRegistration.membersTitle')} ({t('publicRegistration.teamSize', { min: race.min_team_size, max: race.max_team_size })})
+            </h3>
             {members.map((member, index) => (
               <div key={`member-${index}`} className="border rounded p-3 mb-3">
                 <div className="mb-2">
