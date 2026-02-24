@@ -399,25 +399,25 @@ def get_race_by_registration_slug(registration_slug):
 
     categories = []
     for category in race.categories:
-      category_name = category.name
-      category_description = category.description
+        category_name = category.name
+        category_description = category.description
 
-      if language and language in (race.supported_languages or []):
-        category_translation = next(
-          (translation for translation in (category.translations or []) if translation.language == language),
-          None,
-        )
-        if category_translation:
-          category_name = category_translation.name
-          category_description = category_translation.description
+        if language and language in (race.supported_languages or []):
+            category_translation = next(
+              (translation for translation in (category.translations or []) if translation.language == language),
+              None,
+            )
+            if category_translation:
+                category_name = category_translation.name
+                category_description = category_translation.description
 
-        categories.append(
-            {
-                "id": category.id,
-          "name": category_name,
-          "description": category_description,
-            }
-        )
+            categories.append(
+                {
+                    "id": category.id,
+              "name": category_name,
+              "description": category_description,
+                }
+            )
 
     return jsonify({
         "id": race.id,
