@@ -10,9 +10,9 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_earlier, start_logging_at=some_time_later, end_logging_at=some_time_later)
-        race2 = Race(name="Hill Bill Rally", description="Roadtrip po Balkáně", start_showing_checkpoints_at=some_time_earlier, 
+        race2 = Race(name="Hill Bill Rally", description="Roadtrip po Balkáně", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_earlier, start_logging_at=some_time_later, end_logging_at=some_time_later)
 
         race_category1 = RaceCategory(name="Motorka", description="Pro v3echny motorkáře")
@@ -59,7 +59,7 @@ def test_add_members(test_client, add_test_data):
     assert response.status_code == 201
     response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@seznam.cz", "password": "password"})
     assert response.status_code == 201
-    
+
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
     assert response.status_code == 201
     assert response.json == {"team_id": 1, "user_ids": [1, 2]}
@@ -72,6 +72,26 @@ def test_add_members(test_client, add_test_data):
     response = test_client.get("/api/team/2/members/")
     assert response.status_code == 200
     assert response.json == []
+
+
+def test_add_members_by_member_details_creates_users(test_client, add_test_data):
+    """Members payload with name/email creates users and assigns them to team."""
+    response = test_client.post(
+        "/api/team/1/members/",
+        json={
+            "members": [
+                {"name": "Alice", "email": "alice@example.com"},
+                {"name": "Bob", "email": "bob@example.com"},
+            ]
+        },
+    )
+    assert response.status_code == 201
+    assert response.json["team_id"] == 1
+    assert len(response.json["user_ids"]) == 2
+
+    response = test_client.get("/api/team/1/members/")
+    assert response.status_code == 200
+    assert response.json == [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
 
 def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test přihlášení týmu k závodu
@@ -139,7 +159,7 @@ def test_add_members_team_not_found(test_client, add_test_data):
     """Test adding members to non-existent team returns 404."""
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     assert response.status_code == 201
-    
+
     response = test_client.post("/api/team/999/members/", json={"user_ids": [1]})
     assert response.status_code == 404
 
@@ -173,16 +193,16 @@ def test_remove_all_members_success(test_client, add_test_data, admin_auth_heade
     response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
     assert response.status_code == 201
-    
+
     # Verify members were added
     response = test_client.get("/api/team/1/members/")
     assert len(response.json) == 2
-    
+
     # Remove all members
     response = test_client.delete("/api/team/1/members/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "All members removed successfully"
-    
+
     # Verify members were removed
     response = test_client.get("/api/team/1/members/")
     assert response.json == []
@@ -214,7 +234,7 @@ def test_delete_team_success(test_client, add_test_data, admin_auth_headers):
     response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "Team deleted successfully"
-    
+
     # Verify team is deleted
     response = test_client.get("/api/team/3/")
     assert response.status_code == 404
@@ -226,7 +246,7 @@ def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
     assert response.status_code == 201
-    
+
     # Try to delete team with members
     response = test_client.delete("/api/team/1/", headers=admin_auth_headers)
     assert response.status_code == 400
@@ -258,17 +278,17 @@ def test_delete_registration_success(test_client, add_test_data, admin_auth_head
     # First, create a registration
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Verify registration exists
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert len(response.json) == 1
-    
+
     # Delete the registration
     response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "Registration deleted successfully"
-    
+
     # Verify registration is deleted
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -295,10 +315,10 @@ def test_delete_registration_unauthorized(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
     admin_token = response.json["access_token"]
     headers = {"Authorization": f"Bearer {admin_token}"}
-    
+
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=headers)
     assert response.status_code == 201
-    
+
     # Try to delete without auth
     response = test_client.delete("/api/team/race/1/team/1/")
     assert response.status_code == 401
@@ -309,7 +329,7 @@ def test_delete_registration_forbidden_non_admin(test_client, add_test_data, adm
     # First, create a registration as admin
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Try to delete as non-admin
     response = test_client.delete("/api/team/race/1/team/1/", headers=regular_user_auth_headers)
     assert response.status_code == 403
@@ -322,16 +342,16 @@ def test_delete_registration_multiple_registrations(test_client, add_test_data, 
     assert response.status_code == 201
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Verify both exist
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert len(response.json) == 2
-    
+
     # Delete one registration
     response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
     assert response.status_code == 200
-    
+
     # Verify only one remains
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -461,27 +481,27 @@ def test_send_registration_emails_success(test_client, add_test_data, admin_auth
     """Test sending registration emails successfully."""
     # Mock the email service
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
-    
+
     # Create users and add them to teams
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
-    
+
     response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice@example.com", "password": "password"})
     response = test_client.post("/api/team/2/members/", json={"user_ids": [3]})
-    
+
     # Register teams to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["sent"] == 3
     assert response.json["failed"] == 0
-    
+
     # Verify email service was called for each member
     assert mock_email_service.call_count == 3
 
@@ -489,13 +509,13 @@ def test_send_registration_emails_success(test_client, add_test_data, admin_auth
 def test_send_registration_emails_no_registrations(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails for race with no registrations."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
-    
+
     # Race 2 has no registrations
     response = test_client.post("/api/team/race/2/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["sent"] == 0
     assert response.json["failed"] == 0
-    
+
     # Verify no emails were sent
     assert mock_email_service.call_count == 0
 
@@ -503,17 +523,17 @@ def test_send_registration_emails_no_registrations(test_client, add_test_data, a
 def test_send_registration_emails_teams_without_members(test_client, add_test_data, admin_auth_headers, mocker):
     """Test sending emails for teams without members."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
-    
+
     # Register team without members
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["sent"] == 0
     assert response.json["failed"] == 0
-    
+
     # Verify no emails were sent
     assert mock_email_service.call_count == 0
 
@@ -525,23 +545,23 @@ def test_send_registration_emails_partial_failure(test_client, add_test_data, ad
         if user_email == "peter@example.com":
             raise Exception("Email sending failed")
         return True
-    
+
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', side_effect=mock_send_email)
-    
+
     # Create users and add them to team
     # Note: admin_auth_headers creates an admin user with ID 1, so John will be ID 2 and Peter ID 3
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     assert response.status_code == 201
-    
+
     response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter@example.com", "password": "password"})
     assert response.status_code == 201
-    
+
     response = test_client.post("/api/team/1/members/", json={"user_ids": [2, 3]})  # John=2, Peter=3
-    
+
     # Register team to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -571,27 +591,27 @@ def test_send_registration_emails_forbidden_non_admin(test_client, add_test_data
 def test_send_registration_emails_only_unsent(test_client, add_test_data, admin_auth_headers, mocker):
     """Test that emails are only sent to registrations that haven't received emails yet."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
-    
+
     # Create users and add them to teams
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
-    
+
     response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice@example.com", "password": "password"})
     response = test_client.post("/api/team/2/members/", json={"user_ids": [2]})
-    
+
     # Register both teams to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Send emails first time
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["sent"] == 2
     assert response.json["failed"] == 0
     assert mock_email_service.call_count == 2
-    
+
     # Send emails again - should send to no one since all received emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -604,32 +624,32 @@ def test_send_registration_emails_only_unsent(test_client, add_test_data, admin_
 def test_send_registration_emails_sets_reset_token(test_client, add_test_data, admin_auth_headers, mocker):
     """Test that password reset tokens are generated for users."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
-    
+
     # Create user and add to team
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
     response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
-    
+
     # Register team to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
-    
+
     # Verify user has no reset token initially
     from app.models import User
     with test_client.application.app_context():
         user = User.query.filter_by(id=1).first()
         assert user.reset_token is None
-    
+
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["sent"] == 1
-    
+
     # Verify user now has a reset token
     with test_client.application.app_context():
         user = User.query.filter_by(id=1).first()
         assert user.reset_token is not None
         assert user.reset_token_expiry is not None
-    
+
     # Verify email was called with reset_token parameter
     assert mock_email_service.call_count == 1
     call_args = mock_email_service.call_args[1]

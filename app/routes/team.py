@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
@@ -547,12 +548,35 @@ def add_members(team_id):
     data = request.get_json() or {}
     validated = TeamAddMembersSchema().load(data)
     team = Team.query.filter_by(id=team_id).first_or_404()
-    for user_id in validated['user_ids']:
-        user = User.query.filter_by(id=user_id).first_or_404()
-        team.members.append(user)
+
+    added_user_ids = []
+
+    if validated.get('user_ids'):
+        for user_id in validated['user_ids']:
+            user = User.query.filter_by(id=user_id).first_or_404()
+            if user not in team.members:
+                team.members.append(user)
+                added_user_ids.append(user.id)
+
+    if validated.get('members'):
+        for member in validated['members']:
+            member_name = (member.get('name') or '').strip()
+            member_email = (member.get('email') or '').strip().lower()
+
+            user = User.query.filter_by(email=member_email).first()
+            if not user:
+                user = User(name=member_name, email=member_email)
+                user.set_password(secrets.token_urlsafe(24))
+                db.session.add(user)
+                db.session.flush()
+
+            if user not in team.members:
+                team.members.append(user)
+                added_user_ids.append(user.id)
+
     db.session.commit()
-    logger.info("Added %s members to team %s: %s", len(validated['user_ids']), team_id, validated['user_ids'])
-    return jsonify({"team_id": team.id, "user_ids": validated['user_ids']}), 201
+    logger.info("Added %s members to team %s: %s", len(added_user_ids), team_id, added_user_ids)
+    return jsonify({"team_id": team.id, "user_ids": added_user_ids}), 201
 
 # get members of team
 # tested by test_teams.py -> test_add_members

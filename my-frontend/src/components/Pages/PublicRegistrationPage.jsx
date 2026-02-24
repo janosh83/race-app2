@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router-dom';
 
-import { authApi } from '../../services/authApi';
 import { raceApi } from '../../services/raceApi';
 import { logger } from '../../utils/logger';
 import LanguageSwitcher from '../LanguageSwitcher';
@@ -24,7 +23,7 @@ function PublicRegistrationPage() {
   const [teamName, setTeamName] = useState('');
   const [raceCategoryId, setRaceCategoryId] = useState('');
   const [members, setMembers] = useState([
-    { name: '', email: '', password: '' },
+    { name: '', email: '' },
   ]);
 
   const isTeamAllowed = !!race?.allow_team_registration;
@@ -117,9 +116,9 @@ function PublicRegistrationPage() {
           setRaceCategoryId(String(data.categories[0].id));
         }
         if (nextMode === 'team') {
-          setMembers(Array.from({ length: Math.max(data.min_team_size || 1, 1) }, () => ({ name: '', email: '', password: '' })));
+          setMembers(Array.from({ length: Math.max(data.min_team_size || 1, 1) }, () => ({ name: '', email: '' })));
         } else {
-          setMembers([{ name: '', email: '', password: '' }]);
+          setMembers([{ name: '', email: '' }]);
         }
       } catch (err) {
         if (!isActive) return;
@@ -147,7 +146,7 @@ function PublicRegistrationPage() {
 
   const addMemberRow = () => {
     if (members.length >= maxTeamSize) return;
-    setMembers((previous) => [...previous, { name: '', email: '', password: '' }]);
+    setMembers((previous) => [...previous, { name: '', email: '' }]);
   };
 
   const removeMemberRow = (index) => {
@@ -176,29 +175,12 @@ function PublicRegistrationPage() {
       });
     }
 
-    const hasInvalidMember = members.some((member) => !member.name.trim() || !member.email.trim() || !member.password);
+    const hasInvalidMember = members.some((member) => !member.name.trim() || !member.email.trim());
     if (hasInvalidMember) {
       return t('publicRegistration.validationMemberFieldsRequired');
     }
 
     return '';
-  };
-
-  const resolveUserId = async (member) => {
-    try {
-      await authApi.register(member.email.trim(), member.password, member.name.trim(), false);
-      const loginResult = await authApi.login(member.email.trim(), member.password);
-      return loginResult?.user?.id;
-    } catch (err) {
-      if (err?.status === 409 || String(err?.message || '').toLowerCase().includes('already exists')) {
-        const loginResult = await authApi.login(member.email.trim(), member.password);
-        return loginResult?.user?.id;
-      }
-      throw new Error(t('publicRegistration.memberCreateFailed', {
-        email: member.email,
-        message: err?.message || t('publicRegistration.unableCreateAccount'),
-      }));
-    }
   };
 
   const resolveTeamId = async () => {
@@ -230,23 +212,11 @@ function PublicRegistrationPage() {
 
     setSubmitting(true);
     try {
-      const userIds = [];
-      for (const member of members) {
-        const userId = await resolveUserId(member);
-        if (!userId) {
-          throw new Error(t('publicRegistration.unableResolveUserId', { email: member.email }));
-        }
-        userIds.push(userId);
-      }
-
       const teamId = await resolveTeamId();
-      const existingMembers = await raceApi.getTeamMembersPublic(teamId);
-      const existingMemberIds = new Set((existingMembers || []).map((member) => member.id));
-      const memberIdsToAdd = userIds.filter((userId) => !existingMemberIds.has(userId));
-
-      if (memberIdsToAdd.length > 0) {
-        await raceApi.addTeamMembersPublic(teamId, memberIdsToAdd);
-      }
+      await raceApi.addTeamMembersPublic(teamId, members.map((member) => ({
+        name: member.name.trim(),
+        email: member.email.trim().toLowerCase(),
+      })));
 
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));
       const baseUrl = window.location.origin;
@@ -372,7 +342,7 @@ function PublicRegistrationPage() {
                       checked={mode === 'team'}
                       onChange={() => {
                         setMode('team');
-                        setMembers(Array.from({ length: Math.max(minTeamSize, 1) }, () => ({ name: '', email: '', password: '' })));
+                        setMembers(Array.from({ length: Math.max(minTeamSize, 1) }, () => ({ name: '', email: '' })));
                       }}
                     />
                     <label className="form-check-label" htmlFor="mode-team">{t('publicRegistration.teamMode')}</label>
@@ -387,7 +357,7 @@ function PublicRegistrationPage() {
                       checked={mode === 'individual'}
                       onChange={() => {
                         setMode('individual');
-                        setMembers([{ name: '', email: '', password: '' }]);
+                        setMembers([{ name: '', email: '' }]);
                       }}
                     />
                     <label className="form-check-label" htmlFor="mode-individual">{t('publicRegistration.individualMode')}</label>
@@ -447,16 +417,6 @@ function PublicRegistrationPage() {
                     type="email"
                     value={member.email}
                     onChange={(event) => updateMember(index, 'email', event.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label">{t('publicRegistration.passwordLabel')}</label>
-                  <input
-                    className="form-control"
-                    type="password"
-                    value={member.password}
-                    onChange={(event) => updateMember(index, 'password', event.target.value)}
                     required
                   />
                 </div>

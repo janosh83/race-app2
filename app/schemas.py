@@ -315,7 +315,44 @@ class TeamSignUpSchema(Schema):
 
 
 class TeamAddMembersSchema(Schema):
-    user_ids = fields.List(fields.Integer(strict=True), required=True, validate=validate.Length(min=1))
+    user_ids = fields.List(fields.Integer(strict=True), required=False, validate=validate.Length(min=1))
+    members = fields.List(
+        fields.Dict(
+            keys=fields.String(validate=validate.OneOf(["name", "email"])),
+            values=fields.String(validate=validate.Length(min=1)),
+        ),
+        required=False,
+        validate=validate.Length(min=1),
+    )
+
+    @validates_schema
+    def validate_payload(self, data, **kwargs):
+        has_user_ids = bool(data.get('user_ids'))
+        has_members = bool(data.get('members'))
+
+        if not has_user_ids and not has_members:
+            raise ValidationError({'user_ids': ['user_ids or members is required.']})
+
+        if has_user_ids and has_members:
+            raise ValidationError({'members': ['Provide either user_ids or members, not both.']})
+
+        if has_members:
+            errors = {}
+            for index, member in enumerate(data['members']):
+                member_errors = {}
+                name = (member.get('name') or '').strip() if isinstance(member, dict) else ''
+                email = (member.get('email') or '').strip() if isinstance(member, dict) else ''
+
+                if not name:
+                    member_errors['name'] = ['Missing data for required field.']
+                if not email:
+                    member_errors['email'] = ['Missing data for required field.']
+
+                if member_errors:
+                    errors[str(index)] = member_errors
+
+            if errors:
+                raise ValidationError({'members': errors})
 
 
 class TeamDisqualifySchema(Schema):

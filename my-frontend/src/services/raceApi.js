@@ -31,11 +31,11 @@ export const raceApi = {
     });
   },
 
-  addTeamMembersPublic: (teamId, userIds) => {
-    logger.info('RACE', 'Adding members to public team', { teamId, memberCount: userIds?.length || 0 });
+  addTeamMembersPublic: (teamId, members) => {
+    logger.info('RACE', 'Adding members to public team', { teamId, memberCount: members?.length || 0 });
     return apiFetch(`/api/team/${teamId}/members/`, {
       method: 'POST',
-      body: { user_ids: userIds },
+      body: { members },
       noAuth: true,
       noRedirectOnAuthFailure: true,
     }).then(result => {
