@@ -57,9 +57,9 @@ MAIL_DEFAULT_SENDER=noreply@localhost.dev
 STRIPE_SECRET_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
-STRIPE_CURRENCY=eur
-STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
-STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+STRIPE_CURRENCY=czk
+STRIPE_REGISTRATION_TEAM_AMOUNT=50
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 
 # Logging
 LOG_LEVEL=INFO
@@ -204,9 +204,9 @@ STRIPE_SECRET_KEY=sk_test_or_live_...
 STRIPE_PUBLISHABLE_KEY=pk_test_or_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 # fallback defaults if a race has no pricing configured
-STRIPE_CURRENCY=eur
-STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
-STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+STRIPE_CURRENCY=czk
+STRIPE_REGISTRATION_TEAM_AMOUNT=50
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 ```
 
 Webhook endpoint in backend:
@@ -217,6 +217,7 @@ POST /api/race/registration/stripe/webhook/
 
 Behavior summary:
 - Public registration creates checkout session via backend.
+- Race-level pricing strategy supports `team_flat` and `driver_codriver`.
 - Stripe webhook `checkout.session.completed` confirms payment for the registration.
 - Duplicate webhook deliveries are handled idempotently (no duplicate side effects).
 - Team activation/race actions are gated by confirmed payment.
@@ -306,9 +307,9 @@ STRIPE_SECRET_KEY=sk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 # fallback defaults if a race has no pricing configured
-STRIPE_CURRENCY=eur
-STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS=5000
-STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS=2500
+STRIPE_CURRENCY=czk
+STRIPE_REGISTRATION_TEAM_AMOUNT=50
+STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 
 LOG_LEVEL=INFO
 LOG_REQUESTS=true

@@ -86,8 +86,11 @@ def get_all_races():
             "allow_team_registration": race.allow_team_registration,
             "allow_individual_registration": race.allow_individual_registration,
             "registration_currency": race.registration_currency,
+            "registration_pricing_strategy": race.registration_pricing_strategy,
             "registration_team_amount_cents": race.registration_team_amount_cents,
             "registration_individual_amount_cents": race.registration_individual_amount_cents,
+            "registration_driver_amount_cents": race.registration_driver_amount_cents,
+            "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
             "supported_languages": race.supported_languages,
             "default_language": race.default_language
         })
@@ -154,8 +157,11 @@ def get_single_race(race_id):
                     "allow_team_registration": race.allow_team_registration,
                     "allow_individual_registration": race.allow_individual_registration,
                     "registration_currency": race.registration_currency,
+                    "registration_pricing_strategy": race.registration_pricing_strategy,
                     "registration_team_amount_cents": race.registration_team_amount_cents,
                     "registration_individual_amount_cents": race.registration_individual_amount_cents,
+                    "registration_driver_amount_cents": race.registration_driver_amount_cents,
+                    "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
                     "supported_languages": race.supported_languages,
                     "default_language": race.default_language}), 200
 
@@ -213,9 +219,12 @@ def create_race():
                     max_team_size=data.get("max_team_size", 2),
                     allow_team_registration=data.get("allow_team_registration", True),
                     allow_individual_registration=data.get("allow_individual_registration", False),
-                    registration_currency=data.get("registration_currency", "eur"),
-                    registration_team_amount_cents=data.get("registration_team_amount_cents", 5000),
-                    registration_individual_amount_cents=data.get("registration_individual_amount_cents", 2500),
+                    registration_currency=data.get("registration_currency", "czk"),
+                    registration_pricing_strategy=data.get("registration_pricing_strategy", "team_flat"),
+                    registration_team_amount_cents=data.get("registration_team_amount_cents", 50),
+                    registration_individual_amount_cents=data.get("registration_individual_amount_cents", 25),
+                    registration_driver_amount_cents=data.get("registration_driver_amount_cents", 25),
+                    registration_codriver_amount_cents=data.get("registration_codriver_amount_cents", 15),
                     supported_languages=data.get("supported_languages", list(SUPPORTED_LANGUAGES)),
                     default_language=data.get("default_language", DEFAULT_LANGUAGE))
     db.session.add(new_race)
@@ -236,8 +245,11 @@ def create_race():
       "allow_team_registration": new_race.allow_team_registration,
       "allow_individual_registration": new_race.allow_individual_registration,
       "registration_currency": new_race.registration_currency,
+      "registration_pricing_strategy": new_race.registration_pricing_strategy,
       "registration_team_amount_cents": new_race.registration_team_amount_cents,
       "registration_individual_amount_cents": new_race.registration_individual_amount_cents,
+      "registration_driver_amount_cents": new_race.registration_driver_amount_cents,
+      "registration_codriver_amount_cents": new_race.registration_codriver_amount_cents,
       "supported_languages": new_race.supported_languages,
       "default_language": new_race.default_language,
     }), 201
@@ -305,10 +317,16 @@ def update_race(race_id):
         race.allow_individual_registration = data.get('allow_individual_registration')
     if 'registration_currency' in data:
         race.registration_currency = data.get('registration_currency')
+    if 'registration_pricing_strategy' in data:
+        race.registration_pricing_strategy = data.get('registration_pricing_strategy')
     if 'registration_team_amount_cents' in data:
         race.registration_team_amount_cents = data.get('registration_team_amount_cents')
     if 'registration_individual_amount_cents' in data:
         race.registration_individual_amount_cents = data.get('registration_individual_amount_cents')
+    if 'registration_driver_amount_cents' in data:
+        race.registration_driver_amount_cents = data.get('registration_driver_amount_cents')
+    if 'registration_codriver_amount_cents' in data:
+        race.registration_codriver_amount_cents = data.get('registration_codriver_amount_cents')
 
     # datetime fields (accept several possible keys but prefer explicit *_at keys)
     if 'start_showing_checkpoints_at' in data:
@@ -349,8 +367,11 @@ def update_race(race_id):
         "allow_team_registration": race.allow_team_registration,
         "allow_individual_registration": race.allow_individual_registration,
         "registration_currency": race.registration_currency,
+        "registration_pricing_strategy": race.registration_pricing_strategy,
         "registration_team_amount_cents": race.registration_team_amount_cents,
         "registration_individual_amount_cents": race.registration_individual_amount_cents,
+        "registration_driver_amount_cents": race.registration_driver_amount_cents,
+        "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
         "supported_languages": race.supported_languages,
         "default_language": race.default_language,
     }), 200
@@ -378,11 +399,23 @@ def get_race_by_registration_slug(registration_slug):
 
     categories = []
     for category in race.categories:
+      category_name = category.name
+      category_description = category.description
+
+      if language and language in (race.supported_languages or []):
+        category_translation = next(
+          (translation for translation in (category.translations or []) if translation.language == language),
+          None,
+        )
+        if category_translation:
+          category_name = category_translation.name
+          category_description = category_translation.description
+
         categories.append(
             {
                 "id": category.id,
-                "name": category.name,
-                "description": category.description,
+          "name": category_name,
+          "description": category_description,
             }
         )
 
@@ -397,8 +430,11 @@ def get_race_by_registration_slug(registration_slug):
         "allow_team_registration": race.allow_team_registration,
         "allow_individual_registration": race.allow_individual_registration,
         "registration_currency": race.registration_currency,
+        "registration_pricing_strategy": race.registration_pricing_strategy,
         "registration_team_amount_cents": race.registration_team_amount_cents,
         "registration_individual_amount_cents": race.registration_individual_amount_cents,
+        "registration_driver_amount_cents": race.registration_driver_amount_cents,
+        "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
         "categories": categories,
         "supported_languages": race.supported_languages,
         "default_language": race.default_language,
@@ -482,18 +518,51 @@ def create_checkout_by_registration_slug(registration_slug):
     success_url = payload.get('success_url') or f"{frontend_url}/register/{registration_slug}?checkout=success"
     cancel_url = payload.get('cancel_url') or f"{frontend_url}/register/{registration_slug}?checkout=cancel"
 
-    if mode == 'individual':
-        amount_cents = race.registration_individual_amount_cents or current_app.config.get(
-            'STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS',
-            2500,
+    pricing_strategy = race.registration_pricing_strategy or 'team_flat'
+    driver_count = None
+    codriver_count = None
+
+    if pricing_strategy == 'driver_codriver':
+        driver_count_raw = payload.get('driver_count')
+        codriver_count_raw = payload.get('codriver_count')
+
+        if driver_count_raw is None and codriver_count_raw is None:
+            if mode == 'individual':
+                driver_count = 1
+                codriver_count = 0
+            else:
+                driver_count = 1
+                codriver_count = max(members_count - 1, 0)
+        else:
+            try:
+                driver_count = int(driver_count_raw)
+                codriver_count = int(codriver_count_raw)
+            except (TypeError, ValueError):
+                return jsonify({"message": "driver_count and codriver_count must be integers."}), 400
+
+            if driver_count < 0 or codriver_count < 0:
+                return jsonify({"message": "driver_count and codriver_count cannot be negative."}), 400
+
+            if (driver_count + codriver_count) != members_count:
+                return jsonify({"message": "driver_count + codriver_count must equal members_count."}), 400
+
+        amount_cents = (
+            driver_count * race.registration_driver_amount_cents
+            + codriver_count * race.registration_codriver_amount_cents
         )
     else:
-        amount_cents = race.registration_team_amount_cents or current_app.config.get(
-            'STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS',
-            5000,
-        )
+        if mode == 'individual':
+            amount_cents = race.registration_individual_amount_cents or current_app.config.get(
+                'STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT',
+                25,
+            )
+        else:
+            amount_cents = race.registration_team_amount_cents or current_app.config.get(
+                'STRIPE_REGISTRATION_TEAM_AMOUNT',
+                50,
+            )
 
-    currency = race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'eur')
+    currency = race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')
 
     try:
         session_data = create_registration_checkout_session(
@@ -501,7 +570,7 @@ def create_checkout_by_registration_slug(registration_slug):
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
-            amount_cents=int(amount_cents),
+            amount_cents=int(amount_cents) * 100,
             race_name=race.name,
             registration_slug=registration_slug,
             team_name=team_name,
@@ -573,31 +642,31 @@ def stripe_registration_webhook():
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
     if not registration:
-      logger.error(
-        "Stripe webhook registration not found for race %s team %s",
-        race_id,
-        team_id,
-      )
-      return jsonify({"message": "Registration not found."}), 404
+        logger.error(
+            "Stripe webhook registration not found for race %s team %s",
+            race_id,
+            team_id,
+        )
+        return jsonify({"message": "Registration not found."}), 404
 
     if registration.payment_confirmed:
-      if registration.stripe_session_id == session_id:
-        logger.info(
-          "Stripe webhook duplicate event ignored for race %s team %s session %s",
-          race_id,
-          team_id,
-          session_id,
+        if registration.stripe_session_id == session_id:
+            logger.info(
+                "Stripe webhook duplicate event ignored for race %s team %s session %s",
+                race_id,
+                team_id,
+                session_id,
+            )
+            return jsonify({"message": "Payment already confirmed."}), 200
+
+        logger.warning(
+            "Stripe webhook received different session for already confirmed registration (race %s, team %s, existing %s, incoming %s)",
+            race_id,
+            team_id,
+            registration.stripe_session_id,
+            session_id,
         )
         return jsonify({"message": "Payment already confirmed."}), 200
-
-      logger.warning(
-        "Stripe webhook received different session for already confirmed registration (race %s, team %s, existing %s, incoming %s)",
-        race_id,
-        team_id,
-        registration.stripe_session_id,
-        session_id,
-      )
-      return jsonify({"message": "Payment already confirmed."}), 200
 
     registration.payment_confirmed = True
     registration.payment_confirmed_at = datetime.now()

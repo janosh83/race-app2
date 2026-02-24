@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RaceCategory
+from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RaceCategory, RaceCategoryTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from datetime import datetime, timedelta
 
@@ -544,6 +544,33 @@ def test_get_race_by_registration_slug_success(test_client, add_test_data, test_
     assert isinstance(response.json["categories"], list)
 
 
+def test_get_race_by_registration_slug_translates_categories(test_client, add_test_data, test_app):
+    """Public registration endpoint returns translated category names for requested language."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "jarni-jizda-2026-categories"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Open", description="Default open category")
+        category_cs = RaceCategoryTranslation(
+            language="cs",
+            name="Otevřená",
+            description="Výchozí otevřená kategorie",
+        )
+        category.translations.append(category_cs)
+        db.session.add(category)
+        db.session.flush()
+        race.categories.append(category)
+        db.session.commit()
+
+    response = test_client.get("/api/race/registration/jarni-jizda-2026-categories/?lang=cs")
+
+    assert response.status_code == 200
+    assert len(response.json["categories"]) == 1
+    assert response.json["categories"][0]["name"] == "Otevřená"
+    assert response.json["categories"][0]["description"] == "Výchozí otevřená kategorie"
+
+
 def test_get_race_by_registration_slug_disabled_returns_404(test_client, add_test_data, test_app):
     """Public race registration endpoint returns 404 when registration is disabled."""
     with test_app.app_context():
@@ -574,7 +601,7 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         race.min_team_size = 1
         race.max_team_size = 5
         race.registration_currency = "usd"
-        race.registration_team_amount_cents = 7777
+        race.registration_team_amount_cents = 777
 
         category = RaceCategory(name="Open")
         team = Team(name="Road Runners")
@@ -612,7 +639,7 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
     assert response.json["session_id"] == "cs_test_123"
     assert response.json["checkout_url"].startswith("https://checkout.stripe.com")
     assert called["currency"] == "usd"
-    assert called["amount_cents"] == 7777
+    assert called["amount_cents"] == 77700
 
 
 def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_test_data, test_app):
@@ -645,6 +672,56 @@ def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_
     )
     assert response.status_code == 400
     assert "Individual registration is not enabled" in response.json["message"]
+
+
+def test_create_checkout_by_registration_slug_driver_codriver_strategy(test_client, add_test_data, test_app, monkeypatch):
+    """Checkout uses driver/codriver pricing strategy when configured on race."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "driver-codriver-race"
+        race.registration_enabled = True
+        race.allow_team_registration = True
+        race.allow_individual_registration = True
+        race.min_team_size = 2
+        race.max_team_size = 5
+        race.registration_pricing_strategy = "driver_codriver"
+        race.registration_driver_amount_cents = 420
+        race.registration_codriver_amount_cents = 170
+
+        category = RaceCategory(name="Open")
+        team = Team(name="Role Team")
+        db.session.add_all([category, team])
+        db.session.flush()
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        team_id = team.id
+
+    called = {}
+
+    def fake_checkout(**kwargs):
+        called.update(kwargs)
+        return {
+            "session_id": "cs_test_role_123",
+            "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_role_123",
+        }
+
+    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+
+    response = test_client.post(
+        "/api/race/registration/driver-codriver-race/checkout/",
+        json={
+            "team_name": "Role Team",
+            "team_id": team_id,
+            "mode": "team",
+            "members_count": 3,
+            "driver_count": 1,
+            "codriver_count": 2,
+        },
+    )
+
+    assert response.status_code == 201
+    assert called["amount_cents"] == ((1 * 420) + (2 * 170)) * 100
 
 
 def test_create_checkout_by_registration_slug_missing_stripe_config(test_client, add_test_data, test_app, monkeypatch):

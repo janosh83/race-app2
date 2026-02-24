@@ -18,7 +18,7 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(
         days=int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES_DAYS', '30'))
     )
-    
+
     # Email Configuration (Brevo)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp-relay.brevo.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
@@ -35,12 +35,16 @@ class Config:
     STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
     STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-    STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'eur')
-    STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS = int(
-        os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS', '5000')
+    STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'czk')
+    _stripe_team_amount_units = os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT')
+    _stripe_team_amount_cents = os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS')
+    STRIPE_REGISTRATION_TEAM_AMOUNT = int(_stripe_team_amount_units) if _stripe_team_amount_units else (
+        max(int(_stripe_team_amount_cents) // 100, 1) if _stripe_team_amount_cents else 50
     )
-    STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS = int(
-        os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS', '2500')
+    _stripe_individual_amount_units = os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT')
+    _stripe_individual_amount_cents = os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS')
+    STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT = int(_stripe_individual_amount_units) if _stripe_individual_amount_units else (
+        max(int(_stripe_individual_amount_cents) // 100, 1) if _stripe_individual_amount_cents else 25
     )
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
     LOG_REQUESTS = os.environ.get('LOG_REQUESTS', 'true').lower() == 'true'

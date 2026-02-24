@@ -140,11 +140,17 @@ class RaceCreateSchema(Schema):
     allow_team_registration = fields.Boolean(load_default=True)
     allow_individual_registration = fields.Boolean(load_default=False)
     registration_currency = fields.String(
-        load_default="eur",
+        load_default="czk",
         validate=validate.Regexp(r"^[A-Za-z]{3}$", error="registration_currency must be a 3-letter ISO code"),
     )
-    registration_team_amount_cents = fields.Integer(load_default=5000, validate=validate.Range(min=1))
-    registration_individual_amount_cents = fields.Integer(load_default=2500, validate=validate.Range(min=1))
+    registration_pricing_strategy = fields.String(
+        load_default="team_flat",
+        validate=validate.OneOf(["team_flat", "driver_codriver"]),
+    )
+    registration_team_amount_cents = fields.Integer(load_default=50, validate=validate.Range(min=1))
+    registration_individual_amount_cents = fields.Integer(load_default=25, validate=validate.Range(min=1))
+    registration_driver_amount_cents = fields.Integer(load_default=25, validate=validate.Range(min=1))
+    registration_codriver_amount_cents = fields.Integer(load_default=15, validate=validate.Range(min=1))
 
     @pre_load
     def normalize_registration_currency(self, data, **kwargs):
@@ -152,6 +158,15 @@ class RaceCreateSchema(Schema):
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
             normalized["registration_currency"] = currency.strip().lower()
+
+        if "registration_team_amount" in normalized and "registration_team_amount_cents" not in normalized:
+            normalized["registration_team_amount_cents"] = normalized.get("registration_team_amount")
+        if "registration_individual_amount" in normalized and "registration_individual_amount_cents" not in normalized:
+            normalized["registration_individual_amount_cents"] = normalized.get("registration_individual_amount")
+        if "registration_driver_amount" in normalized and "registration_driver_amount_cents" not in normalized:
+            normalized["registration_driver_amount_cents"] = normalized.get("registration_driver_amount")
+        if "registration_codriver_amount" in normalized and "registration_codriver_amount_cents" not in normalized:
+            normalized["registration_codriver_amount_cents"] = normalized.get("registration_codriver_amount")
         return normalized
 
     @validates_schema
@@ -204,8 +219,11 @@ class RaceUpdateSchema(Schema):
     registration_currency = fields.String(
         validate=validate.Regexp(r"^[A-Za-z]{3}$", error="registration_currency must be a 3-letter ISO code"),
     )
+    registration_pricing_strategy = fields.String(validate=validate.OneOf(["team_flat", "driver_codriver"]))
     registration_team_amount_cents = fields.Integer(validate=validate.Range(min=1))
     registration_individual_amount_cents = fields.Integer(validate=validate.Range(min=1))
+    registration_driver_amount_cents = fields.Integer(validate=validate.Range(min=1))
+    registration_codriver_amount_cents = fields.Integer(validate=validate.Range(min=1))
 
     @pre_load
     def normalize_registration_currency(self, data, **kwargs):
@@ -213,6 +231,15 @@ class RaceUpdateSchema(Schema):
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
             normalized["registration_currency"] = currency.strip().lower()
+
+        if "registration_team_amount" in normalized and "registration_team_amount_cents" not in normalized:
+            normalized["registration_team_amount_cents"] = normalized.get("registration_team_amount")
+        if "registration_individual_amount" in normalized and "registration_individual_amount_cents" not in normalized:
+            normalized["registration_individual_amount_cents"] = normalized.get("registration_individual_amount")
+        if "registration_driver_amount" in normalized and "registration_driver_amount_cents" not in normalized:
+            normalized["registration_driver_amount_cents"] = normalized.get("registration_driver_amount")
+        if "registration_codriver_amount" in normalized and "registration_codriver_amount_cents" not in normalized:
+            normalized["registration_codriver_amount_cents"] = normalized.get("registration_codriver_amount")
         return normalized
 
     @validates_schema

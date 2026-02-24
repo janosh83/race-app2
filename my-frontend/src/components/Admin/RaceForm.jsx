@@ -23,8 +23,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [allowTeamRegistration, setAllowTeamRegistration] = useState(true);
   const [allowIndividualRegistration, setAllowIndividualRegistration] = useState(false);
   const [registrationCurrency, setRegistrationCurrency] = useState('eur');
+  const [registrationPricingStrategy, setRegistrationPricingStrategy] = useState('team_flat');
   const [registrationTeamAmountCents, setRegistrationTeamAmountCents] = useState(5000);
   const [registrationIndividualAmountCents, setRegistrationIndividualAmountCents] = useState(2500);
+  const [registrationDriverAmountCents, setRegistrationDriverAmountCents] = useState(2500);
+  const [registrationCodriverAmountCents, setRegistrationCodriverAmountCents] = useState(1500);
   const [defaultLanguage, setDefaultLanguage] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -60,8 +63,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setAllowTeamRegistration(Boolean(race.allow_team_registration ?? true));
       setAllowIndividualRegistration(Boolean(race.allow_individual_registration ?? false));
       setRegistrationCurrency((race.registration_currency || 'eur').toLowerCase());
+      setRegistrationPricingStrategy(race.registration_pricing_strategy || 'team_flat');
       setRegistrationTeamAmountCents(Number(race.registration_team_amount_cents ?? 5000));
       setRegistrationIndividualAmountCents(Number(race.registration_individual_amount_cents ?? 2500));
+      setRegistrationDriverAmountCents(Number(race.registration_driver_amount_cents ?? 2500));
+      setRegistrationCodriverAmountCents(Number(race.registration_codriver_amount_cents ?? 1500));
     } else {
       setName('');
       setDescription('');
@@ -78,8 +84,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setAllowTeamRegistration(true);
       setAllowIndividualRegistration(false);
       setRegistrationCurrency('eur');
+      setRegistrationPricingStrategy('team_flat');
       setRegistrationTeamAmountCents(5000);
       setRegistrationIndividualAmountCents(2500);
+      setRegistrationDriverAmountCents(2500);
+      setRegistrationCodriverAmountCents(1500);
     }
   }, [race]);
 
@@ -128,6 +137,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       return;
     }
 
+    if (!['team_flat', 'driver_codriver'].includes(registrationPricingStrategy)) {
+      setValidationError(t('admin.raceForm.validationRegistrationPricingStrategy'));
+      return;
+    }
+
     const teamAmount = Number(registrationTeamAmountCents);
     if (!Number.isInteger(teamAmount) || teamAmount < 1) {
       setValidationError(t('admin.raceForm.validationRegistrationTeamAmount'));
@@ -138,6 +152,17 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     if (!Number.isInteger(individualAmount) || individualAmount < 1) {
       setValidationError(t('admin.raceForm.validationRegistrationIndividualAmount'));
       return;
+    }
+
+    const driverAmount = Number(registrationDriverAmountCents);
+    if (!Number.isInteger(driverAmount) || driverAmount < 1) {
+      setValidationError(t('admin.raceForm.validationRegistrationDriverAmount'));
+      return;
+    }
+
+    const codriverAmount = Number(registrationCodriverAmountCents);
+    if (!Number.isInteger(codriverAmount) || codriverAmount < 1) {
+      setValidationError(t('admin.raceForm.validationRegistrationCodriverAmount'));
     }
   }, [
     startShow,
@@ -151,8 +176,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     allowTeamRegistration,
     allowIndividualRegistration,
     registrationCurrency,
+    registrationPricingStrategy,
     registrationTeamAmountCents,
     registrationIndividualAmountCents,
+    registrationDriverAmountCents,
+    registrationCodriverAmountCents,
     t,
   ]);
 
@@ -177,8 +205,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         allow_team_registration: allowTeamRegistration,
         allow_individual_registration: allowIndividualRegistration,
         registration_currency: registrationCurrency.trim().toLowerCase(),
+        registration_pricing_strategy: registrationPricingStrategy,
         registration_team_amount_cents: Number(registrationTeamAmountCents),
         registration_individual_amount_cents: Number(registrationIndividualAmountCents),
+        registration_driver_amount_cents: Number(registrationDriverAmountCents),
+        registration_codriver_amount_cents: Number(registrationCodriverAmountCents),
       };
       let saved;
       if (isEdit) {
@@ -407,6 +438,17 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
 
       <div className="row g-2 mb-3">
         <div className="col-md-4">
+          <label className="form-label small">{t('admin.raceForm.registrationPricingStrategy')}</label>
+          <select
+            className="form-select"
+            value={registrationPricingStrategy}
+            onChange={e => setRegistrationPricingStrategy(e.target.value)}
+          >
+            <option value="team_flat">{t('admin.raceForm.registrationPricingStrategyTeamFlat')}</option>
+            <option value="driver_codriver">{t('admin.raceForm.registrationPricingStrategyDriverCodriver')}</option>
+          </select>
+        </div>
+        <div className="col-md-4">
           <label className="form-label small">{t('admin.raceForm.registrationCurrency')}</label>
           <input
             className="form-control"
@@ -435,6 +477,29 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
             min="1"
             value={registrationIndividualAmountCents}
             onChange={e => setRegistrationIndividualAmountCents(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="row g-2 mb-3">
+        <div className="col-md-6">
+          <label className="form-label small">{t('admin.raceForm.registrationDriverAmountCents')}</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={registrationDriverAmountCents}
+            onChange={e => setRegistrationDriverAmountCents(e.target.value)}
+          />
+        </div>
+        <div className="col-md-6">
+          <label className="form-label small">{t('admin.raceForm.registrationCodriverAmountCents')}</label>
+          <input
+            className="form-control"
+            type="number"
+            min="1"
+            value={registrationCodriverAmountCents}
+            onChange={e => setRegistrationCodriverAmountCents(e.target.value)}
           />
         </div>
       </div>

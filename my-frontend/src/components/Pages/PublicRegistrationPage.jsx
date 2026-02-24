@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 import LanguageSwitcher from '../LanguageSwitcher';
 
 function PublicRegistrationPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { slug } = useParams();
   const [searchParams] = useSearchParams();
   const [race, setRace] = useState(null);
@@ -23,7 +23,7 @@ function PublicRegistrationPage() {
   const [teamName, setTeamName] = useState('');
   const [raceCategoryId, setRaceCategoryId] = useState('');
   const [members, setMembers] = useState([
-    { name: '', email: '' },
+    { name: '', email: '', role: 'driver' },
   ]);
 
   const isTeamAllowed = !!race?.allow_team_registration;
@@ -32,6 +32,51 @@ function PublicRegistrationPage() {
   const maxTeamSize = race?.max_team_size || 1;
   const categoryOptions = race?.categories || [];
   const isCheckoutCanceled = searchParams.get('checkout') === 'cancel';
+  const isDriverCodriverStrategy = race?.registration_pricing_strategy === 'driver_codriver';
+
+  const registrationCurrency = String(race?.registration_currency || 'czk').toUpperCase();
+  const driverCount = mode === 'individual'
+    ? 1
+    : members.filter((member) => member.role === 'driver').length;
+  const codriverCount = mode === 'individual'
+    ? 0
+    : members.filter((member) => member.role === 'codriver').length;
+
+  const registrationPrice = (() => {
+    if (!race) return 0;
+
+    if (isDriverCodriverStrategy) {
+      return (driverCount * (race.registration_driver_amount_cents || 0))
+        + (codriverCount * (race.registration_codriver_amount_cents || 0));
+    }
+
+    if (mode === 'individual') {
+      return race.registration_individual_amount_cents || 0;
+    }
+
+    return race.registration_team_amount_cents || 0;
+  })();
+
+  const formatPrice = (value) => {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: registrationCurrency,
+        maximumFractionDigits: 0,
+      }).format(value || 0);
+    } catch {
+      return `${value || 0} ${registrationCurrency}`;
+    }
+  };
+
+  const buildMembers = (count, nextMode) => {
+    const safeCount = Math.max(count, 1);
+    return Array.from({ length: safeCount }, (_, index) => ({
+      name: '',
+      email: '',
+      role: nextMode === 'individual' ? 'driver' : (index === 0 ? 'driver' : 'codriver'),
+    }));
+  };
 
   useEffect(() => {
     const checkoutStatus = searchParams.get('checkout');
@@ -107,7 +152,8 @@ function PublicRegistrationPage() {
       setError('');
 
       try {
-        const data = await raceApi.getRegistrationBySlug(slug);
+        const currentLanguage = (i18n.resolvedLanguage || i18n.language || '').split('-')[0] || undefined;
+        const data = await raceApi.getRegistrationBySlug(slug, currentLanguage);
         if (!isActive) return;
         setRace(data);
         const nextMode = data.allow_team_registration ? 'team' : 'individual';
@@ -116,9 +162,9 @@ function PublicRegistrationPage() {
           setRaceCategoryId(String(data.categories[0].id));
         }
         if (nextMode === 'team') {
-          setMembers(Array.from({ length: Math.max(data.min_team_size || 1, 1) }, () => ({ name: '', email: '' })));
+          setMembers(buildMembers(data.min_team_size || 1, 'team'));
         } else {
-          setMembers([{ name: '', email: '' }]);
+          setMembers(buildMembers(1, 'individual'));
         }
       } catch (err) {
         if (!isActive) return;
@@ -135,7 +181,7 @@ function PublicRegistrationPage() {
     return () => {
       isActive = false;
     };
-  }, [slug, t]);
+  }, [slug, t, i18n.language, i18n.resolvedLanguage]);
 
   const updateMember = (index, field, value) => {
     setMembers((previous) => previous.map((member, memberIndex) => {
@@ -146,7 +192,7 @@ function PublicRegistrationPage() {
 
   const addMemberRow = () => {
     if (members.length >= maxTeamSize) return;
-    setMembers((previous) => [...previous, { name: '', email: '' }]);
+    setMembers((previous) => [...previous, { name: '', email: '', role: 'codriver' }]);
   };
 
   const removeMemberRow = (index) => {
@@ -178,6 +224,18 @@ function PublicRegistrationPage() {
     const hasInvalidMember = members.some((member) => !member.name.trim() || !member.email.trim());
     if (hasInvalidMember) {
       return t('publicRegistration.validationMemberFieldsRequired');
+    }
+
+    if (isDriverCodriverStrategy && mode === 'team') {
+      const hasInvalidRole = members.some((member) => !['driver', 'codriver'].includes(member.role));
+      if (hasInvalidRole) {
+        return t('publicRegistration.validationMemberRoleRequired');
+      }
+
+      const driverCount = members.filter((member) => member.role === 'driver').length;
+      if (driverCount < 1) {
+        return t('publicRegistration.validationAtLeastOneDriver');
+      }
     }
 
     return '';
@@ -220,14 +278,26 @@ function PublicRegistrationPage() {
 
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));
       const baseUrl = window.location.origin;
-      const checkoutSession = await raceApi.createRegistrationCheckoutSession(slug, {
+      const checkoutPayload = {
         team_id: teamId,
         team_name: teamName.trim(),
         mode,
         members_count: members.length,
         success_url: `${baseUrl}/register/${slug}?checkout=success&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
         cancel_url: `${baseUrl}/register/${slug}?checkout=cancel&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
-      });
+      };
+
+      if (race.registration_pricing_strategy === 'driver_codriver') {
+        if (mode === 'individual') {
+          checkoutPayload.driver_count = 1;
+          checkoutPayload.codriver_count = 0;
+        } else {
+          checkoutPayload.driver_count = members.filter((member) => member.role === 'driver').length;
+          checkoutPayload.codriver_count = members.filter((member) => member.role === 'codriver').length;
+        }
+      }
+
+      const checkoutSession = await raceApi.createRegistrationCheckoutSession(slug, checkoutPayload);
 
       if (checkoutSession?.checkout_url) {
         window.location.assign(checkoutSession.checkout_url);
@@ -342,7 +412,7 @@ function PublicRegistrationPage() {
                       checked={mode === 'team'}
                       onChange={() => {
                         setMode('team');
-                        setMembers(Array.from({ length: Math.max(minTeamSize, 1) }, () => ({ name: '', email: '' })));
+                        setMembers(buildMembers(minTeamSize, 'team'));
                       }}
                     />
                     <label className="form-check-label" htmlFor="mode-team">{t('publicRegistration.teamMode')}</label>
@@ -357,7 +427,7 @@ function PublicRegistrationPage() {
                       checked={mode === 'individual'}
                       onChange={() => {
                         setMode('individual');
-                        setMembers([{ name: '', email: '' }]);
+                        setMembers(buildMembers(1, 'individual'));
                       }}
                     />
                     <label className="form-check-label" htmlFor="mode-individual">{t('publicRegistration.individualMode')}</label>
@@ -420,6 +490,20 @@ function PublicRegistrationPage() {
                     required
                   />
                 </div>
+                {isDriverCodriverStrategy && mode === 'team' && (
+                  <div className="mb-2">
+                    <label className="form-label">{t('publicRegistration.memberRoleLabel')}</label>
+                    <select
+                      className="form-select"
+                      value={member.role || 'codriver'}
+                      onChange={(event) => updateMember(index, 'role', event.target.value)}
+                      required
+                    >
+                      <option value="driver">{t('publicRegistration.memberRoleDriver')}</option>
+                      <option value="codriver">{t('publicRegistration.memberRoleCodriver')}</option>
+                    </select>
+                  </div>
+                )}
                 {mode === 'team' && (
                   <button
                     type="button"
@@ -443,6 +527,31 @@ function PublicRegistrationPage() {
                 {t('publicRegistration.addMember')}
               </button>
             )}
+
+              <div className="border rounded p-3 bg-light mb-3">
+                <div className="fw-semibold mb-1">{t('publicRegistration.priceTitle')}</div>
+                {isDriverCodriverStrategy && mode === 'team' ? (
+                  <div className="small text-muted mb-1">
+                    {t('publicRegistration.priceBreakdownRoles', {
+                      drivers: driverCount,
+                      driverPrice: formatPrice(race.registration_driver_amount_cents || 0),
+                      codrivers: codriverCount,
+                      codriverPrice: formatPrice(race.registration_codriver_amount_cents || 0),
+                    })}
+                  </div>
+                ) : (
+                  <div className="small text-muted mb-1">
+                    {t('publicRegistration.priceBreakdownMode', {
+                      mode: mode === 'team'
+                        ? t('publicRegistration.teamMode')
+                        : t('publicRegistration.individualMode'),
+                    })}
+                  </div>
+                )}
+                <div className="fw-semibold">
+                  {t('publicRegistration.priceTotal', { total: formatPrice(registrationPrice) })}
+                </div>
+              </div>
 
               <div>
                 <button type="submit" className="btn btn-primary" disabled={submitting || checkingPaymentStatus || categoryOptions.length === 0}>
