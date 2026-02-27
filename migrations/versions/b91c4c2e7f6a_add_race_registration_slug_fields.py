@@ -20,7 +20,7 @@ def upgrade():
     with op.batch_alter_table('race', schema=None) as batch_op:
         batch_op.add_column(sa.Column('registration_slug', sa.String(length=120), nullable=True))
         batch_op.add_column(
-            sa.Column('registration_enabled', sa.Boolean(), nullable=False, server_default=sa.text('0'))
+            sa.Column('registration_enabled', sa.Boolean(), nullable=False, server_default=sa.text('false'))
         )
         batch_op.create_unique_constraint('uq_race_registration_slug', ['registration_slug'])
 
