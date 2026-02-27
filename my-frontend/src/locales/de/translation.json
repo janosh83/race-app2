@@ -269,7 +269,7 @@
       "validationStartLogNotBeforeShow": "Protokollierung darf nicht vor der Anzeige starten.",
       "validationEndLogNotAfterShow": "Das Ende der Protokollierung darf nicht nach dem Ende der Anzeige liegen.",
       "validationRegistrationPricingStrategy": "Die Preisstrategie fuer die Registrierung ist ungueltig.",
-      "validationRegistrationModeRequired": "Mindestens ein Registrierungsmodus muss aktiviert sein.",
+      "validationRegistrationModeRequired": "Genau ein Registrierungsmodus muss aktiviert sein.",
       "validationRegistrationSlugRequired": "Ein Registrierungs-Slug ist erforderlich, wenn die Registrierung aktiviert ist.",
       "validationRegistrationCurrency": "Die Registrierungswaehrung muss ein 3-stelliger ISO-Code sein.",
       "validationRegistrationTeamAmount": "Der Teampreis muss eine ganze Zahl groesser als 0 sein.",

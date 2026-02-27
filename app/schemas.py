@@ -183,9 +183,9 @@ class RaceCreateSchema(Schema):
 
         allow_team_registration = data.get("allow_team_registration", True)
         allow_individual_registration = data.get("allow_individual_registration", False)
-        if not allow_team_registration and not allow_individual_registration:
+        if allow_team_registration == allow_individual_registration:
             raise ValidationError(
-                "At least one registration mode must be enabled",
+                "Exactly one registration mode must be enabled",
                 field_name="allow_team_registration",
             )
 
@@ -251,9 +251,9 @@ class RaceUpdateSchema(Schema):
 
         allow_team_registration = data.get("allow_team_registration")
         allow_individual_registration = data.get("allow_individual_registration")
-        if allow_team_registration is False and allow_individual_registration is False:
+        if allow_team_registration is not None and allow_individual_registration is not None and allow_team_registration == allow_individual_registration:
             raise ValidationError(
-                "At least one registration mode must be enabled",
+                "Exactly one registration mode must be enabled",
                 field_name="allow_team_registration",
             )
 

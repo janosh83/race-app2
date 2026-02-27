@@ -286,8 +286,8 @@ def update_race(race_id):
 
     allow_team_registration = data.get("allow_team_registration", race.allow_team_registration)
     allow_individual_registration = data.get("allow_individual_registration", race.allow_individual_registration)
-    if not allow_team_registration and not allow_individual_registration:
-        raise ValidationError({"allow_team_registration": ["At least one registration mode must be enabled"]})
+    if allow_team_registration == allow_individual_registration:
+        raise ValidationError({"allow_team_registration": ["Exactly one registration mode must be enabled"]})
 
     registration_enabled = data.get("registration_enabled", race.registration_enabled)
     registration_slug = data.get("registration_slug", race.registration_slug)
@@ -384,6 +384,8 @@ def get_race_by_registration_slug(registration_slug):
     race = Race.query.filter_by(registration_slug=registration_slug).first_or_404()
     if not race.registration_enabled:
         return jsonify({"message": "Registration is not enabled for this race."}), 404
+    if race.allow_team_registration == race.allow_individual_registration:
+        return jsonify({"message": "Race registration mode is misconfigured."}), 409
 
     language = request.args.get("lang")
     name = race.name
@@ -404,20 +406,20 @@ def get_race_by_registration_slug(registration_slug):
 
         if language and language in (race.supported_languages or []):
             category_translation = next(
-              (translation for translation in (category.translations or []) if translation.language == language),
-              None,
+                (translation for translation in (category.translations or []) if translation.language == language),
+                None,
             )
             if category_translation:
                 category_name = category_translation.name
                 category_description = category_translation.description
 
-            categories.append(
-                {
-                    "id": category.id,
-              "name": category_name,
-              "description": category_description,
-                }
-            )
+        categories.append(
+            {
+                "id": category.id,
+                "name": category_name,
+                "description": category_description,
+            }
+        )
 
     return jsonify({
         "id": race.id,
@@ -475,11 +477,13 @@ def create_checkout_by_registration_slug(registration_slug):
     race = Race.query.filter_by(registration_slug=registration_slug).first_or_404()
     if not race.registration_enabled:
         return jsonify({"message": "Registration is not enabled for this race."}), 404
+    if race.allow_team_registration == race.allow_individual_registration:
+      return jsonify({"message": "Race registration mode is misconfigured."}), 409
 
     payload = request.get_json(silent=True) or {}
     team_id = payload.get('team_id')
     team_name = (payload.get('team_name') or '').strip()
-    mode = payload.get('mode') or 'team'
+    mode = payload.get('mode') or ('team' if race.allow_team_registration else 'individual')
     members_count = int(payload.get('members_count') or 1)
 
     if not team_id:
@@ -518,49 +522,21 @@ def create_checkout_by_registration_slug(registration_slug):
     success_url = payload.get('success_url') or f"{frontend_url}/register/{registration_slug}?checkout=success"
     cancel_url = payload.get('cancel_url') or f"{frontend_url}/register/{registration_slug}?checkout=cancel"
 
-    pricing_strategy = race.registration_pricing_strategy or 'team_flat'
-    driver_count = None
-    codriver_count = None
-
-    if pricing_strategy == 'driver_codriver':
-        driver_count_raw = payload.get('driver_count')
-        codriver_count_raw = payload.get('codriver_count')
-
-        if driver_count_raw is None and codriver_count_raw is None:
-            if mode == 'individual':
-                driver_count = 1
-                codriver_count = 0
-            else:
-                driver_count = 1
-                codriver_count = max(members_count - 1, 0)
-        else:
-            try:
-                driver_count = int(driver_count_raw)
-                codriver_count = int(codriver_count_raw)
-            except (TypeError, ValueError):
-                return jsonify({"message": "driver_count and codriver_count must be integers."}), 400
-
-            if driver_count < 0 or codriver_count < 0:
-                return jsonify({"message": "driver_count and codriver_count cannot be negative."}), 400
-
-            if (driver_count + codriver_count) != members_count:
-                return jsonify({"message": "driver_count + codriver_count must equal members_count."}), 400
+    if mode == 'individual':
+        individual_role = (payload.get('individual_role') or '').strip().lower()
+        if individual_role not in ('driver', 'codriver'):
+            return jsonify({"message": "individual_role must be either driver or codriver for individual registration."}), 400
 
         amount_cents = (
-            driver_count * race.registration_driver_amount_cents
-            + codriver_count * race.registration_codriver_amount_cents
+            race.registration_driver_amount_cents
+            if individual_role == 'driver'
+            else race.registration_codriver_amount_cents
         )
     else:
-        if mode == 'individual':
-            amount_cents = race.registration_individual_amount_cents or current_app.config.get(
-                'STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT',
-                25,
-            )
-        else:
-            amount_cents = race.registration_team_amount_cents or current_app.config.get(
-                'STRIPE_REGISTRATION_TEAM_AMOUNT',
-                50,
-            )
+        amount_cents = race.registration_team_amount_cents or current_app.config.get(
+            'STRIPE_REGISTRATION_TEAM_AMOUNT',
+            50,
+        )
 
     currency = race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')
 

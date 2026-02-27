@@ -26,32 +26,20 @@ function PublicRegistrationPage() {
     { name: '', email: '', role: 'driver' },
   ]);
 
-  const isTeamAllowed = !!race?.allow_team_registration;
-  const isIndividualAllowed = !!race?.allow_individual_registration;
   const minTeamSize = race?.min_team_size || 1;
   const maxTeamSize = race?.max_team_size || 1;
   const categoryOptions = race?.categories || [];
   const isCheckoutCanceled = searchParams.get('checkout') === 'cancel';
-  const isDriverCodriverStrategy = race?.registration_pricing_strategy === 'driver_codriver';
 
   const registrationCurrency = String(race?.registration_currency || 'czk').toUpperCase();
-  const driverCount = mode === 'individual'
-    ? 1
-    : members.filter((member) => member.role === 'driver').length;
-  const codriverCount = mode === 'individual'
-    ? 0
-    : members.filter((member) => member.role === 'codriver').length;
 
   const registrationPrice = (() => {
     if (!race) return 0;
 
-    if (isDriverCodriverStrategy) {
-      return (driverCount * (race.registration_driver_amount_cents || 0))
-        + (codriverCount * (race.registration_codriver_amount_cents || 0));
-    }
-
     if (mode === 'individual') {
-      return race.registration_individual_amount_cents || 0;
+      return members[0]?.role === 'driver'
+        ? (race.registration_driver_amount_cents || 0)
+        : (race.registration_codriver_amount_cents || 0);
     }
 
     return race.registration_team_amount_cents || 0;
@@ -226,7 +214,7 @@ function PublicRegistrationPage() {
       return t('publicRegistration.validationMemberFieldsRequired');
     }
 
-    if (isDriverCodriverStrategy && mode === 'team') {
+    if (mode === 'team') {
       const hasInvalidRole = members.some((member) => !['driver', 'codriver'].includes(member.role));
       if (hasInvalidRole) {
         return t('publicRegistration.validationMemberRoleRequired');
@@ -242,7 +230,7 @@ function PublicRegistrationPage() {
   };
 
   const resolveTeamId = async () => {
-    if (mode === 'individual' && isTeamAllowed && isIndividualAllowed) {
+    if (mode === 'individual') {
       const teams = await raceApi.getTeamsPublic();
       const existingTeam = teams.find((team) => String(team.name || '').trim().toLowerCase() === teamName.trim().toLowerCase());
       if (existingTeam) {
@@ -287,14 +275,8 @@ function PublicRegistrationPage() {
         cancel_url: `${baseUrl}/register/${slug}?checkout=cancel&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
       };
 
-      if (race.registration_pricing_strategy === 'driver_codriver') {
-        if (mode === 'individual') {
-          checkoutPayload.driver_count = 1;
-          checkoutPayload.codriver_count = 0;
-        } else {
-          checkoutPayload.driver_count = members.filter((member) => member.role === 'driver').length;
-          checkoutPayload.codriver_count = members.filter((member) => member.role === 'codriver').length;
-        }
+      if (mode === 'individual') {
+        checkoutPayload.individual_role = members[0]?.role || 'driver';
       }
 
       const checkoutSession = await raceApi.createRegistrationCheckoutSession(slug, checkoutPayload);
@@ -398,44 +380,6 @@ function PublicRegistrationPage() {
 
           {paymentStatus !== 'confirmed' ? (
             <form onSubmit={handleSubmit}>
-            {isTeamAllowed && isIndividualAllowed && (
-              <div className="mb-3">
-                <label className="form-label">{t('publicRegistration.registrationModeLabel')}</label>
-                <div className="d-flex gap-3">
-                  <div className="form-check">
-                    <input
-                      id="mode-team"
-                      className="form-check-input"
-                      type="radio"
-                      name="registrationMode"
-                      value="team"
-                      checked={mode === 'team'}
-                      onChange={() => {
-                        setMode('team');
-                        setMembers(buildMembers(minTeamSize, 'team'));
-                      }}
-                    />
-                    <label className="form-check-label" htmlFor="mode-team">{t('publicRegistration.teamMode')}</label>
-                  </div>
-                  <div className="form-check">
-                    <input
-                      id="mode-individual"
-                      className="form-check-input"
-                      type="radio"
-                      name="registrationMode"
-                      value="individual"
-                      checked={mode === 'individual'}
-                      onChange={() => {
-                        setMode('individual');
-                        setMembers(buildMembers(1, 'individual'));
-                      }}
-                    />
-                    <label className="form-check-label" htmlFor="mode-individual">{t('publicRegistration.individualMode')}</label>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="mb-3">
               <label htmlFor="team-name" className="form-label">{t('publicRegistration.teamNameLabel')}</label>
               <input
@@ -467,7 +411,8 @@ function PublicRegistrationPage() {
             </div>
 
             <h3 className="h6">
-              {t('publicRegistration.membersTitle')} ({t('publicRegistration.teamSize', { min: race.min_team_size, max: race.max_team_size })})
+              {t('publicRegistration.membersTitle')}
+              {mode === 'team' ? ` (${t('publicRegistration.teamSize', { min: race.min_team_size, max: race.max_team_size })})` : ''}
             </h3>
             {members.map((member, index) => (
               <div key={`member-${index}`} className="border rounded p-3 mb-3">
@@ -490,12 +435,26 @@ function PublicRegistrationPage() {
                     required
                   />
                 </div>
-                {isDriverCodriverStrategy && mode === 'team' && (
+                {mode === 'team' && (
                   <div className="mb-2">
                     <label className="form-label">{t('publicRegistration.memberRoleLabel')}</label>
                     <select
                       className="form-select"
                       value={member.role || 'codriver'}
+                      onChange={(event) => updateMember(index, 'role', event.target.value)}
+                      required
+                    >
+                      <option value="driver">{t('publicRegistration.memberRoleDriver')}</option>
+                      <option value="codriver">{t('publicRegistration.memberRoleCodriver')}</option>
+                    </select>
+                  </div>
+                )}
+                {mode === 'individual' && index === 0 && (
+                  <div className="mb-2">
+                    <label className="form-label">{t('publicRegistration.memberRoleLabel')}</label>
+                    <select
+                      className="form-select"
+                      value={member.role || 'driver'}
                       onChange={(event) => updateMember(index, 'role', event.target.value)}
                       required
                     >

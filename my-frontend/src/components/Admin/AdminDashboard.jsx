@@ -258,18 +258,8 @@ function AdminDashboard() {
                               {(selected.registration_currency || 'eur').toUpperCase()}
                             </div>
                             <div>
-                              <strong>{t('admin.dashboard.registrationPricingStrategy')}:</strong>{' '}
-                              {selected.registration_pricing_strategy === 'driver_codriver'
-                                ? t('admin.dashboard.registrationPricingStrategyDriverCodriver')
-                                : t('admin.dashboard.registrationPricingStrategyTeamFlat')}
-                            </div>
-                            <div>
                               <strong>{t('admin.dashboard.registrationTeamAmountCents')}:</strong>{' '}
                               {selected.registration_team_amount_cents ?? 5000}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationIndividualAmountCents')}:</strong>{' '}
-                              {selected.registration_individual_amount_cents ?? 2500}
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.registrationDriverAmountCents')}:</strong>{' '}

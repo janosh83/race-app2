@@ -597,7 +597,7 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
         race.registration_slug = "jarni-jizda-2026"
         race.registration_enabled = True
         race.allow_team_registration = True
-        race.allow_individual_registration = True
+        race.allow_individual_registration = False
         race.min_team_size = 1
         race.max_team_size = 5
         race.registration_currency = "usd"
@@ -674,17 +674,16 @@ def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_
     assert "Individual registration is not enabled" in response.json["message"]
 
 
-def test_create_checkout_by_registration_slug_driver_codriver_strategy(test_client, add_test_data, test_app, monkeypatch):
-    """Checkout uses driver/codriver pricing strategy when configured on race."""
+def test_create_checkout_by_registration_slug_individual_role_pricing(test_client, add_test_data, test_app, monkeypatch):
+    """Checkout uses selected individual role price when race allows individual registration."""
     with test_app.app_context():
         race = Race.query.filter_by(id=1).first()
-        race.registration_slug = "driver-codriver-race"
+        race.registration_slug = "individual-role-race"
         race.registration_enabled = True
-        race.allow_team_registration = True
+        race.allow_team_registration = False
         race.allow_individual_registration = True
-        race.min_team_size = 2
-        race.max_team_size = 5
-        race.registration_pricing_strategy = "driver_codriver"
+        race.min_team_size = 1
+        race.max_team_size = 1
         race.registration_driver_amount_cents = 420
         race.registration_codriver_amount_cents = 170
 
@@ -709,19 +708,18 @@ def test_create_checkout_by_registration_slug_driver_codriver_strategy(test_clie
     monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
 
     response = test_client.post(
-        "/api/race/registration/driver-codriver-race/checkout/",
+        "/api/race/registration/individual-role-race/checkout/",
         json={
             "team_name": "Role Team",
             "team_id": team_id,
-            "mode": "team",
-            "members_count": 3,
-            "driver_count": 1,
-            "codriver_count": 2,
+            "mode": "individual",
+            "members_count": 1,
+            "individual_role": "codriver",
         },
     )
 
     assert response.status_code == 201
-    assert called["amount_cents"] == ((1 * 420) + (2 * 170)) * 100
+    assert called["amount_cents"] == (170 * 100)
 
 
 def test_create_checkout_by_registration_slug_missing_stripe_config(test_client, add_test_data, test_app, monkeypatch):
