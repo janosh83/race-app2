@@ -25,10 +25,10 @@ def upgrade():
             sa.Column('max_team_size', sa.Integer(), nullable=False, server_default='2')
         )
         batch_op.add_column(
-            sa.Column('allow_team_registration', sa.Boolean(), nullable=False, server_default=sa.text('1'))
+            sa.Column('allow_team_registration', sa.Boolean(), nullable=False, server_default=sa.text('true'))
         )
         batch_op.add_column(
-            sa.Column('allow_individual_registration', sa.Boolean(), nullable=False, server_default=sa.text('0'))
+            sa.Column('allow_individual_registration', sa.Boolean(), nullable=False, server_default=sa.text('false'))
         )
 
 
