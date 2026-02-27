@@ -255,6 +255,18 @@ def seed_data():
         end_showing_checkpoints_at=now + timedelta(days=7),
         start_logging_at=now - timedelta(days=1),
         end_logging_at=now + timedelta(days=7),
+        registration_slug="vyzva-ve-meste",
+        registration_enabled=True,
+        min_team_size=2,
+        max_team_size=5,
+        allow_team_registration=True,
+        allow_individual_registration=False,
+        registration_currency="czk",
+        registration_pricing_strategy="team_flat",
+        registration_team_amount_cents=50,
+        registration_individual_amount_cents=25,
+        registration_driver_amount_cents=25,
+        registration_codriver_amount_cents=15,
     )
     race2 = Race(
         name="Nature Expedition",
@@ -265,6 +277,18 @@ def seed_data():
         end_showing_checkpoints_at=now + timedelta(days=14),
         start_logging_at=now - timedelta(hours=2),
         end_logging_at=now + timedelta(days=14),
+        registration_slug="nature-expedition",
+        registration_enabled=True,
+        min_team_size=2,
+        max_team_size=4,
+        allow_team_registration=True,
+        allow_individual_registration=False,
+        registration_currency="czk",
+        registration_pricing_strategy="team_flat",
+        registration_team_amount_cents=60,
+        registration_individual_amount_cents=30,
+        registration_driver_amount_cents=30,
+        registration_codriver_amount_cents=20,
     )
     race3 = Race(
         name="City Explorer",
@@ -275,6 +299,18 @@ def seed_data():
         end_showing_checkpoints_at=now + timedelta(days=10),
         start_logging_at=now + timedelta(days=1),
         end_logging_at=now + timedelta(days=10),
+        registration_slug="city-explorer",
+        registration_enabled=True,
+        min_team_size=1,
+        max_team_size=1,
+        allow_team_registration=False,
+        allow_individual_registration=True,
+        registration_currency="czk",
+        registration_pricing_strategy="team_flat",
+        registration_team_amount_cents=55,
+        registration_individual_amount_cents=35,
+        registration_driver_amount_cents=35,
+        registration_codriver_amount_cents=20,
     )
 
     db.session.add_all([race1, race2, race3])
@@ -283,7 +319,7 @@ def seed_data():
     # ===== RACE TRANSLATIONS =====
     race2_cs = RaceTranslation(race_id=race2.id, language="cs", name="Přírodní expedice", description="Navigujte přírodními skvosty a plňte výzvy.")
     race2_en = RaceTranslation(race_id=race2.id, language="en", name="Nature Expedition", description="Navigate through natural landmarks and complete challenges.")
-    
+
     race3_cs = RaceTranslation(race_id=race3.id, language="cs", name="Městský průzkumník", description="Objevujte skryté poklady ve městě a plňte zábavné úkoly.")
     race3_de = RaceTranslation(race_id=race3.id, language="de", name="Stadterkunder", description="Entdecken Sie versteckte Schätze in der Stadt und erfüllen Sie lustige Aufgaben.")
 
@@ -313,7 +349,7 @@ def seed_data():
     cat3_cs = RaceCategoryTranslation(race_category_id=cat3.id, language="cs", name="Běžci", description="Pro milovníky běhu")
     cat3_de = RaceCategoryTranslation(race_category_id=cat3.id, language="de", name="Läufer", description="Für Laufbegeisterte")
     cat3_en = RaceCategoryTranslation(race_category_id=cat3.id, language="en", name="Runners", description="For running enthusiasts")
-    
+
     db.session.add_all([cat1_cs, cat1_de, cat1_en, cat2_cs, cat2_de, cat2_en, cat3_cs, cat3_de, cat3_en])
     db.session.commit()
 
