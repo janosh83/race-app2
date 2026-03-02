@@ -10,17 +10,39 @@ import TranslationManager from './TranslationManager';
 export default function CategoryForm({ raceId, supportedLanguages = [] }) {
   const { t } = useTranslation();
   const [allCategories, setAllCategories] = useState([]);
-  const [assigned, setAssigned] = useState([]); // array of category objects assigned to race
+  const [assigned, setAssigned] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newName, setNewName] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [categoryTranslations, setCategoryTranslations] = useState({});
 
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [cats, raceCats] = await Promise.all([
+        adminApi.listCategories(),
+        adminApi.getRaceCategories(raceId),
+      ]);
+      setAllCategories(Array.isArray(cats) ? cats : (cats?.data || []));
+      setAssigned(Array.isArray(raceCats) ? raceCats : (raceCats?.data || []));
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to load categories', err);
+      setError(t('admin.categoryForm.errorLoad'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (raceId) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceId]);
+
   useEffect(() => {
     const fetchAllTranslations = async () => {
-      const merged = [...allCategories, ...assigned];
-      const uniqueCategoryIds = [...new Set(merged.map(cat => cat.id).filter(Boolean))];
+      const uniqueCategoryIds = [...new Set([...allCategories, ...assigned].map(cat => cat.id).filter(Boolean))];
       const currentIds = Object.keys(categoryTranslations).map(Number);
       const idsToFetch = uniqueCategoryIds.filter(id => !currentIds.includes(id));
 
@@ -55,29 +77,6 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allCategories.map(c => c.id).join(','), assigned.map(c => c.id).join(',')]);
-
-  const load = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [cats, raceCats] = await Promise.all([
-        adminApi.listCategories(),
-        adminApi.getRaceCategories(raceId),
-      ]);
-      setAllCategories(Array.isArray(cats) ? cats : (cats?.data || []));
-      setAssigned(Array.isArray(raceCats) ? raceCats : (raceCats?.data || []));
-    } catch (err) {
-      logger.error('ADMIN', 'Failed to load categories', err);
-      setError(t('admin.categoryForm.errorLoad'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (raceId) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [raceId]);
 
   const isAssigned = (catId) => assigned.some(c => c.id === catId);
 
@@ -122,6 +121,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
 
   const renderCategoryItem = (cat) => {
     const catId = cat.id;
+    const assignedToRace = isAssigned(catId);
     const isExpanded = expandedId === catId;
     const translations = categoryTranslations[catId] || [];
     const translationLanguages = translations.map(item => item.language);
@@ -137,6 +137,9 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
             <div className="d-flex align-items-center gap-2">
               <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
               <strong>{cat.name}</strong>
+              <span className={`badge ${assignedToRace ? 'bg-success' : 'bg-secondary'}`}>
+                {assignedToRace ? t('admin.categoryForm.assignedToRace') : t('admin.categoryForm.allCategories')}
+              </span>
               {translationLanguages.length > 0 && (
                 <LanguageFlagsDisplay
                   languages={translationLanguages}
@@ -146,35 +149,31 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
               )}
             </div>
           </div>
-          <div>
-            {isAssigned(catId) ? (
-              <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); unassign(catId); }}>{t('admin.categoryForm.unassign')}</button>
-            ) : (
-              <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); assign(catId); }}>{t('admin.categoryForm.assign')}</button>
-            )}
-          </div>
         </div>
 
         {isExpanded && (
           <div className="mt-3 pt-3 border-top">
-            <div className="row">
-              <div className="col-md-6">
-                <div className="small">
-                  <strong>{t('admin.translationManager.fieldDescription')}:</strong>{' '}
-                  {cat.description || <span className="text-muted">—</span>}
-                </div>
+            <div className="mb-3 d-flex justify-content-between align-items-start gap-2">
+              <div className="small">
+                <strong>{t('admin.translationManager.fieldDescription')}:</strong>{' '}
+                {cat.description || <span className="text-muted">—</span>}
               </div>
-
-              <div className="col-md-6">
-                <TranslationManager
-                  entityType="category"
-                  entityId={catId}
-                  entityName={cat.name}
-                  fields={{ name: t('admin.translationManager.fieldName'), description: t('admin.translationManager.fieldDescription') }}
-                  supportedLanguages={supportedLanguages}
-                />
+              <div>
+                {assignedToRace ? (
+                  <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(catId)}>{t('admin.categoryForm.unassign')}</button>
+                ) : (
+                  <button className="btn btn-sm btn-primary" onClick={() => assign(catId)}>{t('admin.categoryForm.assign')}</button>
+                )}
               </div>
             </div>
+
+            <TranslationManager
+              entityType="category"
+              entityId={catId}
+              entityName={cat.name}
+              fields={{ name: t('admin.translationManager.fieldName'), description: t('admin.translationManager.fieldDescription') }}
+              supportedLanguages={supportedLanguages}
+            />
           </div>
         )}
       </li>
@@ -192,7 +191,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row">
-        <div className="col-md-6">
+        <div className="col-12 mb-3">
           <h5>{t('admin.categoryForm.allCategories')}</h5>
           <ul className="list-group">
             {allCategories.map(renderCategoryItem)}
@@ -200,13 +199,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
           </ul>
         </div>
 
-        <div className="col-md-6">
-          <h5>{t('admin.categoryForm.assignedToRace')}</h5>
-          <ul className="list-group mb-3">
-            {assigned.map(renderCategoryItem)}
-            {assigned.length === 0 && <li className="list-group-item text-muted">{t('admin.categoryForm.noAssigned')}</li>}
-          </ul>
-
+        <div className="col-12">
           <div className="card p-3">
             <h6>{t('admin.categoryForm.createNew')}</h6>
             <div className="input-group">
