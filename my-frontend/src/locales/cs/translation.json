@@ -231,6 +231,7 @@
       "noneYet": "Zatím žádné",
       "tabCheckpointsTasks": "Checkpointy a úkoly",
       "tabRegistrationsCategories": "Registrace a kategorie",
+      "tabTeams": "Týmy",
       "tabVisitsResults": "Návštěvy a výsledky",
       "visitsTeam": "Návštěvy — tým #{{id}}",
       "selectRacePrompt": "Vyberte závod nebo klikněte na \"Nový závod\""
@@ -475,6 +476,9 @@
     },
     "teamCreation": {
       "title": "Vytvořit tým",
+      "allTeams": "Všechny týmy",
+      "refresh": "Obnovit",
+      "loadingTeams": "Načítám týmy…",
       "teamName": "Název týmu",
       "create": "Vytvořit",
       "creating": "Vytvářím…",
@@ -484,6 +488,8 @@
       "tableName": "Jméno",
       "tableEmail": "Email",
       "tableAdmin": "Admin",
+      "tableMembers": "Členové",
+      "tableMemberCount": "Počet členů",
       "adminYes": "Ano",
       "adminNo": "Ne",
       "noUsers": "Žádní uživatelé",
@@ -491,6 +497,7 @@
       "addMembers": "Přidat členy",
       "adding": "Přidávám…",
       "errorCreate": "Nepodařilo se vytvořit tým",
+      "errorLoadTeams": "Nepodařilo se načíst týmy",
       "errorSelectTeam": "Nejprve vyberte tým",
       "errorSelectUsers": "Vyberte alespoň jednoho uživatele",
       "errorAddMembers": "Nepodařilo se přidat členy"

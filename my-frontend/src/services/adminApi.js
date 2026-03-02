@@ -4,7 +4,7 @@ export const adminApi = {
   listRaces: () => apiFetch('/api/race/'),  // OK
   createRace: (payload) => apiFetch('/api/race/', { method: 'POST', body: payload }),  // OK
   updateRace: (raceId, payload) => apiFetch(`/api/race/${raceId}/`, { method: 'PUT', body: payload }),  // OK
-  
+
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
   addRegistration: (raceId, payload) => apiFetch(`/api/team/race/${raceId}/`, { method: 'POST', body: payload }),
   deleteRegistration: (raceId, teamId) => apiFetch(`/api/team/race/${raceId}/team/${teamId}/`, { method: 'DELETE' }),
@@ -20,7 +20,7 @@ export const adminApi = {
   createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
   updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
   deleteUser: (userId) => apiFetch(`/api/user/${userId}/`, { method: 'DELETE' }),
-  
+
   // Checkpoint management
   getCheckpointsByRaceID: (raceId) => apiFetch(`/api/race/${raceId}/checkpoints/`), // OK
   addCheckpoint: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/`, { method: 'POST', body: payload }),
@@ -43,9 +43,10 @@ export const adminApi = {
 
   // Team management
   getTeams: () => apiFetch('/api/team/'),
+  getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
-  
+
   // race-category endpoints
   // list all global categories
   listCategories: () => apiFetch('/api/race-category/'),

@@ -5,7 +5,6 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
 import RegistrationImporter from './RegistrationImporter';
-import TeamCreation from './TeamCreation';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId }) {
@@ -156,20 +155,6 @@ export default function RegistrationList({ raceId }) {
 
       <div className="row g-3 mb-3">
         <div className="col-12">
-          <TeamCreation
-            teams={teams}
-            users={users}
-            onTeamCreated={async (created) => {
-              await loadMeta();
-              if (created?.id) setSelectedTeamId(created.id.toString());
-            }}
-            onMembersAdded={loadMeta}
-          />
-        </div>
-      </div>
-
-      <div className="row g-3 mb-3">
-        <div className="col-12">
           <div className="card h-100 p-3">
             <h5 className="mb-3">{t('admin.registrations.registerCardTitle')}</h5>
             <div className="mb-2">
@@ -295,7 +280,7 @@ export default function RegistrationList({ raceId }) {
         </div>
 
         <hr className="my-4" />
-        
+
         <RegistrationImporter
           raceId={raceId}
           teams={teams}

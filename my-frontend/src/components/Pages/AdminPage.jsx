@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 
 import AdminDashboard from '../Admin/AdminDashboard';
+import TeamManagement from '../Admin/TeamManagement';
 import Users from '../Admin/Users';
 
 function AdminPage() {
-  const [tab, setTab] = useState('races'); // 'races' | 'users'
+  const [tab, setTab] = useState('races'); // 'races' | 'teams' | 'users'
 
   return (
     <div className="container mt-3">
@@ -12,6 +13,11 @@ function AdminPage() {
         <li className="nav-item">
           <button className={`nav-link ${tab === 'races' ? 'active' : ''}`} onClick={() => setTab('races')}>
             Races
+          </button>
+        </li>
+        <li className="nav-item">
+          <button className={`nav-link ${tab === 'teams' ? 'active' : ''}`} onClick={() => setTab('teams')}>
+            Teams
           </button>
         </li>
         <li className="nav-item">
@@ -23,6 +29,8 @@ function AdminPage() {
 
       {tab === 'races' ? (
         <AdminDashboard />
+      ) : tab === 'teams' ? (
+        <TeamManagement />
       ) : (
         <Users />
       )}

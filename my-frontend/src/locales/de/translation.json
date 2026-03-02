@@ -231,6 +231,7 @@
       "noneYet": "Noch keine",
       "tabCheckpointsTasks": "Checkpoints & Aufgaben",
       "tabRegistrationsCategories": "Registrierungen & Kategorien",
+      "tabTeams": "Teams",
       "tabVisitsResults": "Besuche & Ergebnisse",
       "visitsTeam": "Besuche — Team #{{id}}",
       "selectRacePrompt": "Waehlen Sie ein Rennen oder klicken Sie auf \"Neues Rennen\""
@@ -475,6 +476,9 @@
     },
     "teamCreation": {
       "title": "Team erstellen",
+      "allTeams": "Alle Teams",
+      "refresh": "Aktualisieren",
+      "loadingTeams": "Teams werden geladen…",
       "teamName": "Teamname",
       "create": "Erstellen",
       "creating": "Erstelle…",
@@ -484,6 +488,8 @@
       "tableName": "Name",
       "tableEmail": "E-Mail",
       "tableAdmin": "Admin",
+      "tableMembers": "Mitglieder",
+      "tableMemberCount": "Mitgliederanzahl",
       "adminYes": "Ja",
       "adminNo": "Nein",
       "noUsers": "Keine Benutzer",
@@ -491,6 +497,7 @@
       "addMembers": "Mitglieder hinzufuegen",
       "adding": "Fuege hinzu…",
       "errorCreate": "Team konnte nicht erstellt werden",
+      "errorLoadTeams": "Teams konnten nicht geladen werden",
       "errorSelectTeam": "Bitte zuerst ein Team waehlen",
       "errorSelectUsers": "Bitte mindestens einen Benutzer waehlen",
       "errorAddMembers": "Mitglieder konnten nicht hinzugefuegt werden"
