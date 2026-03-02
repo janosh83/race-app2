@@ -24,6 +24,7 @@ export default function RegistrationList({ raceId }) {
   const [savingRegistration, setSavingRegistration] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
   const [expandedPayments, setExpandedPayments] = useState({});
+  const [paymentTimelineState, setPaymentTimelineState] = useState({});
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -171,6 +172,17 @@ export default function RegistrationList({ raceId }) {
     setExpandedPayments(prev => ({ ...prev, [teamId]: !prev[teamId] }));
   };
 
+  const updatePaymentTimelineState = (teamId, patch) => {
+    setPaymentTimelineState(prev => ({
+      ...prev,
+      [teamId]: {
+        status: prev[teamId]?.status || 'all',
+        order: prev[teamId]?.order || 'newest',
+        ...patch,
+      },
+    }));
+  };
+
   if (!raceId) return null;
 
   return (
@@ -263,6 +275,7 @@ export default function RegistrationList({ raceId }) {
               const paymentDetails = reg.payment_details || {};
               const attempts = Array.isArray(paymentDetails.attempts) ? paymentDetails.attempts : [];
               const showPaymentDetails = !!expandedPayments[teamId];
+              const timelineState = paymentTimelineState[teamId] || { status: 'all', order: 'newest' };
               const paymentMode = paymentDetails.mode;
               const paymentItems = paymentMode === 'team'
                 ? [{ type: 'team', paid: !!paymentDetails.team_paid }]
@@ -270,6 +283,14 @@ export default function RegistrationList({ raceId }) {
                     { type: 'driver', paid: !!paymentDetails.driver_paid },
                     { type: 'codriver', paid: !!paymentDetails.codriver_paid },
                   ];
+              const filteredAttempts = (attempts || []).filter(attempt => (
+                timelineState.status === 'all' || (attempt.status || '').toLowerCase() === timelineState.status
+              ));
+              const sortedAttempts = [...filteredAttempts].sort((left, right) => {
+                const leftValue = new Date(left.confirmed_at || left.created_at || 0).getTime();
+                const rightValue = new Date(right.confirmed_at || right.created_at || 0).getTime();
+                return timelineState.order === 'oldest' ? leftValue - rightValue : rightValue - leftValue;
+              });
 
               const getPaymentTypeLabel = (type) => {
                 if (type === 'driver') return t('admin.registrations.paymentTypeDriver');
@@ -369,6 +390,30 @@ export default function RegistrationList({ raceId }) {
                             </div>
                           ))}
                         </div>
+                        <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                          <span className="small text-muted">{t('admin.registrations.timelineFilter')}</span>
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ width: 180 }}
+                            value={timelineState.status}
+                            onChange={(e) => updatePaymentTimelineState(teamId, { status: e.target.value })}
+                          >
+                            <option value="all">{t('admin.registrations.timelineStatusAll')}</option>
+                            <option value="confirmed">{t('admin.registrations.timelineStatusConfirmed')}</option>
+                            <option value="pending">{t('admin.registrations.timelineStatusPending')}</option>
+                            <option value="failed">{t('admin.registrations.timelineStatusFailed')}</option>
+                          </select>
+                          <span className="small text-muted">{t('admin.registrations.timelineSort')}</span>
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ width: 180 }}
+                            value={timelineState.order}
+                            onChange={(e) => updatePaymentTimelineState(teamId, { order: e.target.value })}
+                          >
+                            <option value="newest">{t('admin.registrations.timelineSortNewest')}</option>
+                            <option value="oldest">{t('admin.registrations.timelineSortOldest')}</option>
+                          </select>
+                        </div>
                         <div className="table-responsive">
                           <table className="table table-sm table-bordered mb-0">
                             <thead>
@@ -376,20 +421,24 @@ export default function RegistrationList({ raceId }) {
                                 <th>{t('admin.registrations.attemptType')}</th>
                                 <th>{t('admin.registrations.attemptStatus')}</th>
                                 <th>{t('admin.registrations.attemptAmount')}</th>
+                                <th>{t('admin.registrations.attemptCreated')}</th>
+                                <th>{t('admin.registrations.attemptConfirmed')}</th>
                                 <th>{t('admin.registrations.attemptSession')}</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {attempts.length === 0 && (
+                              {sortedAttempts.length === 0 && (
                                 <tr>
-                                  <td colSpan="4" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                                  <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
                                 </tr>
                               )}
-                              {attempts.map(attempt => (
+                              {sortedAttempts.map(attempt => (
                                 <tr key={attempt.id || attempt.stripe_session_id}>
-                                  <td>{attempt.payment_type || '—'}</td>
+                                  <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
                                   <td>{attempt.status || '—'}</td>
                                   <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
+                                  <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
+                                  <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
                                   <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
                                 </tr>
                               ))}
