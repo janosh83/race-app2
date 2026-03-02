@@ -3,14 +3,58 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
-export default function CategoryForm({ raceId }) {
+import TranslationManager from './TranslationManager';
+
+export default function CategoryForm({ raceId, supportedLanguages = [] }) {
   const { t } = useTranslation();
   const [allCategories, setAllCategories] = useState([]);
   const [assigned, setAssigned] = useState([]); // array of category objects assigned to race
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newName, setNewName] = useState('');
+  const [expandedId, setExpandedId] = useState(null);
+  const [categoryTranslations, setCategoryTranslations] = useState({});
+
+  useEffect(() => {
+    const fetchAllTranslations = async () => {
+      const merged = [...allCategories, ...assigned];
+      const uniqueCategoryIds = [...new Set(merged.map(cat => cat.id).filter(Boolean))];
+      const currentIds = Object.keys(categoryTranslations).map(Number);
+      const idsToFetch = uniqueCategoryIds.filter(id => !currentIds.includes(id));
+
+      if (idsToFetch.length === 0) {
+        const removedIds = currentIds.filter(id => !uniqueCategoryIds.includes(id));
+        if (removedIds.length > 0) {
+          setCategoryTranslations(prev => {
+            const cleanedMap = { ...prev };
+            removedIds.forEach(id => delete cleanedMap[id]);
+            return cleanedMap;
+          });
+        }
+        return;
+      }
+
+      const newTranslations = {};
+      for (const categoryId of idsToFetch) {
+        try {
+          const data = await adminApi.getCategoryTranslations(categoryId);
+          newTranslations[categoryId] = Array.isArray(data) ? data : (data?.data || []);
+        } catch (e) {
+          logger.error('ADMIN', `Failed to load translations for category ${categoryId}`, e);
+          newTranslations[categoryId] = [];
+        }
+      }
+
+      setCategoryTranslations(prev => ({ ...prev, ...newTranslations }));
+    };
+
+    if (allCategories.length > 0 || assigned.length > 0) {
+      fetchAllTranslations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCategories.map(c => c.id).join(','), assigned.map(c => c.id).join(',')]);
 
   const load = async () => {
     setLoading(true);
@@ -76,6 +120,67 @@ export default function CategoryForm({ raceId }) {
 
   if (!raceId) return null;
 
+  const renderCategoryItem = (cat) => {
+    const catId = cat.id;
+    const isExpanded = expandedId === catId;
+    const translations = categoryTranslations[catId] || [];
+    const translationLanguages = translations.map(item => item.language);
+
+    return (
+      <li key={catId} className="list-group-item">
+        <div className="d-flex justify-content-between align-items-start">
+          <div
+            className="flex-grow-1"
+            style={{ cursor: 'pointer' }}
+            onClick={() => setExpandedId(isExpanded ? null : catId)}
+          >
+            <div className="d-flex align-items-center gap-2">
+              <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
+              <strong>{cat.name}</strong>
+              {translationLanguages.length > 0 && (
+                <LanguageFlagsDisplay
+                  languages={translationLanguages}
+                  flagWidth={20}
+                  flagHeight={14}
+                />
+              )}
+            </div>
+          </div>
+          <div>
+            {isAssigned(catId) ? (
+              <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); unassign(catId); }}>{t('admin.categoryForm.unassign')}</button>
+            ) : (
+              <button className="btn btn-sm btn-primary" onClick={(e) => { e.stopPropagation(); assign(catId); }}>{t('admin.categoryForm.assign')}</button>
+            )}
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="mt-3 pt-3 border-top">
+            <div className="row">
+              <div className="col-md-6">
+                <div className="small">
+                  <strong>{t('admin.translationManager.fieldDescription')}:</strong>{' '}
+                  {cat.description || <span className="text-muted">—</span>}
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <TranslationManager
+                  entityType="category"
+                  entityId={catId}
+                  entityName={cat.name}
+                  fields={{ name: t('admin.translationManager.fieldName'), description: t('admin.translationManager.fieldDescription') }}
+                  supportedLanguages={supportedLanguages}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </li>
+    );
+  };
+
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-2">
@@ -90,18 +195,7 @@ export default function CategoryForm({ raceId }) {
         <div className="col-md-6">
           <h5>{t('admin.categoryForm.allCategories')}</h5>
           <ul className="list-group">
-            {allCategories.map(cat => (
-              <li key={cat.id} className="list-group-item d-flex justify-content-between align-items-center">
-                <div>{cat.name}</div>
-                <div>
-                  {isAssigned(cat.id) ? (
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(cat.id)}>{t('admin.categoryForm.unassign')}</button>
-                  ) : (
-                    <button className="btn btn-sm btn-primary" onClick={() => assign(cat.id)}>{t('admin.categoryForm.assign')}</button>
-                  )}
-                </div>
-              </li>
-            ))}
+            {allCategories.map(renderCategoryItem)}
             {allCategories.length === 0 && <li className="list-group-item text-muted">{t('admin.categoryForm.noCategories')}</li>}
           </ul>
         </div>
@@ -109,12 +203,7 @@ export default function CategoryForm({ raceId }) {
         <div className="col-md-6">
           <h5>{t('admin.categoryForm.assignedToRace')}</h5>
           <ul className="list-group mb-3">
-            {assigned.map(cat => (
-              <li key={cat.id} className="list-group-item d-flex justify-content-between align-items-center">
-                <div>{cat.name}</div>
-                <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(cat.id)}>{t('admin.categoryForm.unassign')}</button>
-              </li>
-            ))}
+            {assigned.map(renderCategoryItem)}
             {assigned.length === 0 && <li className="list-group-item text-muted">{t('admin.categoryForm.noAssigned')}</li>}
           </ul>
 

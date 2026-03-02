@@ -342,7 +342,7 @@ function AdminDashboard() {
                   {activeSubmenu === 'registrations' && (
                     <>
                       <RegistrationList raceId={selected.id} />
-                      <CategoryForm raceId={selected.id} />
+                      <CategoryForm raceId={selected.id} supportedLanguages={selected.supported_languages || []} />
                     </>
                   )}
 
