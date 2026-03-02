@@ -214,18 +214,6 @@ function PublicRegistrationPage() {
       return t('publicRegistration.validationMemberFieldsRequired');
     }
 
-    if (mode === 'team') {
-      const hasInvalidRole = members.some((member) => !['driver', 'codriver'].includes(member.role));
-      if (hasInvalidRole) {
-        return t('publicRegistration.validationMemberRoleRequired');
-      }
-
-      const driverCount = members.filter((member) => member.role === 'driver').length;
-      if (driverCount < 1) {
-        return t('publicRegistration.validationAtLeastOneDriver');
-      }
-    }
-
     return '';
   };
 
@@ -435,20 +423,6 @@ function PublicRegistrationPage() {
                     required
                   />
                 </div>
-                {mode === 'team' && (
-                  <div className="mb-2">
-                    <label className="form-label">{t('publicRegistration.memberRoleLabel')}</label>
-                    <select
-                      className="form-select"
-                      value={member.role || 'codriver'}
-                      onChange={(event) => updateMember(index, 'role', event.target.value)}
-                      required
-                    >
-                      <option value="driver">{t('publicRegistration.memberRoleDriver')}</option>
-                      <option value="codriver">{t('publicRegistration.memberRoleCodriver')}</option>
-                    </select>
-                  </div>
-                )}
                 {mode === 'individual' && index === 0 && (
                   <div className="mb-2">
                     <label className="form-label">{t('publicRegistration.memberRoleLabel')}</label>
