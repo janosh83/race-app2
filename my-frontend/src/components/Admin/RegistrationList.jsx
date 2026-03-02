@@ -142,6 +142,31 @@ export default function RegistrationList({ raceId }) {
     }
   };
 
+  const handleRetryPayment = async (teamId, paymentType) => {
+    setError(null);
+    try {
+      const result = await adminApi.retryRegistrationPayment(raceId, teamId, paymentType);
+      if (result?.checkout_url) {
+        window.open(result.checkout_url, '_blank', 'noopener,noreferrer');
+      }
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to retry payment', err);
+      setError(t('admin.registrations.errorRetryPayment'));
+    }
+  };
+
+  const handleMarkPayment = async (teamId, paymentType, confirmed) => {
+    setError(null);
+    try {
+      await adminApi.markRegistrationPayment(raceId, teamId, paymentType, confirmed);
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to mark payment state', err);
+      setError(t('admin.registrations.errorMarkPayment'));
+    }
+  };
+
   const togglePaymentDetails = (teamId) => {
     setExpandedPayments(prev => ({ ...prev, [teamId]: !prev[teamId] }));
   };
@@ -238,6 +263,19 @@ export default function RegistrationList({ raceId }) {
               const paymentDetails = reg.payment_details || {};
               const attempts = Array.isArray(paymentDetails.attempts) ? paymentDetails.attempts : [];
               const showPaymentDetails = !!expandedPayments[teamId];
+              const paymentMode = paymentDetails.mode;
+              const paymentItems = paymentMode === 'team'
+                ? [{ type: 'team', paid: !!paymentDetails.team_paid }]
+                : [
+                    { type: 'driver', paid: !!paymentDetails.driver_paid },
+                    { type: 'codriver', paid: !!paymentDetails.codriver_paid },
+                  ];
+
+              const getPaymentTypeLabel = (type) => {
+                if (type === 'driver') return t('admin.registrations.paymentTypeDriver');
+                if (type === 'codriver') return t('admin.registrations.paymentTypeCodriver');
+                return t('admin.registrations.paymentTypeTeam');
+              };
               return (
                 <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
                   <tr>
@@ -298,6 +336,38 @@ export default function RegistrationList({ raceId }) {
                           {t('admin.registrations.driverPaid')}: {paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
                           {' · '}
                           {t('admin.registrations.codriverPaid')}: {paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
+                        </div>
+                        <div className="d-flex flex-wrap gap-2 mb-2">
+                          {paymentItems.map(item => (
+                            <div key={item.type} className="border rounded p-2 bg-white">
+                              <div className="fw-semibold small mb-2">{getPaymentTypeLabel(item.type)}</div>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary me-2"
+                                onClick={() => handleRetryPayment(teamId, item.type)}
+                                disabled={item.paid}
+                              >
+                                {t('admin.registrations.retryPayment')}
+                              </button>
+                              {item.paid ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-warning"
+                                  onClick={() => handleMarkPayment(teamId, item.type, false)}
+                                >
+                                  {t('admin.registrations.markUnpaid')}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline-success"
+                                  onClick={() => handleMarkPayment(teamId, item.type, true)}
+                                >
+                                  {t('admin.registrations.markPaid')}
+                                </button>
+                              )}
+                            </div>
+                          ))}
                         </div>
                         <div className="table-responsive">
                           <table className="table table-sm table-bordered mb-0">

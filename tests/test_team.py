@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Team, RaceCategory, Registration
+from app.models import Race, Team, RaceCategory, Registration, RegistrationPaymentAttempt
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -672,3 +672,108 @@ def test_send_registration_emails_sets_reset_token(test_client, add_test_data, a
     call_args = mock_email_service.call_args[1]
     assert 'reset_token' in call_args
     assert call_args['reset_token'] is not None
+
+
+def test_retry_registration_payment_creates_pending_attempt(test_client, add_test_data, admin_auth_headers, test_app, monkeypatch):
+    """Admin retry endpoint creates a pending payment attempt and returns checkout URL."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "retry-individual"
+        race.registration_enabled = True
+        race.allow_team_registration = False
+        race.allow_individual_registration = True
+        race.registration_currency = "czk"
+        race.registration_driver_amount_cents = 250
+        race.registration_codriver_amount_cents = 150
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    monkeypatch.setattr(
+        "app.routes.team.create_registration_checkout_session",
+        lambda **kwargs: {
+            "session_id": "cs_retry_driver_1",
+            "checkout_url": "https://checkout.stripe.com/c/pay/cs_retry_driver_1",
+        },
+    )
+
+    retry_response = test_client.post(
+        "/api/team/race/1/team/1/payments/retry/",
+        json={"payment_type": "driver"},
+        headers=admin_auth_headers,
+    )
+    assert retry_response.status_code == 201
+    assert retry_response.json["payment_type"] == "driver"
+    assert "checkout_url" in retry_response.json
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        attempt = RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            stripe_session_id="cs_retry_driver_1",
+        ).first()
+        assert attempt is not None
+        assert attempt.payment_type == "driver"
+        assert attempt.status == "pending"
+
+
+def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_test_data, admin_auth_headers, test_app):
+    """Manual mark paid/unpaid endpoint updates attempts and aggregate registration payment state."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.allow_team_registration = False
+        race.allow_individual_registration = True
+        race.registration_driver_amount_cents = 250
+        race.registration_codriver_amount_cents = 150
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    mark_paid = test_client.patch(
+        "/api/team/race/1/team/1/payments/mark/",
+        json={"payment_type": "driver", "confirmed": True},
+        headers=admin_auth_headers,
+    )
+    assert mark_paid.status_code == 200
+    assert mark_paid.json["payment_confirmed"] is True
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert registration.payment_confirmed is True
+        assert registration.payment_confirmed_at is not None
+        confirmed_attempt = RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            payment_type="driver",
+            status="confirmed",
+        ).first()
+        assert confirmed_attempt is not None
+
+    mark_unpaid = test_client.patch(
+        "/api/team/race/1/team/1/payments/mark/",
+        json={"payment_type": "driver", "confirmed": False},
+        headers=admin_auth_headers,
+    )
+    assert mark_unpaid.status_code == 200
+    assert mark_unpaid.json["payment_confirmed"] is False
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert registration.payment_confirmed is False
+        assert registration.payment_confirmed_at is None
+        assert registration.stripe_session_id is None
+        confirmed_attempt = RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            payment_type="driver",
+            status="confirmed",
+        ).first()
+        assert confirmed_attempt is None

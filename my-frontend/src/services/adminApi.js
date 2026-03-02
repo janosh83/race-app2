@@ -12,6 +12,14 @@ export const adminApi = {
     `/api/team/race/${raceId}/team/${teamId}/disqualify/`,
     { method: 'PATCH', body: { disqualified } }
   ),
+  retryRegistrationPayment: (raceId, teamId, payment_type) => apiFetch(
+    `/api/team/race/${raceId}/team/${teamId}/payments/retry/`,
+    { method: 'POST', body: { payment_type } }
+  ),
+  markRegistrationPayment: (raceId, teamId, payment_type, confirmed) => apiFetch(
+    `/api/team/race/${raceId}/team/${teamId}/payments/mark/`,
+    { method: 'PATCH', body: { payment_type, confirmed } }
+  ),
   sendRegistrationEmails: (raceId) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
 
