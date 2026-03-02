@@ -23,6 +23,7 @@ export default function RegistrationList({ raceId }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [savingRegistration, setSavingRegistration] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [expandedPayments, setExpandedPayments] = useState({});
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -141,6 +142,10 @@ export default function RegistrationList({ raceId }) {
     }
   };
 
+  const togglePaymentDetails = (teamId) => {
+    setExpandedPayments(prev => ({ ...prev, [teamId]: !prev[teamId] }));
+  };
+
   if (!raceId) return null;
 
   return (
@@ -210,13 +215,14 @@ export default function RegistrationList({ raceId }) {
               <th>{t('admin.registrations.tableCategory')}</th>
               <th>{t('admin.registrations.tableMembers')}</th>
               <th>{t('admin.registrations.tableEmailSent')}</th>
+              <th>{t('admin.registrations.tablePayment')}</th>
               <th>{t('admin.registrations.tableDisqualified')}</th>
-              <th style={{ width: 140 }}>{t('admin.registrations.tableActions')}</th>
+              <th style={{ width: 220 }}>{t('admin.registrations.tableActions')}</th>
             </tr>
           </thead>
           <tbody>
             {(!registrations || registrations.length === 0) && (
-              <tr><td colSpan="6" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
+              <tr><td colSpan="7" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
             )}
             {registrations.map((reg, idx) => {
               const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
@@ -228,42 +234,102 @@ export default function RegistrationList({ raceId }) {
                 : '—';
               const emailSent = reg.email_sent || false;
               const disqualified = !!reg.disqualified;
+              const paymentConfirmed = !!reg.payment_confirmed;
+              const paymentDetails = reg.payment_details || {};
+              const attempts = Array.isArray(paymentDetails.attempts) ? paymentDetails.attempts : [];
+              const showPaymentDetails = !!expandedPayments[teamId];
               return (
-                <tr key={reg.id ?? reg.team_id ?? idx}>
-                  <td>{teamName}</td>
-                  <td>{categoryName}</td>
-                  <td className="text-muted small">{membersDisplay}</td>
-                  <td>
-                    {emailSent ? (
-                      <span className="badge bg-success">{t('admin.registrations.emailSent')}</span>
-                    ) : (
-                      <span className="badge bg-secondary">{t('admin.registrations.notSent')}</span>
-                    )}
-                  </td>
-                  <td>
-                    {disqualified ? (
-                      <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>
-                    ) : (
-                      <span className="badge bg-success">{t('admin.registrations.eligible')}</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      className="btn btn-sm btn-outline-warning me-2"
-                      onClick={() => handleToggleDisqualification(teamId, disqualified)}
-                      title={disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
-                    >
-                      {disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
-                    </button>
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleDeleteRegistration(teamId)}
-                      title={t('admin.registrations.deleteRegistration')}
-                    >
-                      {t('admin.registrations.delete')}
-                    </button>
-                  </td>
-                </tr>
+                <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
+                  <tr>
+                    <td>{teamName}</td>
+                    <td>{categoryName}</td>
+                    <td className="text-muted small">{membersDisplay}</td>
+                    <td>
+                      {emailSent ? (
+                        <span className="badge bg-success">{t('admin.registrations.emailSent')}</span>
+                      ) : (
+                        <span className="badge bg-secondary">{t('admin.registrations.notSent')}</span>
+                      )}
+                    </td>
+                    <td>
+                      {paymentConfirmed ? (
+                        <span className="badge bg-success">{t('admin.registrations.paymentPaid')}</span>
+                      ) : (
+                        <span className="badge bg-warning text-dark">{t('admin.registrations.paymentUnpaid')}</span>
+                      )}
+                    </td>
+                    <td>
+                      {disqualified ? (
+                        <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>
+                      ) : (
+                        <span className="badge bg-success">{t('admin.registrations.eligible')}</span>
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-sm btn-outline-secondary me-2 mb-1"
+                        onClick={() => togglePaymentDetails(teamId)}
+                        title={t('admin.registrations.paymentDetails')}
+                      >
+                        {showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-warning me-2 mb-1"
+                        onClick={() => handleToggleDisqualification(teamId, disqualified)}
+                        title={disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
+                      >
+                        {disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger mb-1"
+                        onClick={() => handleDeleteRegistration(teamId)}
+                        title={t('admin.registrations.deleteRegistration')}
+                      >
+                        {t('admin.registrations.delete')}
+                      </button>
+                    </td>
+                  </tr>
+                  {showPaymentDetails && (
+                    <tr>
+                      <td colSpan="7" className="bg-light">
+                        <div className="small text-muted mb-2">
+                          {t('admin.registrations.paymentMode')}: {paymentDetails.mode || '—'}
+                          {' · '}
+                          {t('admin.registrations.driverPaid')}: {paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
+                          {' · '}
+                          {t('admin.registrations.codriverPaid')}: {paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
+                        </div>
+                        <div className="table-responsive">
+                          <table className="table table-sm table-bordered mb-0">
+                            <thead>
+                              <tr>
+                                <th>{t('admin.registrations.attemptType')}</th>
+                                <th>{t('admin.registrations.attemptStatus')}</th>
+                                <th>{t('admin.registrations.attemptAmount')}</th>
+                                <th>{t('admin.registrations.attemptSession')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {attempts.length === 0 && (
+                                <tr>
+                                  <td colSpan="4" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                                </tr>
+                              )}
+                              {attempts.map(attempt => (
+                                <tr key={attempt.id || attempt.stripe_session_id}>
+                                  <td>{attempt.payment_type || '—'}</td>
+                                  <td>{attempt.status || '—'}</td>
+                                  <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
+                                  <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>

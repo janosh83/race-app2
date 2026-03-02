@@ -124,6 +124,9 @@ def get_team_by_race(race_id):
         description: Race not found
     """
 
+    race = Race.query.filter_by(id=race_id).first()
+    mode = 'team' if race and race.allow_team_registration else 'individual'
+
     registrations = (
       db.session.query(
         Team.id,
@@ -131,6 +134,9 @@ def get_team_by_race(race_id):
         RaceCategory.name.label("race_category"),
         Registration.email_sent,
         Registration.disqualified,
+        Registration.payment_confirmed,
+        Registration.payment_confirmed_at,
+        Registration.id.label("registration_id"),
       )
       .join(Registration, Registration.team_id == Team.id)
       .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
@@ -139,8 +145,17 @@ def get_team_by_race(race_id):
     )
 
     results = []
-    for team_id, team_name, category_name, email_sent, disqualified in registrations:
+    for team_id, team_name, category_name, email_sent, disqualified, payment_confirmed, payment_confirmed_at, registration_id in registrations:
         team = Team.query.filter_by(id=team_id).first()
+        registration = Registration.query.filter_by(id=registration_id).first()
+
+        payment_attempts = registration.payment_attempts if registration else []
+        driver_paid = any(a.status == 'confirmed' and a.payment_type == 'driver' for a in payment_attempts)
+        codriver_paid = any(a.status == 'confirmed' and a.payment_type == 'codriver' for a in payment_attempts)
+        team_paid = any(a.status == 'confirmed' and a.payment_type == 'team' for a in payment_attempts)
+
+        aggregate_paid = bool(team_paid or payment_confirmed) if mode == 'team' else bool(driver_paid or payment_confirmed)
+
         members = []
         if team and team.members:
             members = [
@@ -154,6 +169,31 @@ def get_team_by_race(race_id):
             "members": members,
             "email_sent": email_sent,
             "disqualified": bool(disqualified),
+            "payment_confirmed": aggregate_paid,
+            "payment_confirmed_at": payment_confirmed_at.isoformat() if payment_confirmed_at else None,
+            "payment_details": {
+              "mode": mode,
+              "driver_paid": bool(driver_paid),
+              "codriver_paid": bool(codriver_paid),
+              "team_paid": bool(team_paid),
+              "attempts": [
+                {
+                  "id": attempt.id,
+                  "stripe_session_id": attempt.stripe_session_id,
+                  "payment_type": attempt.payment_type,
+                  "status": attempt.status,
+                  "amount_cents": attempt.amount_cents,
+                  "currency": attempt.currency,
+                  "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
+                  "confirmed_at": attempt.confirmed_at.isoformat() if attempt.confirmed_at else None,
+                }
+                for attempt in sorted(
+                  payment_attempts,
+                  key=lambda attempt: (attempt.created_at, attempt.id),
+                  reverse=True,
+                )
+              ],
+            },
         })
 
     return jsonify(results), 200

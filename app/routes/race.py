@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory
-from app.models import Registration, Team, Checkpoint, Task, RaceTranslation
+from app.models import Registration, Team, Checkpoint, Task, RaceTranslation, RegistrationPaymentAttempt
 from app.routes.race_api.checkpoints import checkpoints_bp
 from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
@@ -20,6 +20,48 @@ from app.services.stripe_service import construct_stripe_event
 from app.services.email_service import EmailService, generate_reset_token
 
 logger = logging.getLogger(__name__)
+
+
+def _registration_mode(race):
+    return 'team' if race.allow_team_registration else 'individual'
+
+
+def _payment_summary(registration, race):
+    mode = _registration_mode(race)
+    attempts = RegistrationPaymentAttempt.query.filter_by(registration_id=registration.id).order_by(
+        RegistrationPaymentAttempt.created_at.desc(),
+        RegistrationPaymentAttempt.id.desc(),
+    ).all()
+
+    driver_paid = any(a.status == 'confirmed' and a.payment_type == 'driver' for a in attempts)
+    codriver_paid = any(a.status == 'confirmed' and a.payment_type == 'codriver' for a in attempts)
+    team_paid = any(a.status == 'confirmed' and a.payment_type == 'team' for a in attempts)
+
+    if mode == 'team':
+        is_paid = team_paid or bool(registration.payment_confirmed)
+    else:
+        is_paid = driver_paid or bool(registration.payment_confirmed)
+
+    details = {
+        "mode": mode,
+        "driver_paid": bool(driver_paid),
+        "codriver_paid": bool(codriver_paid),
+        "team_paid": bool(team_paid),
+        "attempts": [
+            {
+                "id": attempt.id,
+                "stripe_session_id": attempt.stripe_session_id,
+                "payment_type": attempt.payment_type,
+                "status": attempt.status,
+                "amount_cents": attempt.amount_cents,
+                "currency": attempt.currency,
+                "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
+                "confirmed_at": attempt.confirmed_at.isoformat() if attempt.confirmed_at else None,
+            }
+            for attempt in attempts
+        ],
+    }
+    return is_paid, details
 
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
@@ -463,11 +505,14 @@ def get_registration_payment_status_by_slug(registration_slug):
     if not registration:
         return jsonify({"message": "Registration not found."}), 404
 
+    payment_confirmed, payment_details = _payment_summary(registration, race)
+
     return jsonify({
         "race_id": race.id,
         "team_id": team_id,
-        "payment_confirmed": bool(registration.payment_confirmed),
+        "payment_confirmed": bool(payment_confirmed),
         "payment_confirmed_at": registration.payment_confirmed_at.isoformat() if registration.payment_confirmed_at else None,
+        "payment_details": payment_details,
     }), 200
 
 
@@ -478,7 +523,7 @@ def create_checkout_by_registration_slug(registration_slug):
     if not race.registration_enabled:
         return jsonify({"message": "Registration is not enabled for this race."}), 404
     if race.allow_team_registration == race.allow_individual_registration:
-      return jsonify({"message": "Race registration mode is misconfigured."}), 409
+        return jsonify({"message": "Race registration mode is misconfigured."}), 409
 
     payload = request.get_json(silent=True) or {}
     team_id = payload.get('team_id')
@@ -498,7 +543,9 @@ def create_checkout_by_registration_slug(registration_slug):
     if not registration:
         return jsonify({"message": "Registration must be created before checkout."}), 404
 
-    if registration.payment_confirmed:
+    current_mode = _registration_mode(race)
+    registration_paid, _ = _payment_summary(registration, race)
+    if registration_paid and current_mode == 'team':
         return jsonify({"message": "Payment is already confirmed for this registration."}), 400
 
     if mode not in ('team', 'individual'):
@@ -527,16 +574,26 @@ def create_checkout_by_registration_slug(registration_slug):
         if individual_role not in ('driver', 'codriver'):
             return jsonify({"message": "individual_role must be either driver or codriver for individual registration."}), 400
 
+        existing_confirmed_attempt = RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            payment_type=individual_role,
+            status='confirmed',
+        ).first()
+        if existing_confirmed_attempt:
+            return jsonify({"message": f"Payment is already confirmed for role '{individual_role}'."}), 400
+
         amount_cents = (
             race.registration_driver_amount_cents
             if individual_role == 'driver'
             else race.registration_codriver_amount_cents
         )
+        payment_type = individual_role
     else:
         amount_cents = race.registration_team_amount_cents or current_app.config.get(
             'STRIPE_REGISTRATION_TEAM_AMOUNT',
             50,
         )
+        payment_type = 'team'
 
     currency = race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')
 
@@ -554,6 +611,7 @@ def create_checkout_by_registration_slug(registration_slug):
             members_count=members_count,
             race_id=race.id,
             team_id=team_id,
+            payment_type=payment_type,
         )
     except ValueError as exc:
         logger.error("Stripe checkout unavailable for race %s: %s", race.id, exc)
@@ -568,6 +626,21 @@ def create_checkout_by_registration_slug(registration_slug):
         registration_slug,
         mode,
     )
+
+    existing_attempt = RegistrationPaymentAttempt.query.filter_by(
+        stripe_session_id=session_data['session_id']
+    ).first()
+    if not existing_attempt:
+        db.session.add(
+            RegistrationPaymentAttempt(
+                registration_id=registration.id,
+                stripe_session_id=session_data['session_id'],
+                payment_type=payment_type,
+                status='pending',
+                amount_cents=int(amount_cents) * 100,
+                currency=(currency or '').lower(),
+            )
+        )
 
     registration.stripe_session_id = session_data['session_id']
     db.session.commit()
@@ -625,7 +698,11 @@ def stripe_registration_webhook():
         )
         return jsonify({"message": "Registration not found."}), 404
 
-    if registration.payment_confirmed:
+    payment_type = (metadata.get('payment_type') or '').strip().lower()
+    if payment_type not in ('team', 'driver', 'codriver'):
+        payment_type = 'team' if metadata.get('mode') == 'team' else 'driver'
+
+    if registration.payment_confirmed and payment_type in ('team', 'driver'):
         if registration.stripe_session_id == session_id:
             logger.info(
                 "Stripe webhook duplicate event ignored for race %s team %s session %s",
@@ -636,7 +713,8 @@ def stripe_registration_webhook():
             return jsonify({"message": "Payment already confirmed."}), 200
 
         logger.warning(
-            "Stripe webhook received different session for already confirmed registration (race %s, team %s, existing %s, incoming %s)",
+            "Stripe webhook received additional %s payment for already confirmed registration (race %s, team %s, existing %s, incoming %s)",
+            payment_type,
             race_id,
             team_id,
             registration.stripe_session_id,
@@ -644,16 +722,42 @@ def stripe_registration_webhook():
         )
         return jsonify({"message": "Payment already confirmed."}), 200
 
-    registration.payment_confirmed = True
-    registration.payment_confirmed_at = datetime.now()
-    registration.stripe_session_id = session_id
+    payment_attempt = RegistrationPaymentAttempt.query.filter_by(stripe_session_id=session_id).first()
+    if not payment_attempt:
+        payment_attempt = RegistrationPaymentAttempt(
+            registration_id=registration.id,
+            stripe_session_id=session_id,
+            payment_type=payment_type,
+            status='pending',
+            amount_cents=session.get('amount_total'),
+            currency=(session.get('currency') or '').lower() or None,
+        )
+        db.session.add(payment_attempt)
+
+    if payment_attempt.status == 'confirmed':
+        logger.info(
+            "Stripe webhook duplicate event ignored for race %s team %s session %s",
+            race_id,
+            team_id,
+            session_id,
+        )
+        return jsonify({"message": "Payment already confirmed."}), 200
+
+    payment_attempt.status = 'confirmed'
+    payment_attempt.confirmed_at = datetime.now()
+
+    was_paid_before = bool(registration.payment_confirmed)
+    if payment_attempt.payment_type in ('team', 'driver'):
+        registration.payment_confirmed = True
+        registration.payment_confirmed_at = payment_attempt.confirmed_at
+        registration.stripe_session_id = session_id
 
     race = Race.query.filter_by(id=registration.race_id).first()
     team = Team.query.filter_by(id=registration.team_id).first()
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
 
     email_sent_for_all = True
-    if team and race:
+    if (not was_paid_before) and registration.payment_confirmed and team and race:
         for member in team.members:
             reset_token = generate_reset_token()
             member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
@@ -669,7 +773,8 @@ def stripe_registration_webhook():
             if not sent:
                 email_sent_for_all = False
 
-    registration.email_sent = email_sent_for_all and bool(team and team.members)
+    if registration.payment_confirmed:
+        registration.email_sent = email_sent_for_all and bool(team and team.members)
     db.session.commit()
 
     logger.info(
@@ -1376,3 +1481,4 @@ def get_race_results(race_id):
             "total_points": points_for_checkpoints + points_for_tasks})
 
     return jsonify(result), 200
+

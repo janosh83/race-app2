@@ -12,6 +12,7 @@ def create_registration_checkout_session(
     members_count,
     race_id,
     team_id,
+    payment_type=None,
 ):
     if not secret_key:
         raise ValueError("Stripe is not configured")
@@ -47,6 +48,7 @@ def create_registration_checkout_session(
             "team_name": team_name,
             "mode": mode,
             "members_count": str(members_count),
+            "payment_type": payment_type or ('team' if mode == 'team' else 'driver'),
         },
     )
 

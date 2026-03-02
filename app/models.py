@@ -64,10 +64,23 @@ class Registration(db.Model):
     payment_confirmed = db.Column(db.Boolean, default=False, nullable=False)
     payment_confirmed_at = db.Column(db.DateTime, nullable=True)
     stripe_session_id = db.Column(db.String(255), nullable=True, unique=True)
+    payment_attempts = db.relationship('RegistrationPaymentAttempt', backref='registration', cascade="all, delete-orphan", lazy=True)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'team_id', name='uq_race_team'),
     )
+
+
+class RegistrationPaymentAttempt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    registration_id = db.Column(db.Integer, db.ForeignKey('registration.id'), nullable=False)
+    stripe_session_id = db.Column(db.String(255), nullable=False, unique=True)
+    payment_type = db.Column(db.String(16), nullable=False)  # team|driver|codriver
+    status = db.Column(db.String(16), nullable=False, default='pending')  # pending|confirmed|failed
+    amount_cents = db.Column(db.Integer, nullable=True)
+    currency = db.Column(db.String(3), nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+    confirmed_at = db.Column(db.DateTime, nullable=True)
 
 class RaceCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)

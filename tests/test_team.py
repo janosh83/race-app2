@@ -102,10 +102,27 @@ def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test získání týmů podle závodu
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers) # race category id 1 = Auto, OK for race Jarní jízda
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
-    assert response.json == [
-        {"id": 1, "name": "Team1", "members": [], 'race_category': 'Auto', 'email_sent': False, 'disqualified': False},
-        {"id": 2, "name": "Team2", "members": [], 'race_category': 'Auto', 'email_sent': False, 'disqualified': False},
-    ]
+    assert len(response.json) == 2
+    first = response.json[0]
+    second = response.json[1]
+
+    assert first["id"] == 1
+    assert first["name"] == "Team1"
+    assert first["members"] == []
+    assert first["race_category"] == "Auto"
+    assert first["email_sent"] is False
+    assert first["disqualified"] is False
+    assert first["payment_confirmed"] is False
+    assert first["payment_details"]["attempts"] == []
+
+    assert second["id"] == 2
+    assert second["name"] == "Team2"
+    assert second["members"] == []
+    assert second["race_category"] == "Auto"
+    assert second["email_sent"] is False
+    assert second["disqualified"] is False
+    assert second["payment_confirmed"] is False
+    assert second["payment_details"]["attempts"] == []
 
 
 # Additional tests for GET /team/race/<race_id>/
