@@ -794,8 +794,14 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         },
     }
 
+    send_calls = {"count": 0}
+
+    def fake_send_email(**kwargs):
+        send_calls["count"] += 1
+        return True
+
     monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", lambda **kwargs: True)
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
 
     response = test_client.post(
         "/api/race/registration/stripe/webhook/",
@@ -808,6 +814,8 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
         assert updated.payment_confirmed is True
         assert updated.stripe_session_id == "cs_webhook_123"
+        team = Team.query.filter_by(id=team_id).first()
+        assert send_calls["count"] == len(team.members)
 
 
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):

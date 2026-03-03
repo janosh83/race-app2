@@ -65,30 +65,30 @@
 </head>
 <body>
     <div class="container">
-        <div class="success-badge">✓ Registration Confirmed</div>
+        <div class="success-badge">✓ Payment Confirmed</div>
         <h2>Welcome to {{ race_name }}!</h2>
-        
+
         <p>Hello {{ user_name }},</p>
-        
-        <p>Great news! Your registration has been successfully confirmed.</p>
-        
+
+        <p>Great news! Your payment has been confirmed and you are successfully registered for the race.</p>
+
         <div class="detail-box">
             <p><strong>Team:</strong> {{ team_name }}</p>
             <p><strong>Race:</strong> {{ race_name }}</p>
             <p style="margin: 0;"><strong>Category:</strong> {{ race_category }}</p>
         </div>
-        
+
         <p>We're excited to have you participate. Make sure to check the race details and prepare accordingly.</p>
-        
+
         <p><strong>Set Your Password:</strong></p>
         <p>To access your account and manage your race information, please set your password using the link below:</p>
         <p style="text-align: center;">
             <a href="{{ reset_link }}" class="reset-button">Set Your Password</a>
         </p>
         <p style="font-size: 12px; color: #777;">This link will expire in 7 days.</p>
-        
+
         <p style="font-size: 18px; margin-top: 30px;">🏁 Good luck!</p>
-        
+
         <div class="footer">
             <p>Best regards,<br>
             <strong>Race App Team</strong></p>

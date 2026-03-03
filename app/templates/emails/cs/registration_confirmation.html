@@ -65,30 +65,30 @@
 </head>
 <body>
     <div class="container">
-        <div class="success-badge">✓ Registrace potvrzena</div>
+        <div class="success-badge">✓ Platba potvrzena</div>
         <h2>Vítejte v závodě {{ race_name }}!</h2>
-        
+
         <p>Ahoj {{ user_name }},</p>
-        
-        <p>Skvělá zpráva! Vaše registrace byla úspěšně potvrzena.</p>
-        
+
+        <p>Skvělá zpráva! Vaše platba byla potvrzena a jste úspěšně zaregistrováni do závodu.</p>
+
         <div class="detail-box">
             <p><strong>Tým:</strong> {{ team_name }}</p>
             <p><strong>Závod:</strong> {{ race_name }}</p>
             <p style="margin: 0;"><strong>Kategorie:</strong> {{ race_category }}</p>
         </div>
-        
+
         <p>Těšíme se na vaši účast. Ujistěte se, že jste seznámeni s detaily závodu a že se na něj správně připravíte.</p>
-        
+
         <p><strong>Nastavit heslo:</strong></p>
         <p>Chcete-li získat přístup ke svému účtu a spravovat informace o závodě, nastavte si heslo pomocí odkazu níže:</p>
         <p style="text-align: center;">
             <a href="{{ reset_link }}" class="reset-button">Nastavit heslo</a>
         </p>
         <p style="font-size: 12px; color: #777;">Tento odkaz vyprší za 7 dní.</p>
-        
+
         <p style="font-size: 18px; margin-top: 30px;">🏁 Hodně štěstí!</p>
-        
+
         <div class="footer">
             <p>S pozdravem,<br>
             <strong>Tým Race App</strong></p>
