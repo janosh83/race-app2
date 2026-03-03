@@ -261,11 +261,14 @@ function PublicRegistrationPage() {
 
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));
       const baseUrl = window.location.origin;
+      const payerMember = members.find((member) => member.email?.trim()) || members[0] || { name: '', email: '' };
       const checkoutPayload = {
         team_id: teamId,
         team_name: teamName.trim(),
         mode,
         members_count: members.length,
+        customer_name: payerMember?.name?.trim() || '',
+        customer_email: payerMember?.email?.trim().toLowerCase() || '',
         success_url: `${baseUrl}/register/${slug}?checkout=success&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
         cancel_url: `${baseUrl}/register/${slug}?checkout=cancel&team_id=${encodeURIComponent(teamId)}&team_name=${encodeURIComponent(teamName.trim())}`,
       };

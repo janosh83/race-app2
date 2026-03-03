@@ -13,6 +13,8 @@ def create_registration_checkout_session(
     race_id,
     team_id,
     payment_type=None,
+    customer_email=None,
+    customer_name=None,
 ):
     if not secret_key:
         raise ValueError("Stripe is not configured")
@@ -24,11 +26,23 @@ def create_registration_checkout_session(
 
     stripe.api_key = secret_key
 
-    session = stripe.checkout.Session.create(
-        mode="payment",
-        success_url=success_url,
-        cancel_url=cancel_url,
-        line_items=[
+    metadata = {
+        "registration_slug": registration_slug,
+        "race_id": str(race_id),
+        "team_id": str(team_id),
+        "team_name": team_name,
+        "mode": mode,
+        "members_count": str(members_count),
+        "payment_type": payment_type or ('team' if mode == 'team' else 'driver'),
+    }
+    if customer_name:
+        metadata["customer_name"] = customer_name
+
+    session_payload = {
+        "mode": "payment",
+        "success_url": success_url,
+        "cancel_url": cancel_url,
+        "line_items": [
             {
                 "price_data": {
                     "currency": currency,
@@ -41,16 +55,12 @@ def create_registration_checkout_session(
                 "quantity": 1,
             }
         ],
-        metadata={
-            "registration_slug": registration_slug,
-            "race_id": str(race_id),
-            "team_id": str(team_id),
-            "team_name": team_name,
-            "mode": mode,
-            "members_count": str(members_count),
-            "payment_type": payment_type or ('team' if mode == 'team' else 'driver'),
-        },
-    )
+        "metadata": metadata,
+    }
+    if customer_email:
+        session_payload["customer_email"] = customer_email
+
+    session = stripe.checkout.Session.create(**session_payload)
 
     return {
         "session_id": session.id,

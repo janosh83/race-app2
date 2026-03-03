@@ -539,6 +539,8 @@ def create_checkout_by_registration_slug(registration_slug):
     except (TypeError, ValueError):
         return jsonify({"message": "team_id must be an integer."}), 400
 
+    team = Team.query.filter_by(id=team_id).first_or_404()
+
     registration = Registration.query.filter_by(race_id=race.id, team_id=team_id).first()
     if not registration:
         return jsonify({"message": "Registration must be created before checkout."}), 404
@@ -568,6 +570,27 @@ def create_checkout_by_registration_slug(registration_slug):
     frontend_url = (current_app.config.get('FRONTEND_URL') or '').rstrip('/')
     success_url = payload.get('success_url') or f"{frontend_url}/register/{registration_slug}?checkout=success"
     cancel_url = payload.get('cancel_url') or f"{frontend_url}/register/{registration_slug}?checkout=cancel"
+
+    customer_email = (payload.get('customer_email') or '').strip().lower()
+    customer_name = (payload.get('customer_name') or '').strip()
+    if (not customer_email) and team.members:
+        customer_email = next(
+            (
+                (member.email or '').strip().lower()
+                for member in team.members
+                if (member.email or '').strip()
+            ),
+            '',
+        )
+    if (not customer_name) and team.members:
+        customer_name = next(
+            (
+                (member.name or '').strip()
+                for member in team.members
+                if (member.name or '').strip()
+            ),
+            '',
+        )
 
     if mode == 'individual':
         individual_role = (payload.get('individual_role') or '').strip().lower()
@@ -599,7 +622,7 @@ def create_checkout_by_registration_slug(registration_slug):
 
     try:
         session_data = create_registration_checkout_session(
-          secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_API_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
@@ -612,6 +635,8 @@ def create_checkout_by_registration_slug(registration_slug):
             race_id=race.id,
             team_id=team_id,
             payment_type=payment_type,
+            customer_email=customer_email or None,
+            customer_name=customer_name or None,
         )
     except ValueError as exc:
         logger.error("Stripe checkout unavailable for race %s: %s", race.id, exc)
@@ -658,22 +683,22 @@ def stripe_registration_webhook():
     signature = request.headers.get('Stripe-Signature', '')
 
     try:
-      event = construct_stripe_event(
-        payload=payload,
-        signature=signature,
-        webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
-        secret_key=current_app.config.get('STRIPE_API_KEY'),
-      )
+        event = construct_stripe_event(
+            payload=payload,
+            signature=signature,
+            webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
+            secret_key=current_app.config.get('STRIPE_API_KEY'),
+        )
     except ValueError as exc:
-      if "not configured" in str(exc).lower():
-        logger.error("Stripe webhook configuration error: %s", exc)
-        return jsonify({"message": "Webhook is not configured."}), 503
+        if "not configured" in str(exc).lower():
+            logger.error("Stripe webhook configuration error: %s", exc)
+            return jsonify({"message": "Webhook is not configured."}), 503
 
-      logger.error("Stripe webhook payload/signature validation failed: %s", exc)
-      return jsonify({"message": "Invalid webhook signature."}), 400
+        logger.error("Stripe webhook payload/signature validation failed: %s", exc)
+        return jsonify({"message": "Invalid webhook signature."}), 400
     except (RuntimeError, OSError, TypeError) as exc:
-      logger.error("Stripe webhook signature verification failed: %s", exc)
-      return jsonify({"message": "Invalid webhook signature."}), 400
+        logger.error("Stripe webhook signature verification failed: %s", exc)
+        return jsonify({"message": "Invalid webhook signature."}), 400
 
     if event.get('type') != 'checkout.session.completed':
         return jsonify({"message": "Event ignored"}), 200

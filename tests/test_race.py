@@ -631,6 +631,8 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
             "team_id": team_id,
             "mode": "team",
             "members_count": 2,
+            "customer_name": "Road Captain",
+            "customer_email": "captain@example.com",
             "success_url": "http://localhost:5173/register/jarni-jizda-2026?checkout=success",
             "cancel_url": "http://localhost:5173/register/jarni-jizda-2026?checkout=cancel",
         },
@@ -640,6 +642,8 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
     assert response.json["checkout_url"].startswith("https://checkout.stripe.com")
     assert called["currency"] == "usd"
     assert called["amount_cents"] == 77700
+    assert called["customer_email"] == "captain@example.com"
+    assert called["customer_name"] == "Road Captain"
 
 
 def test_create_checkout_by_registration_slug_mode_not_allowed(test_client, add_test_data, test_app):
