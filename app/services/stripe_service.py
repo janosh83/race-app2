@@ -70,4 +70,9 @@ def construct_stripe_event(*, payload, signature, webhook_secret, secret_key=Non
     if secret_key:
         stripe.api_key = secret_key
 
-    return stripe.Webhook.construct_event(payload, signature, webhook_secret)
+    try:
+        return stripe.Webhook.construct_event(payload, signature, webhook_secret)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise TypeError("Stripe webhook signature verification failed") from exc

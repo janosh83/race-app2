@@ -873,6 +873,23 @@ def test_stripe_registration_webhook_requires_configuration(test_client, add_tes
     assert "Webhook is not configured" in response.json["message"]
 
 
+def test_stripe_registration_webhook_rejects_invalid_signature(test_client, add_test_data, monkeypatch):
+    """Webhook endpoint returns 400 when signature validation fails."""
+    monkeypatch.setattr(
+        "app.routes.race.construct_stripe_event",
+        lambda **kwargs: (_ for _ in ()).throw(TypeError("Signature verification failed")),
+    )
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "invalid-signature"},
+    )
+
+    assert response.status_code == 400
+    assert "Invalid webhook signature" in response.json["message"]
+
+
 def test_stripe_registration_webhook_duplicate_event_is_idempotent(test_client, add_test_data, test_app, monkeypatch):
     """Duplicate checkout.session.completed events should not resend emails."""
     with test_app.app_context():

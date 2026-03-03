@@ -658,18 +658,22 @@ def stripe_registration_webhook():
     signature = request.headers.get('Stripe-Signature', '')
 
     try:
-        event = construct_stripe_event(
-            payload=payload,
-            signature=signature,
-            webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
-          secret_key=current_app.config.get('STRIPE_API_KEY'),
-        )
+      event = construct_stripe_event(
+        payload=payload,
+        signature=signature,
+        webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
+        secret_key=current_app.config.get('STRIPE_API_KEY'),
+      )
     except ValueError as exc:
+      if "not configured" in str(exc).lower():
         logger.error("Stripe webhook configuration error: %s", exc)
         return jsonify({"message": "Webhook is not configured."}), 503
+
+      logger.error("Stripe webhook payload/signature validation failed: %s", exc)
+      return jsonify({"message": "Invalid webhook signature."}), 400
     except (RuntimeError, OSError, TypeError) as exc:
-        logger.error("Stripe webhook signature verification failed: %s", exc)
-        return jsonify({"message": "Invalid webhook signature."}), 400
+      logger.error("Stripe webhook signature verification failed: %s", exc)
+      return jsonify({"message": "Invalid webhook signature."}), 400
 
     if event.get('type') != 'checkout.session.completed':
         return jsonify({"message": "Event ignored"}), 200
