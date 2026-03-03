@@ -54,7 +54,8 @@ MAIL_DEFAULT_SENDER=noreply@localhost.dev
 # Stripe (registration payments)
 # Per-race currency/pricing is configured in Admin UI.
 # Variables below are fallback defaults for races without explicit pricing.
-STRIPE_SECRET_KEY=
+# Restricted key with Checkout Session permissions.
+STRIPE_RESTRICTED_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_WEBHOOK_SECRET=
 STRIPE_CURRENCY=czk
@@ -200,7 +201,8 @@ Backend uses Stripe Checkout for registration payments.
 Set backend environment variables:
 
 ```env
-STRIPE_SECRET_KEY=sk_test_or_live_...
+# Restricted key with Checkout Session write permissions.
+STRIPE_RESTRICTED_KEY=rk_test_or_live_...
 STRIPE_PUBLISHABLE_KEY=pk_test_or_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 # fallback defaults if a race has no pricing configured
@@ -208,6 +210,14 @@ STRIPE_CURRENCY=czk
 STRIPE_REGISTRATION_TEAM_AMOUNT=50
 STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 ```
+
+Backend key selection:
+- `STRIPE_RESTRICTED_KEY`
+
+Required permissions for `STRIPE_RESTRICTED_KEY`:
+- `Checkout Sessions: Write` (required; backend creates sessions)
+- `Checkout Sessions: Read` (recommended; useful for operational checks)
+- `Webhooks: not required on API key` (signature validation uses `STRIPE_WEBHOOK_SECRET`)
 
 Webhook endpoint in backend:
 
@@ -303,7 +313,7 @@ MAIL_USERNAME=your-brevo-email@example.com
 MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
 
-STRIPE_SECRET_KEY=sk_live_...
+STRIPE_RESTRICTED_KEY=rk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 # fallback defaults if a race has no pricing configured
@@ -373,6 +383,7 @@ https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=<API_KEY>
 - Used by backend registration flow to create checkout sessions and verify webhook signatures.
 - Checkout confirmation source of truth is persisted in backend registration payment fields.
 - Webhook endpoint: `/api/race/registration/stripe/webhook/`.
+- Restricted key must allow `Checkout Sessions: Write`.
 
 ## 7) Quality and Testing
 
@@ -403,7 +414,7 @@ npm run lint:fix
 - **Auth redirect loops:** verify `VITE_API_URL` points to the correct backend URL.
 - **Emails not sending:** verify SMTP credentials, sender identity, and backend logs.
 - **Map not loading:** verify `VITE_MAPY_API_KEY` is present and valid.
-- **Stripe checkout fails:** verify `STRIPE_SECRET_KEY` and frontend/backend URLs for return links.
+- **Stripe checkout fails:** verify `STRIPE_RESTRICTED_KEY` has `Checkout Sessions: Write` and frontend/backend URLs for return links.
 - **Stripe webhook rejected:** verify `STRIPE_WEBHOOK_SECRET` and request signature source.
 - **Missing request logs:** verify `LOG_REQUESTS=true` and suitable `LOG_LEVEL` (e.g., `INFO`).
 

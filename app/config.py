@@ -32,7 +32,8 @@ class Config:
         'IMAGE_UPLOAD_FOLDER',
         os.path.join(BASE_DIR, 'static', 'images')
     )
-    STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+    STRIPE_RESTRICTED_KEY = os.environ.get('STRIPE_RESTRICTED_KEY', '')
+    STRIPE_API_KEY = STRIPE_RESTRICTED_KEY
     STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
     STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
     STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'czk')

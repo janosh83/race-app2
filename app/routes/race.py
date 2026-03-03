@@ -599,7 +599,7 @@ def create_checkout_by_registration_slug(registration_slug):
 
     try:
         session_data = create_registration_checkout_session(
-            secret_key=current_app.config.get('STRIPE_SECRET_KEY'),
+          secret_key=current_app.config.get('STRIPE_API_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
@@ -659,10 +659,10 @@ def stripe_registration_webhook():
 
     try:
         event = construct_stripe_event(
-            secret_key=current_app.config.get('STRIPE_SECRET_KEY'),
             payload=payload,
             signature=signature,
             webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
+          secret_key=current_app.config.get('STRIPE_API_KEY'),
         )
     except ValueError as exc:
         logger.error("Stripe webhook configuration error: %s", exc)

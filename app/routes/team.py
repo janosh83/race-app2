@@ -270,7 +270,7 @@ def retry_registration_payment(race_id, team_id):
 
     try:
         session_data = create_registration_checkout_session(
-            secret_key=current_app.config.get('STRIPE_SECRET_KEY'),
+          secret_key=current_app.config.get('STRIPE_API_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,

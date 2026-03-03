@@ -58,8 +58,8 @@ def create_registration_checkout_session(
     }
 
 
-def construct_stripe_event(*, secret_key, payload, signature, webhook_secret):
-    if not secret_key or not webhook_secret:
+def construct_stripe_event(*, payload, signature, webhook_secret, secret_key=None):
+    if not webhook_secret:
         raise ValueError("Stripe webhook is not configured")
 
     try:
@@ -67,5 +67,7 @@ def construct_stripe_event(*, secret_key, payload, signature, webhook_secret):
     except ImportError as exc:
         raise ValueError("Stripe SDK is not installed") from exc
 
-    stripe.api_key = secret_key
+    if secret_key:
+        stripe.api_key = secret_key
+
     return stripe.Webhook.construct_event(payload, signature, webhook_secret)

@@ -94,6 +94,13 @@ def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    is_production_config = (
+        (isinstance(config_class, str) and config_class.endswith('ProductionConfig'))
+        or (not isinstance(config_class, str) and getattr(config_class, '__name__', '') == 'ProductionConfig')
+    )
+    if is_production_config and not str(app.config.get('STRIPE_API_KEY', '')).strip():
+        raise RuntimeError('Missing required STRIPE_RESTRICTED_KEY for ProductionConfig.')
+
     swagger_template = {
         "components": {
             "schemas": {
