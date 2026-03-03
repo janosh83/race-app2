@@ -1,6 +1,6 @@
 import pytest
 from app import db
-from app.models import Race, Team, RaceCategory, Registration, RegistrationPaymentAttempt
+from app.models import Race, Team, RaceCategory, Registration, RegistrationPaymentAttempt, User
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -92,6 +92,28 @@ def test_add_members_by_member_details_creates_users(test_client, add_test_data)
     response = test_client.get("/api/team/1/members/")
     assert response.status_code == 200
     assert response.json == [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
+
+
+def test_add_members_by_member_details_sets_preferred_language(test_client, add_test_data, test_app):
+    """Members payload stores preferred_language for newly created users."""
+    response = test_client.post(
+        "/api/team/1/members/",
+        json={
+            "members": [
+                {"name": "Alice", "email": "alice-lang@example.com", "preferred_language": "cs"},
+                {"name": "Bob", "email": "bob-lang@example.com", "preferred_language": "de"},
+            ]
+        },
+    )
+    assert response.status_code == 201
+
+    with test_app.app_context():
+        alice = User.query.filter_by(email="alice-lang@example.com").first()
+        bob = User.query.filter_by(email="bob-lang@example.com").first()
+        assert alice is not None
+        assert bob is not None
+        assert alice.preferred_language == "cs"
+        assert bob.preferred_language == "de"
 
 def test_team_signup(test_client, add_test_data, admin_auth_headers):
     # Test přihlášení týmu k závodu

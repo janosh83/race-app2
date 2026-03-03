@@ -772,13 +772,16 @@ def add_members(team_id):
         for member in validated['members']:
             member_name = (member.get('name') or '').strip()
             member_email = (member.get('email') or '').strip().lower()
+            member_language = (member.get('preferred_language') or '').strip().lower() or None
 
             user = User.query.filter_by(email=member_email).first()
             if not user:
-                user = User(name=member_name, email=member_email)
+                user = User(name=member_name, email=member_email, preferred_language=member_language)
                 user.set_password(secrets.token_urlsafe(24))
                 db.session.add(user)
                 db.session.flush()
+            elif member_language and not user.preferred_language:
+                user.preferred_language = member_language
 
             if user not in team.members:
                 team.members.append(user)

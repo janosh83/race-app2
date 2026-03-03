@@ -246,10 +246,17 @@ function PublicRegistrationPage() {
 
     setSubmitting(true);
     try {
+      const uiLanguage = String(i18n.resolvedLanguage || i18n.language || '').trim().toLowerCase();
+      const normalizedLanguage = uiLanguage.split('-')[0] || '';
+      const registrationLanguage = (race?.supported_languages || []).includes(normalizedLanguage)
+        ? normalizedLanguage
+        : (race?.default_language || 'en');
+
       const teamId = await resolveTeamId();
       await raceApi.addTeamMembersPublic(teamId, members.map((member) => ({
         name: member.name.trim(),
         email: member.email.trim().toLowerCase(),
+        preferred_language: registrationLanguage,
       })));
 
       await raceApi.signUpTeamPublic(race.id, teamId, Number(raceCategoryId));

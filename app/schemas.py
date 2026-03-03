@@ -372,7 +372,7 @@ class TeamAddMembersSchema(Schema):
     user_ids = fields.List(fields.Integer(strict=True), required=False, validate=validate.Length(min=1))
     members = fields.List(
         fields.Dict(
-            keys=fields.String(validate=validate.OneOf(["name", "email"])),
+            keys=fields.String(validate=validate.OneOf(["name", "email", "preferred_language"])),
             values=fields.String(validate=validate.Length(min=1)),
         ),
         required=False,
@@ -401,6 +401,10 @@ class TeamAddMembersSchema(Schema):
                     member_errors['name'] = ['Missing data for required field.']
                 if not email:
                     member_errors['email'] = ['Missing data for required field.']
+
+                preferred_language = (member.get('preferred_language') or '').strip() if isinstance(member, dict) else ''
+                if preferred_language and preferred_language not in SUPPORTED_LANGUAGES:
+                    member_errors['preferred_language'] = [f"Must be one of: {', '.join(SUPPORTED_LANGUAGES)}."]
 
                 if member_errors:
                     errors[str(index)] = member_errors
