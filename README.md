@@ -217,7 +217,16 @@ Backend key selection:
 Required permissions for `STRIPE_RESTRICTED_KEY`:
 - `Checkout Sessions: Write` (required; backend creates sessions)
 - `Checkout Sessions: Read` (recommended; useful for operational checks)
+- `Payment Intents: Read` (required for resolving receipt URL in confirmation emails)
+- `Charges: Read` (required fallback for resolving receipt URL)
 - `Webhooks: not required on API key` (signature validation uses `STRIPE_WEBHOOK_SECRET`)
+
+How to configure restricted key in Stripe Dashboard:
+1. Open `Developers -> API keys`.
+2. Create or edit a Restricted key.
+3. Enable the permissions listed above.
+4. Use that key value as `STRIPE_RESTRICTED_KEY` in backend environment.
+5. Repeat for both Test mode and Live mode (permissions are configured separately).
 
 Webhook endpoint in backend:
 
@@ -383,7 +392,7 @@ https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=<API_KEY>
 - Used by backend registration flow to create checkout sessions and verify webhook signatures.
 - Checkout confirmation source of truth is persisted in backend registration payment fields.
 - Webhook endpoint: `/api/race/registration/stripe/webhook/`.
-- Restricted key must allow `Checkout Sessions: Write`.
+- Restricted key must allow `Checkout Sessions: Write`, `Payment Intents: Read`, and `Charges: Read` for receipt URL enrichment.
 
 ## 7) Quality and Testing
 
@@ -415,6 +424,7 @@ npm run lint:fix
 - **Emails not sending:** verify SMTP credentials, sender identity, and backend logs.
 - **Map not loading:** verify `VITE_MAPY_API_KEY` is present and valid.
 - **Stripe checkout fails:** verify `STRIPE_RESTRICTED_KEY` has `Checkout Sessions: Write` and frontend/backend URLs for return links.
+- **Receipt URL missing in confirmation email:** verify restricted key has `Payment Intents: Read` and `Charges: Read`.
 - **Stripe webhook rejected:** verify `STRIPE_WEBHOOK_SECRET` and request signature source.
 - **Missing request logs:** verify `LOG_REQUESTS=true` and suitable `LOG_LEVEL` (e.g., `INFO`).
 

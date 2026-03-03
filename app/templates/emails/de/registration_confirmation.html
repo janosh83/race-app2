@@ -78,6 +78,16 @@
             <p style="margin: 0;"><strong>Kategorie:</strong> {{ race_category }}</p>
         </div>
 
+        {% if payment_amount_cents or payment_reference %}
+        <div class="detail-box">
+            <p><strong>Zahlungsbeleg</strong></p>
+            {% if payment_amount_cents %}<p><strong>Betrag:</strong> {{ '%.2f'|format((payment_amount_cents or 0) / 100) }} {{ payment_currency or '' }}</p>{% endif %}
+            {% if payment_reference %}<p><strong>Zahlungsreferenz:</strong> {{ payment_reference }}</p>{% endif %}
+            {% if payment_receipt_url %}<p><strong>Beleg-URL:</strong> <a href="{{ payment_receipt_url }}">{{ payment_receipt_url }}</a></p>{% endif %}
+            {% if payment_confirmed_at %}<p style="margin: 0;"><strong>Bestätigt am:</strong> {{ payment_confirmed_at }}</p>{% endif %}
+        </div>
+        {% endif %}
+
         <p>Wir freuen uns auf Ihre Teilnahme. Stellen Sie sicher, dass Sie die Renndetails überprüfen und sich angemessen vorbereiten.</p>
 
         <p><strong>Passwort festlegen:</strong></p>

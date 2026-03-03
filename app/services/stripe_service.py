@@ -86,3 +86,34 @@ def construct_stripe_event(*, payload, signature, webhook_secret, secret_key=Non
         raise
     except Exception as exc:
         raise TypeError("Stripe webhook signature verification failed") from exc
+
+
+def get_checkout_receipt_url(*, session_object, secret_key):
+    if not secret_key:
+        return None
+
+    payment_intent = (session_object or {}).get("payment_intent")
+    if isinstance(payment_intent, dict):
+        payment_intent = payment_intent.get("id")
+    if not payment_intent:
+        return None
+
+    try:
+        import stripe
+    except ImportError:
+        return None
+
+    stripe.api_key = secret_key
+
+    try:
+        payment_intent_obj = stripe.PaymentIntent.retrieve(payment_intent, expand=["latest_charge"])
+        latest_charge = payment_intent_obj.get("latest_charge")
+        if isinstance(latest_charge, dict):
+            return latest_charge.get("receipt_url")
+        if latest_charge:
+            charge_obj = stripe.Charge.retrieve(latest_charge)
+            return charge_obj.get("receipt_url")
+    except Exception:
+        return None
+
+    return None

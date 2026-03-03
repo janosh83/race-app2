@@ -17,6 +17,7 @@ from app.schemas import RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import construct_stripe_event
+from app.services.stripe_service import get_checkout_receipt_url
 from app.services.email_service import EmailService, generate_reset_token
 
 logger = logging.getLogger(__name__)
@@ -787,6 +788,15 @@ def stripe_registration_webhook():
 
     email_sent_for_all = True
     if (not was_paid_before) and registration.payment_confirmed and team and race:
+        receipt_amount_cents = payment_attempt.amount_cents or session.get('amount_total')
+        receipt_currency = payment_attempt.currency or (session.get('currency') or '').lower() or None
+        receipt_reference = session_id
+        receipt_confirmed_at = payment_attempt.confirmed_at
+        receipt_url = get_checkout_receipt_url(
+            session_object=session,
+            secret_key=current_app.config.get('STRIPE_API_KEY'),
+        )
+
         for member in team.members:
             reset_token = generate_reset_token()
             member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
@@ -798,6 +808,11 @@ def stripe_registration_webhook():
                 race_category=category.name if category else "N/A",
                 reset_token=reset_token,
                 language=member.preferred_language,
+                payment_amount_cents=receipt_amount_cents,
+                payment_currency=receipt_currency,
+                payment_reference=receipt_reference,
+                payment_confirmed_at=receipt_confirmed_at,
+                payment_receipt_url=receipt_url,
             )
             if not sent:
                 email_sent_for_all = False

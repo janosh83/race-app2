@@ -86,7 +86,20 @@ class EmailService:
         return EmailService._send_email(subject, user_email, None, body_html)
 
     @staticmethod
-    def send_registration_confirmation_email(user_email, user_name, race_name, team_name, race_category, reset_token, language=None):
+    def send_registration_confirmation_email(
+        user_email,
+        user_name,
+        race_name,
+        team_name,
+        race_category,
+        reset_token,
+        language=None,
+        payment_amount_cents=None,
+        payment_currency=None,
+        payment_reference=None,
+        payment_confirmed_at=None,
+        payment_receipt_url=None,
+    ):
         """
         Send race registration confirmation email.
 
@@ -120,7 +133,12 @@ class EmailService:
             race_name=race_name,
             team_name=team_name,
             race_category=race_category,
-            reset_link=reset_link
+            reset_link=reset_link,
+            payment_amount_cents=payment_amount_cents,
+            payment_currency=(payment_currency or '').upper() if payment_currency else None,
+            payment_reference=payment_reference,
+            payment_confirmed_at=payment_confirmed_at,
+            payment_receipt_url=payment_receipt_url,
         )
 
         return EmailService._send_email(subject, user_email, None, body_html)

@@ -790,6 +790,8 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         "data": {
             "object": {
                 "id": "cs_webhook_123",
+                "amount_total": 12345,
+                "currency": "czk",
                 "metadata": {
                     "race_id": str(race_id),
                     "team_id": str(team_id),
@@ -799,12 +801,15 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
     }
 
     send_calls = {"count": 0}
+    captured_kwargs = []
 
     def fake_send_email(**kwargs):
         send_calls["count"] += 1
+        captured_kwargs.append(kwargs)
         return True
 
     monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
     monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
 
     response = test_client.post(
@@ -820,6 +825,14 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         assert updated.stripe_session_id == "cs_webhook_123"
         team = Team.query.filter_by(id=team_id).first()
         assert send_calls["count"] == len(team.members)
+
+    assert captured_kwargs
+    first_call = captured_kwargs[0]
+    assert first_call["payment_amount_cents"] == 12345
+    assert first_call["payment_currency"] == "czk"
+    assert first_call["payment_reference"] == "cs_webhook_123"
+    assert first_call["payment_confirmed_at"] is not None
+    assert first_call["payment_receipt_url"] == "https://pay.stripe.com/receipts/test"
 
 
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):
