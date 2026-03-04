@@ -51,7 +51,7 @@ def _sync_registration_payment_state(registration, race):
         registration.payment_confirmed_at = None
         registration.stripe_session_id = None
 
-
+# TODO: move all below translation routine to some common package
 def _resolve_race_greeting(race, language=None):
     greeting = race.race_greeting
     lang = (language or '').strip().lower()
@@ -62,6 +62,35 @@ def _resolve_race_greeting(race, language=None):
     if translation and translation.race_greeting is not None:
         return translation.race_greeting
     return greeting
+
+def _resolve_race_name(race, language=None):
+    name = race.name
+    lang = (language or '').strip().lower()
+    if not lang or lang not in (race.supported_languages or []):
+        return name
+
+    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
+    if translation and translation.name:
+        return translation.name
+    return name
+
+
+def _resolve_race_category_name(race_category, race, language=None):
+    if not race_category:
+        return "N/A"
+
+    name = race_category.name
+    lang = (language or '').strip().lower()
+    if not lang or not race or lang not in (race.supported_languages or []):
+        return name
+
+    translation = next(
+        (item for item in (race_category.translations or []) if item.language == lang),
+        None,
+    )
+    if translation and translation.name:
+        return translation.name
+    return name
 
 # get all teams
 # tested by test_teams.py -> test_get_teams
@@ -635,7 +664,6 @@ def send_registration_emails(race_id):
 
         # Get race category name
         race_category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
-        race_category_name = race_category.name if race_category else "N/A"
 
         # Get all team members
         members = User.query.join(team_members).filter(team_members.c.team_id == team.id).all()
@@ -650,9 +678,9 @@ def send_registration_emails(race_id):
                 success = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
-                    race_name=race.name,
+                    race_name=_resolve_race_name(race, member.preferred_language),
                     team_name=team.name,
-                    race_category=race_category_name,
+                    race_category=_resolve_race_category_name(race_category, race, member.preferred_language),
                     reset_token=reset_token,
                     language=member.preferred_language,
                     race_greeting=_resolve_race_greeting(race, member.preferred_language),

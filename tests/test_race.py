@@ -794,11 +794,28 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         race.registration_slug = "webhook-race"
         race.registration_enabled = True
         race.race_greeting = "Ahoj {user_name},"
+        race.supported_languages = ["cs", "en", "de"]
+        race.translations.append(
+            RaceTranslation(
+                language="de",
+                name="Frühjahrsfahrt DE",
+                description="Beschreibung DE",
+                race_greeting="Hallo {user_name},",
+            )
+        )
 
         category = RaceCategory(name="Webhook")
+        category.translations.append(
+            RaceCategoryTranslation(
+                language="de",
+                name="Webhook DE",
+                description="Kategorie DE",
+            )
+        )
         team = Team(name="Webhook Team")
         user = User(name="Webhook User", email="webhook@example.com")
         user.set_password("pass")
+        user.preferred_language = "de"
         team.members.append(user)
         db.session.add_all([category, team, user])
         db.session.flush()
@@ -858,7 +875,9 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
     assert first_call["payment_reference"] == "cs_webhook_123"
     assert first_call["payment_confirmed_at"] is not None
     assert first_call["payment_receipt_url"] == "https://pay.stripe.com/receipts/test"
-    assert first_call["race_greeting"] == "Ahoj {user_name},"
+    assert first_call["race_name"] == "Frühjahrsfahrt DE"
+    assert first_call["race_category"] == "Webhook DE"
+    assert first_call["race_greeting"] == "Hallo {user_name},"
 
 
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):
