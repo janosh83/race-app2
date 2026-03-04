@@ -64,6 +64,18 @@ def _payment_summary(registration, race):
     }
     return is_paid, details
 
+
+def _resolve_race_greeting(race, language=None):
+    greeting = race.race_greeting
+    lang = (language or '').strip().lower()
+    if not lang or lang not in (race.supported_languages or []):
+        return greeting
+
+    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
+    if translation and translation.race_greeting is not None:
+        return translation.race_greeting
+    return greeting
+
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
@@ -101,6 +113,7 @@ def get_all_races():
     for race in races:
         name = race.name
         description = race.description
+        race_greeting = race.race_greeting
 
         if language:
             if language in (race.supported_languages or []):
@@ -111,6 +124,8 @@ def get_all_races():
                 if translation:
                     name = translation.name
                     description = translation.description
+                    if translation.race_greeting is not None:
+                        race_greeting = translation.race_greeting
             else:
                 logger.warning("Race %s requested with unsupported language %s, using default", race.id, language)
 
@@ -118,7 +133,7 @@ def get_all_races():
             "id": race.id,
             "name": name,
             "description": description,
-          "race_greeting": race.race_greeting,
+            "race_greeting": race_greeting,
             "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
             "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
             "start_logging_at": race.start_logging_at,
@@ -136,7 +151,7 @@ def get_all_races():
             "registration_driver_amount_cents": race.registration_driver_amount_cents,
             "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
             "supported_languages": race.supported_languages,
-            "default_language": race.default_language
+            "default_language": race.default_language,
         })
 
     return jsonify(result)
@@ -176,6 +191,7 @@ def get_single_race(race_id):
     language = request.args.get("lang")
     name = race.name
     description = race.description
+    race_greeting = race.race_greeting
     if language:
         if language not in (race.supported_languages or []):
             logger.warning("Race %s requested with unsupported language %s, using default", race_id, language)
@@ -187,10 +203,12 @@ def get_single_race(race_id):
             if translation:
                 name = translation.name
                 description = translation.description
+                if translation.race_greeting is not None:
+                    race_greeting = translation.race_greeting
     return jsonify({"id": race.id,
                     "name": name,
                     "description": description,
-                    "race_greeting": race.race_greeting,
+                "race_greeting": race_greeting,
                     "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
                     "start_logging_at": race.start_logging_at,
@@ -440,14 +458,17 @@ def get_race_by_registration_slug(registration_slug):
     language = request.args.get("lang")
     name = race.name
     description = race.description
+    race_greeting = race.race_greeting
     if language and language in (race.supported_languages or []):
-        translation = RaceTranslation.query.filter_by(
-            race_id=race.id,
-            language=language,
-        ).first()
-        if translation:
-            name = translation.name
-            description = translation.description
+      translation = RaceTranslation.query.filter_by(
+        race_id=race.id,
+        language=language,
+      ).first()
+      if translation:
+        name = translation.name
+        description = translation.description
+        if translation.race_greeting is not None:
+          race_greeting = translation.race_greeting
 
     categories = []
     for category in race.categories:
@@ -477,7 +498,7 @@ def get_race_by_registration_slug(registration_slug):
         "registration_enabled": race.registration_enabled,
         "name": name,
         "description": description,
-      "race_greeting": race.race_greeting,
+        "race_greeting": race_greeting,
         "min_team_size": race.min_team_size,
         "max_team_size": race.max_team_size,
         "allow_team_registration": race.allow_team_registration,
@@ -821,7 +842,7 @@ def stripe_registration_webhook():
                 payment_reference=receipt_reference,
                 payment_confirmed_at=receipt_confirmed_at,
                 payment_receipt_url=receipt_url,
-                race_greeting=race.race_greeting,
+                race_greeting=_resolve_race_greeting(race, member.preferred_language),
             )
             if not sent:
                 email_sent_for_all = False
@@ -957,6 +978,8 @@ def get_race_translations(race_id):
                     type: string
                   description:
                     type: string
+                  race_greeting:
+                    type: string
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     logger.info("Retrieved %s race translations for race %s", len(race.translations), race_id)
@@ -966,6 +989,7 @@ def get_race_translations(race_id):
             "language": translation.language,
             "name": translation.name,
             "description": translation.description,
+            "race_greeting": translation.race_greeting,
         }
         for translation in race.translations
     ]), 200
@@ -1000,6 +1024,8 @@ def create_race_translation(race_id):
               name:
                 type: string
               description:
+                type: string
+              race_greeting:
                 type: string
             required:
               - language
@@ -1036,6 +1062,7 @@ def create_race_translation(race_id):
         language=validated["language"],
         name=validated["name"],
         description=validated.get("description"),
+        race_greeting=validated.get("race_greeting"),
     )
     db.session.add(translation)
     db.session.commit()
@@ -1045,6 +1072,7 @@ def create_race_translation(race_id):
         "language": translation.language,
         "name": translation.name,
         "description": translation.description,
+        "race_greeting": translation.race_greeting,
     }), 201
 
 
@@ -1082,6 +1110,8 @@ def update_race_translation(race_id, language):
                 type: string
               description:
                 type: string
+              race_greeting:
+                type: string
     responses:
       200:
         description: Translation updated
@@ -1113,6 +1143,8 @@ def update_race_translation(race_id, language):
         translation.name = validated["name"]
     if "description" in validated:
         translation.description = validated["description"]
+    if "race_greeting" in validated:
+      translation.race_greeting = validated["race_greeting"]
 
     db.session.commit()
     logger.info("Race translation updated for race %s language %s", race_id, language)
@@ -1121,6 +1153,7 @@ def update_race_translation(race_id, language):
         "language": translation.language,
         "name": translation.name,
         "description": translation.description,
+        "race_greeting": translation.race_greeting,
     }), 200
 
 

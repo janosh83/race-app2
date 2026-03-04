@@ -269,11 +269,13 @@ class RaceTranslationCreateSchema(Schema):
     language = fields.String(required=True, validate=validate.OneOf(SUPPORTED_LANGUAGES))
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
+    race_greeting = fields.String(load_default=None, allow_none=True)
 
 
 class RaceTranslationUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
+    race_greeting = fields.String(allow_none=True)
 
 
 class CheckpointTranslationCreateSchema(Schema):

@@ -12,6 +12,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [raceGreeting, setRaceGreeting] = useState('');
   const [startShow, setStartShow] = useState('');
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
@@ -36,6 +37,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     if (race) {
       setName(race.name || '');
       setDescription(race.description || '');
+      setRaceGreeting(race.race_greeting || '');
       setDefaultLanguage(race.default_language || '');
       setSupportedLanguages(Array.isArray(race.supported_languages) ? race.supported_languages : []);
       // try to parse ISO -> local datetime-local value
@@ -67,6 +69,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     } else {
       setName('');
       setDescription('');
+      setRaceGreeting('');
       setDefaultLanguage('');
       setSupportedLanguages([]);
       setStartShow('');
@@ -173,6 +176,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       const payload = {
         name,
         description,
+        race_greeting: raceGreeting.trim() || null,
         default_language: defaultLanguage || null,
         supported_languages: supportedLanguages.length > 0 ? supportedLanguages : null,
         start_showing_checkpoints_at: toIso(startShow),
@@ -252,6 +256,16 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder={t('admin.raceForm.descriptionPlaceholder')}
+          rows={2}
+        />
+      </div>
+
+      <div className="mb-2">
+        <textarea
+          className="form-control"
+          value={raceGreeting}
+          onChange={e => setRaceGreeting(e.target.value)}
+          placeholder={t('admin.raceForm.raceGreetingPlaceholder')}
           rows={2}
         />
       </div>
@@ -493,7 +507,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           entityType="race"
           entityId={race.id}
           entityName={race.name || race.title}
-          fields={{ name: t('admin.raceForm.translationFieldName'), description: t('admin.raceForm.translationFieldDescription') }}
+          fields={{
+            name: t('admin.raceForm.translationFieldName'),
+            description: t('admin.raceForm.translationFieldDescription'),
+            race_greeting: t('admin.raceForm.translationFieldRaceGreeting'),
+          }}
           supportedLanguages={supportedLanguages}
         />
       </div>

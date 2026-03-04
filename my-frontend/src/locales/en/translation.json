@@ -249,6 +249,7 @@
       "create": "Create",
       "namePlaceholder": "Race name",
       "descriptionPlaceholder": "Description",
+      "raceGreetingPlaceholder": "Race greeting for confirmation emails",
       "supportedLanguages": "Supported Languages",
       "defaultLanguage": "Default Language",
       "selectDefaultLanguage": "— Select default language —",
@@ -281,7 +282,8 @@
       "toastCreated": "Race created successfully",
       "toastSaveFailed": "Failed to save race: {{message}}",
       "translationFieldName": "Name",
-      "translationFieldDescription": "Description"
+      "translationFieldDescription": "Description",
+      "translationFieldRaceGreeting": "Race greeting"
     },
     "checkpoints": {
       "title": "Checkpoints",

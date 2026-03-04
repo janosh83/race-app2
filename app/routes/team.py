@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request, current_app
 from marshmallow import ValidationError
 
 from app import db
-from app.models import Team, Race, User, Registration, RaceCategory, RegistrationPaymentAttempt
+from app.models import Team, Race, User, Registration, RaceCategory, RegistrationPaymentAttempt, RaceTranslation
 from app.routes.admin import admin_required
 from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
 from app.services.email_service import EmailService, generate_reset_token
@@ -50,6 +50,18 @@ def _sync_registration_payment_state(registration, race):
         registration.payment_confirmed = False
         registration.payment_confirmed_at = None
         registration.stripe_session_id = None
+
+
+def _resolve_race_greeting(race, language=None):
+    greeting = race.race_greeting
+    lang = (language or '').strip().lower()
+    if not lang or lang not in (race.supported_languages or []):
+        return greeting
+
+    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
+    if translation and translation.race_greeting is not None:
+        return translation.race_greeting
+    return greeting
 
 # get all teams
 # tested by test_teams.py -> test_get_teams
@@ -642,8 +654,8 @@ def send_registration_emails(race_id):
                     team_name=team.name,
                     race_category=race_category_name,
                     reset_token=reset_token,
-                  language=member.preferred_language,
-                  race_greeting=race.race_greeting,
+                    language=member.preferred_language,
+                    race_greeting=_resolve_race_greeting(race, member.preferred_language),
                 )
                 if success:
                     sent_count += 1
