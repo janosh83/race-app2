@@ -118,6 +118,7 @@ def get_all_races():
             "id": race.id,
             "name": name,
             "description": description,
+          "race_greeting": race.race_greeting,
             "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
             "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
             "start_logging_at": race.start_logging_at,
@@ -189,6 +190,7 @@ def get_single_race(race_id):
     return jsonify({"id": race.id,
                     "name": name,
                     "description": description,
+                    "race_greeting": race.race_greeting,
                     "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
                     "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
                     "start_logging_at": race.start_logging_at,
@@ -252,6 +254,7 @@ def create_race():
     end_logging_at = parse_datetime(data['end_logging_at'])
     new_race = Race(name=data['name'],
                     description=data['description'],
+                    race_greeting=data.get('race_greeting'),
                     start_showing_checkpoints_at=start_showing_checkpoints_at,
                     end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
@@ -277,6 +280,7 @@ def create_race():
       "id": new_race.id,
       "name": new_race.name,
       "description": new_race.description,
+      "race_greeting": new_race.race_greeting,
       "start_showing_checkpoints_at": new_race.start_showing_checkpoints_at,
       "end_showing_checkpoints_at": new_race.end_showing_checkpoints_at,
       "start_logging_at": new_race.start_logging_at,
@@ -342,6 +346,8 @@ def update_race(race_id):
         race.name = data.get('name')
     if 'description' in data:
         race.description = data.get('description')
+    if 'race_greeting' in data:
+        race.race_greeting = data.get('race_greeting')
     if 'supported_languages' in data:
         race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
@@ -399,6 +405,7 @@ def update_race(race_id):
         "id": race.id,
         "name": race.name,
         "description": race.description,
+        "race_greeting": race.race_greeting,
         "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
         "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
         "start_logging_at": race.start_logging_at,
@@ -470,6 +477,7 @@ def get_race_by_registration_slug(registration_slug):
         "registration_enabled": race.registration_enabled,
         "name": name,
         "description": description,
+      "race_greeting": race.race_greeting,
         "min_team_size": race.min_team_size,
         "max_team_size": race.max_team_size,
         "allow_team_registration": race.allow_team_registration,
@@ -813,6 +821,7 @@ def stripe_registration_webhook():
                 payment_reference=receipt_reference,
                 payment_confirmed_at=receipt_confirmed_at,
                 payment_receipt_url=receipt_url,
+                race_greeting=race.race_greeting,
             )
             if not sent:
                 email_sent_for_all = False

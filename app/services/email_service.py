@@ -99,6 +99,7 @@ class EmailService:
         payment_reference=None,
         payment_confirmed_at=None,
         payment_receipt_url=None,
+        race_greeting=None,
     ):
         """
         Send race registration confirmation email.
@@ -127,6 +128,14 @@ class EmailService:
         }
         subject = subjects.get(lang, subjects['en'])
 
+        default_greetings = {
+            'en': f'Hello {user_name},',
+            'cs': f'Ahoj {user_name},',
+            'de': f'Hallo {user_name},',
+        }
+        resolved_race_greeting = (race_greeting or default_greetings.get(lang, default_greetings['en'])).strip()
+        resolved_race_greeting = resolved_race_greeting.replace('{user_name}', user_name)
+
         body_html = render_template(
             f'emails/{lang}/registration_confirmation.html',
             user_name=user_name,
@@ -139,6 +148,7 @@ class EmailService:
             payment_reference=payment_reference,
             payment_confirmed_at=payment_confirmed_at,
             payment_receipt_url=payment_receipt_url,
+            race_greeting=resolved_race_greeting,
         )
 
         return EmailService._send_email(subject, user_email, None, body_html)

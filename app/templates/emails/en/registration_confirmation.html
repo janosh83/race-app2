@@ -68,12 +68,12 @@
         <div class="success-badge">✓ Payment Confirmed</div>
         <h2>Welcome to {{ race_name }}!</h2>
 
-        <p>Hello {{ user_name }},</p>
+        <p>{{ race_greeting }}</p>
 
-        <p>Great news! Your payment has been confirmed and you are successfully registered for the race.</p>
+        <p>We confirm that your registration for {{ race_name }} has been successfully completed.</p>
 
         <div class="detail-box">
-            <p><strong>Team:</strong> {{ team_name }}</p>
+            <p><strong>Registered Team:</strong> {{ team_name }}</p>
             <p><strong>Race:</strong> {{ race_name }}</p>
             <p style="margin: 0;"><strong>Category:</strong> {{ race_category }}</p>
         </div>
@@ -88,20 +88,22 @@
         </div>
         {% endif %}
 
-        <p>We're excited to have you participate. Make sure to check the race details and prepare accordingly.</p>
+        <p>You are now officially entered in the race. In the coming days, we recommend following event updates on social media. You will also receive a pre-start email with instructions, including rules, start time, meeting point, and other organizational details so you can prepare in time.</p>
 
-        <p><strong>Set Your Password:</strong></p>
-        <p>To access your account and manage your race information, please set your password using the link below:</p>
+        <p><strong>Set Up Your Account Access</strong></p>
+        <p>To manage your registration and view race information, please set your account password using the link below:</p>
         <p style="text-align: center;">
             <a href="{{ reset_link }}" class="reset-button">Set Your Password</a>
         </p>
         <p style="font-size: 12px; color: #777;">This link will expire in 7 days.</p>
 
+        <p>After setting your password, you will be able to sign in, check your team details, and update them if needed.</p>
+
         <p style="font-size: 18px; margin-top: 30px;">🏁 Good luck!</p>
 
         <div class="footer">
             <p>Best regards,<br>
-            <strong>Race App Team</strong></p>
+            <strong>{{ race_name }} Team</strong></p>
         </div>
     </div>
 </body>

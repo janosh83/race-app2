@@ -642,7 +642,8 @@ def send_registration_emails(race_id):
                     team_name=team.name,
                     race_category=race_category_name,
                     reset_token=reset_token,
-                    language=member.preferred_language
+                  language=member.preferred_language,
+                  race_greeting=race.race_greeting,
                 )
                 if success:
                     sent_count += 1

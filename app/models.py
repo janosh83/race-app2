@@ -20,6 +20,7 @@ class Race(db.Model):
     description = db.Column(db.Text)
     supported_languages = db.Column(db.JSON, nullable=False, default=lambda: list(SUPPORTED_LANGUAGES))
     default_language = db.Column(db.String(5), nullable=False, default=DEFAULT_LANGUAGE)
+    race_greeting = db.Column(db.String(255), nullable=True)
     translations = db.relationship('RaceTranslation', backref='race', cascade="all, delete-orphan", lazy=True)
     checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
     tasks = db.relationship('Task', backref='race', cascade="all, delete-orphan", lazy=True)

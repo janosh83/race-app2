@@ -769,6 +769,7 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         race = Race.query.filter_by(id=1).first()
         race.registration_slug = "webhook-race"
         race.registration_enabled = True
+        race.race_greeting = "Ahoj {user_name},"
 
         category = RaceCategory(name="Webhook")
         team = Team(name="Webhook Team")
@@ -833,6 +834,7 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
     assert first_call["payment_reference"] == "cs_webhook_123"
     assert first_call["payment_confirmed_at"] is not None
     assert first_call["payment_receipt_url"] == "https://pay.stripe.com/receipts/test"
+    assert first_call["race_greeting"] == "Ahoj {user_name},"
 
 
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):

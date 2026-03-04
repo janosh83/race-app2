@@ -68,12 +68,12 @@
         <div class="success-badge">✓ Platba potvrzena</div>
         <h2>Vítejte v závodě {{ race_name }}!</h2>
 
-        <p>Ahoj {{ user_name }},</p>
+        <p>{{ race_greeting }}</p>
 
-        <p>Skvělá zpráva! Vaše platba byla potvrzena a jste úspěšně zaregistrováni do závodu.</p>
+        <p>Potvrzujeme, že tvoje registrace do závodu {{ race_name }} byla úspěšně dokončena.</p>
 
         <div class="detail-box">
-            <p><strong>Tým:</strong> {{ team_name }}</p>
+            <p><strong>Registrovaný tým:</strong> {{ team_name }}</p>
             <p><strong>Závod:</strong> {{ race_name }}</p>
             <p style="margin: 0;"><strong>Kategorie:</strong> {{ race_category }}</p>
         </div>
@@ -88,20 +88,24 @@
         </div>
         {% endif %}
 
-        <p>Těšíme se na vaši účast. Ujistěte se, že jste seznámeni s detaily závodu a že se na něj správně připravíte.</p>
+        <p>Tímto jsi oficiálně přihlášen do závodu. V dalších dnech doporučujeme sledovat informace o akci na sociálních sítích a
+            těšit se můžeš na e-mail s pokyny před startem. Včas se tedy dozvíš přesná pravidla, čas startu, místo srazu a další
+            organizační pokyny. Podle nich se pak můžeš na závod připravit.</p>
 
-        <p><strong>Nastavit heslo:</strong></p>
-        <p>Chcete-li získat přístup ke svému účtu a spravovat informace o závodě, nastavte si heslo pomocí odkazu níže:</p>
+        <p><strong> Nastavení přístupu do účtu</strong></p>
+        <p>Pro správu své registrace a zobrazení informací o závodu si prosím nastav heslo ke svému účtu pomocí odkazu níže:</p>
         <p style="text-align: center;">
             <a href="{{ reset_link }}" class="reset-button">Nastavit heslo</a>
         </p>
         <p style="font-size: 12px; color: #777;">Tento odkaz vyprší za 7 dní.</p>
 
-        <p style="font-size: 18px; margin-top: 30px;">🏁 Hodně štěstí!</p>
+        <p>Po nastavení hesla se budeš moci do systému přihlásit, zkontrolovat údaje o svém týmu a případně je upravit.</p>
+
+        <p style="font-size: 18px; margin-top: 30px;">🏁 Ať se daří!  </p>
 
         <div class="footer">
             <p>S pozdravem,<br>
-            <strong>Tým Race App</strong></p>
+            <strong>Tým {{ race_name }}</strong></p>
         </div>
     </div>
 </body>

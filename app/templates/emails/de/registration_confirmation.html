@@ -68,12 +68,12 @@
         <div class="success-badge">✓ Zahlung bestätigt</div>
         <h2>Willkommen bei {{ race_name }}!</h2>
 
-        <p>Hallo {{ user_name }},</p>
+        <p>{{ race_greeting }}</p>
 
-        <p>Gute Nachrichten! Ihre Zahlung wurde bestätigt und Sie sind erfolgreich für das Rennen registriert.</p>
+        <p>Wir bestätigen, dass Ihre Anmeldung für das Rennen {{ race_name }} erfolgreich abgeschlossen wurde.</p>
 
         <div class="detail-box">
-            <p><strong>Team:</strong> {{ team_name }}</p>
+            <p><strong>Registriertes Team:</strong> {{ team_name }}</p>
             <p><strong>Rennen:</strong> {{ race_name }}</p>
             <p style="margin: 0;"><strong>Kategorie:</strong> {{ race_category }}</p>
         </div>
@@ -88,20 +88,22 @@
         </div>
         {% endif %}
 
-        <p>Wir freuen uns auf Ihre Teilnahme. Stellen Sie sicher, dass Sie die Renndetails überprüfen und sich angemessen vorbereiten.</p>
+        <p>Sie sind damit offiziell für das Rennen angemeldet. In den kommenden Tagen empfehlen wir, die Informationen zur Veranstaltung in den sozialen Netzwerken zu verfolgen. Zusätzlich erhalten Sie eine E-Mail mit Hinweisen vor dem Start, darunter Regeln, Startzeit, Treffpunkt und weitere organisatorische Informationen, damit Sie sich rechtzeitig vorbereiten können.</p>
 
-        <p><strong>Passwort festlegen:</strong></p>
-        <p>Um auf Ihr Konto zuzugreifen und Ihre Renneinformationen zu verwalten, legen Sie bitte Ihr Passwort über den folgenden Link fest:</p>
+        <p><strong>Zugang zum Konto einrichten</strong></p>
+        <p>Um Ihre Anmeldung zu verwalten und Renninformationen einzusehen, legen Sie bitte über den folgenden Link ein Passwort für Ihr Konto fest:</p>
         <p style="text-align: center;">
             <a href="{{ reset_link }}" class="reset-button">Passwort festlegen</a>
         </p>
         <p style="font-size: 12px; color: #777;">Dieser Link läuft in 7 Tagen ab.</p>
 
+        <p>Nach dem Festlegen des Passworts können Sie sich anmelden, Ihre Teamdaten prüfen und bei Bedarf anpassen.</p>
+
         <p style="font-size: 18px; margin-top: 30px;">🏁 Viel Glück!</p>
 
         <div class="footer">
             <p>Mit freundlichen Grüßen,<br>
-            <strong>Race App-Team</strong></p>
+            <strong>{{ race_name }} Team</strong></p>
         </div>
     </div>
 </body>

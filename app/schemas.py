@@ -129,6 +129,7 @@ class RaceCreateSchema(Schema):
         validate=validate.OneOf(SUPPORTED_LANGUAGES),
         load_default=DEFAULT_LANGUAGE,
     )
+    race_greeting = fields.String(load_default="", allow_none=True)
     registration_slug = fields.String(
         load_default=None,
         allow_none=True,
@@ -207,6 +208,7 @@ class RaceUpdateSchema(Schema):
         validate=validate.Length(min=1),
     )
     default_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
+    race_greeting = fields.String(allow_none=True)
     registration_slug = fields.String(
         allow_none=True,
         validate=validate.Regexp(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", error="registration_slug must be lowercase kebab-case"),
