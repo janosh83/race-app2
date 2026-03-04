@@ -122,9 +122,9 @@ class EmailService:
 
         # Translate subject based on language
         subjects = {
-            'en': f'Payment Confirmed - Registration Successful: {race_name}',
-            'cs': f'Platba potvrzena - Registrace úspěšná: {race_name}',
-            'de': f'Zahlung bestätigt - Registrierung erfolgreich: {race_name}'
+            'en': f'Call me {race_name}',
+            'cs': f'Říkejte mi {race_name}',
+            'de': f'Nennen Sie mich {race_name}'
         }
         subject = subjects.get(lang, subjects['en'])
 

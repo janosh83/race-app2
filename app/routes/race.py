@@ -76,6 +76,18 @@ def _resolve_race_greeting(race, language=None):
         return translation.race_greeting
     return greeting
 
+
+def _resolve_race_name(race, language=None):
+    name = race.name
+    lang = (language or '').strip().lower()
+    if not lang or lang not in (race.supported_languages or []):
+        return name
+
+    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
+    if translation and translation.name:
+        return translation.name
+    return name
+
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
@@ -832,7 +844,7 @@ def stripe_registration_webhook():
             sent = EmailService.send_registration_confirmation_email(
                 user_email=member.email,
                 user_name=member.name or member.email,
-                race_name=race.name,
+              race_name=_resolve_race_name(race, member.preferred_language),
                 team_name=team.name,
                 race_category=category.name if category else "N/A",
                 reset_token=reset_token,
