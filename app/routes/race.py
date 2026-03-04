@@ -64,7 +64,7 @@ def _payment_summary(registration, race):
     }
     return is_paid, details
 
-
+# TODO: move all below translation routine to some common package
 def _resolve_race_greeting(race, language=None):
     greeting = race.race_greeting
     lang = (language or '').strip().lower()
@@ -76,7 +76,6 @@ def _resolve_race_greeting(race, language=None):
         return translation.race_greeting
     return greeting
 
-
 def _resolve_race_name(race, language=None):
     name = race.name
     lang = (language or '').strip().lower()
@@ -84,6 +83,23 @@ def _resolve_race_name(race, language=None):
         return name
 
     translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
+    if translation and translation.name:
+        return translation.name
+    return name
+
+def _resolve_race_category_name(race_category, race, language=None):
+    if not race_category:
+        return "N/A"
+
+    name = race_category.name
+    lang = (language or '').strip().lower()
+    if not lang or not race or lang not in (race.supported_languages or []):
+        return name
+
+    translation = next(
+        (item for item in (race_category.translations or []) if item.language == lang),
+        None,
+    )
     if translation and translation.name:
         return translation.name
     return name
@@ -844,9 +860,9 @@ def stripe_registration_webhook():
             sent = EmailService.send_registration_confirmation_email(
                 user_email=member.email,
                 user_name=member.name or member.email,
-              race_name=_resolve_race_name(race, member.preferred_language),
+                race_name=_resolve_race_name(race, member.preferred_language),
                 team_name=team.name,
-                race_category=category.name if category else "N/A",
+                race_category=_resolve_race_category_name(category, race, member.preferred_language),
                 reset_token=reset_token,
                 language=member.preferred_language,
                 payment_amount_cents=receipt_amount_cents,
