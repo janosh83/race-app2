@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app import db
@@ -580,7 +581,17 @@ def log_visit(race_id):
             user_distance_km=user_distance_km
         )
         db.session.add(new_log)
-        db.session.commit()
+        try:
+          db.session.commit()
+        except IntegrityError:
+          db.session.rollback()
+          logger.error(
+            "Duplicate checkpoint log attempt - race: %s, team: %s, checkpoint: %s",
+            race_id,
+            data['team_id'],
+            data['checkpoint_id'],
+          )
+          return jsonify({"message": "Checkpoint already logged for this team."}), 409
         logger.info(
             "Checkpoint visit logged: race %s, checkpoint %s, team %s, user %s",
             race_id,

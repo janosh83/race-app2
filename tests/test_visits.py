@@ -175,6 +175,26 @@ def test_log_visit(test_client, add_test_data):
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 4, "team_id": 2})
     assert response.status_code == 403
 
+
+def test_log_visit_duplicate_returns_conflict(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    first = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert first.status_code == 201
+
+    duplicate = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert duplicate.status_code == 409
+    assert "already logged" in duplicate.json["message"]
+
 def test_log_visit_early(test_client, add_test_data_early_logginmg):
 
     # Test logging of single visit (user is member of the team)
