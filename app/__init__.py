@@ -12,6 +12,7 @@ from flasgger import Swagger
 from flask_cors import CORS
 from flask_mail import Mail
 from marshmallow import ValidationError
+from app.config import CONFIG_DEFAULTS
 
 # database initialization
 db = SQLAlchemy()
@@ -87,6 +88,48 @@ def register_request_logging(app):
             )
 
         return response
+
+
+def log_production_config_warnings(app):
+    """Log warnings for production config values that look unset or defaulted."""
+    watched_env_vars = [
+        'SECRET_KEY',
+        'JWT_SECRET_KEY',
+        'DATABASE_URL',
+        'CORS_ORIGINS',
+        'MAIL_SERVER',
+        'MAIL_PORT',
+        'MAIL_USERNAME',
+        'MAIL_PASSWORD',
+        'MAIL_DEFAULT_SENDER',
+        'STRIPE_RESTRICTED_KEY',
+        'STRIPE_WEBHOOK_SECRET',
+        'STRIPE_PUBLISHABLE_KEY',
+        'STRIPE_CURRENCY',
+        'STRIPE_REGISTRATION_TEAM_AMOUNT',
+        'STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT',
+    ]
+
+    for env_name in watched_env_vars:
+        default_value = CONFIG_DEFAULTS[env_name]
+        configured = os.environ.get(env_name, default_value)
+        if str(configured).strip() == str(default_value).strip():
+            app.logger.warning(
+                'config_safety_check variable=%s uses default/empty value=%r',
+                env_name,
+                default_value,
+            )
+
+    database_uri = str(app.config.get('SQLALCHEMY_DATABASE_URI', '')).strip().lower()
+    if database_uri.startswith('sqlite:'):
+        app.logger.warning('config_safety_check SQLALCHEMY_DATABASE_URI points to SQLite in ProductionConfig')
+
+    origins = app.config.get('CORS_ORIGINS') or []
+    if any('localhost' in str(origin).lower() or '127.0.0.1' in str(origin) for origin in origins):
+        app.logger.warning('config_safety_check CORS_ORIGINS contains localhost/127.0.0.1 in ProductionConfig')
+
+    if not app.config.get('REGISTRATION_ADMIN_EMAILS') and not str(app.config.get('ADMIN_EMAIL', '')).strip():
+        app.logger.warning('config_safety_check no admin registration recipients configured (ADMIN_EMAIL/REGISTRATION_ADMIN_EMAILS)')
 
 def create_app(config_class=None):
     if config_class is None:
@@ -202,6 +245,9 @@ def create_app(config_class=None):
 
     configure_logging(app)
     register_request_logging(app)
+
+    if is_production_config:
+        log_production_config_warnings(app)
 
     # Import blueprints here to avoid circular imports
     from app.routes.auth import auth_bp

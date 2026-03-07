@@ -3,12 +3,34 @@ from datetime import timedelta
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
+# Single source of truth for env-backed defaults.
+CONFIG_DEFAULTS = {
+    "SECRET_KEY": "default-secret-key",
+    "JWT_SECRET_KEY": "your_jwt_secret_key",
+    "DATABASE_URL": "sqlite:///app.db",
+    "CORS_ORIGINS": "http://localhost:5173",
+    "MAIL_SERVER": "smtp-relay.brevo.com",
+    "MAIL_PORT": "587",
+    "MAIL_USE_TLS": "true",
+    "MAIL_USERNAME": "",
+    "MAIL_PASSWORD": "",
+    "MAIL_DEFAULT_SENDER": "noreply@raceapp.com",
+    "STRIPE_RESTRICTED_KEY": "",
+    "STRIPE_PUBLISHABLE_KEY": "",
+    "STRIPE_WEBHOOK_SECRET": "",
+    "STRIPE_CURRENCY": "czk",
+    "STRIPE_REGISTRATION_TEAM_AMOUNT": "50",
+    "STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT": "25",
+    "LOG_LEVEL": "INFO",
+    "LOG_REQUESTS": "true",
+}
+
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "default-secret-key")
-    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your_jwt_secret_key')
-    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///app.db")
+    SECRET_KEY = os.environ.get("SECRET_KEY", CONFIG_DEFAULTS["SECRET_KEY"])
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', CONFIG_DEFAULTS["JWT_SECRET_KEY"])
+    SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", CONFIG_DEFAULTS["DATABASE_URL"])
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    _raw_cors_origins = os.environ.get('CORS_ORIGINS', 'http://localhost:5173')
+    _raw_cors_origins = os.environ.get('CORS_ORIGINS', CONFIG_DEFAULTS["CORS_ORIGINS"])
     CORS_ORIGINS = [o.strip() for o in _raw_cors_origins.split(',') if o.strip()]
     # JWT lifetimes (override via environment if needed)
     # Access token valid for 30 minutes, refresh token for 30 days
@@ -20,13 +42,13 @@ class Config:
     )
 
     # Email Configuration (Brevo)
-    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp-relay.brevo.com')
-    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', CONFIG_DEFAULTS["MAIL_SERVER"])
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', CONFIG_DEFAULTS["MAIL_PORT"]))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', CONFIG_DEFAULTS["MAIL_USE_TLS"]).lower() == 'true'
     MAIL_USE_SSL = False
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@raceapp.com')
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', CONFIG_DEFAULTS["MAIL_USERNAME"])
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', CONFIG_DEFAULTS["MAIL_PASSWORD"])
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', CONFIG_DEFAULTS["MAIL_DEFAULT_SENDER"])
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').strip()
     REGISTRATION_ADMIN_EMAILS = [
         item.strip()
@@ -38,23 +60,27 @@ class Config:
         'IMAGE_UPLOAD_FOLDER',
         os.path.join(BASE_DIR, 'static', 'images')
     )
-    STRIPE_RESTRICTED_KEY = os.environ.get('STRIPE_RESTRICTED_KEY', '')
+    STRIPE_RESTRICTED_KEY = os.environ.get('STRIPE_RESTRICTED_KEY', CONFIG_DEFAULTS["STRIPE_RESTRICTED_KEY"])
     STRIPE_API_KEY = STRIPE_RESTRICTED_KEY
-    STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', '')
-    STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
-    STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', 'czk')
+    STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', CONFIG_DEFAULTS["STRIPE_PUBLISHABLE_KEY"])
+    STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', CONFIG_DEFAULTS["STRIPE_WEBHOOK_SECRET"])
+    STRIPE_CURRENCY = os.environ.get('STRIPE_CURRENCY', CONFIG_DEFAULTS["STRIPE_CURRENCY"])
     _stripe_team_amount_units = os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT')
     _stripe_team_amount_cents = os.environ.get('STRIPE_REGISTRATION_TEAM_AMOUNT_CENTS')
     STRIPE_REGISTRATION_TEAM_AMOUNT = int(_stripe_team_amount_units) if _stripe_team_amount_units else (
-        max(int(_stripe_team_amount_cents) // 100, 1) if _stripe_team_amount_cents else 50
+        max(int(_stripe_team_amount_cents) // 100, 1)
+        if _stripe_team_amount_cents
+        else int(CONFIG_DEFAULTS["STRIPE_REGISTRATION_TEAM_AMOUNT"])
     )
     _stripe_individual_amount_units = os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT')
     _stripe_individual_amount_cents = os.environ.get('STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT_CENTS')
     STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT = int(_stripe_individual_amount_units) if _stripe_individual_amount_units else (
-        max(int(_stripe_individual_amount_cents) // 100, 1) if _stripe_individual_amount_cents else 25
+        max(int(_stripe_individual_amount_cents) // 100, 1)
+        if _stripe_individual_amount_cents
+        else int(CONFIG_DEFAULTS["STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT"])
     )
-    LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
-    LOG_REQUESTS = os.environ.get('LOG_REQUESTS', 'true').lower() == 'true'
+    LOG_LEVEL = os.environ.get('LOG_LEVEL', CONFIG_DEFAULTS["LOG_LEVEL"])
+    LOG_REQUESTS = os.environ.get('LOG_REQUESTS', CONFIG_DEFAULTS["LOG_REQUESTS"]).lower() == 'true'
 
 class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"  # Použití in-memory databáze
