@@ -12,6 +12,19 @@ import { logger } from '../utils/logger';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
+const getMapUploadErrorMessage = (t, err) => {
+  if (err?.status === 413) return t('map.uploadTooLarge');
+
+  if (err?.status === 400) {
+    const backendMessage = String(err?.message || '').toLowerCase();
+    if (backendMessage.includes('invalid image') || backendMessage.includes('extension')) {
+      return t('map.invalidImageUpload');
+    }
+  }
+
+  return t('map.visitLogFailed', { message: err?.message || t('map.unknownError') });
+};
+
 function Map({ topOffset = 56 }) {
   const { t } = useTranslation();
   // token expiry watcher (redirect to login when token expires)
@@ -319,7 +332,7 @@ function Map({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to log checkpoint visit', err.message);
       setToast({
-        message: t('map.visitLogFailed', { message: err.message || t('map.unknownError') }),
+        message: getMapUploadErrorMessage(t, err),
         type: 'error',
         duration: 5000
       });

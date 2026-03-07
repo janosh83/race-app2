@@ -10,6 +10,19 @@ import { logger } from '../utils/logger';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
+const getTaskUploadErrorMessage = (t, err) => {
+  if (err?.status === 413) return t('tasks.uploadTooLarge');
+
+  if (err?.status === 400) {
+    const backendMessage = String(err?.message || '').toLowerCase();
+    if (backendMessage.includes('invalid image') || backendMessage.includes('extension')) {
+      return t('tasks.invalidImageUpload');
+    }
+  }
+
+  return t('tasks.logFailed', { message: err?.message || t('tasks.unknownError') });
+};
+
 function Tasks({ topOffset = 56 }) {
   const { t } = useTranslation();
   // token expiry watcher
@@ -126,7 +139,7 @@ function Tasks({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to log task', err.message);
       setToast({
-        message: t('tasks.logFailed', { message: err.message || t('tasks.unknownError') }),
+        message: getTaskUploadErrorMessage(t, err),
         type: 'error',
         duration: 5000
       });

@@ -23,6 +23,7 @@ CONFIG_DEFAULTS = {
     "STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT": "25",
     "LOG_LEVEL": "INFO",
     "LOG_REQUESTS": "true",
+    "MAX_CONTENT_LENGTH": str(5 * 1024 * 1024),
 }
 
 class Config:
@@ -79,6 +80,7 @@ class Config:
         if _stripe_individual_amount_cents
         else int(CONFIG_DEFAULTS["STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT"])
     )
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', CONFIG_DEFAULTS["MAX_CONTENT_LENGTH"]))
     LOG_LEVEL = os.environ.get('LOG_LEVEL', CONFIG_DEFAULTS["LOG_LEVEL"])
     LOG_REQUESTS = os.environ.get('LOG_REQUESTS', CONFIG_DEFAULTS["LOG_REQUESTS"]).lower() == 'true'
 

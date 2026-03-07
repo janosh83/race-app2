@@ -160,9 +160,12 @@ export const raceApi = {
         // Don't set Content-Type - browser will set it with boundary for FormData
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        logger.error('RACE', 'Failed to log visit with image', error.message);
-        throw new Error(error.message || 'Failed to log visit');
+        const errorPayload = await response.json().catch(() => ({}));
+        logger.error('RACE', 'Failed to log visit with image', errorPayload.message);
+        const error = new Error(errorPayload.message || 'Failed to log visit');
+        error.status = response.status;
+        error.payload = errorPayload;
+        throw error;
       }
       logger.success('RACE', 'Checkpoint visit logged with image');
       return response.json();
@@ -205,9 +208,12 @@ export const raceApi = {
         body: formData
       });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        logger.error('RACE', 'Failed to log task with image', error.message);
-        throw new Error(error.message || 'Failed to log task');
+        const errorPayload = await response.json().catch(() => ({}));
+        logger.error('RACE', 'Failed to log task with image', errorPayload.message);
+        const error = new Error(errorPayload.message || 'Failed to log task');
+        error.status = response.status;
+        error.payload = errorPayload;
+        throw error;
       }
       logger.success('RACE', 'Task logged with image');
       return response.json();

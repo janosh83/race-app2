@@ -2,17 +2,42 @@ import logging
 from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
 from dateutil import parser
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from app.constants import DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif"}
 
 
 def allowed_file(filename: str) -> bool:
     """Check whether a filename has an allowed image extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def validate_uploaded_image(file_storage) -> tuple[bool, str | None]:
+    """Validate uploaded image using MIME type and binary signature checks."""
+    if file_storage is None:
+        return False, "Image file is missing."
+
+    mimetype = (file_storage.mimetype or "").lower().strip()
+    if mimetype and mimetype not in ALLOWED_IMAGE_MIME_TYPES:
+        return False, "Invalid image MIME type."
+
+    try:
+        file_storage.stream.seek(0)
+        image = Image.open(file_storage.stream)
+        image.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return False, "Invalid image file."
+    finally:
+        try:
+            file_storage.stream.seek(0)
+        except (OSError, ValueError):
+            pass
+
+    return True, None
 
 def parse_datetime(s: str) -> datetime:
     """Parse common datetime string formats into a timezone-aware UTC datetime."""

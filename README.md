@@ -69,6 +69,10 @@ STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 # Logging
 LOG_LEVEL=INFO
 LOG_REQUESTS=true
+
+# Upload safety (bytes)
+# Default is 5242880 (5 MB)
+MAX_CONTENT_LENGTH=5242880
 ```
 
 Run database migrations:
@@ -309,6 +313,18 @@ Delivery details:
   - `app/templates/emails/cs/admin_registration_completed.html`
   - `app/templates/emails/de/admin_registration_completed.html`
 
+### 4.6 Upload validation and limits
+
+Image uploads for checkpoint/task logging are validated by:
+- extension allowlist,
+- MIME type allowlist,
+- binary signature verification via Pillow.
+
+Oversized upload requests are rejected with `413` and invalid image payloads are rejected with `400`.
+
+Configuration:
+- `MAX_CONTENT_LENGTH` (bytes), default `5242880` (5 MB).
+
 ## 5) Deployment on Render
 
 Use **two services**: backend web service + frontend static site.
@@ -356,6 +372,7 @@ STRIPE_REGISTRATION_INDIVIDUAL_AMOUNT=25
 
 LOG_LEVEL=INFO
 LOG_REQUESTS=true
+MAX_CONTENT_LENGTH=5242880
 ```
 
 After deploy, run migrations:

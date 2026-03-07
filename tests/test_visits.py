@@ -1,4 +1,5 @@
 import pytest
+import io
 from app import create_app, db
 from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, TaskLog, Image
 from datetime import datetime, timedelta
@@ -220,6 +221,46 @@ def test_log_visit_duplicate_with_image_does_not_orphan_image_row(test_client, t
     with test_app.app_context():
         assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).count() == 1
         assert Image.query.count() == 0
+
+
+def test_log_visit_rejects_non_image_payload_with_image_extension(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    data = {
+        "image": (io.BytesIO(b"this is not an image"), "fake.jpg"),
+        "checkpoint_id": "1",
+        "team_id": "1",
+    }
+    resp = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert resp.status_code == 400
+    assert "Invalid image" in resp.json["message"]
+
+
+def test_log_visit_rejects_oversized_upload(test_client, test_app, add_test_data):
+    test_app.config["MAX_CONTENT_LENGTH"] = 256
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    data = {
+        "image": (io.BytesIO(b"x" * 2048), "large.jpg"),
+        "checkpoint_id": "1",
+        "team_id": "1",
+    }
+    resp = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert resp.status_code == 413
 
 def test_log_visit_early(test_client, add_test_data_early_logginmg):
 
@@ -488,6 +529,26 @@ def test_log_task_completion_duplicate_with_image_does_not_orphan_image_row(test
 
     with test_app.app_context():
         assert Image.query.count() == 0
+
+
+def test_log_task_completion_rejects_non_image_payload_with_image_extension(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    data = {
+        "image": (io.BytesIO(b"this is not an image"), "fake.jpg"),
+        "task_id": "1",
+        "team_id": "1",
+    }
+    resp = test_client.post(
+        "/api/race/1/tasks/log/",
+        headers=headers,
+        data=data,
+        content_type="multipart/form-data",
+    )
+
+    assert resp.status_code == 400
+    assert "Invalid image" in resp.json["message"]
 
 
 

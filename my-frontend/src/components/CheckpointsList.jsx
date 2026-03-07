@@ -10,6 +10,19 @@ import { logger } from '../utils/logger';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
+const getCheckpointUploadErrorMessage = (t, err) => {
+  if (err?.status === 413) return t('map.uploadTooLarge');
+
+  if (err?.status === 400) {
+    const backendMessage = String(err?.message || '').toLowerCase();
+    if (backendMessage.includes('invalid image') || backendMessage.includes('extension')) {
+      return t('map.invalidImageUpload');
+    }
+  }
+
+  return t('map.visitLogFailed', { message: err?.message || t('map.unknownError') });
+};
+
 function CheckpointsList({ topOffset = 56 }) {
   const { t } = useTranslation();
 
@@ -132,7 +145,7 @@ function CheckpointsList({ topOffset = 56 }) {
     } catch (err) {
       logger.error('RACE', 'Failed to log checkpoint from list', err.message);
       setToast({
-        message: t('map.visitLogFailed', { message: err.message || t('map.unknownError') }),
+        message: getCheckpointUploadErrorMessage(t, err),
         type: 'error',
         duration: 5000,
       });

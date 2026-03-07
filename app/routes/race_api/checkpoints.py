@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language, allowed_file
+from app.utils import resolve_language, allowed_file, validate_uploaded_image
 from app.routes.admin import admin_required
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 from app.utils import extract_image_coordinates, calculate_distance
@@ -517,127 +517,139 @@ def log_visit(race_id):
         user_longitude = data.get('user_longitude')
 
     if is_administrator or is_signed_to_race:
-        if file and allowed_file(file.filename):
-            # Generate unique filename: timestamp_uuid_original.ext
-            original_filename = secure_filename(file.filename)
-            file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            unique_id = uuid.uuid4().hex[:8]
-            filename = f"{timestamp}_{unique_id}.{file_ext}"
+      if file:
+        max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
+        if max_content_length and request.content_length and request.content_length > max_content_length:
+          logger.warning("Checkpoint upload exceeds MAX_CONTENT_LENGTH for race %s", race_id)
+          return jsonify({"message": "Uploaded file too large."}), 413
 
-            images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-            os.makedirs(images_folder, exist_ok=True)
-            filepath = os.path.join(images_folder, filename)
-            saved_image_path = filepath
-            try:
-                file.save(filepath)
+        if not allowed_file(file.filename):
+          logger.warning("Rejected checkpoint upload with invalid extension: %s", file.filename)
+          return jsonify({"message": "Invalid image file extension."}), 400
 
-                image_latitude, image_longitude = extract_image_coordinates(filepath)
-                if image_latitude is not None and image_longitude is not None:
-                    logger.info("Extracted GPS coordinates from image: (%s, %s)", image_latitude, image_longitude)
-                else:
-                    logger.info("No GPS coordinates found in image EXIF metadata for %s", filename)
+        is_valid_image, validation_error = validate_uploaded_image(file)
+        if not is_valid_image:
+          logger.warning("Rejected checkpoint upload for race %s: %s", race_id, validation_error)
+          return jsonify({"message": validation_error}), 400
 
-                image = Image(filename=filename)
-                db.session.add(image)
-                db.session.flush()
-                image_id = image.id
-                logger.info(
-                    "Image %s saved for checkpoint visit (race %s, team %s)",
-                    filename,
-                    race_id,
-                    data['team_id'],
-                )
-            except (OSError, ValueError) as err:
-                logger.error("Failed to save image for checkpoint visit: %s", err)
-                image_id = None
-                if saved_image_path and os.path.exists(saved_image_path):
-                  try:
-                    os.remove(saved_image_path)
-                  except OSError as cleanup_err:
-                    logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
+        # Generate unique filename: timestamp_uuid_original.ext
+        original_filename = secure_filename(file.filename)
+        file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{timestamp}_{unique_id}.{file_ext}"
 
-        # Get checkpoint details for location validation
-        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
-
-        # Calculate distance if image coordinates are available
-        if image_latitude is not None and image_longitude is not None:
-            image_distance_km = calculate_distance(
-                checkpoint.latitude, checkpoint.longitude,
-                image_latitude, image_longitude
-            )
-
-        # Calculate distance if user coordinates are available
-        if user_latitude is not None and user_longitude is not None:
-            user_distance_km = calculate_distance(
-                checkpoint.latitude, checkpoint.longitude,
-                user_latitude, user_longitude
-            )
-
-        # log visit (always, regardless of user/image coordinates presence)
-        new_log = CheckpointLog(
-            checkpoint_id=data['checkpoint_id'],
-            team_id=data['team_id'],
-            race_id=race_id,
-            image_id=image_id,
-            image_latitude=image_latitude,
-            image_longitude=image_longitude,
-            image_distance_km=image_distance_km,
-            user_latitude=user_latitude,
-            user_longitude=user_longitude,
-            user_distance_km=user_distance_km
-        )
-        db.session.add(new_log)
+        images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+        os.makedirs(images_folder, exist_ok=True)
+        filepath = os.path.join(images_folder, filename)
+        saved_image_path = filepath
         try:
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
-            if saved_image_path and os.path.exists(saved_image_path):
-                try:
-                    os.remove(saved_image_path)
-                except OSError as cleanup_err:
-                    logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
-            logger.error(
-                "Duplicate checkpoint log attempt - race: %s, team: %s, checkpoint: %s",
-                race_id,
-                data['team_id'],
-                data['checkpoint_id'],
-            )
-            return jsonify({"message": "Checkpoint already logged for this team."}), 409
-        logger.info(
-            "Checkpoint visit logged: race %s, checkpoint %s, team %s, user %s",
+          file.save(filepath)
+
+          image_latitude, image_longitude = extract_image_coordinates(filepath)
+          if image_latitude is not None and image_longitude is not None:
+            logger.info("Extracted GPS coordinates from image: (%s, %s)", image_latitude, image_longitude)
+          else:
+            logger.info("No GPS coordinates found in image EXIF metadata for %s", filename)
+
+          image = Image(filename=filename)
+          db.session.add(image)
+          db.session.flush()
+          image_id = image.id
+          logger.info(
+            "Image %s saved for checkpoint visit (race %s, team %s)",
+            filename,
             race_id,
-            data['checkpoint_id'],
             data['team_id'],
-            user.id,
+          )
+        except (OSError, ValueError) as err:
+          logger.error("Failed to save image for checkpoint visit: %s", err)
+          image_id = None
+          if saved_image_path and os.path.exists(saved_image_path):
+            try:
+              os.remove(saved_image_path)
+            except OSError as cleanup_err:
+              logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
+
+      # Get checkpoint details for location validation
+      checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+
+      # Calculate distance if image coordinates are available
+      if image_latitude is not None and image_longitude is not None:
+        image_distance_km = calculate_distance(
+          checkpoint.latitude, checkpoint.longitude,
+          image_latitude, image_longitude
         )
 
-        response_data = {
-            "id": new_log.id,
-            "checkpoint_id": new_log.checkpoint_id,
-            "team_id": new_log.team_id,
-            "race_id": race_id,
-            "image_id": image_id
-        }
+      # Calculate distance if user coordinates are available
+      if user_latitude is not None and user_longitude is not None:
+        user_distance_km = calculate_distance(
+          checkpoint.latitude, checkpoint.longitude,
+          user_latitude, user_longitude
+        )
 
-        # Include proximity information if image coordinates are available
-        if image_latitude is not None and image_longitude is not None:
-            response_data["image_distance_km"] = round(image_distance_km, 3)
-            response_data["image_latitude"] = image_latitude
-            response_data["image_longitude"] = image_longitude
-            logger.info("Image taken %.3f km from checkpoint", image_distance_km)
+      # log visit (always, regardless of user/image coordinates presence)
+      new_log = CheckpointLog(
+        checkpoint_id=data['checkpoint_id'],
+        team_id=data['team_id'],
+        race_id=race_id,
+        image_id=image_id,
+        image_latitude=image_latitude,
+        image_longitude=image_longitude,
+        image_distance_km=image_distance_km,
+        user_latitude=user_latitude,
+        user_longitude=user_longitude,
+        user_distance_km=user_distance_km
+      )
+      db.session.add(new_log)
+      try:
+        db.session.commit()
+      except IntegrityError:
+        db.session.rollback()
+        if saved_image_path and os.path.exists(saved_image_path):
+          try:
+            os.remove(saved_image_path)
+          except OSError as cleanup_err:
+            logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
+        logger.error(
+          "Duplicate checkpoint log attempt - race: %s, team: %s, checkpoint: %s",
+          race_id,
+          data['team_id'],
+          data['checkpoint_id'],
+        )
+        return jsonify({"message": "Checkpoint already logged for this team."}), 409
+      logger.info(
+        "Checkpoint visit logged: race %s, checkpoint %s, team %s, user %s",
+        race_id,
+        data['checkpoint_id'],
+        data['team_id'],
+        user.id,
+      )
 
-        # Include user location information if available
-        if user_latitude is not None and user_longitude is not None:
-            response_data["user_distance_km"] = round(user_distance_km, 3) if user_distance_km is not None else None
-            response_data["user_latitude"] = user_latitude
-            response_data["user_longitude"] = user_longitude
-            if user_distance_km is not None:
-                logger.info(
-                "User was %.3f km from checkpoint when logging visit", user_distance_km
-                )
+      response_data = {
+        "id": new_log.id,
+        "checkpoint_id": new_log.checkpoint_id,
+        "team_id": new_log.team_id,
+        "race_id": race_id,
+        "image_id": image_id
+      }
 
-        return jsonify(response_data), 201
+      # Include proximity information if image coordinates are available
+      if image_latitude is not None and image_longitude is not None:
+        response_data["image_distance_km"] = round(image_distance_km, 3)
+        response_data["image_latitude"] = image_latitude
+        response_data["image_longitude"] = image_longitude
+        logger.info("Image taken %.3f km from checkpoint", image_distance_km)
+
+      # Include user location information if available
+      if user_latitude is not None and user_longitude is not None:
+        response_data["user_distance_km"] = round(user_distance_km, 3) if user_distance_km is not None else None
+        response_data["user_latitude"] = user_latitude
+        response_data["user_longitude"] = user_longitude
+        if user_distance_km is not None:
+          logger.info("User was %.3f km from checkpoint when logging visit", user_distance_km)
+
+      return jsonify(response_data), 201
     else:
         logger.warning(
             "Unauthorized checkpoint visit log attempt by user %s for team %s in race %s",

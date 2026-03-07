@@ -12,6 +12,7 @@ from flasgger import Swagger
 from flask_cors import CORS
 from flask_mail import Mail
 from marshmallow import ValidationError
+from werkzeug.exceptions import RequestEntityTooLarge
 from app.config import CONFIG_DEFAULTS
 
 # database initialization
@@ -284,6 +285,10 @@ def create_app(config_class=None):
     @app.errorhandler(ValidationError)
     def handle_validation_error(err):
         return jsonify({"errors": err.messages}), 400
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def handle_request_too_large(_err):
+        return jsonify({"message": "Uploaded file too large."}), 413
 
     # Serve static images with CORS support
     images_folder = app.config['IMAGE_UPLOAD_FOLDER']

@@ -2,7 +2,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy.exc import IntegrityError
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
@@ -11,7 +11,7 @@ from marshmallow import ValidationError
 from app import db
 from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
 from app.schemas import TaskCreateSchema, TaskLogSchema
-from app.utils import resolve_language, allowed_file
+from app.utils import resolve_language, allowed_file, validate_uploaded_image
 from app.routes.admin import admin_required
 
 logger = logging.getLogger(__name__)
@@ -429,54 +429,68 @@ def log_task_completion(race_id):
     image_id = None
     saved_image_path = None
     if is_administrator or is_signed_to_race:
-        if file and allowed_file(file.filename):
-            # Generate unique filename: timestamp_uuid_original.ext
-            original_filename = secure_filename(file.filename)
-            file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            unique_id = uuid.uuid4().hex[:8]
-            filename = f"{timestamp}_{unique_id}.{file_ext}"
+      if file:
+        max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
+        if max_content_length and request.content_length and request.content_length > max_content_length:
+          logger.warning("Task upload exceeds MAX_CONTENT_LENGTH for race %s", race_id)
+          return jsonify({"message": "Uploaded file too large."}), 413
 
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            saved_image_path = filepath
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            try:
-                file.save(filepath)
-                logger.info("Task image saved: %s for race %s, team %s", filename, race_id, data['team_id'])
-            except OSError as e:
-                logger.error("Error saving task image %s: %s", filename, e)
-                saved_image_path = None
-            else:
-                image = Image(filename=filename)
-                db.session.add(image)
-                db.session.flush()
-                image_id = image.id
+        if not allowed_file(file.filename):
+          logger.warning("Rejected task upload with invalid extension: %s", file.filename)
+          return jsonify({"message": "Invalid image file extension."}), 400
 
-        # log task completion
-        new_log = TaskLog(
-            task_id=data['task_id'],
-            team_id=data['team_id'],
-            race_id=race_id,
-            image_id=image_id)
-        db.session.add(new_log)
+        is_valid_image, validation_error = validate_uploaded_image(file)
+        if not is_valid_image:
+          logger.warning("Rejected task upload for race %s: %s", race_id, validation_error)
+          return jsonify({"message": validation_error}), 400
+
+        # Generate unique filename: timestamp_uuid_original.ext
+        original_filename = secure_filename(file.filename)
+        file_ext = original_filename.rsplit('.', 1)[1].lower() if '.' in original_filename else 'jpg'
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_id = uuid.uuid4().hex[:8]
+        filename = f"{timestamp}_{unique_id}.{file_ext}"
+
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        saved_image_path = filepath
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         try:
-            db.session.commit()
-            logger.info("Task completion logged - race: %s, team: %s, task: %s, user: %s", race_id, data['team_id'], data['task_id'], user.id)
-        except IntegrityError:
-            db.session.rollback()
-            if saved_image_path and os.path.exists(saved_image_path):
-                try:
-                    os.remove(saved_image_path)
-                except OSError as cleanup_err:
-                    logger.error("Error cleaning up task image file %s: %s", saved_image_path, cleanup_err)
-            logger.error("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
-            return jsonify({"message": "Task already logged for this team."}), 409
-        return jsonify({
-            "id": new_log.id,
-            "task_id": new_log.task_id,
-            "team_id": new_log.team_id,
-            "race_id": race_id,
-            "image_id": image_id}), 201
+          file.save(filepath)
+          logger.info("Task image saved: %s for race %s, team %s", filename, race_id, data['team_id'])
+        except OSError as e:
+          logger.error("Error saving task image %s: %s", filename, e)
+          saved_image_path = None
+        else:
+          image = Image(filename=filename)
+          db.session.add(image)
+          db.session.flush()
+          image_id = image.id
+
+      # log task completion
+      new_log = TaskLog(
+        task_id=data['task_id'],
+        team_id=data['team_id'],
+        race_id=race_id,
+        image_id=image_id)
+      db.session.add(new_log)
+      try:
+        db.session.commit()
+        logger.info("Task completion logged - race: %s, team: %s, task: %s, user: %s", race_id, data['team_id'], data['task_id'], user.id)
+      except IntegrityError:
+        db.session.rollback()
+        if saved_image_path and os.path.exists(saved_image_path):
+          try:
+            os.remove(saved_image_path)
+          except OSError as cleanup_err:
+            logger.error("Error cleaning up task image file %s: %s", saved_image_path, cleanup_err)
+        logger.error("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
+        return jsonify({"message": "Task already logged for this team."}), 409
+      return jsonify({
+        "id": new_log.id,
+        "task_id": new_log.task_id,
+        "team_id": new_log.team_id,
+        "race_id": race_id,
+        "image_id": image_id}), 201
     else:
         logger.error("Unauthorized task completion log attempt by user %s for team %s", user.id, data['team_id'])
         return jsonify({"message": "You are not authorized to log this task."}), 403
