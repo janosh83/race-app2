@@ -7,6 +7,7 @@ import RaceLayout from './components/Layouts/RaceLayout';
 import Login from './components/Login';
 import ActiveRacePage from './components/Pages/ActiveRacePage';
 import AdminPage from './components/Pages/AdminPage';
+import CheckpointsPage from './components/Pages/CheckpointsPage';
 import MapPage from './components/Pages/MapPage';
 import PublicRegistrationPage from './components/Pages/PublicRegistrationPage';
 import StandingsPage from './components/Pages/StandingsPage';
@@ -124,6 +125,11 @@ function App() {
             <Route path=":raceId/map" element={
               <LogOnce message="User accessing map page" data={{ isLoggedIn }}>
                 <MapPage />
+              </LogOnce>
+            } />
+            <Route path=":raceId/checkpoints" element={
+              <LogOnce message="User accessing checkpoints list page" data={{ isLoggedIn }}>
+                <CheckpointsPage />
               </LogOnce>
             } />
             <Route path=":raceId/tasks" element={

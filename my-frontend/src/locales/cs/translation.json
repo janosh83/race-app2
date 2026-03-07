@@ -4,6 +4,7 @@
     "adminBrand": "Race App - Admin",
     "activeRace": "Aktivní závod",
     "map": "Mapa",
+    "checkpoints": "Checkpointy",
     "tasks": "Úkoly",
     "standings": "Pořadí",
     "admin": "Admin",
@@ -91,6 +92,9 @@
     "deleteFailed": "Nepodařilo se smazat úkol: {{message}}",
     "loadedSuccess": "Úkoly byly načteny",
     "unknownError": "Neznámá chyba"
+  },
+  "checkpointsList": {
+    "noneAvailable": "Pro tento závod nejsou žádné checkpointy."
   },
   "results": {
     "title": "Výsledky závodu",

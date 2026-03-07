@@ -103,6 +103,9 @@ function RaceLayout() {
                     <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/map`)}>{t('nav.map')}</button>
                   </li>
                   <li className="nav-item">
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/checkpoints`)}>{t('nav.checkpoints')}</button>
+                  </li>
+                  <li className="nav-item">
                     <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/tasks`)}>{t('nav.tasks')}</button>
                   </li>
                   <li className="nav-item">

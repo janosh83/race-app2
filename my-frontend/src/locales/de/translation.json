@@ -4,6 +4,7 @@
     "adminBrand": "Race App - Admin",
     "activeRace": "Aktives Rennen",
     "map": "Karte",
+    "checkpoints": "Checkpoints",
     "tasks": "Aufgaben",
     "standings": "Rangliste",
     "admin": "Admin",
@@ -91,6 +92,9 @@
     "deleteFailed": "Aufgabe konnte nicht geloescht werden: {{message}}",
     "loadedSuccess": "Aufgaben erfolgreich geladen",
     "unknownError": "Unbekannter Fehler"
+  },
+  "checkpointsList": {
+    "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar."
   },
   "results": {
     "title": "Rennergebnisse",

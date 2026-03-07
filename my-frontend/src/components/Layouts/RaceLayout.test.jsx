@@ -106,18 +106,20 @@ describe('RaceLayout Component', () => {
   });
 
   describe('Navigation with active race', () => {
-    test('shows Map and Tasks links when activeRace exists', () => {
+    test('shows Map, Checkpoints and Tasks links when activeRace exists', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
       expect(screen.getByRole('button', { name: 'Map' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Checkpoints' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
     });
 
-    test('hides Map and Tasks links when no activeRace', () => {
+    test('hides Map, Checkpoints and Tasks links when no activeRace', () => {
       renderWithProviders(null);
 
       expect(screen.queryByRole('button', { name: 'Map' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Checkpoints' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
     });
 
@@ -149,6 +151,26 @@ describe('RaceLayout Component', () => {
       fireEvent.click(tasksButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/tasks');
+    });
+
+    test('uses race_id property for Checkpoints navigation', () => {
+      const activeRace = { race_id: 5, name: 'Test Race' };
+      renderWithProviders(activeRace);
+
+      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      fireEvent.click(checkpointsButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/race/5/checkpoints');
+    });
+
+    test('uses id property for Checkpoints navigation when race_id not available', () => {
+      const activeRace = { id: 7, name: 'Test Race' };
+      renderWithProviders(activeRace);
+
+      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      fireEvent.click(checkpointsButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/race/7/checkpoints');
     });
 
     test('uses id property for Tasks navigation when race_id not available', () => {
