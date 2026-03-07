@@ -509,6 +509,7 @@ def log_visit(race_id):
     user_latitude = None
     user_longitude = None
     user_distance_km = None
+    saved_image_path = None
 
     # Extract user position from request if provided
     if 'user_latitude' in data and 'user_longitude' in data:
@@ -527,6 +528,7 @@ def log_visit(race_id):
             images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
             os.makedirs(images_folder, exist_ok=True)
             filepath = os.path.join(images_folder, filename)
+            saved_image_path = filepath
             try:
                 file.save(filepath)
 
@@ -538,7 +540,7 @@ def log_visit(race_id):
 
                 image = Image(filename=filename)
                 db.session.add(image)
-                db.session.commit()  # not sure if it is needed here
+                db.session.flush()
                 image_id = image.id
                 logger.info(
                     "Image %s saved for checkpoint visit (race %s, team %s)",
@@ -549,6 +551,11 @@ def log_visit(race_id):
             except (OSError, ValueError) as err:
                 logger.error("Failed to save image for checkpoint visit: %s", err)
                 image_id = None
+                if saved_image_path and os.path.exists(saved_image_path):
+                  try:
+                    os.remove(saved_image_path)
+                  except OSError as cleanup_err:
+                    logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
 
         # Get checkpoint details for location validation
         checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
@@ -582,16 +589,21 @@ def log_visit(race_id):
         )
         db.session.add(new_log)
         try:
-          db.session.commit()
+            db.session.commit()
         except IntegrityError:
-          db.session.rollback()
-          logger.error(
-            "Duplicate checkpoint log attempt - race: %s, team: %s, checkpoint: %s",
-            race_id,
-            data['team_id'],
-            data['checkpoint_id'],
-          )
-          return jsonify({"message": "Checkpoint already logged for this team."}), 409
+            db.session.rollback()
+            if saved_image_path and os.path.exists(saved_image_path):
+                try:
+                    os.remove(saved_image_path)
+                except OSError as cleanup_err:
+                    logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
+            logger.error(
+                "Duplicate checkpoint log attempt - race: %s, team: %s, checkpoint: %s",
+                race_id,
+                data['team_id'],
+                data['checkpoint_id'],
+            )
+            return jsonify({"message": "Checkpoint already logged for this team."}), 409
         logger.info(
             "Checkpoint visit logged: race %s, checkpoint %s, team %s, user %s",
             race_id,

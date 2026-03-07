@@ -195,6 +195,32 @@ def test_log_visit_duplicate_returns_conflict(test_client, add_test_data):
     assert duplicate.status_code == 409
     assert "already logged" in duplicate.json["message"]
 
+
+def test_log_visit_duplicate_with_image_does_not_orphan_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    first = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert first.status_code == 201
+
+    with open("tests/test_image.jpg", "rb") as img:
+        duplicate = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+
+    assert duplicate.status_code == 409
+
+    with test_app.app_context():
+        assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).count() == 1
+        assert Image.query.count() == 0
+
 def test_log_visit_early(test_client, add_test_data_early_logginmg):
 
     # Test logging of single visit (user is member of the team)
