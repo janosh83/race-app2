@@ -27,6 +27,12 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME', '')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', '')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@raceapp.com')
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').strip()
+    REGISTRATION_ADMIN_EMAILS = [
+        item.strip()
+        for item in os.environ.get('REGISTRATION_ADMIN_EMAILS', '').replace(';', ',').split(',')
+        if item.strip()
+    ]
     FRONTEND_URL = CORS_ORIGINS[0] if CORS_ORIGINS else 'http://localhost:5173'
     IMAGE_UPLOAD_FOLDER = os.environ.get(
         'IMAGE_UPLOAD_FOLDER',

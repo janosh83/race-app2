@@ -47,6 +47,10 @@ MAIL_USE_SSL=false
 MAIL_USERNAME=
 MAIL_PASSWORD=
 MAIL_DEFAULT_SENDER=noreply@localhost.dev
+# Admin notification recipients for completed registrations
+# Use one or both settings below.
+ADMIN_EMAIL=admin@example.com
+REGISTRATION_ADMIN_EMAILS=admin1@example.com,admin2@example.com
 
 # Optional image storage override
 # IMAGE_UPLOAD_FOLDER=./app/static/images
@@ -192,6 +196,8 @@ MAIL_USE_TLS=true
 MAIL_USERNAME=your-brevo-email@example.com
 MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
+ADMIN_EMAIL=admin@yourdomain.com
+REGISTRATION_ADMIN_EMAILS=admin1@yourdomain.com,admin2@yourdomain.com
 ```
 
 ### 4.3 Stripe payments (registration checkout)
@@ -287,6 +293,22 @@ Optional (resend an event by id):
 stripe events resend <event_id> --webhook-endpoint=<webhook_endpoint_id>
 ```
 
+### 4.5 Admin registration-completed notifications
+
+When Stripe confirms a registration payment (`checkout.session.completed`), backend sends an admin notification email.
+
+Configuration:
+- `REGISTRATION_ADMIN_EMAILS` supports comma- or semicolon-separated addresses.
+- `ADMIN_EMAIL` is used as fallback when `REGISTRATION_ADMIN_EMAILS` is empty.
+
+Delivery details:
+- Admin notification email is HTML-only (no plain text part).
+- Email language is resolved from race default language (`race.default_language`) with fallback to app default language.
+- Localized templates are used from:
+  - `app/templates/emails/en/admin_registration_completed.html`
+  - `app/templates/emails/cs/admin_registration_completed.html`
+  - `app/templates/emails/de/admin_registration_completed.html`
+
 ## 5) Deployment on Render
 
 Use **two services**: backend web service + frontend static site.
@@ -321,6 +343,8 @@ MAIL_USE_TLS=true
 MAIL_USERNAME=your-brevo-email@example.com
 MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
+ADMIN_EMAIL=admin@yourdomain.com
+REGISTRATION_ADMIN_EMAILS=admin1@yourdomain.com,admin2@yourdomain.com
 
 STRIPE_RESTRICTED_KEY=rk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...

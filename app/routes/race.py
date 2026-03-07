@@ -104,6 +104,66 @@ def _resolve_race_category_name(race_category, race, language=None):
         return translation.name
     return name
 
+
+def _get_registration_admin_recipients():
+    """Resolve admin recipients from app config.
+
+    Supported configuration:
+    - REGISTRATION_ADMIN_EMAILS as list/tuple/set
+    - REGISTRATION_ADMIN_EMAILS as comma/semicolon separated string
+    - ADMIN_EMAIL as fallback single address
+    """
+    configured = current_app.config.get('REGISTRATION_ADMIN_EMAILS')
+    recipients = []
+
+    if isinstance(configured, (list, tuple, set)):
+        recipients = [str(item).strip().lower() for item in configured if str(item).strip()]
+    elif isinstance(configured, str):
+        normalized = configured.replace(';', ',')
+        recipients = [item.strip().lower() for item in normalized.split(',') if item.strip()]
+
+    if not recipients:
+        fallback = (current_app.config.get('ADMIN_EMAIL') or '').strip().lower()
+        if fallback:
+            recipients = [fallback]
+
+    deduped = []
+    seen = set()
+    for email in recipients:
+        if email not in seen:
+            seen.add(email)
+            deduped.append(email)
+    return deduped
+
+
+def _notify_admins_registration_completed(race, team, registration, payment_attempt):
+    """Send best-effort notification email to configured admins."""
+    recipients = _get_registration_admin_recipients()
+    if not recipients:
+        return True
+
+    all_sent = True
+    for admin_email in recipients:
+        sent = EmailService.send_admin_registration_completed_email(
+            admin_email=admin_email,
+            race_name=race.name if race else f'Race #{registration.race_id}',
+            team_name=team.name if team else f'Team #{registration.team_id}',
+            registration_mode=_registration_mode(race) if race else None,
+            registration_id=registration.id,
+            race_id=registration.race_id,
+            team_id=registration.team_id,
+            language=(race.default_language if race else None),
+            payment_type=payment_attempt.payment_type,
+            payment_amount_cents=payment_attempt.amount_cents,
+            payment_currency=payment_attempt.currency,
+            payment_reference=payment_attempt.stripe_session_id,
+            payment_confirmed_at=payment_attempt.confirmed_at,
+        )
+        if not sent:
+            all_sent = False
+
+    return all_sent
+
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
@@ -844,6 +904,7 @@ def stripe_registration_webhook():
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
 
     email_sent_for_all = True
+    admin_notification_sent = True
     if (not was_paid_before) and registration.payment_confirmed and team and race:
         receipt_amount_cents = payment_attempt.amount_cents or session.get('amount_total')
         receipt_currency = payment_attempt.currency or (session.get('currency') or '').lower() or None
@@ -874,6 +935,19 @@ def stripe_registration_webhook():
             )
             if not sent:
                 email_sent_for_all = False
+
+        admin_notification_sent = _notify_admins_registration_completed(
+            race=race,
+            team=team,
+            registration=registration,
+            payment_attempt=payment_attempt,
+        )
+        if not admin_notification_sent:
+            logger.warning(
+                "Admin registration-completed notification failed for race %s team %s",
+                registration.race_id,
+                registration.team_id,
+            )
 
     if registration.payment_confirmed:
         registration.email_sent = email_sent_for_all and bool(team and team.members)

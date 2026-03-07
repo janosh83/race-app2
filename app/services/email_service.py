@@ -153,6 +153,53 @@ class EmailService:
 
         return EmailService._send_email(subject, user_email, None, body_html)
 
+    @staticmethod
+    def send_admin_registration_completed_email(
+        admin_email,
+        race_name,
+        team_name,
+        registration_mode,
+        registration_id,
+        race_id,
+        team_id,
+        language=None,
+        payment_type=None,
+        payment_amount_cents=None,
+        payment_currency=None,
+        payment_reference=None,
+        payment_confirmed_at=None,
+    ):
+        """Send an admin notification when registration payment is confirmed."""
+        lang = EmailService._get_template_language(language)
+        mode_display = registration_mode or "unknown"
+        amount_display = (
+            f"{(payment_amount_cents or 0) / 100:.2f} {(payment_currency or '').upper()}".strip()
+            if payment_amount_cents is not None
+            else "N/A"
+        )
+
+        subjects = {
+            'en': f'Registration completed: {team_name} / {race_name}',
+            'cs': f'Registrace dokoncena: {team_name} / {race_name}',
+            'de': f'Registrierung abgeschlossen: {team_name} / {race_name}',
+        }
+        subject = subjects.get(lang, subjects['en'])
+        template_context = {
+            "race_name": race_name,
+            "team_name": team_name,
+            "mode_display": mode_display,
+            "registration_id": registration_id,
+            "race_id": race_id,
+            "team_id": team_id,
+            "payment_type": payment_type,
+            "amount_display": amount_display,
+            "payment_reference": payment_reference,
+            "payment_confirmed_at": payment_confirmed_at,
+        }
+        body_html = render_template(f"emails/{lang}/admin_registration_completed.html", **template_context)
+
+        return EmailService._send_email(subject, admin_email, None, body_html)
+
 
 def generate_reset_token():
     """Generate a secure random token for password reset."""

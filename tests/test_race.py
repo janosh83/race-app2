@@ -880,6 +880,77 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
     assert first_call["race_greeting"] == "Hallo {user_name},"
 
 
+def test_stripe_registration_webhook_sends_admin_notification_when_configured(test_client, add_test_data, test_app, monkeypatch):
+    """Webhook sends admin notification emails when admin recipients are configured."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-admin-notify"
+        race.registration_enabled = True
+        race.default_language = "cs"
+
+        category = RaceCategory(name="Webhook Admin")
+        team = Team(name="Webhook Admin Team")
+        user = User(name="Webhook Admin User", email="webhook-admin-user@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+
+        race_id = race.id
+        team_id = team.id
+
+    fake_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_webhook_admin_123",
+                "amount_total": 5000,
+                "currency": "czk",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    admin_calls = []
+
+    def fake_send_member_email(**kwargs):
+        return True
+
+    def fake_send_admin_email(**kwargs):
+        admin_calls.append(kwargs)
+        return True
+
+    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_member_email)
+    monkeypatch.setattr("app.routes.race.EmailService.send_admin_registration_completed_email", fake_send_admin_email)
+
+    with test_app.app_context():
+        test_app.config["REGISTRATION_ADMIN_EMAILS"] = ["admin1@example.com", "admin2@example.com"]
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    assert len(admin_calls) == 2
+    assert admin_calls[0]["admin_email"] == "admin1@example.com"
+    assert admin_calls[1]["admin_email"] == "admin2@example.com"
+    assert admin_calls[0]["race_id"] == race_id
+    assert admin_calls[0]["team_id"] == team_id
+    assert admin_calls[0]["language"] == "cs"
+    assert admin_calls[0]["payment_type"] == "driver"
+
+
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):
     """Public payment-status endpoint returns confirmation state for registration."""
     with test_app.app_context():

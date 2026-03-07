@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        ul {
+            background: #fff;
+            border-left: 4px solid #2c3e50;
+            border-radius: 4px;
+            padding: 14px 18px;
+            margin: 0;
+            list-style: none;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        li:last-child {
+            margin-bottom: 0;
+        }
+        strong {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Registrierung abgeschlossen</h2>
+        <p>Eine Registrierung wurde erfolgreich abgeschlossen.</p>
+        <ul>
+            <li><strong>Rennen:</strong> {{ race_name }}</li>
+            <li><strong>Team:</strong> {{ team_name }}</li>
+            <li><strong>Modus:</strong> {{ mode_display }}</li>
+            <li><strong>Registrierungs-ID:</strong> {{ registration_id }}</li>
+            <li><strong>Renn-ID:</strong> {{ race_id }}</li>
+            <li><strong>Team-ID:</strong> {{ team_id }}</li>
+            <li><strong>Zahlungsart:</strong> {{ payment_type or 'N/A' }}</li>
+            <li><strong>Betrag:</strong> {{ amount_display }}</li>
+            <li><strong>Zahlungsreferenz:</strong> {{ payment_reference or 'N/A' }}</li>
+            <li><strong>Bestätigt am:</strong> {{ payment_confirmed_at or 'N/A' }}</li>
+        </ul>
+    </div>
+</body>
+</html>
