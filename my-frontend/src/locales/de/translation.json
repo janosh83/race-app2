@@ -94,7 +94,9 @@
     "unknownError": "Unbekannter Fehler"
   },
   "checkpointsList": {
-    "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar."
+    "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar.",
+    "coordinates": "Koordinaten",
+    "points": "Punkte"
   },
   "results": {
     "title": "Rennergebnisse",

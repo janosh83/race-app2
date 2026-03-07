@@ -94,7 +94,9 @@
     "unknownError": "Neznámá chyba"
   },
   "checkpointsList": {
-    "noneAvailable": "Pro tento závod nejsou žádné checkpointy."
+    "noneAvailable": "Pro tento závod nejsou žádné checkpointy.",
+    "coordinates": "Souřadnice",
+    "points": "Body"
   },
   "results": {
     "title": "Výsledky závodu",

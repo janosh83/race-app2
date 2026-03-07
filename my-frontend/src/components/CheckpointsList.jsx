@@ -333,18 +333,28 @@ function CheckpointsList({ topOffset = 56 }) {
               </button>
             </div>
 
-            {selectedCheckpoint.description && (
-              <div className="mb-3">
-                <p>{selectedCheckpoint.description}</p>
-              </div>
-            )}
-
             <div className="mb-3">
               <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
                 {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
               </span>
               <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(selectedCheckpoint) })}</span>
             </div>
+
+            <div className="mb-3 text-muted small">
+              <div>
+                <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
+                {selectedCheckpoint.latitude}, {selectedCheckpoint.longitude}
+              </div>
+              <div>
+                <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(selectedCheckpoint)}
+              </div>
+            </div>
+
+            {selectedCheckpoint.description && (
+              <div className="mb-3">
+                <p>{selectedCheckpoint.description}</p>
+              </div>
+            )}
 
             {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
               <div className="mb-3">

@@ -94,7 +94,9 @@
     "unknownError": "Unknown error"
   },
   "checkpointsList": {
-    "noneAvailable": "No checkpoints available for this race."
+    "noneAvailable": "No checkpoints available for this race.",
+    "coordinates": "Coordinates",
+    "points": "Points"
   },
   "results": {
     "title": "Race Results",
