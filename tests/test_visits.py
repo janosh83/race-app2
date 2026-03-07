@@ -427,6 +427,32 @@ def test_log_task_completion_duplicate(test_client, add_test_data):
     assert "already logged" in response.json["message"]
 
 
+def test_log_task_completion_duplicate_with_image_does_not_orphan_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    first = test_client.post(
+        "/api/race/1/tasks/log/",
+        json={"task_id": 1, "team_id": 1},
+        headers=headers,
+    )
+    assert first.status_code == 201
+
+    with open("tests/test_image.jpg", "rb") as img:
+        duplicate = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+
+    assert duplicate.status_code == 409
+    assert "already logged" in duplicate.json["message"]
+
+    with test_app.app_context():
+        assert Image.query.count() == 0
+
+
 
 
 

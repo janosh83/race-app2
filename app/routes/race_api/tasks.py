@@ -427,6 +427,7 @@ def log_task_completion(race_id):
     is_signed_to_race = user_is_in_team and registration
 
     image_id = None
+    saved_image_path = None
     if is_administrator or is_signed_to_race:
         if file and allowed_file(file.filename):
             # Generate unique filename: timestamp_uuid_original.ext
@@ -437,16 +438,19 @@ def log_task_completion(race_id):
             filename = f"{timestamp}_{unique_id}.{file_ext}"
 
             filepath = os.path.join(UPLOAD_FOLDER, filename)
+            saved_image_path = filepath
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
             try:
                 file.save(filepath)
                 logger.info("Task image saved: %s for race %s, team %s", filename, race_id, data['team_id'])
             except OSError as e:
                 logger.error("Error saving task image %s: %s", filename, e)
-            image = Image(filename=filename)
-            db.session.add(image)
-            db.session.commit()
-            image_id = image.id
+                saved_image_path = None
+            else:
+                image = Image(filename=filename)
+                db.session.add(image)
+                db.session.flush()
+                image_id = image.id
 
         # log task completion
         new_log = TaskLog(
@@ -460,6 +464,11 @@ def log_task_completion(race_id):
             logger.info("Task completion logged - race: %s, team: %s, task: %s, user: %s", race_id, data['team_id'], data['task_id'], user.id)
         except IntegrityError:
             db.session.rollback()
+            if saved_image_path and os.path.exists(saved_image_path):
+                try:
+                    os.remove(saved_image_path)
+                except OSError as cleanup_err:
+                    logger.error("Error cleaning up task image file %s: %s", saved_image_path, cleanup_err)
             logger.error("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
             return jsonify({"message": "Task already logged for this team."}), 409
         return jsonify({
