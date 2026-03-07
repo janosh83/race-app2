@@ -836,6 +836,7 @@ def get_checkpoints_with_status(race_id, team_id):
             "description": description,
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
+          "numOfPoints": checkpoint.numOfPoints,
             "visited": checkpoint.id in visits_by_checkpoint
         }
         # Add image info if visit exists and has an image

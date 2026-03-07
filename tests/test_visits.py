@@ -23,7 +23,7 @@ def add_test_data(test_app):
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_later, start_logging_at=some_time_earlier, end_logging_at=some_time_later)
 
         team1 = Team(name="Team1")
@@ -80,9 +80,9 @@ def add_test_data_early_logginmg(test_app):
         in_5min = now + timedelta(minutes=5)
         in_15min = now + timedelta(minutes=15)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=in_5min, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=in_5min,
                      end_showing_checkpoints_at=in_15min, start_logging_at=in_5min, end_logging_at=in_15min)
-    
+
         team1 = Team(name="Team1")
 
         user1 = User(name="User1", email="example1@example.com", is_administrator=True)
@@ -109,11 +109,11 @@ def add_test_data_late_logginmg(test_app):
         now = datetime.now()
         before_5min = now - timedelta(minutes=5)
         before_15min = now - timedelta(minutes=15)
-        
+
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=before_15min, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=before_15min,
                      end_showing_checkpoints_at=before_5min, start_logging_at=before_15min, end_logging_at=before_5min)
-    
+
         team1 = Team(name="Team1")
 
         user1 = User(name="User1", email="example1@example.com", is_administrator=True)
@@ -176,13 +176,13 @@ def test_log_visit(test_client, add_test_data):
     assert response.status_code == 403
 
 def test_log_visit_early(test_client, add_test_data_early_logginmg):
-    
+
     # Test logging of single visit (user is member of the team)
     response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 1})
     assert response.status_code == 403
-    
+
     # Test logging of single visit (user is an admin)
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -193,13 +193,13 @@ def test_log_visit_early(test_client, add_test_data_early_logginmg):
     assert response.json["race_id"] == 1
 
 def test_log_visit_late(test_client, add_test_data_late_logginmg):
-    
+
     # Test logging of single visit (user is member of the team)
     response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
     response = test_client.post("/api/race/1/checkpoints/log/", headers = headers, json={"checkpoint_id": 2, "team_id": 1})
     assert response.status_code == 403
-    
+
     # Test logging of single visit (user is an admin)
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -219,6 +219,7 @@ def test_get_checkpoints_with_status(test_client, add_test_data):
     response = test_client.get("/api/race/1/checkpoints/1/status/", headers = headers1)
     assert response.status_code == 200
     assert len(response.json) == 3
+    assert response.json[0]["numOfPoints"] == 1
     assert response.json[0]["visited"] == False
     assert response.json[1]["visited"] == False
     assert response.json[2]["visited"] == False
@@ -240,7 +241,7 @@ def test_get_checkpoints_with_status(test_client, add_test_data):
     assert response.json[0]["visited"] == True
     assert response.json[1]["visited"] == False
     assert response.json[2]["visited"] == True
-    
+
 def test_unlog_visits(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
     admin_header = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -267,7 +268,7 @@ def test_unlog_visits(test_client, add_test_data):
     # test delete visit of non-existing visit
     response = test_client.delete("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 2, "team_id": 1})
     assert response.status_code == 404
-    
+
     # delete visit of checkpoint 2 (no visits for team 1 logged)
     response = test_client.delete("/api/race/1/checkpoints/log/", headers = headers1, json={"checkpoint_id": 1, "team_id": 1})
     assert response.status_code == 200
@@ -394,7 +395,7 @@ def test_unlog_task_completion_by_admin(test_client, add_test_data):
     # First log as user
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
     headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
-    
+
     response = test_client.post("/api/race/1/tasks/log/", json={
         "task_id": 2,
         "team_id": 1
@@ -404,7 +405,7 @@ def test_unlog_task_completion_by_admin(test_client, add_test_data):
     # Delete as admin
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
     headers_admin = {"Authorization": f"Bearer {response.json['access_token']}"}
-    
+
     response = test_client.delete("/api/race/1/tasks/log/", json={
         "task_id": 2,
         "team_id": 1

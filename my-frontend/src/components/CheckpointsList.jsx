@@ -13,6 +13,13 @@ import Toast from './Toast';
 function CheckpointsList({ topOffset = 56 }) {
   const { t } = useTranslation();
 
+  const getCheckpointPoints = (checkpoint) => {
+    if (checkpoint?.numOfPoints != null) return checkpoint.numOfPoints;
+    if (checkpoint?.num_of_points != null) return checkpoint.num_of_points;
+    if (checkpoint?.points != null) return checkpoint.points;
+    return 0;
+  };
+
   useEffect(() => {
     const check = () => {
       const token = localStorage.getItem('accessToken');
@@ -284,7 +291,7 @@ function CheckpointsList({ topOffset = 56 }) {
                     </div>
                     {checkpoint.description && <p className="card-text text-muted small">{checkpoint.description}</p>}
                     <div className="d-flex justify-content-between align-items-center mt-2">
-                      <span className="badge bg-primary">{t('tasks.points', { count: checkpoint.numOfPoints || 0 })}</span>
+                      <span className="badge bg-primary">{t('tasks.points', { count: getCheckpointPoints(checkpoint) })}</span>
                     </div>
                   </div>
                 </div>
@@ -331,7 +338,7 @@ function CheckpointsList({ topOffset = 56 }) {
               <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
                 {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
               </span>
-              <span className="badge bg-primary ms-2">{t('tasks.points', { count: selectedCheckpoint.numOfPoints || 0 })}</span>
+              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(selectedCheckpoint) })}</span>
             </div>
 
             {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
