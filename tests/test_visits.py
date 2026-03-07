@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, Image
+from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, TaskLog, Image
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -359,6 +359,43 @@ def test_unlog_visits(test_client, add_test_data):
     assert len(response.json) == 0
 
 
+def test_unlog_visit_handles_missing_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Create visit with image first.
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    # Simulate stale image_id by deleting image row while log still references it.
+    with test_app.app_context():
+        log = CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first()
+        assert log is not None
+        assert log.image_id is not None
+        image = Image.query.filter_by(id=log.image_id).first()
+        assert image is not None
+        db.session.delete(image)
+        db.session.commit()
+
+    # Unlog should still succeed even with missing image row.
+    unlog_resp = test_client.delete(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert unlog_resp.status_code == 200
+    assert unlog_resp.json["message"] == "Log deleted successfully."
+
+    with test_app.app_context():
+        assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first() is None
+
+
 def test_log_task_completion_by_team_member(test_client, add_test_data):
     """Test logging task completion by a team member"""
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
@@ -520,6 +557,40 @@ def test_unlog_task_completion_by_admin(test_client, add_test_data):
     }, headers=headers_admin)
     assert response.status_code == 200
     assert response.json["message"] == "Log deleted successfully."
+
+
+def test_unlog_task_completion_handles_missing_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    with test_app.app_context():
+        log = TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first()
+        assert log is not None
+        assert log.image_id is not None
+        image = Image.query.filter_by(id=log.image_id).first()
+        assert image is not None
+        db.session.delete(image)
+        db.session.commit()
+
+    unlog_resp = test_client.delete(
+        "/api/race/1/tasks/log/",
+        headers=headers,
+        json={"task_id": 1, "team_id": 1},
+    )
+    assert unlog_resp.status_code == 200
+    assert unlog_resp.json["message"] == "Log deleted successfully."
+
+    with test_app.app_context():
+        assert TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first() is None
 
 def test_unlog_task_completion_not_found(test_client, add_test_data):
     """Test deleting non-existent task log"""

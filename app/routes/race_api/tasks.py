@@ -573,12 +573,13 @@ def unlog_task_completion(race_id):
         log = TaskLog.query.filter_by(
             task_id=data["task_id"],
             team_id=data["team_id"],
-            race_id=race_id
+            race_id=race_id,
         ).first()
+
         if log:
-            # Delete associated image file and record if present
+            # Delete associated image file and record if present.
             if log.image_id:
-                image = Image.query.filter_by(id=log.image_id).first_or_404()
+                image = Image.query.filter_by(id=log.image_id).first()
                 if image:
                     image_path = os.path.join(UPLOAD_FOLDER, image.filename)
                     try:
@@ -588,13 +589,31 @@ def unlog_task_completion(race_id):
                     except OSError as e:
                         logger.error("Error deleting task image file %s: %s", image.filename, e)
                     db.session.delete(image)
+                else:
+                    logger.warning(
+                        "Missing image %s referenced by task log %s during unlog",
+                        log.image_id,
+                        log.id,
+                    )
+
             db.session.delete(log)
             db.session.commit()
-            logger.info("Task completion unlogged - race: %s, team: %s, task: %s, user: %s", race_id, data['team_id'], data['task_id'], user.id)
+            logger.info(
+                "Task completion unlogged - race: %s, team: %s, task: %s, user: %s",
+                race_id,
+                data['team_id'],
+                data['task_id'],
+                user.id,
+            )
             return jsonify({"message": "Log deleted successfully."}), 200
-        else:
-            logger.error("Task unlog attempt for non-existent log - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
-            return jsonify({"message": "Log not found."}), 404
+
+        logger.error(
+            "Task unlog attempt for non-existent log - race: %s, team: %s, task: %s",
+            race_id,
+            data['team_id'],
+            data['task_id'],
+        )
+        return jsonify({"message": "Log not found."}), 404
     else:
         logger.error("Unauthorized task unlog attempt by user %s for team %s", user.id, data['team_id'])
         return jsonify({"message": "You are not authorized to delete this task log."}), 403

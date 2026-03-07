@@ -742,29 +742,35 @@ def unlog_visit(race_id):
         ).first()
 
         if log:
-            if log.image_id:
-                image = Image.query.filter_by(id=log.image_id).first_or_404()
-                if image:
-                    images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-                    image_path = os.path.join(images_folder, image.filename)
-                    try:
-                        if os.path.exists(image_path):
-                            os.remove(image_path)
-                            logger.info("Deleted image file %s for checkpoint log %s", image.filename, log.id)
-                    except OSError as err:
-                        logger.error("Error deleting image file %s: %s", image.filename, err)
-                    db.session.delete(image)
+          if log.image_id:
+            image = Image.query.filter_by(id=log.image_id).first()
+            if image:
+              images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+              image_path = os.path.join(images_folder, image.filename)
+              try:
+                if os.path.exists(image_path):
+                  os.remove(image_path)
+                  logger.info("Deleted image file %s for checkpoint log %s", image.filename, log.id)
+              except OSError as err:
+                logger.error("Error deleting image file %s: %s", image.filename, err)
+              db.session.delete(image)
+            else:
+              logger.warning(
+                "Missing image %s referenced by checkpoint log %s during unlog",
+                log.image_id,
+                log.id,
+              )
 
-            db.session.delete(log)
-            db.session.commit()
-            logger.info(
-                "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
-                race_id,
-                data['team_id'],
-                data['checkpoint_id'],
-                user.id,
-            )
-            return jsonify({"message": "Log deleted successfully."}), 200
+          db.session.delete(log)
+          db.session.commit()
+          logger.info(
+            "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
+            race_id,
+            data['team_id'],
+            data['checkpoint_id'],
+            user.id,
+          )
+          return jsonify({"message": "Log deleted successfully."}), 200
 
         logger.error(
           "Unlog attempt for non-existent log - race: %s, team: %s, checkpoint: %s",
