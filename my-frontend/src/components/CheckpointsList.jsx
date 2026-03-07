@@ -278,20 +278,25 @@ function CheckpointsList({ topOffset = 56 }) {
         )}
 
         {showCheckpoints && (
-          <div className="row g-3">
+          <div className="row g-2">
             {checkpoints.map((checkpoint) => (
-              <div className="col-12 col-md-6 col-lg-4" key={checkpoint.id}>
-                <div className="card h-100" style={{ cursor: 'pointer' }} onClick={() => setSelectedCheckpoint(checkpoint)}>
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-start mb-2">
-                      <h5 className="card-title mb-0">{checkpoint.title}</h5>
+              <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
+                <div
+                  className="card h-100"
+                  style={{ cursor: 'pointer', borderRadius: '10px' }}
+                  onClick={() => setSelectedCheckpoint(checkpoint)}
+                >
+                  <div className="card-body p-2">
+                    <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
+                      <h6 className="card-title mb-0" style={{ lineHeight: '1.2' }}>
+                        {checkpoint.title}
+                      </h6>
                       <span className={`badge ${checkpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
                         {checkpoint.visited ? t('map.visited') : t('map.notVisited')}
                       </span>
                     </div>
-                    {checkpoint.description && <p className="card-text text-muted small">{checkpoint.description}</p>}
-                    <div className="d-flex justify-content-between align-items-center mt-2">
-                      <span className="badge bg-primary">{t('tasks.points', { count: getCheckpointPoints(checkpoint) })}</span>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="badge bg-primary small">{t('tasks.points', { count: getCheckpointPoints(checkpoint) })}</span>
                     </div>
                   </div>
                 </div>
