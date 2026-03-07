@@ -161,6 +161,7 @@ class CheckpointLog(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('checkpoint_id', 'team_id', 'race_id', name='uq_checkpoint_team_race'),
+        db.Index('ix_checkpoint_log_race_team', 'race_id', 'team_id'),
     )
 
 class TaskLog(db.Model):
@@ -173,6 +174,7 @@ class TaskLog(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('task_id', 'team_id', 'race_id', name='uq_task_team_race'),
+        db.Index('ix_task_log_race_team', 'race_id', 'team_id'),
     )
 
 class Image(db.Model):
