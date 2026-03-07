@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task
+from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, Image
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -241,6 +241,42 @@ def test_get_checkpoints_with_status(test_client, add_test_data):
     assert response.json[0]["visited"] == True
     assert response.json[1]["visited"] == False
     assert response.json[2]["visited"] == True
+
+
+def test_get_checkpoints_with_status_handles_missing_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Create a visit with image metadata.
+    with open("tests/test_image.jpg", "rb") as img:
+        data = {"image": img, "checkpoint_id": 1, "team_id": 1}
+        log_response = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data=data,
+            content_type="multipart/form-data",
+        )
+    assert log_response.status_code == 201
+
+    # Simulate stale reference: remove the image row while checkpoint log still points to image_id.
+    with test_app.app_context():
+        visit = CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first()
+        assert visit is not None
+        assert visit.image_id is not None
+        stale_image_id = visit.image_id
+
+        image = Image.query.filter_by(id=stale_image_id).first()
+        assert image is not None
+        db.session.delete(image)
+        db.session.commit()
+
+    # Endpoint should remain successful and simply omit missing image metadata.
+    status_response = test_client.get("/api/race/1/checkpoints/1/status/", headers=headers)
+    assert status_response.status_code == 200
+
+    cp1 = next(item for item in status_response.json if item["id"] == 1)
+    assert cp1["visited"] is True
+    assert "image_filename" not in cp1
 
 def test_unlog_visits(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})

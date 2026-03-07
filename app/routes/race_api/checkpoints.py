@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
@@ -28,6 +29,21 @@ def _apply_checkpoint_translation(checkpoint, language):
     ).first()
     if translation:
         return translation.title, translation.description
+    logger.debug("No translation found for checkpoint %s in language '%s'", checkpoint.id, language)
+    return checkpoint.title, checkpoint.description
+
+
+def _apply_checkpoint_translation_prefetched(checkpoint, language):
+    if not language:
+        return checkpoint.title, checkpoint.description
+
+    translation = next(
+        (item for item in checkpoint.translations if item.language == language),
+        None,
+    )
+    if translation:
+        return translation.title, translation.description
+
     logger.debug("No translation found for checkpoint %s in language '%s'", checkpoint.id, language)
     return checkpoint.title, checkpoint.description
 
@@ -85,18 +101,27 @@ def get_checkpoints(race_id):
         race_id,
         )
     language = resolve_language(race, user, requested_language)
-    checkpoints = Checkpoint.query.filter_by(race_id=race_id).all()
-    return jsonify([
+    checkpoints = (
+      Checkpoint.query.options(selectinload(Checkpoint.translations))
+      .filter_by(race_id=race_id)
+      .all()
+    )
+
+    response = []
+    for checkpoint in checkpoints:
+      title, description = _apply_checkpoint_translation_prefetched(checkpoint, language)
+      response.append(
         {
-            "id": checkpoint.id,
-            "title": _apply_checkpoint_translation(checkpoint, language)[0],
-            "latitude": checkpoint.latitude,
-            "longitude": checkpoint.longitude,
-            "description": _apply_checkpoint_translation(checkpoint, language)[1],
-            "numOfPoints": checkpoint.numOfPoints
+          "id": checkpoint.id,
+          "title": title,
+          "latitude": checkpoint.latitude,
+          "longitude": checkpoint.longitude,
+          "description": description,
+          "numOfPoints": checkpoint.numOfPoints,
         }
-        for checkpoint in checkpoints
-    ])
+      )
+
+    return jsonify(response)
 
 # tested by test_checkpoint.py -> test_delete_checkpoint
 @checkpoints_bp.route('/', methods=['POST'])
@@ -811,11 +836,23 @@ def get_checkpoints_with_status(race_id, team_id):
         race_id,
         )
     language = resolve_language(race, user, requested_language)
-    checkpoints = race.checkpoints
+    checkpoints = (
+      Checkpoint.query.options(selectinload(Checkpoint.translations))
+      .filter_by(race_id=race_id)
+      .all()
+    )
 
-    # Get all visits for the race and team
-    visits = CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).all()
-    visits_by_checkpoint = {visit.checkpoint_id: visit for visit in visits}
+    # Fetch visits with image metadata in one outer-join query.
+    visit_rows = (
+        db.session.query(CheckpointLog, Image.filename)
+        .outerjoin(Image, Image.id == CheckpointLog.image_id)
+        .filter(CheckpointLog.race_id == race_id, CheckpointLog.team_id == team_id)
+        .all()
+    )
+    visits_by_checkpoint = {
+        visit.checkpoint_id: (visit, image_filename)
+        for visit, image_filename in visit_rows
+    }
 
     logger.info(
         "Retrieved %s checkpoints with status for race %s, team %s, user %s",
@@ -828,8 +865,10 @@ def get_checkpoints_with_status(race_id, team_id):
     # Build the response
     response = []
     for checkpoint in checkpoints:
-        visit = visits_by_checkpoint.get(checkpoint.id)
-        title, description = _apply_checkpoint_translation(checkpoint, language)
+        visit_entry = visits_by_checkpoint.get(checkpoint.id)
+        visit = visit_entry[0] if visit_entry else None
+        image_filename = visit_entry[1] if visit_entry else None
+        title, description = _apply_checkpoint_translation_prefetched(checkpoint, language)
         checkpoint_data = {
             "id": checkpoint.id,
             "title": title,
@@ -837,13 +876,19 @@ def get_checkpoints_with_status(race_id, team_id):
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
             "numOfPoints": checkpoint.numOfPoints,
-            "visited": checkpoint.id in visits_by_checkpoint
+            "visited": visit_entry is not None,
         }
-        # Add image info if visit exists and has an image
+        # Add image info if visit exists and has an image.
+        # Missing image rows are tolerated to avoid breaking the whole response.
         if visit and visit.image_id:
-            image = Image.query.filter_by(id=visit.image_id).first_or_404()
-            if image:
-                checkpoint_data["image_filename"] = image.filename
+            if image_filename:
+                checkpoint_data["image_filename"] = image_filename
+            else:
+                logger.warning(
+                    "Missing image %s referenced by checkpoint log %s",
+                    visit.image_id,
+                    visit.id,
+                )
         response.append(checkpoint_data)
 
     return jsonify(response), 200
