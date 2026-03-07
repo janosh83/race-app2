@@ -2,6 +2,7 @@ import logging
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 from flask_jwt_extended import get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 from app.schemas import RaceCategoryAssignSchema
 from app import db
 from app.models import Race, RaceCategory, RaceCategoryTranslation, User
@@ -72,19 +73,21 @@ def add_race_category(race_id):
         return jsonify({"message": "Missing required field: race_category_id"}), 400
 
     race = Race.query.filter_by(id=race_id).first_or_404()
-    if not race:
-        logger.error("Attempt to add category to non-existent race %s", race_id)
-        return jsonify({"message": "Race not found"}), 404
-
     race_category = RaceCategory.query.filter_by(id=validated_data["race_category_id"]).first_or_404()
-    if not race_category:
-        logger.error("Attempt to add non-existent category %s to race %s", validated_data['race_category_id'], race_id)
-        return jsonify({"message": "Race category not found"}), 404
-    
+
+    if race_category in race.categories:
+      logger.info("Category %s already assigned to race %s", race_category.id, race_id)
+      return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
+
     race.categories.append(race_category)
     db.session.add(race)
-    db.session.commit()
-    
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      logger.warning("Race category assignment conflict for race %s and category %s", race_id, race_category.id)
+      return jsonify({"message": "Category already assigned to this race"}), 409
+
     logger.info("Category %s (%s) added to race %s", race_category.id, race_category.name, race_id)
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
 
@@ -146,14 +149,23 @@ def get_race_categories(race_id):
             race_id
         )
     language = resolve_language(race, user, requested_language)
+    category_ids = [category.id for category in race.categories]
+    translations_by_category_id = {}
+    if language and category_ids:
+        translations = RaceCategoryTranslation.query.filter(
+            RaceCategoryTranslation.race_category_id.in_(category_ids),
+            RaceCategoryTranslation.language == language,
+        ).all()
+        translations_by_category_id = {
+            translation.race_category_id: translation
+            for translation in translations
+        }
+
     response = []
     for category in race.categories:
         name = category.name
         description = category.description
-        translation = RaceCategoryTranslation.query.filter_by(
-            race_category_id=category.id,
-            language=language,
-        ).first()
+        translation = translations_by_category_id.get(category.id)
         if translation:
             name = translation.name
             description = translation.description

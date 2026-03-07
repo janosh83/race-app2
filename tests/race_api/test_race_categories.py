@@ -11,7 +11,7 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_earlier, start_logging_at=some_time_later, end_logging_at=some_time_later)
 
         team1 = Team(name="Team1")
@@ -44,10 +44,10 @@ def test_with_race(test_client, add_test_data):
 
     response = test_client.get("/api/race/1/categories/", headers = headers)
     assert response.status_code == 200
-    
+
     assert response.json[0]["name"] == "Kola"
     assert response.json[0]["description"] == "Na libovolném kole."
-    
+
     response = test_client.post("/api/race-category/", json={"name": "Běh", "description": "Pro běžce."}, headers = headers)
     response = test_client.post("/api/race/1/categories/", json={"race_category_id": response.json['id']}, headers = headers)
     assert response.status_code == 201
@@ -87,6 +87,21 @@ def test_remove_race_category_success(test_client, add_test_data):
     response = test_client.get("/api/race/1/categories/", headers=headers)
     assert response.status_code == 200
     assert len(response.json) == 0
+
+
+def test_add_race_category_duplicate_is_idempotent(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    # Category 1 is already assigned in fixture.
+    duplicate = test_client.post("/api/race/1/categories/", json={"race_category_id": 1}, headers=headers)
+    assert duplicate.status_code == 200
+    assert duplicate.json == {"race_id": 1, "race_category_id": 1}
+
+    # Ensure assignment did not duplicate.
+    categories = test_client.get("/api/race/1/categories/", headers=headers)
+    assert categories.status_code == 200
+    assert len(categories.json) == 1
 
 
 def test_remove_race_category_missing_id(test_client, add_test_data):
