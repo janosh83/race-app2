@@ -3,6 +3,8 @@ import secrets
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from marshmallow import ValidationError
+from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Team, Race, User, Registration, RaceCategory, RegistrationPaymentAttempt, RaceTranslation
@@ -10,7 +12,6 @@ from app.routes.admin import admin_required
 from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.stripe_service import create_registration_checkout_session
-from app.models import team_members
 
 logger = logging.getLogger(__name__)
 
@@ -205,33 +206,37 @@ def get_team_by_race(race_id):
     mode = _registration_mode(race)
 
     registrations = (
-      db.session.query(
-        Team.id,
-        Team.name,
-        RaceCategory.name.label("race_category"),
-        Registration.email_sent,
-        Registration.disqualified,
-        Registration.payment_confirmed,
-        Registration.payment_confirmed_at,
-        Registration.id.label("registration_id"),
-      )
-      .join(Registration, Registration.team_id == Team.id)
-      .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
-      .filter(Registration.race_id == race_id)
-      .all()
+        Registration.query
+        .options(
+            joinedload(Registration.team).selectinload(Team.members),
+            selectinload(Registration.payment_attempts),
+        )
+        .filter(Registration.race_id == race_id)
+        .all()
     )
 
-    results = []
-    for team_id, team_name, category_name, email_sent, disqualified, payment_confirmed, payment_confirmed_at, registration_id in registrations:
-        team = Team.query.filter_by(id=team_id).first()
-        registration = Registration.query.filter_by(id=registration_id).first()
+    category_ids = [registration.race_category_id for registration in registrations]
+    categories = (
+        RaceCategory.query
+        .filter(RaceCategory.id.in_(category_ids))
+        .all()
+        if category_ids
+        else []
+    )
+    category_name_by_id = {category.id: category.name for category in categories}
 
-        payment_attempts = registration.payment_attempts if registration else []
+    results = []
+    for registration in registrations:
+        team = registration.team
+        team_id = team.id if team else registration.team_id
+        team_name = team.name if team else ""
+        category_name = category_name_by_id.get(registration.race_category_id, "")
+        payment_attempts = registration.payment_attempts or []
         driver_paid = any(a.status == 'confirmed' and a.payment_type == 'driver' for a in payment_attempts)
         codriver_paid = any(a.status == 'confirmed' and a.payment_type == 'codriver' for a in payment_attempts)
         team_paid = any(a.status == 'confirmed' and a.payment_type == 'team' for a in payment_attempts)
 
-        aggregate_paid = bool(team_paid or payment_confirmed) if mode == 'team' else bool(driver_paid or payment_confirmed)
+        aggregate_paid = bool(team_paid or registration.payment_confirmed) if mode == 'team' else bool(driver_paid or registration.payment_confirmed)
 
         members = []
         if team and team.members:
@@ -244,10 +249,10 @@ def get_team_by_race(race_id):
             "name": team_name,
             "race_category": category_name,
             "members": members,
-            "email_sent": email_sent,
-            "disqualified": bool(disqualified),
+            "email_sent": registration.email_sent,
+            "disqualified": bool(registration.disqualified),
             "payment_confirmed": aggregate_paid,
-            "payment_confirmed_at": payment_confirmed_at.isoformat() if payment_confirmed_at else None,
+            "payment_confirmed_at": registration.payment_confirmed_at.isoformat() if registration.payment_confirmed_at else None,
             "payment_details": {
               "mode": mode,
               "driver_paid": bool(driver_paid),
@@ -450,6 +455,26 @@ def sign_up(race_id):
                 race_id:
                   type: integer
                   description: The ID of the race
+      400:
+        description: Selected race category is not available for this race
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Category not available for the race
+      409:
+        description: Team is already registered for this race
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: Team is already registered for this race
       404:
         description: Team or Race not found
     """
@@ -460,10 +485,29 @@ def sign_up(race_id):
     race = Race.query.filter_by(id=race_id).first_or_404()
     race_category = RaceCategory.query.filter_by(id=validated['race_category_id']).first_or_404()
 
+    existing_registration = Registration.query.filter_by(race_id=race.id, team_id=team.id).first()
+    if existing_registration:
+        logger.info(
+            "Duplicate team registration ignored for race %s team %s",
+            race.id,
+            team.id,
+        )
+        return jsonify({"message": "Team is already registered for this race"}), 409
+
     if race_category in race.categories:
         registration = Registration(race_id=race.id, team_id=team.id, race_category_id=validated['race_category_id'])
         db.session.add(registration)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            logger.info(
+                "Team registration commit conflict treated as duplicate for race %s team %s",
+                race.id,
+                team.id,
+            )
+            return jsonify({"message": "Team is already registered for this race"}), 409
+
         logger.info("Team %s (%s) registered for race %s in category %s", team.id, team.name, race_id, race_category.name)
         return jsonify({"team_id": validated['team_id'], "race_id": race_id, "race_category": race_category.name}), 201
     else:
@@ -647,8 +691,24 @@ def send_registration_emails(race_id):
 
     race = Race.query.filter_by(id=race_id).first_or_404()
 
-    # Get only registrations where email hasn't been sent yet
-    registrations = Registration.query.filter_by(race_id=race_id, email_sent=False).all()
+    # Get only registrations where email hasn't been sent yet with related team members preloaded.
+    registrations = (
+      Registration.query
+      .options(joinedload(Registration.team).selectinload(Team.members))
+      .filter(Registration.race_id == race_id, Registration.email_sent.is_(False))
+      .all()
+    )
+
+    category_ids = [registration.race_category_id for registration in registrations]
+    categories = (
+      RaceCategory.query
+      .options(selectinload(RaceCategory.translations))
+      .filter(RaceCategory.id.in_(category_ids))
+      .all()
+      if category_ids
+      else []
+    )
+    category_by_id = {category.id: category for category in categories}
 
     logger.info("Starting registration email send for race %s - %s registrations pending", race_id, len(registrations))
 
@@ -658,15 +718,12 @@ def send_registration_emails(race_id):
     # FIXME: this can be optimized by clever database joins
 
     for registration in registrations:
-        team = Team.query.filter_by(id=registration.team_id).first()
+        team = registration.team
         if not team:
             continue
 
-        # Get race category name
-        race_category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
-
-        # Get all team members
-        members = User.query.join(team_members).filter(team_members.c.team_id == team.id).all()
+        race_category = category_by_id.get(registration.race_category_id)
+        members = list(team.members or [])
 
         registration_success = True
         for member in members:
@@ -700,7 +757,8 @@ def send_registration_emails(race_id):
         if registration_success and len(members) > 0:
             registration.email_sent = True
 
-    db.session.commit()
+        # Persist progress per registration to avoid losing all progress on long batches.
+        db.session.commit()
 
     logger.info("Registration emails completed for race %s - sent: %s, failed: %s", race_id, sent_count, failed_count)
 

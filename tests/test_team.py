@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Race, Team, RaceCategory, Registration, RegistrationPaymentAttempt, User
 from datetime import datetime, timedelta
@@ -190,6 +191,31 @@ def test_team_signup_category_not_available_for_race(test_client, add_test_data)
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 2})
     assert response.status_code == 400
     assert "Category not available for the race" in response.json["message"]
+
+
+def test_team_signup_duplicate_returns_409(test_client, add_test_data):
+    """Duplicate team signup should return deterministic 409."""
+    first = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1})
+    assert first.status_code == 201
+
+    duplicate = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1})
+    assert duplicate.status_code == 409
+    assert duplicate.json == {"message": "Team is already registered for this race"}
+
+
+def test_team_signup_commit_conflict_returns_409(test_client, add_test_data, monkeypatch):
+    """Commit-time unique conflict in signup should return deterministic 409."""
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1})
+    assert response.status_code == 409
+    assert response.json == {"message": "Team is already registered for this race"}
 
 
 # Additional tests for POST /<team_id>/members/
