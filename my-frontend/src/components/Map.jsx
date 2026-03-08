@@ -48,6 +48,8 @@ function Map({ topOffset = 56 }) {
   const geoWatchIdRef = useRef(null);
   const userLocationRef = useRef(null); // Store latest user position for checkpoint logging
   const markersRef = useRef({}); // Track markers by checkpoint ID
+  const hasAutoCenteredRef = useRef(false);
+  const allowAutoCenterRef = useRef(true);
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -98,6 +100,11 @@ function Map({ topOffset = 56 }) {
     logger.info('COMPONENT', 'Initializing map');
     mapInstance.current = L.map(mapRef.current).setView([49.8729317, 14.8981184], 16);
 
+    // Stop auto-centering once the user manually moves/zooms the map.
+    mapInstance.current.on('dragstart zoomstart', () => {
+      allowAutoCenterRef.current = false;
+    });
+
     L.tileLayer(`https://api.mapy.com/v1/maptiles/basic/256/{z}/{x}/{y}?apikey=${API_KEY}`, {
       minZoom: 0,
       maxZoom: 19,
@@ -141,8 +148,11 @@ function Map({ topOffset = 56 }) {
             interactive: false
           }).addTo(mapInstance.current);
         }
-        // center map to first known position
-        mapInstance.current.setView([latitude, longitude], 16);
+        // Center only once automatically. Do not override user's later pan/zoom.
+        if (!hasAutoCenteredRef.current && allowAutoCenterRef.current) {
+          mapInstance.current.setView([latitude, longitude], mapInstance.current.getZoom());
+          hasAutoCenteredRef.current = true;
+        }
       };
 
       const onErr = (error) => {
