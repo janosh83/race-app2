@@ -1,6 +1,7 @@
 import os
 import logging
 from flask import Blueprint, jsonify, current_app, request
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image, CheckpointTranslation
@@ -481,32 +482,57 @@ def delete_checkpoint(checkpoint_id):
       403:
         description: Admins only
     """
-    # delete associated logs and images
+    # Delete DB records first; remove files only after successful commit
+    # to avoid orphaned DB references if commit fails.
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     logs = CheckpointLog.query.filter_by(checkpoint_id=checkpoint_id).all()
 
-    deleted_images = 0
+    image_ids = {log.image_id for log in logs if log.image_id}
+    images_by_id = {}
+    if image_ids:
+        images = Image.query.filter(Image.id.in_(image_ids)).all()
+        images_by_id = {image.id: image for image in images}
+
+    image_filenames_to_delete = set()
     for log in logs:
         if log.image_id:
-            image = Image.query.filter_by(id=log.image_id).first()
+            image = images_by_id.get(log.image_id)
             if image:
-                images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-                image_path = os.path.join(images_folder, image.filename)
-                try:
-                    if os.path.exists(image_path):
-                        os.remove(image_path)
-                        deleted_images += 1
-                except OSError as e:
-                    logger.error(
-                        "Error deleting image file %s for checkpoint %s: %s",
-                        image.filename,
-                        checkpoint_id,
-                        e
-                    )
+                image_filenames_to_delete.add(image.filename)
                 db.session.delete(image)
+            else:
+                logger.warning(
+                    "Missing image %s referenced by checkpoint log %s during checkpoint delete",
+                    log.image_id,
+                    log.id,
+                )
         db.session.delete(log)
 
-    logger.info("Checkpoint %s deleted with %s logs and %s images", checkpoint_id, len(logs), deleted_images)
     db.session.delete(checkpoint)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except SQLAlchemyError as err:
+        db.session.rollback()
+        logger.error("Failed to delete checkpoint %s due to DB error: %s", checkpoint_id, err)
+        return jsonify({"message": "Failed to delete checkpoint."}), 500
+
+    deleted_images = 0
+    images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+    for filename in image_filenames_to_delete:
+        image_path = os.path.join(images_folder, filename)
+        try:
+            if os.path.exists(image_path):
+                os.remove(image_path)
+                deleted_images += 1
+            else:
+                logger.warning("Image file %s missing during checkpoint %s cleanup", filename, checkpoint_id)
+        except OSError as e:
+            logger.error(
+                "Error deleting image file %s for checkpoint %s: %s",
+                filename,
+                checkpoint_id,
+                e
+            )
+
+    logger.info("Checkpoint %s deleted with %s logs and %s images", checkpoint_id, len(logs), deleted_images)
     return jsonify({"message": "Checkpoint and associated logs deleted."}), 200
