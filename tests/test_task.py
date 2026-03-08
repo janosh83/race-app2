@@ -20,15 +20,15 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        
+
         # Create race category
         category1 = RaceCategory(name="Standard", description="Standard category")
         db.session.add(category1)
         db.session.commit()
-        
+
         # Create race
         race1 = Race(
-            name="Spring Race", 
+            name="Spring Race",
             description="24 hours of exploration",
             start_showing_checkpoints_at=some_time_earlier,
             end_showing_checkpoints_at=some_time_later,
@@ -54,7 +54,7 @@ def add_test_data(test_app):
         task1 = Task(title="Task 1", description="First task", numOfPoints=5, race_id=race1.id)
         task2 = Task(title="Task 2", description="Second task", numOfPoints=10, race_id=race1.id)
         task3 = Task(title="Task with logs", description="Has logs", numOfPoints=15, race_id=race1.id)
-        
+
         db.session.add_all([task1, task2, task3])
         db.session.commit()
 
@@ -66,7 +66,7 @@ def add_test_data(test_app):
         # Create task logs (different teams to avoid unique constraint violation)
         log1 = TaskLog(task_id=task3.id, team_id=team1.id, race_id=race1.id, image_id=image1.id)
         log2 = TaskLog(task_id=task3.id, team_id=team2.id, race_id=race1.id, image_id=None)
-        
+
         db.session.add_all([log1, log2])
         db.session.commit()
 
@@ -118,7 +118,7 @@ def test_delete_task_success(test_client, add_test_data, admin_auth_headers):
     response = test_client.delete("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "Task and associated logs deleted."
-    
+
     # Verify task is deleted
     response = test_client.get("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 404
@@ -138,7 +138,7 @@ def test_update_task_success(test_client, add_test_data, admin_auth_headers):
     assert response.json["title"] == "Updated Task 1"
     assert response.json["description"] == "Updated description"
     assert response.json["numOfPoints"] == 15
-    
+
     # Verify the update persisted
     response = test_client.get("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -241,25 +241,25 @@ def test_delete_task_with_logs_and_images(test_client, add_test_data, admin_auth
         # Verify task 3 has logs and images
         logs = TaskLog.query.filter_by(task_id=3).all()
         assert len(logs) == 2
-        
+
         # Verify image exists
         image = Image.query.filter_by(id=1).first()
         assert image is not None
-    
+
     # Delete the task
     response = test_client.delete("/api/task/3/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "Task and associated logs deleted."
-    
+
     with test_client.application.app_context():
         # Verify task is deleted
         task = Task.query.filter_by(id=3).first()
         assert task is None
-        
+
         # Verify logs are deleted
         logs = TaskLog.query.filter_by(task_id=3).all()
         assert len(logs) == 0
-        
+
         # Verify image is deleted from database
         image = Image.query.filter_by(id=1).first()
         assert image is None
@@ -271,11 +271,11 @@ def test_delete_task_without_logs(test_client, add_test_data, admin_auth_headers
         # Verify task 2 has no logs
         logs = TaskLog.query.filter_by(task_id=2).all()
         assert len(logs) == 0
-    
+
     response = test_client.delete("/api/task/2/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["message"] == "Task and associated logs deleted."
-    
+
     with test_client.application.app_context():
         # Verify task is deleted
         task = Task.query.filter_by(id=2).first()
@@ -305,7 +305,7 @@ def test_delete_task_multiple_times(test_client, add_test_data, admin_auth_heade
     # First deletion should succeed
     response = test_client.delete("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 200
-    
+
     # Second deletion should fail with 404
     response = test_client.delete("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 404
@@ -316,7 +316,7 @@ def test_get_deleted_task(test_client, add_test_data, admin_auth_headers):
     # Delete the task
     response = test_client.delete("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 200
-    
+
     # Try to get the deleted task
     response = test_client.get("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 404
