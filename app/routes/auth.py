@@ -4,6 +4,7 @@ from flask import current_app
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
@@ -97,7 +98,12 @@ def register():
     )
     user.set_password(validated['password'])
     db.session.add(user)
-    db.session.commit()
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      logger.warning("Registration conflict for email: %s", validated['email'])
+      return jsonify({"msg": "User already exists"}), 409
     logger.info("New user registered: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({"msg": "User created successfully"}), 201
 
@@ -160,7 +166,12 @@ def register_admin():
     )
     user.set_password(validated['password'])
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning("Admin registration conflict for email: %s", validated['email'])
+        return jsonify({"msg": "User already exists"}), 409
     logger.info("New administrator registered: %s (ID: %s)", user.email, user.id)
     return jsonify({"msg": "Administrator created successfully"}), 201
 
