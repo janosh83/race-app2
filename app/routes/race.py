@@ -12,7 +12,12 @@ from app.routes.race_api.checkpoints import checkpoints_bp
 from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.admin import admin_required
-from app.utils import parse_datetime
+from app.utils import (
+  parse_datetime,
+  resolve_race_category_name as _resolve_race_category_name,
+  resolve_race_greeting as _resolve_race_greeting,
+  resolve_race_name as _resolve_race_name,
+)
 from app.schemas import RaceCreateSchema, RaceUpdateSchema
 from app.schemas import RaceTranslationCreateSchema, RaceTranslationUpdateSchema
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
@@ -64,47 +69,6 @@ def _payment_summary(registration, race):
         ],
     }
     return is_paid, details
-
-# TODO: move all below translation routine to some common package
-def _resolve_race_greeting(race, language=None):
-    greeting = race.race_greeting
-    lang = (language or '').strip().lower()
-    if not lang or lang not in (race.supported_languages or []):
-        return greeting
-
-    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
-    if translation and translation.race_greeting is not None:
-        return translation.race_greeting
-    return greeting
-
-def _resolve_race_name(race, language=None):
-    name = race.name
-    lang = (language or '').strip().lower()
-    if not lang or lang not in (race.supported_languages or []):
-        return name
-
-    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
-    if translation and translation.name:
-        return translation.name
-    return name
-
-def _resolve_race_category_name(race_category, race, language=None):
-    if not race_category:
-        return "N/A"
-
-    name = race_category.name
-    lang = (language or '').strip().lower()
-    if not lang or not race or lang not in (race.supported_languages or []):
-        return name
-
-    translation = next(
-        (item for item in (race_category.translations or []) if item.language == lang),
-        None,
-    )
-    if translation and translation.name:
-        return translation.name
-    return name
-
 
 def _get_registration_admin_recipients():
     """Resolve admin recipients from app config.

@@ -187,3 +187,93 @@ def resolve_language(race, user, requested_language=None, default_language=None)
     if race.default_language:
         return race.default_language
     return default_language or DEFAULT_LANGUAGE
+
+
+def _normalize_lang(language):
+    return (language or "").strip().lower()
+
+
+def get_race_translation_for_language(race, language=None):
+    """Return race translation object for a supported language, or None."""
+    if not race:
+        return None
+
+    lang = _normalize_lang(language)
+    if not lang or lang not in (race.supported_languages or []):
+        return None
+
+    return next((item for item in (race.translations or []) if item.language == lang), None)
+
+
+def resolve_race_name(race, language=None):
+    """Resolve race name in requested language with fallback to base race name."""
+    if not race:
+        return ""
+
+    translation = get_race_translation_for_language(race, language)
+    if translation and translation.name:
+        return translation.name
+    return race.name
+
+
+def resolve_race_greeting(race, language=None):
+    """Resolve race greeting in requested language with fallback to base greeting."""
+    if not race:
+        return ""
+
+    translation = get_race_translation_for_language(race, language)
+    if translation and translation.race_greeting is not None:
+        return translation.race_greeting
+    return race.race_greeting
+
+
+def resolve_race_category_name(race_category, race=None, language=None):
+    """Resolve race category name in requested language with sensible fallbacks."""
+    if not race_category:
+        return "N/A"
+
+    lang = _normalize_lang(language)
+    if not lang or not race or lang not in (race.supported_languages or []):
+        return race_category.name
+
+    translation = next(
+        (item for item in (race_category.translations or []) if item.language == lang),
+        None,
+    )
+    if translation and translation.name:
+        return translation.name
+    return race_category.name
+
+
+def is_supported_race_language(race, language=None):
+    """Check whether a language is supported by the given race."""
+    if not language:
+        return True
+    if not race:
+        return False
+
+    lang = _normalize_lang(language)
+    return lang in (race.supported_languages or [])
+
+
+def find_translation_by_language(translations, language=None):
+    """Return translation object for a language from a translation collection."""
+    lang = _normalize_lang(language)
+    if not lang:
+        return None
+
+    return next((item for item in (translations or []) if item.language == lang), None)
+
+
+def resolve_title_description(base_title, base_description, translation=None):
+    """Resolve title/description pair using translation with base fallback."""
+    if not translation:
+        return base_title, base_description
+
+    title = translation.title if getattr(translation, "title", None) else base_title
+    description = (
+        translation.description
+        if getattr(translation, "description", None) is not None
+        else base_description
+    )
+    return title, description

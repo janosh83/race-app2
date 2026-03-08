@@ -7,6 +7,7 @@ from app import db
 from app.models import Checkpoint, CheckpointLog, Image, CheckpointTranslation
 from app.routes.admin import admin_required
 from app.schemas import CheckpointUpdateSchema, CheckpointTranslationCreateSchema, CheckpointTranslationUpdateSchema
+from app.utils import find_translation_by_language, is_supported_race_language, resolve_title_description
 
 logger = logging.getLogger(__name__)
 
@@ -76,18 +77,12 @@ def get_checkpoint(checkpoint_id):
     """
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     language = request.args.get("lang")
-    title = checkpoint.title
-    description = checkpoint.description
     if language:
-        if language not in (checkpoint.race.supported_languages or []):
+      if not is_supported_race_language(checkpoint.race, language):
             return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
-        translation = CheckpointTranslation.query.filter_by(
-            checkpoint_id=checkpoint_id,
-            language=language,
-        ).first()
-        if translation:
-            title = translation.title
-            description = translation.description
+
+    translation = find_translation_by_language(checkpoint.translations, language)
+    title, description = resolve_title_description(checkpoint.title, checkpoint.description, translation)
     return jsonify({
         "id": checkpoint.id,
         "title": title,

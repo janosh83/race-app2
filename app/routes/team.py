@@ -7,11 +7,16 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Team, Race, User, Registration, RaceCategory, RegistrationPaymentAttempt, RaceTranslation
+from app.models import Team, Race, User, Registration, RaceCategory, RegistrationPaymentAttempt
 from app.routes.admin import admin_required
 from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.stripe_service import create_registration_checkout_session
+from app.utils import (
+  resolve_race_category_name as _resolve_race_category_name,
+  resolve_race_greeting as _resolve_race_greeting,
+  resolve_race_name as _resolve_race_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,47 +56,6 @@ def _sync_registration_payment_state(registration, race):
         registration.payment_confirmed = False
         registration.payment_confirmed_at = None
         registration.stripe_session_id = None
-
-# TODO: move all below translation routine to some common package
-def _resolve_race_greeting(race, language=None):
-    greeting = race.race_greeting
-    lang = (language or '').strip().lower()
-    if not lang or lang not in (race.supported_languages or []):
-        return greeting
-
-    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
-    if translation and translation.race_greeting is not None:
-        return translation.race_greeting
-    return greeting
-
-def _resolve_race_name(race, language=None):
-    name = race.name
-    lang = (language or '').strip().lower()
-    if not lang or lang not in (race.supported_languages or []):
-        return name
-
-    translation = RaceTranslation.query.filter_by(race_id=race.id, language=lang).first()
-    if translation and translation.name:
-        return translation.name
-    return name
-
-
-def _resolve_race_category_name(race_category, race, language=None):
-    if not race_category:
-        return "N/A"
-
-    name = race_category.name
-    lang = (language or '').strip().lower()
-    if not lang or not race or lang not in (race.supported_languages or []):
-        return name
-
-    translation = next(
-        (item for item in (race_category.translations or []) if item.language == lang),
-        None,
-    )
-    if translation and translation.name:
-        return translation.name
-    return name
 
 # get all teams
 # tested by test_teams.py -> test_get_teams

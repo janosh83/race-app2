@@ -8,6 +8,7 @@ from app import db
 from app.models import Task, TaskLog, Image, TaskTranslation
 from app.routes.admin import admin_required
 from app.schemas import TaskUpdateSchema, TaskTranslationCreateSchema, TaskTranslationUpdateSchema
+from app.utils import find_translation_by_language, is_supported_race_language, resolve_title_description
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +68,13 @@ def get_task(task_id):
     """
     task = Task.query.filter_by(id=task_id).first_or_404()
     language = request.args.get("lang")
-    title = task.title
-    description = task.description
     if language:
-        if language not in (task.race.supported_languages or []):
+      if not is_supported_race_language(task.race, language):
             logger.warning("Task retrieval with unsupported language %s for task %s", language, task_id)
             return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
-        translation = TaskTranslation.query.filter_by(task_id=task_id, language=language).first()
-        if translation:
-            title = translation.title
-            description = translation.description
+
+    translation = find_translation_by_language(task.translations, language)
+    title, description = resolve_title_description(task.title, task.description, translation)
     return jsonify({
       "id": task.id,
       "title": title,
