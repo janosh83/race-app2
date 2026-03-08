@@ -1,6 +1,7 @@
 import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 from app.models import Registration, Team, Race, RaceCategory, User, team_members
 from app.routes.admin import admin_required
 from app import db
@@ -113,7 +114,12 @@ def create_user():
     user.set_password(data['password'])
     
     db.session.add(user)
-    db.session.commit()
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      logger.warning("Admin user creation hit unique-email conflict: %s", data['email'])
+      return jsonify({"msg": "User with this email already exists"}), 409
     
     logger.info("Admin created user: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({
@@ -218,7 +224,12 @@ def update_user(user_id):
         user.preferred_language = data['preferred_language']
         updated_fields.append('preferred_language')
 
-    db.session.commit()
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      logger.warning("User %s update hit unique-email conflict", user_id)
+      return jsonify({"msg": "Email already taken"}), 409
     
     logger.info("User %s updated by admin - fields: %s", user_id, ', '.join(updated_fields))
     return jsonify({

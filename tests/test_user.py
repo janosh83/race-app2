@@ -10,6 +10,7 @@ Tests the user endpoints:
 """
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Race, Team, User, RaceCategory, Registration
 from datetime import datetime, timedelta
@@ -389,6 +390,30 @@ def test_create_user_duplicate_email(test_client, add_test_data, admin_auth_head
     assert "already exists" in response.json.get("msg", "").lower()
 
 
+def test_create_user_commit_conflict_returns_409(test_client, admin_auth_headers, monkeypatch):
+    """Create user returns deterministic 409 when commit hits unique-email race."""
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.post(
+        "/api/user/",
+        json={
+            "name": "Race Conflict",
+            "email": "race-conflict@example.com",
+            "password": "password123",
+        },
+        headers=admin_auth_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json == {"msg": "User with this email already exists"}
+
+
 def test_create_user_unauthorized(test_client):
     """Test creating user without authentication returns 401."""
     new_user = {
@@ -484,6 +509,26 @@ def test_update_user_duplicate_email(test_client, add_test_data, admin_auth_head
     response = test_client.put("/api/user/1/", json=update_data, headers=admin_auth_headers)
     assert response.status_code == 409
     assert "already taken" in response.json.get("msg", "").lower()
+
+
+def test_update_user_commit_conflict_returns_409(test_client, add_test_data, admin_auth_headers, monkeypatch):
+    """Update user returns deterministic 409 when commit hits unique-email race."""
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("UPDATE", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.put(
+        "/api/user/1/",
+        json={"email": "new-unique@example.com"},
+        headers=admin_auth_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json == {"msg": "Email already taken"}
 
 
 def test_update_user_not_found(test_client, admin_auth_headers):
