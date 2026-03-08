@@ -347,15 +347,10 @@ def test_delete_registration_race_not_found(test_client, add_test_data, admin_au
     assert response.status_code == 404
 
 
-def test_delete_registration_unauthorized(test_client, add_test_data):
+def test_delete_registration_unauthorized(test_client, add_test_data, admin_auth_headers):
     """Test deleting registration without JWT returns 401."""
     # First, create a registration as admin
-    response = test_client.post("/auth/register/", json={"name": "Admin", "email": "admin@example.com", "password": "password", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
-    admin_token = response.json["access_token"]
-    headers = {"Authorization": f"Bearer {admin_token}"}
-
-    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=headers)
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
 
     # Try to delete without auth

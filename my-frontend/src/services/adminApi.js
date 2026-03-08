@@ -25,6 +25,7 @@ export const adminApi = {
 
   // User management (admin)
   getUsers: () => apiFetch('/api/user/'),
+  registerAdminUser: (payload) => apiFetch('/auth/register-admin/', { method: 'POST', body: payload }),
   createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
   updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
   deleteUser: (userId) => apiFetch(`/api/user/${userId}/`, { method: 'DELETE' }),

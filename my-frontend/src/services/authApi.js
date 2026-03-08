@@ -19,12 +19,16 @@ export const authApi = {
     });
   },
 
-  // Register a new user
-  register: (email, password, name, isAdministrator = false) => {
+  // Register a new user (public endpoint)
+  register: (email, password, name, preferredLanguage) => {
     logger.info('AUTH', 'Registration attempt', { email, name });
+    const body = { email, password, name };
+    if (preferredLanguage) {
+      body.preferred_language = preferredLanguage;
+    }
     return apiFetch('/auth/register/', {
       method: 'POST',
-      body: { email, password, name, is_administrator: isAdministrator },
+      body,
       noAuth: true,
       noRedirectOnAuthFailure: true,
     }).then(result => {
@@ -32,6 +36,25 @@ export const authApi = {
       return result;
     }).catch(err => {
       logger.error('AUTH', 'Registration failed', err.message);
+      throw err;
+    });
+  },
+
+  // Register a new administrator (admin-only endpoint)
+  registerAdmin: (email, password, name, preferredLanguage) => {
+    logger.info('AUTH', 'Admin registration attempt', { email, name });
+    const body = { email, password, name };
+    if (preferredLanguage) {
+      body.preferred_language = preferredLanguage;
+    }
+    return apiFetch('/auth/register-admin/', {
+      method: 'POST',
+      body,
+    }).then(result => {
+      logger.success('AUTH', 'Admin registration successful', { email });
+      return result;
+    }).catch(err => {
+      logger.error('AUTH', 'Admin registration failed', err.message);
       throw err;
     });
   },

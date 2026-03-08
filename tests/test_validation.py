@@ -14,14 +14,19 @@ from app.models import User, Race, RaceCategory, Team, Checkpoint, Task
 
 
 @pytest.fixture
-def admin_token(test_client):
-    """Create an admin user and return their access token"""
-    test_client.post("/auth/register/", json={
-        "name": "Admin",
-        "email": "admin@example.com",
-        "password": "admin123",
-        "is_administrator": True
-    })
+def admin_token(test_client, test_app):
+    """Create an admin user via trusted setup and return their access token."""
+    with test_app.app_context():
+        admin = User.query.filter_by(email="admin@example.com").first()
+        if not admin:
+            admin = User(name="Admin", email="admin@example.com", is_administrator=True)
+            admin.set_password("admin123")
+            db.session.add(admin)
+        else:
+            admin.is_administrator = True
+            admin.set_password("admin123")
+        db.session.commit()
+
     response = test_client.post("/auth/login/", json={
         "email": "admin@example.com",
         "password": "admin123"
@@ -84,8 +89,7 @@ class TestAuthValidation:
         response = test_client.post("/auth/register/", json={
             "name": "Test User",
             "email": "valid@example.com",
-            "password": "password123",
-            "is_administrator": False
+            "password": "password123"
         })
         assert response.status_code == 201
 

@@ -20,7 +20,7 @@ def test_auth_register_with_preferred_language(test_client):
         "preferred_language": "cs"
     })
     assert response.status_code == 201
-    
+
     # Login and verify preferred_language was set
     login_response = test_client.post("/auth/login/", json={
         "email": "test_lang@example.com",
@@ -128,7 +128,7 @@ def test_auth_admin_required(test_client):
     response = test_client.get("/auth/protected/")
     assert response.status_code == 401
 
-    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test", "is_administrator": True})
+    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
     response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
     access_token = response.json["access_token"]
     response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {access_token}"})
@@ -136,8 +136,61 @@ def test_auth_admin_required(test_client):
     assert "Hello, user" in response.json["msg"]
 
     response = test_client.get("/auth/admin/", headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 200
-    assert "Hello, admin " in response.json["msg"]
+    assert response.status_code == 403
+
+
+def test_auth_register_cannot_self_assign_admin(test_client):
+    response = test_client.post(
+        "/auth/register/",
+        json={
+            "name": "test",
+            "email": "noadmin@example.com",
+            "password": "test",
+            "is_administrator": True,
+        },
+    )
+    assert response.status_code == 400
+
+    # Ensure user was not created despite attempted privilege field injection.
+    assert User.query.filter_by(email="noadmin@example.com").first() is None
+
+
+def test_auth_register_admin_requires_admin_role(test_client):
+    # Non-admin user should be rejected from admin registration endpoint.
+    test_client.post("/auth/register/", json={"name": "user", "email": "user@example.com", "password": "test"})
+    login = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "test"})
+    access_token = login.json["access_token"]
+
+    response = test_client.post(
+        "/auth/register-admin/",
+        json={"name": "new admin", "email": "newadmin@example.com", "password": "test"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_auth_register_admin_success(test_client, test_app):
+    with test_app.app_context():
+        admin = User(name="root", email="root@example.com", is_administrator=True)
+        admin.set_password("test")
+        db.session.add(admin)
+        db.session.commit()
+
+    login = test_client.post("/auth/login/", json={"email": "root@example.com", "password": "test"})
+    access_token = login.json["access_token"]
+
+    response = test_client.post(
+        "/auth/register-admin/",
+        json={"name": "second admin", "email": "admin2@example.com", "password": "test", "preferred_language": "cs"},
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert response.status_code == 201
+    assert response.json == {"msg": "Administrator created successfully"}
+
+    created = User.query.filter_by(email="admin2@example.com").first()
+    assert created is not None
+    assert created.is_administrator is True
+    assert created.preferred_language == "cs"
 
 
 def test_request_password_reset_missing_email(test_client):

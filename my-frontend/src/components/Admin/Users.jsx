@@ -54,12 +54,19 @@ export default function Users() {
     }
     setSaving(true);
     try {
-      await adminApi.createUser({
+      const basePayload = {
         name: name.trim(),
         email: email.trim(),
         password: password.trim(),
-        is_administrator: isAdmin,
-      });
+      };
+      if (isAdmin) {
+        await adminApi.registerAdminUser(basePayload);
+      } else {
+        await adminApi.createUser({
+          ...basePayload,
+          is_administrator: false,
+        });
+      }
       setName('');
       setEmail('');
       setPassword('');

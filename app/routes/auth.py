@@ -43,9 +43,6 @@ def register():
               name:
                 type: string
                 example: John Doe
-              is_administrator:
-                type: boolean
-                example: false
               preferred_language:
                 type: string
                 enum: [en, cs, de]
@@ -95,7 +92,7 @@ def register():
     user = User(
         name=validated.get('name', ''),
         email=validated['email'],
-        is_administrator=validated.get('is_administrator', False),
+        is_administrator=False,
         preferred_language=validated.get('preferred_language'),
     )
     user.set_password(validated['password'])
@@ -103,6 +100,69 @@ def register():
     db.session.commit()
     logger.info("New user registered: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({"msg": "User created successfully"}), 201
+
+
+@auth_bp.route('/register-admin/', methods=['POST'])
+@admin_required()
+def register_admin():
+    """
+    Register a new administrator user (admin only).
+    ---
+    tags:
+      - Authentication
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                example: admin@example.com
+              password:
+                type: string
+                example: mypassword
+              name:
+                type: string
+                example: Admin User
+              preferred_language:
+                type: string
+                enum: [en, cs, de]
+                example: en
+            required:
+              - email
+              - password
+    responses:
+      201:
+        description: Administrator created successfully
+      400:
+        description: Invalid request body
+      403:
+        description: Admins only
+      409:
+        description: User already exists
+    """
+    data = request.get_json() or {}
+    validated = AuthRegisterSchema().load(data)
+
+    if User.query.filter_by(email=validated['email']).first():
+        logger.error("Admin registration attempt for existing user: %s", validated['email'])
+        return jsonify({"msg": "User already exists"}), 409
+
+    user = User(
+        name=validated.get('name', ''),
+        email=validated['email'],
+        is_administrator=True,
+        preferred_language=validated.get('preferred_language'),
+    )
+    user.set_password(validated['password'])
+    db.session.add(user)
+    db.session.commit()
+    logger.info("New administrator registered: %s (ID: %s)", user.email, user.id)
+    return jsonify({"msg": "Administrator created successfully"}), 201
 
 # tested by test_auth.py -> test_auth_login
 @auth_bp.route('/login/', methods=['POST'])

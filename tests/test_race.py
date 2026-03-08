@@ -38,6 +38,23 @@ def add_test_data(test_app):
         db.session.add_all([race1, check1, check2, race1_cs])
         db.session.commit()
 
+
+def _admin_token(test_client, email="admin@example.com", password="pass"):
+    with test_client.application.app_context():
+        admin = User.query.filter_by(email=email).first()
+        if not admin:
+            admin = User(name="admin", email=email, is_administrator=True)
+            admin.set_password(password)
+            db.session.add(admin)
+        else:
+            admin.is_administrator = True
+            admin.set_password(password)
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": email, "password": password})
+    assert response.status_code == 200
+    return response.json["access_token"]
+
 def test_get_all_races(test_client, add_test_data):
     """Test endpoint GET /api/race """
     response = test_client.get("/api/race/")
@@ -83,10 +100,7 @@ def test_get_single_race(test_client, add_test_data):
 
 def test_create_race(test_client, add_test_data):
     """Test endpoint POST /api/race """
-    # login as an admin
-    response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client, email="test@example.com", password="test")
 
     now = datetime.now()
     some_time_later = now + timedelta(minutes=10)
@@ -149,10 +163,7 @@ def test_create_race_requires_admin(test_client):
 
 def test_update_race(test_client, add_test_data):
     """Test endpoint PUT /api/race/<race_id>"""
-    # login as admin
-    test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client)
 
     # update race name only
     response = test_client.put("/api/race/1/", json={"name": "Updated Name"},
@@ -191,9 +202,7 @@ def test_update_race(test_client, add_test_data):
 
 def test_update_race_not_found(test_client):
     """Test updating non-existent race returns 404."""
-    test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client)
 
     response = test_client.put("/api/race/999/", json={"name": "Test"},
                               headers={"Authorization": f"Bearer {access_token}"})
@@ -214,10 +223,7 @@ def test_update_race_requires_admin(test_client, add_test_data):
 
 def test_delete_race_success(test_client):
     """Test deleting a race without any dependencies."""
-    # create admin and race
-    test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client)
 
     now = datetime.now()
     later = now + timedelta(hours=1)
@@ -243,9 +249,7 @@ def test_delete_race_success(test_client):
 
 def test_delete_race_with_checkpoints(test_client, add_test_data):
     """Test that race with checkpoints cannot be deleted."""
-    test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client)
 
     # race 1 has checkpoints from fixture
     response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"})
@@ -255,9 +259,7 @@ def test_delete_race_with_checkpoints(test_client, add_test_data):
 
 def test_delete_race_not_found(test_client):
     """Test deleting non-existent race returns 404."""
-    test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-    response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-    access_token = response.json["access_token"]
+    access_token = _admin_token(test_client)
 
     response = test_client.delete("/api/race/999/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 404
@@ -285,10 +287,7 @@ def test_delete_race_with_tasks(test_client, test_app):
     from app.models import Task
 
     with test_app.app_context():
-        # create admin
-        test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-        response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-        access_token = response.json["access_token"]
+        access_token = _admin_token(test_client)
 
         # create a race
         now = datetime.now()
@@ -319,10 +318,7 @@ def test_delete_race_with_registrations(test_client, test_app):
     from app.models import Team, RaceCategory, Registration
 
     with test_app.app_context():
-        # create admin
-        test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-        response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-        access_token = response.json["access_token"]
+        access_token = _admin_token(test_client)
 
         # create a race
         now = datetime.now()
@@ -359,10 +355,7 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
     from app.models import Team, User, Checkpoint
 
     with test_app.app_context():
-        # create admin
-        test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-        response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-        access_token = response.json["access_token"]
+        access_token = _admin_token(test_client)
 
         # create a race
         now = datetime.now()
@@ -404,10 +397,7 @@ def test_delete_race_with_task_logs(test_client, test_app):
     from app.models import Team, User, Task, TaskLog
 
     with test_app.app_context():
-        # create admin
-        test_client.post("/auth/register/", json={"name": "admin", "email": "admin@example.com", "password": "pass", "is_administrator": True})
-        response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "pass"})
-        access_token = response.json["access_token"]
+        access_token = _admin_token(test_client)
 
         # create a race
         now = datetime.now()

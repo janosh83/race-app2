@@ -345,7 +345,6 @@ class AuthRegisterSchema(Schema):
     name = fields.String(load_default="")
     email = fields.Email(required=True)
     password = fields.String(required=True, validate=validate.Length(min=1))
-    is_administrator = fields.Boolean(load_default=False)
     preferred_language = fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES))
 
 
