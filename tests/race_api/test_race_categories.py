@@ -129,6 +129,30 @@ def test_remove_race_category_not_assigned(test_client, add_test_data):
     assert "not assigned" in response.json["message"]
 
 
+def test_remove_race_category_with_existing_registrations_conflict(test_client, add_test_data, test_app):
+    """Test removing category fails when race has registrations in that category."""
+    with test_app.app_context():
+        team = Team(name="Conflict Team")
+        db.session.add(team)
+        db.session.flush()
+        registration = Registration(race_id=1, team_id=team.id, race_category_id=1)
+        db.session.add(registration)
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    response = test_client.delete("/api/race/1/categories/", json={"race_category_id": 1}, headers=headers)
+    assert response.status_code == 409
+    assert "existing registrations" in response.json["message"]
+
+    # Category remains assigned.
+    response = test_client.get("/api/race/1/categories/", headers=headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["id"] == 1
+
+
 def test_remove_race_category_nonexistent_category(test_client, add_test_data):
     """Test removing category with non-existent race_category_id."""
     response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})

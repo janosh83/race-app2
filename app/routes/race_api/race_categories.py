@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 from app.schemas import RaceCategoryAssignSchema
 from app import db
-from app.models import Race, RaceCategory, RaceCategoryTranslation, User
+from app.models import Race, RaceCategory, RaceCategoryTranslation, Registration, User
 from app.utils import resolve_language
 from app.routes.admin import admin_required
 
@@ -222,6 +222,8 @@ def remove_race_category(race_id):
         description: Missing race_category_id
       404:
         description: Race, category not found, or category not assigned to race
+      409:
+        description: Category cannot be removed because registrations exist for this race
       403:
         description: Admins only
     """
@@ -240,6 +242,19 @@ def remove_race_category(race_id):
     if race_category not in race.categories:
         logger.error("Attempt to remove unassigned category %s from race %s", race_category_id, race_id)
         return jsonify({"message": "Category not assigned to this race"}), 404
+
+    # Prevent unassignment that would leave existing registrations in an invalid state.
+    has_registrations = db.session.query(Registration.id).filter_by(
+      race_id=race.id,
+      race_category_id=race_category.id,
+    ).first() is not None
+    if has_registrations:
+      logger.warning(
+        "Cannot remove category %s from race %s because registrations exist",
+        race_category_id,
+        race_id,
+      )
+      return jsonify({"message": "Cannot remove category with existing registrations for this race"}), 409
 
     race.categories.remove(race_category)
     db.session.add(race)
