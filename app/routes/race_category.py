@@ -1,9 +1,10 @@
 import logging
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import RaceCategory, RaceCategoryTranslation
+from app.models import RaceCategory, RaceCategoryTranslation, Registration, race_categories_in_race
 from app.routes.admin import admin_required
 from app.schemas import (
   RaceCategoryCreateSchema,
@@ -169,15 +170,51 @@ def delete_race_category(category_id):
                 msg:
                   type: string
                   example: "Category deleted"
+      409:
+        description: Category is in use (assigned to a race or used by registrations)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Category is assigned to a race and cannot be deleted."
       404:
         description: Category not found
       403:
         description: Admins only
     """
-    # TODO: check if category is used in any race
     category = RaceCategory.query.filter_by(id=category_id).first_or_404()
+
+    is_assigned_to_race = (
+      db.session.query(race_categories_in_race.c.race_id)
+      .filter(race_categories_in_race.c.race_category_id == category_id)
+      .first()
+      is not None
+    )
+    if is_assigned_to_race:
+        return jsonify({"message": "Category is assigned to a race and cannot be deleted."}), 409
+
+    has_registrations = (
+      db.session.query(Registration.id)
+      .filter(Registration.race_category_id == category_id)
+      .first()
+      is not None
+    )
+    if has_registrations:
+        return jsonify({"message": "Category has registrations and cannot be deleted."}), 409
+
     db.session.delete(category)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning(
+          "Race category %s delete blocked by integrity constraints", category_id
+        )
+        return jsonify({"message": "Category is in use and cannot be deleted."}), 409
+
     return jsonify({"msg": "Category deleted"}), 200
 
 
@@ -268,8 +305,29 @@ def create_race_category_translation(category_id):
     responses:
       201:
         description: Translation created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                language:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
       409:
-        description: Translation already exists
+        description: Translation already exists (including concurrent duplicate create)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Translation already exists"
     """
     data = request.get_json(silent=True) or {}
     validated = RaceCategoryTranslationCreateSchema().load(data)
@@ -291,7 +349,17 @@ def create_race_category_translation(category_id):
         description=validated.get("description"),
     )
     db.session.add(translation)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning(
+          "Race category translation already exists for category %s language %s (commit conflict)",
+          category_id,
+          validated["language"],
+        )
+        return jsonify({"message": "Translation already exists"}), 409
+
     logger.info(
         "Race category translation created for category %s language %s", category_id, translation.language
     )
