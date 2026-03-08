@@ -10,7 +10,7 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier, 
+        race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
                      end_showing_checkpoints_at=some_time_earlier, start_logging_at=some_time_later, end_logging_at=some_time_later)
 
         user1 = User(name="User1", email="example1@example.com", is_administrator=True)
@@ -35,7 +35,7 @@ def test_checkpoint(test_client, add_test_data):
     assert response.json["latitude"] == 50.0755
     assert response.json["longitude"] == 14.4378
     assert response.json["numOfPoints"] == 1
-    
+
     response = test_client.get("/api/checkpoint/2/", headers=headers)
     assert response.status_code == 200
     assert response.json["title"] == "Checkpoint 2"
@@ -117,7 +117,7 @@ def test_checkpoint_unauthorized_access(test_client, add_test_data):
     # Try to access without JWT token
     response = test_client.get("/api/checkpoint/1/")
     assert response.status_code == 401
-    
+
     response = test_client.delete("/api/checkpoint/1/")
     assert response.status_code == 401
 
@@ -132,16 +132,16 @@ def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
         user2.set_password("password")
         db.session.add(user2)
         db.session.commit()
-    
+
     # Login as non-admin user
     response = test_client.post("/auth/login/", json={"email": "user2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
-    
+
     # Try to get checkpoint
     response = test_client.get("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 403
     assert response.json["msg"] == "Admins only!"
-    
+
     # Try to delete checkpoint
     response = test_client.delete("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 403
@@ -187,3 +187,23 @@ def test_checkpoint_translation_crud(test_client, add_test_data):
     list_resp = test_client.get("/api/checkpoint/1/translations/", headers=headers)
     assert list_resp.status_code == 200
     assert all(item["language"] != "cs" for item in list_resp.json)
+
+
+def test_checkpoint_translation_duplicate_returns_409(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    first_create = test_client.post(
+        "/api/checkpoint/1/translations/",
+        json={"language": "cs", "title": "Kontrola 1", "description": "Prvni kontrola"},
+        headers=headers,
+    )
+    assert first_create.status_code == 201
+
+    duplicate_create = test_client.post(
+        "/api/checkpoint/1/translations/",
+        json={"language": "cs", "title": "Kontrola 1", "description": "Prvni kontrola"},
+        headers=headers,
+    )
+    assert duplicate_create.status_code == 409
+    assert duplicate_create.json["message"] == "Translation already exists"

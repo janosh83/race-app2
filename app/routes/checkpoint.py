@@ -1,7 +1,7 @@
 import os
 import logging
 from flask import Blueprint, jsonify, current_app, request
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, Image, CheckpointTranslation
@@ -320,7 +320,16 @@ def create_checkpoint_translation(checkpoint_id):
         description=validated.get("description"),
     )
     db.session.add(translation)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        logger.warning(
+          "Checkpoint translation conflict for checkpoint %s language %s",
+          checkpoint_id,
+          validated["language"],
+        )
+        return jsonify({"message": "Translation already exists"}), 409
     logger.info(
         "Checkpoint translation created for checkpoint %s language %s",
         checkpoint_id,
