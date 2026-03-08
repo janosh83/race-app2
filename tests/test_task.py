@@ -265,6 +265,35 @@ def test_delete_task_with_logs_and_images(test_client, add_test_data, admin_auth
         assert image is None
 
 
+def test_delete_task_commit_failure_does_not_remove_files(
+    test_client, add_test_data, admin_auth_headers, monkeypatch, test_app
+):
+    """Task delete must not remove filesystem images when DB commit fails."""
+    removed_paths = []
+
+    monkeypatch.setattr("app.routes.task.os.path.exists", lambda _path: True)
+    monkeypatch.setattr("app.routes.task.os.remove", lambda path: removed_paths.append(path))
+
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("DELETE", {}, Exception("simulated commit failure"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.delete("/api/task/3/", headers=admin_auth_headers)
+    assert response.status_code == 500
+    assert response.json == {"message": "Unable to delete task."}
+    assert removed_paths == []
+
+    with test_app.app_context():
+        task = Task.query.filter_by(id=3).first()
+        assert task is not None
+        image = Image.query.filter_by(id=1).first()
+        assert image is not None
+
+
 def test_delete_task_without_logs(test_client, add_test_data, admin_auth_headers):
     """Test deleting task that has no logs."""
     with test_client.application.app_context():

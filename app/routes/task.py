@@ -2,6 +2,7 @@ import os
 import logging
 from flask import Blueprint, jsonify, current_app, request
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models import Task, TaskLog, Image, TaskTranslation
@@ -433,27 +434,46 @@ def delete_task(task_id):
       403:
         description: Admins only
     """
-    # delete associated logs and images
     task = Task.query.filter_by(id=task_id).first_or_404()
     logs = TaskLog.query.filter_by(task_id=task_id).all()
 
-    deleted_images = 0
+    image_ids = [log.image_id for log in logs if log.image_id]
+    images = (
+      Image.query.filter(Image.id.in_(image_ids)).all()
+      if image_ids
+      else []
+    )
+    images_by_id = {image.id: image for image in images}
+
+    image_paths = []
+    images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+    for image in images:
+      image_paths.append((image.filename, os.path.join(images_folder, image.filename)))
+
     for log in logs:
-        if log.image_id:
-            image = Image.query.filter_by(id=log.image_id).first_or_404()
-            if image:
-                images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-                image_path = os.path.join(images_folder, image.filename)
-                try:
-                    if os.path.exists(image_path):
-                        os.remove(image_path)
-                        deleted_images += 1
-                except OSError as e:
-                    logger.error("Error deleting image file %s for task %s: %s", image.filename, task_id, e)
-                db.session.delete(image)
-        db.session.delete(log)
+      if log.image_id and log.image_id not in images_by_id:
+        logger.warning("Task %s log %s references missing image %s", task_id, log.id, log.image_id)
+      db.session.delete(log)
+
+    for image in images:
+      db.session.delete(image)
+
+    db.session.delete(task)
+    try:
+      db.session.commit()
+    except SQLAlchemyError as err:
+      db.session.rollback()
+      logger.error("Task %s delete failed during DB commit: %s", task_id, err)
+      return jsonify({"message": "Unable to delete task."}), 500
+
+    deleted_images = 0
+    for filename, image_path in image_paths:
+      try:
+        if os.path.exists(image_path):
+          os.remove(image_path)
+          deleted_images += 1
+      except OSError as e:
+        logger.error("Error deleting image file %s for task %s: %s", filename, task_id, e)
 
     logger.info("Task %s deleted with %s logs and %s images", task_id, len(logs), deleted_images)
-    db.session.delete(task)
-    db.session.commit()
     return jsonify({"message": "Task and associated logs deleted."}), 200
