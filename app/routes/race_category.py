@@ -253,8 +253,21 @@ def get_race_category_translations(category_id):
                     type: string
                   description:
                     type: string
+      404:
+        description: Category not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Category not found"
     """
-    category = RaceCategory.query.filter_by(id=category_id).first_or_404()
+    category = RaceCategory.query.filter_by(id=category_id).first()
+    if not category:
+        return jsonify({"message": "Category not found"}), 404
+
     logger.info(
         "Retrieved %d race category translations for category %s", len(category.translations), category_id
     )
@@ -328,7 +341,22 @@ def create_race_category_translation(category_id):
                 message:
                   type: string
                   example: "Translation already exists"
+      404:
+        description: Category not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                  example: "Category not found"
     """
+    category = RaceCategory.query.filter_by(id=category_id).first()
+    if not category:
+        logger.warning("Race category not found for category %s", category_id)
+        return jsonify({"message": "Category not found"}), 404
+
     data = request.get_json(silent=True) or {}
     validated = RaceCategoryTranslationCreateSchema().load(data)
 
@@ -409,8 +437,27 @@ def update_race_category_translation(category_id, language):
       200:
         description: Translation updated
       404:
-        description: Translation not found
+        description: Category or translation not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+            examples:
+              categoryNotFound:
+                value:
+                  message: "Category not found"
+              translationNotFound:
+                value:
+                  message: "Translation not found"
     """
+    category = RaceCategory.query.filter_by(id=category_id).first()
+    if not category:
+        logger.warning("Race category not found for category %s", category_id)
+        return jsonify({"message": "Category not found"}), 404
+
     translation = RaceCategoryTranslation.query.filter_by(
         race_category_id=category_id,
         language=language,
@@ -463,12 +510,35 @@ def delete_race_category_translation(category_id, language):
       200:
         description: Translation deleted
       404:
-        description: Translation not found
+        description: Category or translation not found
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+            examples:
+              categoryNotFound:
+                value:
+                  message: "Category not found"
+              translationNotFound:
+                value:
+                  message: "Translation not found"
     """
+    category = RaceCategory.query.filter_by(id=category_id).first()
+    if not category:
+        logger.warning("Race category not found for category %s", category_id)
+        return jsonify({"message": "Category not found"}), 404
+
     translation = RaceCategoryTranslation.query.filter_by(
         race_category_id=category_id,
         language=language,
-    ).first_or_404()
+    ).first()
+    if not translation:
+        logger.warning("Race category translation not found for category %s language %s", category_id, language)
+        return jsonify({"message": "Translation not found"}), 404
+
     db.session.delete(translation)
     db.session.commit()
     logger.info("Race category translation deleted for category %s language %s", category_id, language)

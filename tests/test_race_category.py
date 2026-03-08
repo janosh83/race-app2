@@ -198,3 +198,52 @@ def test_create_race_category_translation_commit_conflict_returns_409(
 
     assert response.status_code == 409
     assert response.json == {"message": "Translation already exists"}
+
+
+def test_create_translation_nonexistent_category_returns_404(test_client, admin_auth_headers):
+    response = test_client.post(
+        "/api/race-category/999/translations/",
+        json={"language": "cs", "name": "Missing", "description": "Missing"},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+    assert response.json == {"message": "Category not found"}
+
+
+def test_update_translation_nonexistent_category_returns_404(test_client, admin_auth_headers):
+    response = test_client.put(
+        "/api/race-category/999/translations/cs/",
+        json={"name": "Missing"},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+    assert response.json == {"message": "Category not found"}
+
+
+def test_delete_translation_nonexistent_category_returns_404(test_client, admin_auth_headers):
+    response = test_client.delete(
+        "/api/race-category/999/translations/cs/",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+    assert response.json == {"message": "Category not found"}
+
+
+def test_get_translations_nonexistent_category_returns_404_json(test_client, admin_auth_headers):
+    response = test_client.get(
+        "/api/race-category/999/translations/",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+    assert response.json == {"message": "Category not found"}
+
+
+def test_delete_translation_nonexistent_translation_returns_404_json(
+    test_client, add_test_data, admin_auth_headers
+):
+    response = test_client.delete(
+        "/api/race-category/1/translations/de/",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 404
+    assert response.json == {"message": "Translation not found"}
