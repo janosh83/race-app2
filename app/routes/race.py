@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from marshmallow import ValidationError
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Race, CheckpointLog, TaskLog, User, RaceCategory
@@ -958,7 +959,29 @@ def stripe_registration_webhook():
 
     if registration.payment_confirmed:
         registration.email_sent = email_sent_for_all and bool(team and team.members)
-    db.session.commit()
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      existing_attempt = RegistrationPaymentAttempt.query.filter_by(stripe_session_id=session_id).first()
+      latest_registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+
+      if existing_attempt or (latest_registration and latest_registration.payment_confirmed):
+        logger.info(
+          "Stripe webhook commit conflict treated as duplicate for race %s team %s session %s",
+          race_id,
+          team_id,
+          session_id,
+        )
+        return jsonify({"message": "Payment already confirmed."}), 200
+
+      logger.warning(
+        "Stripe webhook commit conflict ignored without confirmed state for race %s team %s session %s",
+        race_id,
+        team_id,
+        session_id,
+      )
+      return jsonify({"message": "Event ignored"}), 200
 
     logger.info(
         "Stripe payment confirmed for race %s team %s session %s",

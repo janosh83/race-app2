@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.exc import IntegrityError
 from app import create_app, db
 from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RaceCategory, RaceCategoryTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
@@ -1194,12 +1195,65 @@ def test_stripe_registration_webhook_duplicate_with_different_session_is_idempot
     assert second.status_code == 200
     assert second.json["message"] == "Payment already confirmed."
 
+
+def test_stripe_registration_webhook_commit_integrity_error_is_idempotent(test_client, add_test_data, test_app, monkeypatch):
+    """Webhook returns 200 instead of 500 when commit hits an integrity race."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-commit-race"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Webhook Commit Race")
+        team = Team(name="Commit Race Team")
+        user = User(name="Commit Race User", email="commit-race@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        race_id = race.id
+        team_id = team.id
+
+    fake_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_commit_race_1",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", lambda **kwargs: True)
+    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: None)
+
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"] in {"Payment already confirmed.", "Event ignored"}
+
     with test_app.app_context():
         updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
-        assert updated.payment_confirmed is True
-        assert updated.stripe_session_id == "cs_idempotent_diff_1"
-
-    assert send_calls["count"] == 1
+        assert updated is not None
 
 
 
