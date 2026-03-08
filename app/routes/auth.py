@@ -403,10 +403,19 @@ def refresh():
         description: Missing or invalid refresh token
     """
     user_id = get_jwt_identity()
-    # Look up current admin flag to keep claims in sync
+    try:
+        user_id_int = int(user_id)
+    except (TypeError, ValueError):
+        logger.warning("Refresh token has invalid subject: %s", user_id)
+        return jsonify({"msg": "Invalid refresh token subject"}), 401
 
-    user = User.query.filter_by(id=int(user_id)).first()
-    is_admin = bool(user.is_administrator) if user else False
+    # Look up current admin flag to keep claims in sync and ensure user still exists.
+    user = User.query.filter_by(id=user_id_int).first()
+    if not user:
+        logger.warning("Refresh denied: user %s not found", user_id)
+        return jsonify({"msg": "User not found"}), 401
+
+    is_admin = bool(user.is_administrator)
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
     return jsonify({"access_token": new_access}), 200
 

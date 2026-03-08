@@ -49,6 +49,35 @@ def test_auth_login(test_client):
     assert "preferred_language" in response.json["user"]
 
 
+def test_auth_refresh_success(test_client):
+    test_client.post("/auth/register/", json={"name": "refresh", "email": "refresh@example.com", "password": "test"})
+    login = test_client.post("/auth/login/", json={"email": "refresh@example.com", "password": "test"})
+    assert login.status_code == 200
+
+    refresh_token = login.json["refresh_token"]
+    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {refresh_token}"})
+    assert response.status_code == 200
+    assert "access_token" in response.json
+
+
+def test_auth_refresh_deleted_user_returns_401(test_client, test_app):
+    test_client.post("/auth/register/", json={"name": "refresh2", "email": "refresh2@example.com", "password": "test"})
+    login = test_client.post("/auth/login/", json={"email": "refresh2@example.com", "password": "test"})
+    assert login.status_code == 200
+
+    refresh_token = login.json["refresh_token"]
+
+    with test_app.app_context():
+        user = User.query.filter_by(email="refresh2@example.com").first()
+        assert user is not None
+        db.session.delete(user)
+        db.session.commit()
+
+    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {refresh_token}"})
+    assert response.status_code == 401
+    assert response.json["msg"] == "User not found"
+
+
 def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_app):
     """Login payload should include only payment-confirmed signed races."""
     with test_app.app_context():
