@@ -27,6 +27,12 @@ const getMapUploadErrorMessage = (t, err) => {
 
 function Map({ topOffset = 56 }) {
   const { t } = useTranslation();
+  const getViewportHeight = () => {
+    if (typeof window === 'undefined') return 0;
+    return Math.round(window.visualViewport?.height ?? window.innerHeight);
+  };
+
+  const [viewportHeight, setViewportHeight] = useState(getViewportHeight);
   // token expiry watcher (redirect to login when token expires)
   useEffect(() => {
     const check = () => {
@@ -60,6 +66,37 @@ function Map({ topOffset = 56 }) {
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
   const apiUrl = import.meta.env.VITE_API_URL;
+  const mapHeight = Math.max(0, viewportHeight - topOffset);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    let resizeTimeoutId = null;
+
+    const updateViewportHeight = () => {
+      if (resizeTimeoutId) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+
+      // Debounce bursty iOS viewport resize events during pinch/zoom.
+      resizeTimeoutId = window.setTimeout(() => {
+        setViewportHeight(getViewportHeight());
+      }, 120);
+    };
+
+    setViewportHeight(getViewportHeight());
+    window.addEventListener('resize', updateViewportHeight);
+    window.addEventListener('orientationchange', updateViewportHeight);
+    window.visualViewport?.addEventListener('resize', updateViewportHeight);
+
+    return () => {
+      if (resizeTimeoutId) {
+        window.clearTimeout(resizeTimeoutId);
+      }
+      window.removeEventListener('resize', updateViewportHeight);
+      window.removeEventListener('orientationchange', updateViewportHeight);
+      window.visualViewport?.removeEventListener('resize', updateViewportHeight);
+    };
+  }, []);
 
   // Get active race and team from TimeContext
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
@@ -191,6 +228,16 @@ function Map({ topOffset = 56 }) {
       }
     };
   }, [API_KEY]);
+
+  useEffect(() => {
+    if (!mapInstance.current) return;
+
+    const rafId = window.requestAnimationFrame(() => {
+      mapInstance.current?.invalidateSize(false);
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [mapHeight]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
   const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
@@ -597,7 +644,7 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
-      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, right: 0, bottom: 0, zIndex: 1 }}>
+      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, right: 0, height: `${mapHeight}px`, zIndex: 1 }}>
         <div
           ref={mapRef}
           style={{ height: '100%', width: '100%' }}
