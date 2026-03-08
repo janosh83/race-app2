@@ -777,6 +777,39 @@ def test_create_checkout_by_registration_slug_missing_stripe_config(test_client,
     assert "Payment provider is not configured" in response.json["message"]
 
 
+def test_create_checkout_by_registration_slug_invalid_members_count_returns_400(test_client, add_test_data, test_app):
+    """Checkout endpoint rejects non-integer members_count with deterministic 400."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "invalid-members-count"
+        race.registration_enabled = True
+        race.allow_team_registration = True
+        race.allow_individual_registration = False
+
+        category = RaceCategory(name="Teams")
+        team = Team(name="Bad Members Count Team")
+        db.session.add_all([category, team])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        team_id = team.id
+
+    response = test_client.post(
+        "/api/race/registration/invalid-members-count/checkout/",
+        json={
+            "team_name": "Bad Members Count Team",
+            "team_id": team_id,
+            "mode": "team",
+            "members_count": "abc",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json == {"message": "members_count must be an integer."}
+
+
 def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_test_data, test_app, monkeypatch):
     """Stripe webhook marks registration as paid and sets session id."""
     with test_app.app_context():

@@ -647,7 +647,14 @@ def create_checkout_by_registration_slug(registration_slug):
     team_id = payload.get('team_id')
     team_name = (payload.get('team_name') or '').strip()
     mode = payload.get('mode') or ('team' if race.allow_team_registration else 'individual')
-    members_count = int(payload.get('members_count') or 1)
+    members_count_raw = payload.get('members_count')
+    if members_count_raw in (None, ''):
+        members_count = 1
+    else:
+        try:
+            members_count = int(members_count_raw)
+        except (TypeError, ValueError):
+            return jsonify({"message": "members_count must be an integer."}), 400
 
     if not team_id:
         return jsonify({"message": "team_id is required."}), 400
