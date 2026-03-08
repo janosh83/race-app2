@@ -7,6 +7,7 @@ Tests the admin-only task endpoints:
 """
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Race, Task, TaskLog, Image, Team, Registration, RaceCategory
 from datetime import datetime, timedelta
@@ -210,6 +211,28 @@ def test_task_translation_crud(test_client, add_test_data, admin_auth_headers):
     list_resp = test_client.get("/api/task/1/translations/", headers=admin_auth_headers)
     assert list_resp.status_code == 200
     assert all(item["language"] != "cs" for item in list_resp.json)
+
+
+def test_create_task_translation_commit_conflict_returns_409(
+    test_client, add_test_data, admin_auth_headers, monkeypatch
+):
+    """Create task translation returns deterministic 409 when commit hits unique race."""
+    original_commit = db.session.commit
+
+    def fail_once_then_restore():
+        monkeypatch.setattr(db.session, "commit", original_commit)
+        raise IntegrityError("INSERT", {}, Exception("duplicate key"))
+
+    monkeypatch.setattr(db.session, "commit", fail_once_then_restore)
+
+    response = test_client.post(
+        "/api/task/1/translations/",
+        json={"language": "de", "title": "Aufgabe 1", "description": "Erste Aufgabe"},
+        headers=admin_auth_headers,
+    )
+
+    assert response.status_code == 409
+    assert response.json == {"message": "Translation already exists"}
 
 
 def test_delete_task_with_logs_and_images(test_client, add_test_data, admin_auth_headers):

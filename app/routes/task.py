@@ -1,6 +1,7 @@
 import os
 import logging
 from flask import Blueprint, jsonify, current_app, request
+from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Task, TaskLog, Image, TaskTranslation
@@ -274,7 +275,17 @@ def create_task_translation(task_id):
         description=validated.get("description"),
     )
     db.session.add(translation)
-    db.session.commit()
+    try:
+      db.session.commit()
+    except IntegrityError:
+      db.session.rollback()
+      logger.warning(
+        "Task translation already exists for task %s language %s (commit conflict)",
+        task_id,
+        validated["language"],
+      )
+      return jsonify({"message": "Translation already exists"}), 409
+
     logger.info("Task translation created for task %s language %s", task_id, translation.language)
     return jsonify({
         "id": translation.id,
