@@ -76,17 +76,17 @@ def add_race_category(race_id):
     race_category = RaceCategory.query.filter_by(id=validated_data["race_category_id"]).first_or_404()
 
     if race_category in race.categories:
-      logger.info("Category %s already assigned to race %s", race_category.id, race_id)
-      return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
+        logger.info("Category %s already assigned to race %s", race_category.id, race_id)
+        return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
 
     race.categories.append(race_category)
     db.session.add(race)
     try:
-      db.session.commit()
+        db.session.commit()
     except IntegrityError:
-      db.session.rollback()
-      logger.warning("Race category assignment conflict for race %s and category %s", race_id, race_category.id)
-      return jsonify({"message": "Category already assigned to this race"}), 409
+        db.session.rollback()
+        logger.warning("Race category assignment conflict for race %s and category %s", race_id, race_category.id)
+        return jsonify({"message": "Category already assigned to this race"}), 409
 
     logger.info("Category %s (%s) added to race %s", race_category.id, race_category.name, race_id)
     return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 201
@@ -249,12 +249,12 @@ def remove_race_category(race_id):
       race_category_id=race_category.id,
     ).first() is not None
     if has_registrations:
-      logger.warning(
-        "Cannot remove category %s from race %s because registrations exist",
-        race_category_id,
-        race_id,
-      )
-      return jsonify({"message": "Cannot remove category with existing registrations for this race"}), 409
+        logger.warning(
+          "Cannot remove category %s from race %s because registrations exist",
+          race_category_id,
+          race_id,
+        )
+        return jsonify({"message": "Cannot remove category with existing registrations for this race"}), 409
 
     race.categories.remove(race_category)
     db.session.add(race)
