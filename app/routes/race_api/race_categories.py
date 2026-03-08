@@ -88,8 +88,8 @@ def add_race_category(race_id):
     ).first() is not None
 
     if category_is_assigned:
-      logger.info("Category %s already assigned to race %s", race_category.id, race_id)
-      return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
+        logger.info("Category %s already assigned to race %s", race_category.id, race_id)
+        return jsonify({"race_id": race.id, "race_category_id": race_category.id}), 200
 
     race.categories.append(race_category)
     db.session.add(race)

@@ -548,15 +548,15 @@ def get_race_by_registration_slug(registration_slug):
     description = race.description
     race_greeting = race.race_greeting
     if language and language in (race.supported_languages or []):
-      translation = RaceTranslation.query.filter_by(
-        race_id=race.id,
-        language=language,
-      ).first()
-      if translation:
-        name = translation.name
-        description = translation.description
-        if translation.race_greeting is not None:
-          race_greeting = translation.race_greeting
+        translation = RaceTranslation.query.filter_by(
+            race_id=race.id,
+            language=language,
+        ).first()
+        if translation:
+            name = translation.name
+            description = translation.description
+            if translation.race_greeting is not None:
+                race_greeting = translation.race_greeting
 
     categories = []
     for category in race.categories:
