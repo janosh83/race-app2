@@ -637,7 +637,7 @@ def test_create_checkout_by_registration_slug_success(test_client, add_test_data
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_123",
         }
 
-    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+    monkeypatch.setattr("app.routes.race_api.registration.create_registration_checkout_session", fake_checkout)
 
     response = test_client.post(
         "/api/race/registration/jarni-jizda-2026/checkout/",
@@ -724,7 +724,7 @@ def test_create_checkout_by_registration_slug_individual_role_pricing(test_clien
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_role_123",
         }
 
-    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+    monkeypatch.setattr("app.routes.race_api.registration.create_registration_checkout_session", fake_checkout)
 
     response = test_client.post(
         "/api/race/registration/individual-role-race/checkout/",
@@ -763,7 +763,7 @@ def test_create_checkout_by_registration_slug_missing_stripe_config(test_client,
     def fake_checkout(**kwargs):
         raise ValueError("Stripe is not configured")
 
-    monkeypatch.setattr("app.routes.race.create_registration_checkout_session", fake_checkout)
+    monkeypatch.setattr("app.routes.race_api.registration.create_registration_checkout_session", fake_checkout)
 
     response = test_client.post(
         "/api/race/registration/stripe-missing/checkout/",
@@ -874,9 +874,9 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         captured_kwargs.append(kwargs)
         return True
 
-    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
-    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race_api.registration.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_email)
 
     response = test_client.post(
         "/api/race/registration/stripe/webhook/",
@@ -951,10 +951,10 @@ def test_stripe_registration_webhook_sends_admin_notification_when_configured(te
         admin_calls.append(kwargs)
         return True
 
-    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
-    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_member_email)
-    monkeypatch.setattr("app.routes.race.EmailService.send_admin_registration_completed_email", fake_send_admin_email)
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race_api.registration.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_member_email)
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_admin_registration_completed_email", fake_send_admin_email)
 
     with test_app.app_context():
         test_app.config["REGISTRATION_ADMIN_EMAILS"] = ["admin1@example.com", "admin2@example.com"]
@@ -1024,7 +1024,7 @@ def test_get_registration_payment_status_by_slug_requires_team_id(test_client, a
 def test_stripe_registration_webhook_requires_configuration(test_client, add_test_data, monkeypatch):
     """Webhook endpoint returns 503 when stripe webhook is not configured."""
     monkeypatch.setattr(
-        "app.routes.race.construct_stripe_event",
+        "app.routes.race_api.registration.construct_stripe_event",
         lambda **kwargs: (_ for _ in ()).throw(ValueError("Stripe webhook is not configured")),
     )
 
@@ -1041,7 +1041,7 @@ def test_stripe_registration_webhook_requires_configuration(test_client, add_tes
 def test_stripe_registration_webhook_rejects_invalid_signature(test_client, add_test_data, monkeypatch):
     """Webhook endpoint returns 400 when signature validation fails."""
     monkeypatch.setattr(
-        "app.routes.race.construct_stripe_event",
+        "app.routes.race_api.registration.construct_stripe_event",
         lambda **kwargs: (_ for _ in ()).throw(TypeError("Signature verification failed")),
     )
 
@@ -1095,8 +1095,8 @@ def test_stripe_registration_webhook_duplicate_event_is_idempotent(test_client, 
         send_calls["count"] += 1
         return True
 
-    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_email)
 
     first = test_client.post(
         "/api/race/registration/stripe/webhook/",
@@ -1177,8 +1177,8 @@ def test_stripe_registration_webhook_duplicate_with_different_session_is_idempot
         send_calls["count"] += 1
         return True
 
-    monkeypatch.setattr("app.routes.race.construct_stripe_event", fake_construct_event)
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", fake_send_email)
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", fake_construct_event)
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_email)
 
     first = test_client.post(
         "/api/race/registration/stripe/webhook/",
@@ -1230,9 +1230,9 @@ def test_stripe_registration_webhook_commit_integrity_error_is_idempotent(test_c
         },
     }
 
-    monkeypatch.setattr("app.routes.race.construct_stripe_event", lambda **kwargs: fake_event)
-    monkeypatch.setattr("app.routes.race.EmailService.send_registration_confirmation_email", lambda **kwargs: True)
-    monkeypatch.setattr("app.routes.race.get_checkout_receipt_url", lambda **kwargs: None)
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", lambda **kwargs: True)
+    monkeypatch.setattr("app.routes.race_api.registration.get_checkout_receipt_url", lambda **kwargs: None)
 
     original_commit = db.session.commit
 

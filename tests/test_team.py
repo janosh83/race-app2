@@ -556,6 +556,11 @@ def test_send_registration_emails_success(test_client, add_test_data, admin_auth
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
 
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        Registration.query.filter_by(race_id=1, team_id=2).first().payment_confirmed = True
+        db.session.commit()
+
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -587,6 +592,10 @@ def test_send_registration_emails_teams_without_members(test_client, add_test_da
     # Register team without members
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
+
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        db.session.commit()
 
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
@@ -621,6 +630,10 @@ def test_send_registration_emails_partial_failure(test_client, add_test_data, ad
     # Register team to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
+
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        db.session.commit()
 
     # Send emails
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
@@ -665,6 +678,11 @@ def test_send_registration_emails_only_unsent(test_client, add_test_data, admin_
     response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
 
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        Registration.query.filter_by(race_id=1, team_id=2).first().payment_confirmed = True
+        db.session.commit()
+
     # Send emails first time
     response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -692,6 +710,10 @@ def test_send_registration_emails_sets_reset_token(test_client, add_test_data, a
     # Register team to race
     response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
+
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        db.session.commit()
 
     # Verify user has no reset token initially
     from app.models import User
@@ -738,7 +760,7 @@ def test_retry_registration_payment_creates_pending_attempt(test_client, add_tes
     assert response.status_code == 201
 
     monkeypatch.setattr(
-        "app.routes.team.create_registration_checkout_session",
+        "app.routes.team_payment.create_registration_checkout_session",
         lambda **kwargs: {
             "session_id": "cs_retry_driver_1",
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_retry_driver_1",

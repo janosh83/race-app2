@@ -69,6 +69,8 @@ def get_checkpoints(race_id):
           type: string
         required: false
         description: Optional language code for translated fields
+    security:
+      - BearerAuth: []
     responses:
       200:
         description: A list of checkpoints (translated when available)
@@ -91,6 +93,8 @@ def get_checkpoints(race_id):
                     type: string
                   numOfPoints:
                     type: integer
+      404:
+        description: Race or user not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
@@ -249,7 +253,7 @@ def create_checkpoint(race_id):
                       numOfPoints:
                         type: integer
       400:
-        description: Invalid input or missing required fields
+        description: Invalid input, missing JSON body, or validation errors
         content:
           application/json:
             schema:
@@ -257,7 +261,12 @@ def create_checkpoint(race_id):
               properties:
                 message:
                   type: string
-                  example: "Missing required field: title or name"
+                  example: "Invalid or missing JSON body"
+                errors:
+                  type: object
+                  example:
+                    title:
+                      - Missing data for required field.
       404:
         description: Race not found
         content:
@@ -322,6 +331,7 @@ def create_checkpoint(race_id):
     return jsonify(result), 201
 
 # tested by test_races.py -> test_get_race_checkpoints
+# Note, right now it is not used in frontend, but it is still useful for testing and future-proofing for potential use of checkpoint translations in the UI.
 # TODO: return path to image
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 @jwt_required()
@@ -350,6 +360,8 @@ def get_checkpoint(race_id, checkpoint_id):
           type: string
         required: false
         description: Optional language code for translated fields
+    security:
+      - BearerAuth: []
     responses:
       200:
         description: Checkpoint details (translated when available)
@@ -371,9 +383,10 @@ def get_checkpoint(race_id, checkpoint_id):
                 numOfPoints:
                   type: integer
       404:
-        description: Checkpoint not found
+        description: Race, user, or checkpoint not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
+    # FIXME: there is missing if user is registred to the race and his registration is confirmed
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
@@ -410,6 +423,8 @@ def log_visit(race_id):
           type: integer
         required: true
         description: ID of the race
+    security:
+      - BearerAuth: []
     requestBody:
       required: true
       content:
@@ -457,7 +472,7 @@ def log_visit(race_id):
                   type: integer
                   nullable: true
       403:
-        description: Unauthorized access
+        description: Unauthorized access or logging window closed for non-admin users
         content:
           application/json:
             schema:
@@ -466,8 +481,23 @@ def log_visit(race_id):
                 message:
                   type: string
                   example: You are not authorized to log this visit.
+      400:
+        description: Invalid payload or invalid image upload
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                errors:
+                  type: object
+                message:
+                  type: string
       404:
-        description: Race or team not found
+        description: Race, user, registration, or checkpoint not found
+      409:
+        description: Duplicate checkpoint log for the same team and checkpoint
+      413:
+        description: Uploaded image exceeds configured size limit
     """
     # Accept both JSON and multipart/form-data
     if request.content_type and request.content_type.startswith('multipart/form-data'):
@@ -677,6 +707,8 @@ def unlog_visit(race_id):
           type: integer
         required: true
         description: ID of the race
+    security:
+      - BearerAuth: []
     requestBody:
       required: true
       content:
@@ -702,7 +734,7 @@ def unlog_visit(race_id):
                   type: string
                   example: Log deleted successfully.
       404:
-        description: Log not found
+        description: Log, race, user, or registration not found
         content:
           application/json:
             schema:
@@ -712,7 +744,7 @@ def unlog_visit(race_id):
                   type: string
                   example: Log not found.
       403:
-        description: Unauthorized access
+        description: Unauthorized access or logging window closed for non-admin users
         content:
           application/json:
             schema:
@@ -721,6 +753,15 @@ def unlog_visit(race_id):
                 message:
                   type: string
                   example: You are not authorized to delete this visit.
+      400:
+        description: Invalid request payload
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                errors:
+                  type: object
     """
     raw_data = request.get_json(silent=True) or {}
     try:
@@ -847,8 +888,13 @@ def get_checkpoints_with_status(race_id, team_id):
                     type: number
                   longitude:
                     type: number
+                  numOfPoints:
+                    type: integer
                   visited:
                     type: boolean
+                  image_filename:
+                    type: string
+                    nullable: true
       403:
         description: Unauthorized
         content:
@@ -859,6 +905,8 @@ def get_checkpoints_with_status(race_id, team_id):
                 msg:
                   type: string
                   example: Unauthorized
+      404:
+        description: Race or user not found
     """
 
     # Check if the user is authorized to view this team's data

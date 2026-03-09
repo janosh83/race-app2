@@ -209,3 +209,28 @@ def test_get_race_results_includes_category(test_client, add_test_data, admin_au
         assert team_result["category"] == "Kola"
         assert "team" in team_result
         assert "team_id" in team_result
+
+
+def test_get_race_results_excludes_unpaid_registrations(test_client, add_test_data, admin_auth_headers, test_app):
+    """Teams without confirmed payment must not appear in race results."""
+    with test_app.app_context():
+        category = RaceCategory.query.filter_by(name="Kola").first()
+        unpaid_team = Team(name="Nezaplaceni")
+        db.session.add(unpaid_team)
+        db.session.flush()
+        unpaid_team_id = unpaid_team.id
+
+        unpaid_registration = Registration(
+            race_id=1,
+            team_id=unpaid_team.id,
+            race_category_id=category.id,
+            payment_confirmed=False,
+        )
+        db.session.add(unpaid_registration)
+        db.session.commit()
+
+    resp = test_client.get("/api/race/1/results/", headers=admin_auth_headers)
+    assert resp.status_code == 200
+
+    team_ids = {row["team_id"] for row in resp.json}
+    assert unpaid_team_id not in team_ids

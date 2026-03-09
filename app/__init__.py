@@ -271,6 +271,7 @@ def create_app(config_class=None):
     from app.routes.race_category import race_category_bp
     from app.routes.task import task_bp
     from app.routes.team import team_bp
+    from app.routes.team_payment import team_payment_bp
     from app.routes.user import user_bp
 
     # blueprint registration
@@ -280,6 +281,7 @@ def create_app(config_class=None):
     app.register_blueprint(race_category_bp, url_prefix="/api/race-category")
     app.register_blueprint(task_bp, url_prefix="/api/task")
     app.register_blueprint(team_bp, url_prefix="/api/team")
+    app.register_blueprint(team_payment_bp, url_prefix="/api/team")
     app.register_blueprint(user_bp, url_prefix="/api/user")
 
     @app.errorhandler(ValidationError)

@@ -99,11 +99,11 @@ def register():
     user.set_password(validated['password'])
     db.session.add(user)
     try:
-      db.session.commit()
+        db.session.commit()
     except IntegrityError:
-      db.session.rollback()
-      logger.warning("Registration conflict for email: %s", validated['email'])
-      return jsonify({"msg": "User already exists"}), 409
+        db.session.rollback()
+        logger.warning("Registration conflict for email: %s", validated['email'])
+        return jsonify({"msg": "User already exists"}), 409
     logger.info("New user registered: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({"msg": "User created successfully"}), 201
 

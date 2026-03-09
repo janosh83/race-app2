@@ -189,6 +189,11 @@ def resolve_language(race, user, requested_language=None, default_language=None)
     return default_language or DEFAULT_LANGUAGE
 
 
+def registration_mode(race):
+    """Return race registration mode as 'team' or 'individual'."""
+    return 'team' if race and race.allow_team_registration else 'individual'
+
+
 def _normalize_lang(language):
     return (language or "").strip().lower()
 

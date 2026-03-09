@@ -69,7 +69,7 @@ def get_task(task_id):
     task = Task.query.filter_by(id=task_id).first_or_404()
     language = request.args.get("lang")
     if language:
-      if not is_supported_race_language(task.race, language):
+        if not is_supported_race_language(task.race, language):
             logger.warning("Task retrieval with unsupported language %s for task %s", language, task_id)
             return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
@@ -275,15 +275,15 @@ def create_task_translation(task_id):
     )
     db.session.add(translation)
     try:
-      db.session.commit()
+        db.session.commit()
     except IntegrityError:
-      db.session.rollback()
-      logger.warning(
-        "Task translation already exists for task %s language %s (commit conflict)",
-        task_id,
-        validated["language"],
-      )
-      return jsonify({"message": "Translation already exists"}), 409
+        db.session.rollback()
+        logger.warning(
+          "Task translation already exists for task %s language %s (commit conflict)",
+          task_id,
+          validated["language"],
+        )
+        return jsonify({"message": "Translation already exists"}), 409
 
     logger.info("Task translation created for task %s language %s", task_id, translation.language)
     return jsonify({
@@ -446,32 +446,32 @@ def delete_task(task_id):
     image_paths = []
     images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
     for image in images:
-      image_paths.append((image.filename, os.path.join(images_folder, image.filename)))
+        image_paths.append((image.filename, os.path.join(images_folder, image.filename)))
 
     for log in logs:
-      if log.image_id and log.image_id not in images_by_id:
-        logger.warning("Task %s log %s references missing image %s", task_id, log.id, log.image_id)
-      db.session.delete(log)
+        if log.image_id and log.image_id not in images_by_id:
+            logger.warning("Task %s log %s references missing image %s", task_id, log.id, log.image_id)
+        db.session.delete(log)
 
     for image in images:
-      db.session.delete(image)
+        db.session.delete(image)
 
     db.session.delete(task)
     try:
-      db.session.commit()
+        db.session.commit()
     except SQLAlchemyError as err:
-      db.session.rollback()
-      logger.error("Task %s delete failed during DB commit: %s", task_id, err)
-      return jsonify({"message": "Unable to delete task."}), 500
+        db.session.rollback()
+        logger.error("Task %s delete failed during DB commit: %s", task_id, err)
+        return jsonify({"message": "Unable to delete task."}), 500
 
     deleted_images = 0
     for filename, image_path in image_paths:
-      try:
-        if os.path.exists(image_path):
-          os.remove(image_path)
-          deleted_images += 1
-      except OSError as e:
-        logger.error("Error deleting image file %s for task %s: %s", filename, task_id, e)
+        try:
+            if os.path.exists(image_path):
+                os.remove(image_path)
+                deleted_images += 1
+        except OSError as e:
+            logger.error("Error deleting image file %s for task %s: %s", filename, task_id, e)
 
     logger.info("Task %s deleted with %s logs and %s images", task_id, len(logs), deleted_images)
     return jsonify({"message": "Task and associated logs deleted."}), 200

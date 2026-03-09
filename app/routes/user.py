@@ -102,7 +102,7 @@ def create_user():
     data = UserCreateSchema().load(payload)
 
     if User.query.filter_by(email=data['email']).first():
-        logger.error("Admin user creation attempt for existing email: %s", data['email'])
+        logger.warning("Admin user creation attempt for existing email: %s", data['email'])
         return jsonify({"msg": "User with this email already exists"}), 409
 
     user = User(
@@ -112,15 +112,15 @@ def create_user():
         preferred_language=data.get('preferred_language')
     )
     user.set_password(data['password'])
-    
+
     db.session.add(user)
     try:
-      db.session.commit()
+        db.session.commit()
     except IntegrityError:
-      db.session.rollback()
-      logger.warning("Admin user creation hit unique-email conflict: %s", data['email'])
-      return jsonify({"msg": "User with this email already exists"}), 409
-    
+        db.session.rollback()
+        logger.warning("Admin user creation hit unique-email conflict: %s", data['email'])
+        return jsonify({"msg": "User with this email already exists"}), 409
+
     logger.info("Admin created user: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({
         "id": user.id,
@@ -195,12 +195,12 @@ def update_user(user_id):
     user = User.query.filter_by(id=user_id).first_or_404()
     payload = request.get_json(silent=True) or {}
     data = UserUpdateSchema().load(payload, partial=True)
-    
+
     updated_fields = []
     if 'name' in data:
         user.name = data['name']
         updated_fields.append('name')
-    
+
     if 'email' in data and data['email'] != user.email:
         # Check if email is already taken
         existing = User.query.filter_by(email=data['email']).first()
@@ -209,11 +209,11 @@ def update_user(user_id):
             return jsonify({"msg": "Email already taken"}), 409
         user.email = data['email']
         updated_fields.append('email')
-    
+
     if 'password' in data and data['password']:
         user.set_password(data['password'])
         updated_fields.append('password')
-    
+
     if 'is_administrator' in data:
         if not is_admin:
             return jsonify({"msg": "Forbidden"}), 403
@@ -225,12 +225,12 @@ def update_user(user_id):
         updated_fields.append('preferred_language')
 
     try:
-      db.session.commit()
+        db.session.commit()
     except IntegrityError:
-      db.session.rollback()
-      logger.warning("User %s update hit unique-email conflict", user_id)
-      return jsonify({"msg": "Email already taken"}), 409
-    
+        db.session.rollback()
+        logger.warning("User %s update hit unique-email conflict", user_id)
+        return jsonify({"msg": "Email already taken"}), 409
+
     logger.info("User %s updated by admin - fields: %s", user_id, ', '.join(updated_fields))
     return jsonify({
         "id": user.id,
@@ -278,10 +278,10 @@ def delete_user(user_id):
     """
     user = User.query.filter_by(id=user_id).first_or_404()
     user_email = user.email
-    
+
     db.session.delete(user)
     db.session.commit()
-    
+
     logger.info("User %s (%s) deleted by admin", user_id, user_email)
     return jsonify({"msg": "User deleted successfully"}), 200
 
@@ -347,9 +347,9 @@ def get_signed_races():
 
     races_by_user = (
         db.session.query(Registration,
-            Race.id.label("race_id"), 
-            Team.id.label("team_id"), 
-            Race.name.label("race_name"), 
+            Race.id.label("race_id"),
+            Team.id.label("team_id"),
+            Race.name.label("race_name"),
             Race.description.label("race_description"),
             RaceCategory.name.label("race_category"),
             Race.start_showing_checkpoints_at,
