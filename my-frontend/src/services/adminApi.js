@@ -45,10 +45,10 @@ export const adminApi = {
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
   getVisitsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/visits/${teamId}/`), // OK
   addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),
-  deleteVisit: (visitId) => apiFetch(`/api/admin/visits/${visitId}/`, { method: 'DELETE' }),
+  deleteVisit: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/log/`, { method: 'DELETE', body: payload }), // OK
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
-  getTaskCompletionsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/task-completions/${teamId}/`),
-  deleteTaskCompletion: (taskLogId) => apiFetch(`/api/race/task-log/${taskLogId}/`, { method: 'DELETE' }),
+  getTaskCompletionsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/task-completions/${teamId}/`), // OK
+  deleteTaskCompletion: (raceId, payload) => apiFetch(`/api/race/${raceId}/tasks/log/`, { method: 'DELETE', body: payload }), // OK
 
   // Team management
   getTeams: () => apiFetch('/api/team/'),

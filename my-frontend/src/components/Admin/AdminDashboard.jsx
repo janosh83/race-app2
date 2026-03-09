@@ -42,6 +42,7 @@ function AdminDashboard() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
   const [visitingTeam, setVisitingTeam] = useState(null);
+  const [standingsRefreshVersion, setStandingsRefreshVersion] = useState(0);
 
   // submenu state for selected race
   const [activeSubmenu, setActiveSubmenu] = useState('checkpoints'); // 'checkpoints', 'registrations', 'progress'
@@ -374,7 +375,11 @@ function AdminDashboard() {
 
                   {activeSubmenu === 'progress' && (
                     <>
-                      <Standings raceId={selected.id} onTeamClick={(teamId) => setVisitingTeam(teamId)} />
+                      <Standings
+                        raceId={selected.id}
+                        refreshVersion={standingsRefreshVersion}
+                        onTeamClick={(teamId) => setVisitingTeam(teamId)}
+                      />
                       {visitingTeam && (
                         <div className="card mt-3">
                           <div className="card-body">
@@ -382,7 +387,11 @@ function AdminDashboard() {
                               <h5 className="mb-0">{t('admin.dashboard.visitsTeam', { id: visitingTeam })}</h5>
                               <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>{t('admin.dashboard.close')}</button>
                             </div>
-                            <VisitsList teamId={visitingTeam} raceId={selected.id}/>
+                            <VisitsList
+                              teamId={visitingTeam}
+                              raceId={selected.id}
+                              onDataChanged={() => setStandingsRefreshVersion(prev => prev + 1)}
+                            />
                           </div>
                         </div>
                       )}

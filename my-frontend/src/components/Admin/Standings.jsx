@@ -31,7 +31,7 @@ function normalizeResults(payload) {
   return [];
 }
 
-export default function Standings({ raceId, onTeamClick }) {
+export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
   const { t } = useTranslation();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +62,7 @@ export default function Standings({ raceId, onTeamClick }) {
     }
 
     return () => { mounted = false; };
-  }, [raceId, t]);
+  }, [raceId, refreshVersion, t]);
 
   const handleToggleDisqualification = async (teamId, current) => {
     if (!raceId || !teamId) return;

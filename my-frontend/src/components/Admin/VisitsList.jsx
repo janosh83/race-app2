@@ -14,7 +14,7 @@ function formatDate(iso) {
   }
 }
 
-export default function VisitsList({ teamId, raceId }) {
+export default function VisitsList({ teamId, raceId, onDataChanged }) {
   const { t } = useTranslation();
   const [visits, setVisits] = useState([]);
   const [taskCompletions, setTaskCompletions] = useState([]);
@@ -48,8 +48,16 @@ export default function VisitsList({ teamId, raceId }) {
   const handleDeleteVisit = async (visitId) => {
     if (window.confirm(t('admin.visits.confirmDeleteVisit'))) {
       try {
-        await adminApi.deleteVisit(visitId);
+        const visit = visits.find(item => item.id === visitId);
+        if (!visit) {
+          throw new Error('Visit not found in local state');
+        }
+        await adminApi.deleteVisit(raceId, {
+          checkpoint_id: visit.checkpoint_id,
+          team_id: visit.team_id,
+        });
         setVisits(visits.filter(visit => visit.id !== visitId));
+        onDataChanged?.();
       } catch (err) {
         logger.error('ADMIN', 'Failed to delete visit', err);
         setError(t('admin.visits.errorDeleteVisit'));
@@ -60,8 +68,16 @@ export default function VisitsList({ teamId, raceId }) {
   const handleDeleteTaskCompletion = async (taskLogId) => {
     if (window.confirm(t('admin.visits.confirmDeleteTaskCompletion'))) {
       try {
-        await adminApi.deleteTaskCompletion(taskLogId);
+        const completion = taskCompletions.find(item => item.id === taskLogId);
+        if (!completion) {
+          throw new Error('Task completion not found in local state');
+        }
+        await adminApi.deleteTaskCompletion(raceId, {
+          task_id: completion.task_id,
+          team_id: completion.team_id,
+        });
         setTaskCompletions(taskCompletions.filter(task => task.id !== taskLogId));
+        onDataChanged?.();
       } catch (err) {
         logger.error('ADMIN', 'Failed to delete task completion', err);
         setError(t('admin.visits.errorDeleteTaskCompletion'));
@@ -77,7 +93,7 @@ export default function VisitsList({ teamId, raceId }) {
     const imageDistance = visit.image_distance_km;
     const userDistance = visit.user_distance_km;
     const THRESHOLD_KM = 0.2; // 200 meters
-    
+
     // Both positions not available
     if (imageDistance === null && imageDistance === undefined &&
         userDistance === null && userDistance === undefined) {
@@ -87,7 +103,7 @@ export default function VisitsList({ teamId, raceId }) {
         className: 'bg-secondary'
       };
     }
-    
+
     // Only one distance available and it's > 200m
     if ((imageDistance !== null && imageDistance !== undefined) &&
         (userDistance === null || userDistance === undefined)) {
@@ -99,7 +115,7 @@ export default function VisitsList({ teamId, raceId }) {
         };
       }
     }
-    
+
     if ((userDistance !== null && userDistance !== undefined) &&
         (imageDistance === null || imageDistance === undefined)) {
       if (userDistance > THRESHOLD_KM) {
@@ -110,7 +126,7 @@ export default function VisitsList({ teamId, raceId }) {
         };
       }
     }
-    
+
     // Both available and lower of two is > 200m
     if ((imageDistance !== null && imageDistance !== undefined) &&
         (userDistance !== null && userDistance !== undefined)) {
@@ -123,7 +139,7 @@ export default function VisitsList({ teamId, raceId }) {
         };
       }
     }
-    
+
     return { show: false };
   };
 
@@ -136,7 +152,7 @@ export default function VisitsList({ teamId, raceId }) {
     <div>
       {/* Image Viewer Modal */}
       {selectedImage && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             top: 0,
@@ -157,7 +173,7 @@ export default function VisitsList({ teamId, raceId }) {
           }}
         >
           <div style={{ maxWidth: '100%', maxHeight: '100%', position: 'relative' }}>
-            <img 
+            <img
               src={selectedImage.url}
               alt={t('admin.visits.imageAltCheckpointVisit')}
               style={{
@@ -220,7 +236,7 @@ export default function VisitsList({ teamId, raceId }) {
             const imageDistance = item.type === 'visit' ? item.image_distance_km : null;
             const userDistance = item.type === 'visit' ? item.user_distance_km : null;
             const hasImage = item.type === 'visit' && item.image_url;
-            
+
             return (
               <div
                 key={`${item.type}-${item.id}`}
@@ -244,9 +260,9 @@ export default function VisitsList({ teamId, raceId }) {
                       cursor: 'pointer',
                       overflow: 'hidden'
                     }}
-                    onClick={() => setSelectedImage({ 
-                      url: item.image_url, 
-                      checkpoint: item.checkpoint 
+                    onClick={() => setSelectedImage({
+                      url: item.image_url,
+                      checkpoint: item.checkpoint
                     })}
                   >
                     <img
@@ -301,6 +317,11 @@ export default function VisitsList({ teamId, raceId }) {
                       <span className={`badge ${item.type === 'visit' ? 'bg-primary' : 'bg-success'}`}>
                         {item.type === 'visit' ? t('admin.visits.badgeCheckpoint') : t('admin.visits.badgeTask')}
                       </span>
+                      {Number.isFinite(item.num_of_points) && (
+                        <span className="badge bg-secondary">
+                          {t('tasks.points', { count: item.num_of_points })}
+                        </span>
+                      )}
                     </div>
                     <h6 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
                       {item.type === 'visit' ? (item.checkpoint || `#${item.checkpoint_id}`) : (item.task || item.task_title || t('admin.visits.unknownTask'))}
@@ -312,8 +333,8 @@ export default function VisitsList({ teamId, raceId }) {
 
                   {/* Distance Info for Checkpoints */}
                   {item.type === 'visit' && (
-                    <div style={{ 
-                      marginBottom: '12px', 
+                    <div style={{
+                      marginBottom: '12px',
                       padding: '10px',
                       backgroundColor: warning?.show ? '#fff3cd' : '#f8f9fa',
                       borderRadius: '4px',
@@ -323,16 +344,16 @@ export default function VisitsList({ teamId, raceId }) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                           <span>{t('admin.visits.distanceCheckpoint')}</span>
                           <span style={{ fontWeight: '600' }}>
-                            {imageDistance !== null && imageDistance !== undefined 
-                              ? `${(imageDistance * 1000).toFixed(0)}m` 
+                            {imageDistance !== null && imageDistance !== undefined
+                              ? `${(imageDistance * 1000).toFixed(0)}m`
                               : '—'}
                           </span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span>{t('admin.visits.distanceUser')}</span>
                           <span style={{ fontWeight: '600' }}>
-                            {userDistance !== null && userDistance !== undefined 
-                              ? `${(userDistance * 1000).toFixed(0)}m` 
+                            {userDistance !== null && userDistance !== undefined
+                              ? `${(userDistance * 1000).toFixed(0)}m`
                               : '—'}
                           </span>
                         </div>
@@ -341,10 +362,10 @@ export default function VisitsList({ teamId, raceId }) {
                         <div style={{
                           marginTop: '8px',
                           padding: '6px 8px',
-                          backgroundColor: warning.className.includes('danger') ? '#f8d7da' : 
+                          backgroundColor: warning.className.includes('danger') ? '#f8d7da' :
                                           warning.className.includes('warning') ? '#fff3cd' : '#e2e3e5',
                           borderRadius: '4px',
-                          color: warning.className.includes('danger') ? '#721c24' : 
+                          color: warning.className.includes('danger') ? '#721c24' :
                                 warning.className.includes('warning') ? '#856404' : '#383d41',
                           fontSize: '11px',
                           fontWeight: '500'
@@ -357,7 +378,7 @@ export default function VisitsList({ teamId, raceId }) {
 
                   {/* Actions */}
                   <div style={{ marginTop: 'auto' }}>
-                    <button 
+                    <button
                       className="btn btn-sm btn-danger w-100"
                       onClick={() => item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id)}
                     >

@@ -53,6 +53,7 @@ def get_visits_by_race_and_team(race_id, team_id):
             CheckpointLog.id,
             CheckpointLog.checkpoint_id,
             Checkpoint.title.label('checkpoint_title'),
+            Checkpoint.numOfPoints,
             CheckpointLog.team_id,
             CheckpointLog.created_at,
             CheckpointLog.image_distance_km,
@@ -74,6 +75,7 @@ def get_visits_by_race_and_team(race_id, team_id):
             'id': visit.id,
             'checkpoint_id': visit.checkpoint_id,
             'checkpoint': visit.checkpoint_title,
+            'num_of_points': visit.numOfPoints,
             'team_id': visit.team_id,
             'created_at': visit.created_at,
             'image_distance_km': visit.image_distance_km,
@@ -182,6 +184,8 @@ def get_task_completions_by_race_and_team(race_id, team_id):
                   task:
                     type: string
                     description: Task title
+                  num_of_points:
+                    type: integer
                   team_id:
                     type: integer
                   created_at:
@@ -199,6 +203,7 @@ def get_task_completions_by_race_and_team(race_id, team_id):
             TaskLog.id,
             TaskLog.task_id,
             Task.title.label('task_title'),
+            Task.numOfPoints,
             TaskLog.team_id,
             TaskLog.created_at,
         )
@@ -214,6 +219,7 @@ def get_task_completions_by_race_and_team(race_id, team_id):
             'id': completion.id,
             'task_id': completion.task_id,
             'task': completion.task_title,
+            'num_of_points': completion.numOfPoints,
             'team_id': completion.team_id,
             'created_at': completion.created_at,
         }
