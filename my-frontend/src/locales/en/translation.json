@@ -241,6 +241,7 @@
       "existingTranslations": "Existing translations",
       "noneYet": "None yet",
       "tabCheckpointsTasks": "Checkpoints & Tasks",
+      "tabPaymentAttemptsSummary": "Payment Attempts Summary",
       "tabRegistrationsCategories": "Registrations & Categories",
       "tabTeams": "Teams",
       "tabVisitsResults": "Visits & Results",
@@ -481,6 +482,22 @@
       "errorToggleDisqualification": "Failed to update disqualification",
       "noTeams": "No teams",
       "noCategories": "No categories"
+    },
+    "paymentAttemptsSummary": {
+      "title": "Payment Attempts Summary",
+      "loading": "Loading payment attempts…",
+      "errorLoad": "Failed to load payment attempts summary",
+      "totalAttempts": "Total attempts",
+      "registeredTeams": "Total registered teams",
+      "uniqueTeams": "Teams with attempts",
+      "latestAttempt": "Latest attempt",
+      "statusBreakdown": "Status breakdown",
+      "typeBreakdown": "Type breakdown",
+      "topTeams": "Top teams by attempts",
+      "recentAttempts": "Recent attempts",
+      "count": "Count",
+      "unknownStatus": "Unknown",
+      "unknownType": "Unknown"
     },
     "registrationImporter": {
       "title": "Import teams & members (CSV/TSV)",

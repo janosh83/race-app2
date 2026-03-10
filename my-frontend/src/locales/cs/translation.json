@@ -241,6 +241,7 @@
       "existingTranslations": "Existující překlady",
       "noneYet": "Zatím žádné",
       "tabCheckpointsTasks": "Checkpointy a úkoly",
+      "tabPaymentAttemptsSummary": "Souhrn pokusů o platbu",
       "tabRegistrationsCategories": "Registrace a kategorie",
       "tabTeams": "Týmy",
       "tabVisitsResults": "Návštěvy a výsledky",
@@ -481,6 +482,22 @@
       "errorToggleDisqualification": "Nepodařilo se aktualizovat diskvalifikaci",
       "noTeams": "Žádné týmy",
       "noCategories": "Žádné kategorie"
+    },
+    "paymentAttemptsSummary": {
+      "title": "Souhrn pokusů o platbu",
+      "loading": "Načítám pokusy o platbu…",
+      "errorLoad": "Nepodařilo se načíst souhrn pokusů o platbu",
+      "totalAttempts": "Celkem pokusů",
+      "registeredTeams": "Celkem registrovaných týmů",
+      "uniqueTeams": "Týmy s pokusy",
+      "latestAttempt": "Poslední pokus",
+      "statusBreakdown": "Rozdělení podle stavu",
+      "typeBreakdown": "Rozdělení podle typu",
+      "topTeams": "Top týmy podle počtu pokusů",
+      "recentAttempts": "Poslední pokusy",
+      "count": "Počet",
+      "unknownStatus": "Neznámý",
+      "unknownType": "Neznámý"
     },
     "registrationImporter": {
       "title": "Import týmů a členů (CSV/TSV)",

@@ -8,6 +8,7 @@ import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
 import CategoryForm from './CategoryForm';
 import CheckpointList from './CheckpointList';
+import PaymentAttemptsSummary from './PaymentAttemptsSummary';
 import RaceForm from './RaceForm';
 import RaceList from './RaceList';
 import RegistrationList from './RegistrationList';
@@ -45,7 +46,7 @@ function AdminDashboard() {
   const [standingsRefreshVersion, setStandingsRefreshVersion] = useState(0);
 
   // submenu state for selected race
-  const [activeSubmenu, setActiveSubmenu] = useState('checkpoints'); // 'checkpoints', 'registrations', 'progress'
+  const [activeSubmenu, setActiveSubmenu] = useState('checkpoints');
 
   useEffect(() => {
     let mounted = true;
@@ -328,6 +329,14 @@ function AdminDashboard() {
                     </li>
                     <li className="nav-item">
                       <button
+                        className={`nav-link ${activeSubmenu === 'payments' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('payments')}
+                      >
+                        {t('admin.dashboard.tabPaymentAttemptsSummary')}
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button
                         className={`nav-link ${activeSubmenu === 'registrations' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('registrations')}
                       >
@@ -365,6 +374,10 @@ function AdminDashboard() {
                     />
                   </>)
                   }
+
+                  {activeSubmenu === 'payments' && (
+                    <PaymentAttemptsSummary raceId={selected.id} />
+                  )}
 
                   {activeSubmenu === 'registrations' && (
                     <>
