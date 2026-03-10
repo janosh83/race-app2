@@ -9,7 +9,8 @@ from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.race_api.visits import race_visits_bp
 from app.routes.race_api.results import race_results_bp
-from app.routes.race_api.registration import race_registration_bp, team_payment_bp
+from app.routes.race_api.registration import race_registration_bp
+from app.routes.race_api.team_payment import team_payment_bp
 from app.routes.admin import admin_required
 from app.utils import (
   parse_datetime,

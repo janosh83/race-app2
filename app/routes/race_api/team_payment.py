@@ -49,7 +49,7 @@ def _sync_registration_payment_state(registration, race):
         registration.stripe_session_id = None
 
 
-@team_payment_bp.route("/race/<int:race_id>/team/<int:team_id>/payments/retry/", methods=["POST"])
+@team_payment_bp.route("/team/<int:team_id>/payments/retry/", methods=["POST"])
 @admin_required()
 def retry_registration_payment(race_id, team_id):
     """
@@ -221,7 +221,7 @@ def retry_registration_payment(race_id, team_id):
     }), 201
 
 
-@team_payment_bp.route("/race/<int:race_id>/team/<int:team_id>/payments/mark/", methods=["PATCH"])
+@team_payment_bp.route("/team/<int:team_id>/payments/mark/", methods=["PATCH"])
 @admin_required()
 def mark_registration_payment(race_id, team_id):
     """
@@ -350,7 +350,7 @@ def mark_registration_payment(race_id, team_id):
     }), 200
 
 
-@team_payment_bp.route("/race/<int:race_id>/team/<int:team_id>/payments/reconcile/", methods=["POST"])
+@team_payment_bp.route("/team/<int:team_id>/payments/reconcile/", methods=["POST"])
 @admin_required()
 def reconcile_registration_payment(race_id, team_id):
     """

@@ -765,7 +765,7 @@ def test_retry_registration_payment_creates_pending_attempt(test_client, add_tes
     assert response.status_code == 201
 
     monkeypatch.setattr(
-        "app.routes.race_api.registration.create_registration_checkout_session",
+        "app.routes.race_api.team_payment.create_registration_checkout_session",
         lambda **kwargs: {
             "session_id": "cs_retry_driver_1",
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_retry_driver_1",
@@ -880,7 +880,7 @@ def test_reconcile_registration_payment_confirms_paid_attempt(test_client, add_t
         db.session.commit()
 
     monkeypatch.setattr(
-        "app.routes.race_api.registration.get_checkout_session_payment_state",
+        "app.routes.race_api.team_payment.get_checkout_session_payment_state",
         lambda **kwargs: {
             "session_id": "cs_reconcile_paid_1",
             "payment_status": "paid",
