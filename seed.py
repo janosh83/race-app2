@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 
 from app import db, create_app
 from app.models import (
@@ -13,6 +14,7 @@ from app.models import (
     RaceCategory,
     RaceCategoryTranslation,
     Registration,
+    RegistrationPaymentAttempt,
     CheckpointLog,
     TaskLog,
     Image,
@@ -29,6 +31,7 @@ def clean_db():
     db.session.execute(TaskTranslation.__table__.delete())
     db.session.execute(RaceTranslation.__table__.delete())
     db.session.execute(RaceCategoryTranslation.__table__.delete())
+    db.session.execute(RegistrationPaymentAttempt.__table__.delete())
     db.session.execute(Registration.__table__.delete())
     # association tables
     db.session.execute(team_members.delete())
@@ -374,9 +377,55 @@ def seed_data():
 
     print("Database seeded successfully!")
 
+
+def is_production_seed_mode() -> bool:
+    """Return True when seed should run in production-safe mode."""
+    config_target = os.environ.get("FLASK_CONFIG", "")
+    return config_target.endswith("ProductionConfig")
+
+
+def resolve_admin_seed_email(flask_app) -> str:
+    """Resolve admin email from config variables used by the application."""
+    admin_email = (flask_app.config.get("ADMIN_EMAIL") or "").strip()
+    if admin_email:
+        return admin_email
+
+    registration_admin_emails = flask_app.config.get("REGISTRATION_ADMIN_EMAILS") or []
+    if registration_admin_emails:
+        return str(registration_admin_emails[0]).strip()
+
+    return ""
+
+
+def seed_production_admin_only(flask_app):
+    """Wipe DB schema and create only one admin user for production bootstrap."""
+    admin_email = resolve_admin_seed_email(flask_app)
+    if not admin_email:
+        raise RuntimeError(
+            "Cannot seed production database: set ADMIN_EMAIL (or REGISTRATION_ADMIN_EMAILS)."
+        )
+
+    db.drop_all()
+    db.create_all()
+
+    admin_user = User(
+        name="Admin",
+        email=admin_email,
+        is_administrator=True,
+        preferred_language="en",
+    )
+    admin_user.set_password("password")
+    db.session.add(admin_user)
+    db.session.commit()
+
+    print(f"Production seed completed. Admin user created: {admin_email}")
+
 if __name__ == "__main__":
     # run inside app context
     app = create_app()
     with app.app_context():
-        clean_db()
-        seed_data()
+        if is_production_seed_mode():
+            seed_production_admin_only(app)
+        else:
+            clean_db()
+            seed_data()
