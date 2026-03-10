@@ -168,6 +168,17 @@ export default function RegistrationList({ raceId }) {
     }
   };
 
+  const handleReconcilePayment = async (teamId, paymentType) => {
+    setError(null);
+    try {
+      await adminApi.reconcileRegistrationPayment(raceId, teamId, paymentType);
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to reconcile payment', err);
+      setError(t('admin.registrations.errorReconcilePayment'));
+    }
+  };
+
   const togglePaymentDetails = (teamId) => {
     setExpandedPayments(prev => ({ ...prev, [teamId]: !prev[teamId] }));
   };
@@ -369,6 +380,13 @@ export default function RegistrationList({ raceId }) {
                                 disabled={item.paid}
                               >
                                 {t('admin.registrations.retryPayment')}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-info me-2"
+                                onClick={() => handleReconcilePayment(teamId, item.type)}
+                              >
+                                {t('admin.registrations.reconcilePayment')}
                               </button>
                               {item.paid ? (
                                 <button

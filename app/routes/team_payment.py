@@ -8,6 +8,7 @@ from app import db
 from app.models import Race, Registration, RegistrationPaymentAttempt, Team
 from app.routes.admin import admin_required
 from app.services.stripe_service import create_registration_checkout_session
+from app.services.stripe_service import get_checkout_session_payment_state
 from app.utils import registration_mode as _registration_mode
 
 logger = logging.getLogger(__name__)
@@ -345,5 +346,130 @@ def mark_registration_payment(race_id, team_id):
         "team_id": team_id,
         "race_id": race_id,
         "payment_type": payment_type,
+        "payment_confirmed": bool(registration.payment_confirmed),
+    }), 200
+
+
+@team_payment_bp.route("/race/<int:race_id>/team/<int:team_id>/payments/reconcile/", methods=["POST"])
+@admin_required()
+def reconcile_registration_payment(race_id, team_id):
+    """
+    Reconcile registration payment state by querying Stripe Checkout session status - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              payment_type:
+                type: string
+                enum: [team, driver, codriver]
+              stripe_session_id:
+                type: string
+                description: Optional explicit session id to reconcile.
+    responses:
+      200:
+        description: Reconciliation completed
+      400:
+        description: Invalid request or no Stripe session available
+      404:
+        description: Race/registration not found
+      502:
+        description: Stripe query failed
+      503:
+        description: Stripe provider not configured
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+
+    payload = request.get_json(silent=True) or {}
+    mode = _registration_mode(race)
+    requested_payment_type = (payload.get('payment_type') or '').strip().lower()
+    explicit_session_id = (payload.get('stripe_session_id') or '').strip()
+
+    if requested_payment_type and requested_payment_type not in _allowed_payment_types(mode):
+        return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
+
+    candidate_attempts_query = RegistrationPaymentAttempt.query.filter_by(registration_id=registration.id)
+    if requested_payment_type:
+        candidate_attempts_query = candidate_attempts_query.filter_by(payment_type=requested_payment_type)
+
+    candidate_attempts = candidate_attempts_query.order_by(
+        RegistrationPaymentAttempt.created_at.desc(),
+        RegistrationPaymentAttempt.id.desc(),
+    ).all()
+
+    selected_attempt = None
+    if explicit_session_id:
+        selected_attempt = next(
+            (attempt for attempt in candidate_attempts if attempt.stripe_session_id == explicit_session_id),
+            None,
+        )
+        if not selected_attempt:
+            return jsonify({"message": "Provided stripe_session_id was not found for this registration."}), 400
+    else:
+        selected_attempt = next(
+            (
+                attempt for attempt in candidate_attempts
+                if attempt.stripe_session_id and not str(attempt.stripe_session_id).startswith('manual_')
+            ),
+            None,
+        )
+
+    if not selected_attempt:
+        return jsonify({"message": "No Stripe checkout session found to reconcile."}), 400
+
+    try:
+        stripe_state = get_checkout_session_payment_state(
+            session_id=selected_attempt.stripe_session_id,
+            secret_key=current_app.config.get('STRIPE_API_KEY'),
+        )
+    except ValueError as exc:
+        logger.error("Stripe reconcile unavailable for race %s team %s: %s", race_id, team_id, exc)
+        return jsonify({"message": "Payment provider is not configured."}), 503
+    except RuntimeError as exc:
+        logger.error("Stripe reconcile failed for race %s team %s session %s: %s", race_id, team_id, selected_attempt.stripe_session_id, exc)
+        return jsonify({"message": "Unable to query Stripe payment state."}), 502
+
+    payment_status = (stripe_state.get('payment_status') or '').lower()
+    checkout_status = (stripe_state.get('status') or '').lower()
+
+    if payment_status == 'paid':
+        selected_attempt.status = 'confirmed'
+        if selected_attempt.confirmed_at is None:
+            selected_attempt.confirmed_at = datetime.now()
+    elif checkout_status == 'expired' or (checkout_status == 'complete' and payment_status != 'paid'):
+        selected_attempt.status = 'failed'
+        selected_attempt.confirmed_at = None
+
+    _sync_registration_payment_state(registration, race)
+    db.session.commit()
+
+    return jsonify({
+        "team_id": team_id,
+        "race_id": race_id,
+        "payment_type": selected_attempt.payment_type,
+        "stripe_session_id": selected_attempt.stripe_session_id,
+        "stripe_status": {
+            "payment_status": payment_status,
+            "status": checkout_status,
+        },
         "payment_confirmed": bool(registration.payment_confirmed),
     }), 200

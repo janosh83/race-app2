@@ -13,12 +13,16 @@ export const adminApi = {
     { method: 'PATCH', body: { disqualified } }
   ),
   retryRegistrationPayment: (raceId, teamId, payment_type) => apiFetch(
-    `/api/team/race/${raceId}/team/${teamId}/payments/retry/`,
+    `/api/race/${raceId}/team/${teamId}/payments/retry/`,
     { method: 'POST', body: { payment_type } }
   ),
   markRegistrationPayment: (raceId, teamId, payment_type, confirmed) => apiFetch(
-    `/api/team/race/${raceId}/team/${teamId}/payments/mark/`,
+    `/api/race/${raceId}/team/${teamId}/payments/mark/`,
     { method: 'PATCH', body: { payment_type, confirmed } }
+  ),
+  reconcileRegistrationPayment: (raceId, teamId, payment_type, stripe_session_id) => apiFetch(
+    `/api/race/${raceId}/team/${teamId}/payments/reconcile/`,
+    { method: 'POST', body: { payment_type, stripe_session_id } }
   ),
   sendRegistrationEmails: (raceId) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
@@ -44,7 +48,7 @@ export const adminApi = {
 
   getStandings: (raceId) => apiFetch(`/api/admin/races/${raceId}/standings/`),
   getVisitsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/visits/${teamId}/`), // OK
-  addVisit: (teamId, payload) => apiFetch(`/api/admin/teams/${teamId}/visits/`, { method: 'POST', body: payload }),
+  addVisit: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/log/`, { method: 'POST', body: payload }),
   deleteVisit: (raceId, payload) => apiFetch(`/api/race/${raceId}/checkpoints/log/`, { method: 'DELETE', body: payload }), // OK
   getVisitsByCheckpoint: (checkpointId) => apiFetch(`/api/admin/checkpoints/${checkpointId}/visits/`),
   getTaskCompletionsByTeamAndRace: (teamId, raceId) => apiFetch(`/api/race/${raceId}/task-completions/${teamId}/`), // OK

@@ -508,13 +508,18 @@ def test_disqualify_forbidden_for_non_admin(test_client, add_test_data, regular_
 
 def test_race_results_include_disqualified_flag(test_client, add_test_data, admin_auth_headers):
     """Race results payload includes disqualified boolean for each team."""
-    # Register a team and fetch results (default: not disqualified)
+    # Register a paid team and fetch results (default: not disqualified)
     response = test_client.post(
         "/api/team/race/1/",
         json={"team_id": 1, "race_category_id": 1},
         headers=admin_auth_headers,
     )
     assert response.status_code == 201
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = True
+        db.session.commit()
 
     response = test_client.get("/api/race/1/results/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -760,7 +765,7 @@ def test_retry_registration_payment_creates_pending_attempt(test_client, add_tes
     assert response.status_code == 201
 
     monkeypatch.setattr(
-        "app.routes.team_payment.create_registration_checkout_session",
+        "app.routes.race_api.registration.create_registration_checkout_session",
         lambda **kwargs: {
             "session_id": "cs_retry_driver_1",
             "checkout_url": "https://checkout.stripe.com/c/pay/cs_retry_driver_1",
@@ -768,7 +773,7 @@ def test_retry_registration_payment_creates_pending_attempt(test_client, add_tes
     )
 
     retry_response = test_client.post(
-        "/api/team/race/1/team/1/payments/retry/",
+        "/api/race/1/team/1/payments/retry/",
         json={"payment_type": "driver"},
         headers=admin_auth_headers,
     )
@@ -805,7 +810,7 @@ def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_tes
     assert response.status_code == 201
 
     mark_paid = test_client.patch(
-        "/api/team/race/1/team/1/payments/mark/",
+        "/api/race/1/team/1/payments/mark/",
         json={"payment_type": "driver", "confirmed": True},
         headers=admin_auth_headers,
     )
@@ -824,7 +829,7 @@ def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_tes
         assert confirmed_attempt is not None
 
     mark_unpaid = test_client.patch(
-        "/api/team/race/1/team/1/payments/mark/",
+        "/api/race/1/team/1/payments/mark/",
         json={"payment_type": "driver", "confirmed": False},
         headers=admin_auth_headers,
     )
@@ -842,3 +847,67 @@ def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_tes
             status="confirmed",
         ).first()
         assert confirmed_attempt is None
+
+
+def test_reconcile_registration_payment_confirms_paid_attempt(test_client, add_test_data, admin_auth_headers, test_app, monkeypatch):
+    """Reconcile endpoint confirms pending Stripe attempt when Stripe reports payment_status=paid."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.allow_team_registration = False
+        race.allow_individual_registration = True
+        race.registration_driver_amount_cents = 250
+        race.registration_codriver_amount_cents = 150
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        pending_attempt = RegistrationPaymentAttempt(
+            registration_id=registration.id,
+            stripe_session_id="cs_reconcile_paid_1",
+            payment_type="driver",
+            status="pending",
+            amount_cents=25000,
+            currency="czk",
+        )
+        db.session.add(pending_attempt)
+        db.session.commit()
+
+    monkeypatch.setattr(
+        "app.routes.race_api.registration.get_checkout_session_payment_state",
+        lambda **kwargs: {
+            "session_id": "cs_reconcile_paid_1",
+            "payment_status": "paid",
+            "status": "complete",
+            "payment_intent": "pi_test_1",
+        },
+    )
+
+    reconcile_response = test_client.post(
+        "/api/race/1/team/1/payments/reconcile/",
+        json={"payment_type": "driver"},
+        headers=admin_auth_headers,
+    )
+
+    assert reconcile_response.status_code == 200
+    assert reconcile_response.json["payment_confirmed"] is True
+    assert reconcile_response.json["stripe_status"]["payment_status"] == "paid"
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert registration.payment_confirmed is True
+        assert registration.payment_confirmed_at is not None
+
+        attempt = RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            stripe_session_id="cs_reconcile_paid_1",
+        ).first()
+        assert attempt is not None
+        assert attempt.status == "confirmed"
+        assert attempt.confirmed_at is not None

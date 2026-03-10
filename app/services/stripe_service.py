@@ -117,3 +117,29 @@ def get_checkout_receipt_url(*, session_object, secret_key):
         return None
 
     return None
+
+
+def get_checkout_session_payment_state(*, session_id, secret_key):
+    if not secret_key:
+        raise ValueError("Stripe is not configured")
+    if not session_id:
+        raise ValueError("session_id is required")
+
+    try:
+        import stripe
+    except ImportError as exc:
+        raise ValueError("Stripe SDK is not installed") from exc
+
+    stripe.api_key = secret_key
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+    except stripe.error.StripeError as exc:
+        raise RuntimeError("Unable to retrieve checkout session") from exc
+
+    return {
+        "session_id": session.id,
+        "payment_status": session.get("payment_status"),
+        "status": session.get("status"),
+        "payment_intent": session.get("payment_intent"),
+    }
