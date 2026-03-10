@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
@@ -18,6 +18,24 @@ export default function PaymentAttemptsSummary({ raceId }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [registrations, setRegistrations] = useState([]);
+  const [reconcilingAttemptKey, setReconcilingAttemptKey] = useState(null);
+
+  const loadRegistrations = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = await adminApi.getRegistrations(raceId);
+      const data = Array.isArray(payload)
+        ? payload
+        : (payload?.data || payload?.results || payload?.registrations || []);
+      setRegistrations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to load payment attempts summary', err);
+      setError(t('admin.paymentAttemptsSummary.errorLoad'));
+    } finally {
+      setLoading(false);
+    }
+  }, [raceId, t]);
 
   useEffect(() => {
     if (!raceId) {
@@ -25,32 +43,33 @@ export default function PaymentAttemptsSummary({ raceId }) {
       return;
     }
 
-    let mounted = true;
+    loadRegistrations();
+  }, [raceId, loadRegistrations]);
 
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const payload = await adminApi.getRegistrations(raceId);
-        const data = Array.isArray(payload)
-          ? payload
-          : (payload?.data || payload?.results || payload?.registrations || []);
-        if (!mounted) return;
-        setRegistrations(Array.isArray(data) ? data : []);
-      } catch (err) {
-        logger.error('ADMIN', 'Failed to load payment attempts summary', err);
-        if (!mounted) return;
-        setError(t('admin.paymentAttemptsSummary.errorLoad'));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
+  const handleReconcileAttempt = async (attempt) => {
+    const teamId = attempt?.teamId;
+    if (!teamId) return;
 
-    load();
-    return () => {
-      mounted = false;
-    };
-  }, [raceId, t]);
+    const attemptKey = attempt?.id || attempt?.stripe_session_id || `${teamId}-${attempt?.created_at || ''}`;
+    const paymentType = attempt?.payment_type || 'team';
+
+    setReconcilingAttemptKey(attemptKey);
+    setError(null);
+    try {
+      await adminApi.reconcileRegistrationPayment(
+        raceId,
+        teamId,
+        paymentType,
+        attempt?.stripe_session_id,
+      );
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to reconcile payment from summary table', err);
+      setError(t('admin.registrations.errorReconcilePayment'));
+    } finally {
+      setReconcilingAttemptKey(null);
+    }
+  };
 
   const summary = useMemo(() => {
     const allAttempts = [];
@@ -176,7 +195,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
       </div>
 
       <div className="row g-3 mb-3">
-        <div className="col-12 col-lg-6">
+        <div className="col-12">
           <div className="card h-100">
             <div className="card-body">
               <h5 className="card-title">{t('admin.paymentAttemptsSummary.recentAttempts')}</h5>
@@ -188,12 +207,13 @@ export default function PaymentAttemptsSummary({ raceId }) {
                       <th>{t('admin.registrations.attemptStatus')}</th>
                       <th>{t('admin.registrations.attemptAmount')}</th>
                       <th>{t('admin.registrations.attemptCreated')}</th>
+                      <th>{t('admin.registrations.tableActions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {summary.recentAttempts.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                        <td colSpan="5" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
                       </tr>
                     )}
                     {summary.recentAttempts.map((attempt, index) => (
@@ -206,6 +226,23 @@ export default function PaymentAttemptsSummary({ raceId }) {
                             : '—'}
                         </td>
                         <td>{formatDate(attempt.created_at)}</td>
+                        <td>
+                          {((attempt.status || '').toLowerCase() !== 'confirmed') ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-info"
+                              disabled={
+                                reconcilingAttemptKey === (attempt.id || attempt.stripe_session_id || `${attempt.teamId}-${attempt.created_at || ''}`)
+                                || !attempt.teamId
+                              }
+                              onClick={() => handleReconcileAttempt(attempt)}
+                            >
+                              {t('admin.registrations.reconcilePayment')}
+                            </button>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
