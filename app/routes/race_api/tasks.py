@@ -213,7 +213,7 @@ def create_task(race_id):
     # ensure race exists
     race = Race.query.filter_by(id=race_id).first()
     if not race:
-        logger.error("Attempt to create task for non-existent race %s", race_id)
+        logger.warning("Attempt to create task for non-existent race %s", race_id)
         return jsonify({"message": "Race not found"}), 404
     if request.content_type and request.content_type.startswith('multipart/form-data'):
         # single item from form
@@ -222,7 +222,7 @@ def create_task(race_id):
     else:
         payload = request.get_json(silent=True)
         if payload is None:
-            logger.error("Create task for race %s with invalid JSON", race_id)
+            logger.warning("Create task for race %s with invalid JSON", race_id)
             return jsonify({"message": "Invalid or missing JSON body"}), 400
         items = payload if isinstance(payload, list) else [payload]
 
@@ -415,7 +415,7 @@ def log_task_completion(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.error("Task completion log attempt outside logging period for race %s by user %s", race_id, user.id)
+        logger.warning("Task completion log attempt outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     registration = Registration.query.filter_by(
@@ -483,7 +483,7 @@ def log_task_completion(race_id):
                     os.remove(saved_image_path)
                 except OSError as cleanup_err:
                     logger.error("Error cleaning up task image file %s: %s", saved_image_path, cleanup_err)
-            logger.error("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
+            logger.warning("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
             return jsonify({"message": "Task already logged for this team."}), 409
         return jsonify({
             "id": new_log.id,
@@ -492,7 +492,7 @@ def log_task_completion(race_id):
             "race_id": race_id,
             "image_id": image_id}), 201
     else:
-        logger.error("Unauthorized task completion log attempt by user %s for team %s", user.id, data['team_id'])
+        logger.warning("Unauthorized task completion log attempt by user %s for team %s", user.id, data['team_id'])
         return jsonify({"message": "You are not authorized to log this task."}), 403
 
 @tasks_bp.route("/log/", methods=["DELETE"])
@@ -572,7 +572,7 @@ def unlog_task_completion(race_id):
     now = datetime.now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.error("Task unlog attempt outside logging period for race %s by user %s", race_id, user.id)
+        logger.warning("Task unlog attempt outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
@@ -621,7 +621,7 @@ def unlog_task_completion(race_id):
             )
             return jsonify({"message": "Log deleted successfully."}), 200
 
-        logger.error(
+        logger.warning(
             "Task unlog attempt for non-existent log - race: %s, team: %s, task: %s",
             race_id,
             data['team_id'],
@@ -629,7 +629,7 @@ def unlog_task_completion(race_id):
         )
         return jsonify({"message": "Log not found."}), 404
     else:
-        logger.error("Unauthorized task unlog attempt by user %s for team %s", user.id, data['team_id'])
+        logger.warning("Unauthorized task unlog attempt by user %s for team %s", user.id, data['team_id'])
         return jsonify({"message": "You are not authorized to delete this task log."}), 403
 
 @tasks_bp.route("/<int:team_id>/status/", methods=["GET"])
@@ -692,7 +692,7 @@ def get_tasks_with_status(race_id, team_id):
 
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
-        logger.error("Unauthorized access attempt to team %s tasks by user %s", team_id, user.id)
+        logger.warning("Unauthorized access attempt to team %s tasks by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403
 
     race = Race.query.filter_by(id=race_id).first_or_404()

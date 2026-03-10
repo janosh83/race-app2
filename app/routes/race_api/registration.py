@@ -490,16 +490,17 @@ def stripe_registration_webhook():
         )
     except ValueError as exc:
         if 'not configured' in str(exc).lower():
-            logger.error('Stripe webhook configuration error: %s', exc)
+            logger.warning('Stripe webhook configuration error: %s', exc)
             return jsonify({'message': 'Webhook is not configured.'}), 503
 
-        logger.error('Stripe webhook payload/signature validation failed: %s', exc)
+        logger.warning('Stripe webhook payload/signature validation failed: %s', exc)
         return jsonify({'message': 'Invalid webhook signature.'}), 400
     except (RuntimeError, OSError, TypeError) as exc:
-        logger.error('Stripe webhook signature verification failed: %s', exc)
+        logger.warning('Stripe webhook signature verification failed: %s', exc)
         return jsonify({'message': 'Invalid webhook signature.'}), 400
 
     if event.get('type') != 'checkout.session.completed':
+        logger.debug('Stripe webhook event type ignored: %s', event.get('type'))
         return jsonify({'message': 'Event ignored'}), 200
 
     session = event.get('data', {}).get('object', {})
@@ -510,16 +511,16 @@ def stripe_registration_webhook():
         race_id = int(metadata.get('race_id'))
         team_id = int(metadata.get('team_id'))
     except (TypeError, ValueError):
-        logger.error('Stripe webhook invalid race/team metadata: %s', metadata)
+        logger.warning('Stripe webhook invalid race/team metadata: %s', metadata)
         return jsonify({'message': 'Missing metadata.'}), 400
 
     if not session_id:
-        logger.error('Stripe webhook missing session id')
+        logger.warning('Stripe webhook missing session id')
         return jsonify({'message': 'Missing metadata.'}), 400
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
     if not registration:
-        logger.error(
+        logger.warning(
             'Stripe webhook registration not found for race %s team %s',
             race_id,
             team_id,

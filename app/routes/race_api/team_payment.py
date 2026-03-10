@@ -149,6 +149,7 @@ def retry_registration_payment(race_id, team_id):
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
 
     if not race.registration_slug:
+        logger.warning("Missing registration slug for race %s during payment retry", race_id)
         return jsonify({"message": "Race registration slug is not configured."}), 400
 
     payload = request.get_json(silent=True) or {}
@@ -156,6 +157,7 @@ def retry_registration_payment(race_id, team_id):
     payment_type = (payload.get('payment_type') or ('team' if mode == 'team' else 'driver')).strip().lower()
 
     if payment_type not in _allowed_payment_types(mode):
+        logger.warning("Invalid payment_type '%s' for race %s mode '%s'", payment_type, race_id, mode)
         return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
 
     already_confirmed = RegistrationPaymentAttempt.query.filter_by(
@@ -164,6 +166,7 @@ def retry_registration_payment(race_id, team_id):
         status='confirmed',
     ).first()
     if already_confirmed:
+        logger.info("Payment retry skipped, already confirmed for race %s team %s type %s", race_id, team_id, payment_type)
         return jsonify({"message": f"Payment already confirmed for '{payment_type}'."}), 400
 
     frontend_url = (current_app.config.get('FRONTEND_URL') or '').rstrip('/')
@@ -192,7 +195,7 @@ def retry_registration_payment(race_id, team_id):
             payment_type=payment_type,
         )
     except ValueError as exc:
-        logger.error("Stripe checkout unavailable for admin retry race %s team %s: %s", race.id, team.id, exc)
+        logger.warning("Stripe checkout unavailable for admin retry race %s team %s: %s", race.id, team.id, exc)
         return jsonify({"message": "Payment provider is not configured."}), 503
     except (RuntimeError, OSError, TypeError) as exc:
         logger.error("Stripe checkout creation failed for admin retry race %s team %s: %s", race.id, team.id, exc)
@@ -213,6 +216,7 @@ def retry_registration_payment(race_id, team_id):
 
     registration.stripe_session_id = session_data['session_id']
     db.session.commit()
+    logger.info("Created retry checkout session for race %s team %s type %s", race_id, team_id, payment_type)
 
     return jsonify({
         "checkout_url": session_data['checkout_url'],
@@ -307,8 +311,10 @@ def mark_registration_payment(race_id, team_id):
     confirmed = payload.get('confirmed')
 
     if payment_type not in _allowed_payment_types(mode):
+        logger.warning("Invalid payment_type '%s' for manual mark race %s mode '%s'", payment_type, race_id, mode)
         return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
     if not isinstance(confirmed, bool):
+        logger.warning("Invalid confirmed value for race %s team %s: %r", race_id, team_id, confirmed)
         return jsonify({"message": "confirmed must be a boolean."}), 400
 
     if confirmed:
@@ -341,6 +347,14 @@ def mark_registration_payment(race_id, team_id):
 
     _sync_registration_payment_state(registration, race)
     db.session.commit()
+    logger.info(
+      "Manual payment mark updated for race %s team %s type %s confirmed=%s aggregate_paid=%s",
+      race_id,
+      team_id,
+      payment_type,
+      confirmed,
+      bool(registration.payment_confirmed),
+    )
 
     return jsonify({
         "team_id": team_id,
@@ -405,6 +419,12 @@ def reconcile_registration_payment(race_id, team_id):
     explicit_session_id = (payload.get('stripe_session_id') or '').strip()
 
     if requested_payment_type and requested_payment_type not in _allowed_payment_types(mode):
+        logger.warning(
+            "Invalid payment_type '%s' for reconcile race %s mode '%s'",
+            requested_payment_type,
+            race_id,
+            mode,
+        )
         return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
 
     candidate_attempts_query = RegistrationPaymentAttempt.query.filter_by(registration_id=registration.id)
@@ -423,6 +443,11 @@ def reconcile_registration_payment(race_id, team_id):
             None,
         )
         if not selected_attempt:
+            logger.warning(
+                "Reconcile requested with unknown session_id for race %s team %s",
+                race_id,
+                team_id,
+            )
             return jsonify({"message": "Provided stripe_session_id was not found for this registration."}), 400
     else:
         selected_attempt = next(
@@ -434,6 +459,7 @@ def reconcile_registration_payment(race_id, team_id):
         )
 
     if not selected_attempt:
+        logger.warning("No Stripe checkout session available to reconcile for race %s team %s", race_id, team_id)
         return jsonify({"message": "No Stripe checkout session found to reconcile."}), 400
 
     try:
@@ -442,7 +468,7 @@ def reconcile_registration_payment(race_id, team_id):
             secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
         )
     except ValueError as exc:
-        logger.error("Stripe reconcile unavailable for race %s team %s: %s", race_id, team_id, exc)
+        logger.warning("Stripe reconcile unavailable for race %s team %s: %s", race_id, team_id, exc)
         return jsonify({"message": "Payment provider is not configured."}), 503
     except RuntimeError as exc:
         logger.error("Stripe reconcile failed for race %s team %s session %s: %s", race_id, team_id, selected_attempt.stripe_session_id, exc)
@@ -458,9 +484,25 @@ def reconcile_registration_payment(race_id, team_id):
     elif checkout_status == 'expired' or (checkout_status == 'complete' and payment_status != 'paid'):
         selected_attempt.status = 'failed'
         selected_attempt.confirmed_at = None
+    else:
+        logger.debug(
+            "Reconcile left attempt unchanged for race %s team %s session %s (payment_status=%s status=%s)",
+            race_id,
+            team_id,
+            selected_attempt.stripe_session_id,
+            payment_status,
+            checkout_status,
+        )
 
     _sync_registration_payment_state(registration, race)
     db.session.commit()
+    logger.info(
+        "Reconcile completed for race %s team %s session %s aggregate_paid=%s",
+        race_id,
+        team_id,
+      selected_attempt.stripe_session_id,
+      bool(registration.payment_confirmed),
+    )
 
     return jsonify({
         "team_id": team_id,

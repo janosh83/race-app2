@@ -77,11 +77,17 @@ def add_race_category(race_id):
     data = request.get_json() or {}
     try:
         validated_data = RaceCategoryAssignSchema().load(data)
-    except ValidationError:
+    except ValidationError as err:
+        logger.warning("Invalid race category assign payload for race %s: %s", race_id, err)
         return jsonify({"message": "Missing required field: race_category_id"}), 400
 
     race = Race.query.filter_by(id=race_id).first_or_404()
     race_category = RaceCategory.query.filter_by(id=validated_data["race_category_id"]).first_or_404()
+    logger.debug(
+        "Attempting to assign category %s to race %s",
+        race_category.id,
+        race.id,
+    )
     category_is_assigned = db.session.query(race_categories_in_race.c.race_id).filter_by(
       race_id=race.id,
       race_category_id=race_category.id,
@@ -168,6 +174,12 @@ def get_race_categories(race_id):
             RaceCategoryTranslation.race_category_id.in_(category_ids),
             RaceCategoryTranslation.language == language,
         ).all()
+        logger.debug(
+            "Resolved %s race category translations for race %s in language '%s'",
+            len(translations),
+            race_id,
+            language,
+        )
         translations_by_category_id = {
             translation.race_category_id: translation
             for translation in translations
@@ -182,6 +194,8 @@ def get_race_categories(race_id):
             name = translation.name
             description = translation.description
         response.append({"id": category.id, "name": name, "description": description})
+
+    logger.info("Returned %s categories for race %s", len(response), race_id)
     return jsonify(response)
 
 
@@ -244,7 +258,7 @@ def remove_race_category(race_id):
     try:
         validated_data = RaceCategoryAssignSchema().load(data)
     except ValidationError as err:
-        logger.error("Error validating request data: %s", err)
+        logger.warning("Invalid race category unassign payload for race %s: %s", race_id, err)
         return jsonify({"message": "Missing required field: race_category_id"}), 400
     race_category_id = validated_data["race_category_id"]
 
@@ -256,7 +270,7 @@ def remove_race_category(race_id):
 
     # if the category is not assigned, return 404
     if not category_is_assigned:
-        logger.error("Attempt to remove unassigned category %s from race %s", race_category_id, race_id)
+        logger.warning("Attempt to remove unassigned category %s from race %s", race_category_id, race_id)
         return jsonify({"message": "Category not assigned to this race"}), 404
 
     # Prevent unassignment that would leave existing registrations in an invalid state.

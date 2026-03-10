@@ -1,3 +1,5 @@
+import logging
+
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -6,6 +8,7 @@ from app.models import Checkpoint, CheckpointLog, Task, TaskLog, User
 from app.routes.admin import admin_required
 
 race_visits_bp = Blueprint('race_visits', __name__)
+logger = logging.getLogger(__name__)
 
 
 @race_visits_bp.route('/visits/<int:team_id>/', methods=['GET'])
@@ -46,6 +49,12 @@ def get_visits_by_race_and_team(race_id, team_id):
     """
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        logger.warning(
+            "Unauthorized visit history access for race %s team %s by user %s",
+            race_id,
+            team_id,
+            user.id,
+        )
         return 403
 
     visits = (
@@ -68,6 +77,13 @@ def get_visits_by_race_and_team(race_id, team_id):
         .filter(CheckpointLog.race_id == race_id)
         .filter(CheckpointLog.team_id == team_id)
         .all()
+    )
+
+    logger.info(
+        "Returned %s checkpoint visits for race %s team %s",
+        len(visits),
+        race_id,
+        team_id,
     )
 
     return jsonify([
@@ -127,6 +143,7 @@ def get_visits_by_race(race_id):
         description: Admins only
     """
     visits = CheckpointLog.query.filter_by(race_id=race_id).all()
+    logger.info("Returned %s checkpoint visits for race %s", len(visits), race_id)
     return jsonify([
         {
             'checkpoint_id': visit.checkpoint_id,
@@ -196,6 +213,12 @@ def get_task_completions_by_race_and_team(race_id, team_id):
     """
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
+        logger.warning(
+            "Unauthorized task completion history access for race %s team %s by user %s",
+            race_id,
+            team_id,
+            user.id,
+        )
         return 403
 
     completions = (
@@ -212,6 +235,13 @@ def get_task_completions_by_race_and_team(race_id, team_id):
         .filter(TaskLog.race_id == race_id)
         .filter(TaskLog.team_id == team_id)
         .all()
+    )
+
+    logger.info(
+        "Returned %s task completions for race %s team %s",
+        len(completions),
+        race_id,
+        team_id,
     )
 
     return jsonify([
@@ -265,6 +295,7 @@ def get_task_completions_by_race(race_id):
         description: Admins only
     """
     completions = TaskLog.query.filter_by(race_id=race_id).all()
+    logger.info("Returned %s task completions for race %s", len(completions), race_id)
     return jsonify([
         {
             'task_id': completion.task_id,
