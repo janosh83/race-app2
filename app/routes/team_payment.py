@@ -177,7 +177,7 @@ def retry_registration_payment(race_id, team_id):
 
     try:
         session_data = create_registration_checkout_session(
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
@@ -439,7 +439,7 @@ def reconcile_registration_payment(race_id, team_id):
     try:
         stripe_state = get_checkout_session_payment_state(
             session_id=selected_attempt.stripe_session_id,
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
         )
     except ValueError as exc:
         logger.error("Stripe reconcile unavailable for race %s team %s: %s", race_id, team_id, exc)

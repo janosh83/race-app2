@@ -442,7 +442,7 @@ def create_checkout_by_registration_slug(registration_slug):
 
     try:
         session_data = create_registration_checkout_session(
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
@@ -524,7 +524,7 @@ def stripe_registration_webhook():
             payload=payload,
             signature=signature,
             webhook_secret=current_app.config.get('STRIPE_WEBHOOK_SECRET'),
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
         )
     except ValueError as exc:
         if 'not configured' in str(exc).lower():
@@ -631,7 +631,7 @@ def stripe_registration_webhook():
         receipt_confirmed_at = payment_attempt.confirmed_at
         receipt_url = get_checkout_receipt_url(
             session_object=session,
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
         )
 
         for member in team.members:
@@ -741,7 +741,7 @@ def retry_registration_payment(race_id, team_id):
 
     try:
         session_data = create_registration_checkout_session(
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
             success_url=success_url,
             cancel_url=cancel_url,
             currency=currency,
@@ -888,7 +888,7 @@ def reconcile_registration_payment(race_id, team_id):
     try:
         stripe_state = get_checkout_session_payment_state(
             session_id=selected_attempt.stripe_session_id,
-            secret_key=current_app.config.get('STRIPE_API_KEY'),
+            secret_key=current_app.config.get('STRIPE_RESTRICTED_KEY'),
         )
     except ValueError as exc:
         logger.error("Stripe reconcile unavailable for race %s team %s: %s", race_id, team_id, exc)

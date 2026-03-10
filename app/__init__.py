@@ -156,7 +156,7 @@ def create_app(config_class=None):
                 + '. Set strong values via environment variables.'
             )
 
-        if not str(app.config.get('STRIPE_API_KEY', '')).strip():
+        if not str(app.config.get('STRIPE_RESTRICTED_KEY', '')).strip():
             raise RuntimeError('Missing required STRIPE_RESTRICTED_KEY for ProductionConfig.')
 
     swagger_template = {
