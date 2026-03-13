@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
+const apiUrl = import.meta.env.VITE_API_URL || '';
+
 function formatDate(iso) {
   if (!iso) return '—';
   try {
@@ -235,7 +237,10 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
             const warning = item.type === 'visit' ? getDistanceWarning(item) : null;
             const imageDistance = item.type === 'visit' ? item.image_distance_km : null;
             const userDistance = item.type === 'visit' ? item.user_distance_km : null;
-            const hasImage = item.type === 'visit' && item.image_url;
+            const imageUrl = item.image_filename
+              ? `${apiUrl}/static/images/${item.image_filename}`
+              : null;
+            const hasImage = Boolean(imageUrl);
 
             return (
               <div
@@ -261,12 +266,14 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
                       overflow: 'hidden'
                     }}
                     onClick={() => setSelectedImage({
-                      url: item.image_url,
-                      checkpoint: item.checkpoint
+                      url: imageUrl,
+                      checkpoint: item.type === 'visit'
+                        ? item.checkpoint
+                        : (item.task || item.task_title || t('admin.visits.unknownTask'))
                     })}
                   >
                     <img
-                      src={item.image_url}
+                      src={imageUrl}
                       alt={t('admin.visits.imageAltCheckpointVisit')}
                       style={{
                         width: '100%',

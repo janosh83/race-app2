@@ -19,9 +19,6 @@ logger = logging.getLogger(__name__)
 # Blueprint for tasks
 tasks_bp = Blueprint('tasks', __name__)
 
-# Get the absolute path to the app directory for image uploads
-UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'images')
-
 def _apply_task_translation(task, language):
     if not language:
         return task.title, task.description
@@ -451,9 +448,10 @@ def log_task_completion(race_id):
             unique_id = uuid.uuid4().hex[:8]
             filename = f"{timestamp}_{unique_id}.{file_ext}"
 
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            upload_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+            filepath = os.path.join(upload_folder, filename)
             saved_image_path = filepath
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            os.makedirs(upload_folder, exist_ok=True)
             try:
                 file.save(filepath)
                 logger.info("Task image saved: %s for race %s, team %s", filename, race_id, data['team_id'])
@@ -595,7 +593,8 @@ def unlog_task_completion(race_id):
             if log.image_id:
                 image = Image.query.filter_by(id=log.image_id).first()
                 if image:
-                    image_path = os.path.join(UPLOAD_FOLDER, image.filename)
+                    upload_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                    image_path = os.path.join(upload_folder, image.filename)
                     try:
                         if os.path.exists(image_path):
                             os.remove(image_path)
@@ -705,26 +704,41 @@ def get_tasks_with_status(race_id, team_id):
     language = resolve_language(race, user, requested_language)
     tasks = race.tasks
 
-    completions = TaskLog.query.filter_by(race_id=race_id, team_id=team_id).all()
-    completions_by_task = {completion.task_id: completion for completion in completions}
+    completion_rows = (
+      db.session.query(TaskLog, Image.filename.label('image_filename'))
+      .outerjoin(Image, Image.id == TaskLog.image_id)
+      .filter(TaskLog.race_id == race_id, TaskLog.team_id == team_id)
+      .all()
+    )
+    completions_by_task = {
+      completion.task_id: (completion, image_filename)
+      for completion, image_filename in completion_rows
+    }
 
     logger.info("Retrieved %d tasks with status for race %d, team %d, user %d", len(tasks), race_id, team_id, user.id)
 
     response = []
     for task in tasks:
-        completion = completions_by_task.get(task.id)
+        completion_entry = completions_by_task.get(task.id)
+        completion = completion_entry[0] if completion_entry else None
+        image_filename = completion_entry[1] if completion_entry else None
         title, description = _apply_task_translation(task, language)
         task_data = {
             "id": task.id,
             "title": title,
             "description": description,
             "numOfPoints": task.numOfPoints,
-            "completed": task.id in completions_by_task,
+          "completed": completion_entry is not None,
         }
         if completion and completion.image_id:
-            image = Image.query.filter_by(id=completion.image_id).first_or_404()
-            if image:
-                task_data["image_filename"] = image.filename
+          if image_filename:
+            task_data["image_filename"] = image_filename
+          else:
+            logger.warning(
+              "Missing image %s referenced by task log %s",
+              completion.image_id,
+              completion.id,
+            )
         response.append(task_data)
 
     return jsonify(response), 200

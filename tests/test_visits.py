@@ -400,6 +400,27 @@ def test_unlog_visits(test_client, add_test_data):
     assert len(response.json) == 0
 
 
+def test_get_visits_by_team_includes_image_filename(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_response = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_response.status_code == 201
+
+    response = test_client.get("/api/race/1/visits/1/", headers=headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    image_filename = response.json[0].get("image_filename")
+    assert image_filename
+    assert image_filename.endswith(".jpg")
+
+
 def test_unlog_visit_handles_missing_image_row(test_client, test_app, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -576,6 +597,48 @@ def test_get_tasks_with_status(test_client, add_test_data):
     assert status_by_id[2]["completed"] is False
     assert status_by_id[3]["completed"] is True
 
+
+def test_get_tasks_with_status_includes_image_filename(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers_user,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    response = test_client.get("/api/race/1/tasks/1/status/", headers=headers_user)
+    assert response.status_code == 200
+    status_by_id = {item["id"]: item for item in response.json}
+    image_filename = status_by_id[1].get("image_filename")
+    assert image_filename
+    assert image_filename.endswith(".jpg")
+
+
+def test_get_task_completions_by_team_includes_image_filename(test_client, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers_user,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    response = test_client.get("/api/race/1/task-completions/1/", headers=headers_user)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    image_filename = response.json[0].get("image_filename")
+    assert image_filename
+    assert image_filename.endswith(".jpg")
+
 def test_unlog_task_completion_by_team_member(test_client, add_test_data):
     """Test deleting task completion log by team member"""
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
@@ -652,6 +715,35 @@ def test_unlog_task_completion_handles_missing_image_row(test_client, test_app, 
 
     with test_app.app_context():
         assert TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first() is None
+
+
+def test_get_tasks_with_status_handles_missing_image_row(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers_user = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers_user,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    with test_app.app_context():
+        log = TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first()
+        assert log is not None
+        assert log.image_id is not None
+        image = Image.query.filter_by(id=log.image_id).first()
+        assert image is not None
+        db.session.delete(image)
+        db.session.commit()
+
+    response = test_client.get("/api/race/1/tasks/1/status/", headers=headers_user)
+    assert response.status_code == 200
+    status_by_id = {item["id"]: item for item in response.json}
+    assert status_by_id[1]["completed"] is True
+    assert "image_filename" not in status_by_id[1]
 
 def test_unlog_task_completion_not_found(test_client, add_test_data):
     """Test deleting non-existent task log"""

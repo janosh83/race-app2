@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, Task, TaskLog, User
+from app.models import Checkpoint, CheckpointLog, Image, Task, TaskLog, User
 from app.routes.admin import admin_required
 
 race_visits_bp = Blueprint('race_visits', __name__)
@@ -62,6 +62,7 @@ def get_visits_by_race_and_team(race_id, team_id):
             CheckpointLog.id,
             CheckpointLog.checkpoint_id,
             Checkpoint.title.label('checkpoint_title'),
+            Image.filename.label('image_filename'),
             Checkpoint.numOfPoints,
             CheckpointLog.team_id,
             CheckpointLog.created_at,
@@ -74,6 +75,7 @@ def get_visits_by_race_and_team(race_id, team_id):
         )
         .select_from(CheckpointLog)
         .join(Checkpoint, CheckpointLog.checkpoint_id == Checkpoint.id)
+        .outerjoin(Image, CheckpointLog.image_id == Image.id)
         .filter(CheckpointLog.race_id == race_id)
         .filter(CheckpointLog.team_id == team_id)
         .all()
@@ -94,6 +96,7 @@ def get_visits_by_race_and_team(race_id, team_id):
             'num_of_points': visit.numOfPoints,
             'team_id': visit.team_id,
             'created_at': visit.created_at,
+            'image_filename': visit.image_filename,
             'image_distance_km': visit.image_distance_km,
             'image_latitude': visit.image_latitude,
             'image_longitude': visit.image_longitude,
@@ -142,21 +145,27 @@ def get_visits_by_race(race_id):
       403:
         description: Admins only
     """
-    visits = CheckpointLog.query.filter_by(race_id=race_id).all()
+    visits = (
+      db.session.query(CheckpointLog, Image.filename.label('image_filename'))
+      .outerjoin(Image, CheckpointLog.image_id == Image.id)
+      .filter(CheckpointLog.race_id == race_id)
+      .all()
+    )
     logger.info("Returned %s checkpoint visits for race %s", len(visits), race_id)
     return jsonify([
         {
-            'checkpoint_id': visit.checkpoint_id,
-            'team_id': visit.team_id,
-            'created_at': visit.created_at,
-            'image_distance_km': visit.image_distance_km,
-            'image_latitude': visit.image_latitude,
-            'image_longitude': visit.image_longitude,
-            'user_distance_km': visit.user_distance_km,
-            'user_latitude': visit.user_latitude,
-            'user_longitude': visit.user_longitude,
+        'checkpoint_id': visit.checkpoint_id,
+        'team_id': visit.team_id,
+        'created_at': visit.created_at,
+        'image_filename': image_filename,
+        'image_distance_km': visit.image_distance_km,
+        'image_latitude': visit.image_latitude,
+        'image_longitude': visit.image_longitude,
+        'user_distance_km': visit.user_distance_km,
+        'user_latitude': visit.user_latitude,
+        'user_longitude': visit.user_longitude,
         }
-        for visit in visits
+      for visit, image_filename in visits
     ])
 
 
@@ -226,12 +235,14 @@ def get_task_completions_by_race_and_team(race_id, team_id):
             TaskLog.id,
             TaskLog.task_id,
             Task.title.label('task_title'),
+            Image.filename.label('image_filename'),
             Task.numOfPoints,
             TaskLog.team_id,
             TaskLog.created_at,
         )
         .select_from(TaskLog)
         .join(Task, TaskLog.task_id == Task.id)
+        .outerjoin(Image, TaskLog.image_id == Image.id)
         .filter(TaskLog.race_id == race_id)
         .filter(TaskLog.team_id == team_id)
         .all()
@@ -252,6 +263,7 @@ def get_task_completions_by_race_and_team(race_id, team_id):
             'num_of_points': completion.numOfPoints,
             'team_id': completion.team_id,
             'created_at': completion.created_at,
+            'image_filename': completion.image_filename,
         }
         for completion in completions
     ])
@@ -294,13 +306,19 @@ def get_task_completions_by_race(race_id):
       403:
         description: Admins only
     """
-    completions = TaskLog.query.filter_by(race_id=race_id).all()
+    completions = (
+      db.session.query(TaskLog, Image.filename.label('image_filename'))
+      .outerjoin(Image, TaskLog.image_id == Image.id)
+      .filter(TaskLog.race_id == race_id)
+      .all()
+    )
     logger.info("Returned %s task completions for race %s", len(completions), race_id)
     return jsonify([
         {
             'task_id': completion.task_id,
             'team_id': completion.team_id,
             'created_at': completion.created_at,
+            'image_filename': image_filename,
         }
-        for completion in completions
+      for completion, image_filename in completions
     ])
