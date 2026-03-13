@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import Race, Team, RaceCategory, Registration, RegistrationPaymentAttempt, User
+from app.models import Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
 from datetime import datetime, timedelta
 
 @pytest.fixture
@@ -742,6 +742,82 @@ def test_send_registration_emails_sets_reset_token(test_client, add_test_data, a
     call_args = mock_email_service.call_args[1]
     assert 'reset_token' in call_args
     assert call_args['reset_token'] is not None
+
+
+def test_send_registration_emails_creates_email_logs(test_client, add_test_data, admin_auth_headers, mocker):
+    """Each attempted registration email should create a RegistrationEmailLog row."""
+    mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
+
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = True
+        db.session.commit()
+
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        logs = RegistrationEmailLog.query.filter_by(registration_id=registration.id).all()
+        assert len(logs) == 1
+        assert logs[0].status == 'sent'
+        assert logs[0].template_type == 'registration_confirmation'
+
+
+def test_retry_failed_registration_emails_endpoint(test_client, add_test_data, admin_auth_headers, mocker):
+    """Retry endpoint should resend failed logs and create a new sent log entry."""
+    send_calls = {"count": 0}
+
+    def fake_send(**kwargs):
+        send_calls["count"] += 1
+        return True
+
+    mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', side_effect=fake_send)
+
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = True
+        db.session.add(
+            RegistrationEmailLog(
+                registration_id=registration.id,
+                user_id=1,
+                email_address='john@example.com',
+                template_type='registration_confirmation',
+                status='failed',
+                attempt_count=1,
+                error_message='smtp timeout',
+                last_attempted_at=datetime.now(),
+            )
+        )
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/retry-failed-emails/",
+        json={"limit": 10},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json["retried"] == 1
+    assert response.json["sent"] == 1
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        logs = RegistrationEmailLog.query.filter_by(registration_id=registration.id, user_id=1).order_by(RegistrationEmailLog.id.asc()).all()
+        assert len(logs) == 2
+        assert logs[-1].status == 'sent'
+        assert registration.email_sent is True
 
 
 def test_retry_registration_payment_creates_pending_attempt(test_client, add_test_data, admin_auth_headers, test_app, monkeypatch):

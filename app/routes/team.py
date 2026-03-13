@@ -7,10 +7,11 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Team, Race, User, Registration, RaceCategory
+from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog
 from app.routes.admin import admin_required
 from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
 from app.services.email_service import EmailService, generate_reset_token
+from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.utils import (
   registration_mode as _registration_mode,
   resolve_race_category_name as _resolve_race_category_name,
@@ -21,6 +22,20 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 team_bp = Blueprint("team", __name__)
+def _registration_members_all_sent(registration):
+  if not registration or not registration.team or not registration.team.members:
+    return False
+
+  for member in registration.team.members:
+    has_sent_log = RegistrationEmailLog.query.filter_by(
+      registration_id=registration.id,
+      user_id=member.id,
+      template_type='registration_confirmation',
+      status='sent',
+    ).first()
+    if not has_sent_log:
+      return False
+  return True
 
 # get all teams
 # tested by test_teams.py -> test_get_teams
@@ -531,7 +546,7 @@ def send_registration_emails(race_id):
                 reset_token = generate_reset_token()
                 member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
 
-                success = EmailService.send_registration_confirmation_email(
+                send_result = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
                     race_name=_resolve_race_name(race, member.preferred_language),
@@ -540,8 +555,16 @@ def send_registration_emails(race_id):
                     reset_token=reset_token,
                     language=member.preferred_language,
                     race_greeting=_resolve_race_greeting(race, member.preferred_language),
+                    return_result=True,
                 )
-                if success:
+                add_registration_email_log(
+                  registration,
+                  member.id if member else None,
+                  member.email if member else "",
+                  "registration_confirmation",
+                  send_result,
+                )
+                if normalize_email_send_result(send_result)["success"]:
                     sent_count += 1
                 else:
                     failed_count += 1
@@ -550,6 +573,18 @@ def send_registration_emails(race_id):
             except (OSError, ValueError, TypeError) as e:
                 failed_count += 1
                 registration_success = False
+                add_registration_email_log(
+                  registration,
+                  member.id if member else None,
+                  member.email if member else "",
+                  "registration_confirmation",
+                  {
+                    "success": False,
+                    "error": str(e),
+                    "provider": "smtp",
+                    "provider_message_id": None,
+                  },
+                )
                 logger.error("Exception sending registration email to %s: %s", member.email, e)
 
         # Mark registration as email sent only if all team members received email
@@ -566,6 +601,151 @@ def send_registration_emails(race_id):
         "sent": sent_count,
         "failed": failed_count
     }), 200
+
+
+@team_bp.route("/race/<int:race_id>/email-logs/", methods=["GET"])
+@admin_required()
+def get_registration_email_logs(race_id):
+    """List registration email logs for race with simple filtering and pagination."""
+    Race.query.filter_by(id=race_id).first_or_404()
+
+    status_filter = (request.args.get('status') or '').strip().lower()
+    template_filter = (request.args.get('template_type') or '').strip().lower()
+    page = max(int(request.args.get('page', 1) or 1), 1)
+    page_size = min(max(int(request.args.get('page_size', 50) or 50), 1), 200)
+
+    query = (
+        RegistrationEmailLog.query
+        .join(Registration, RegistrationEmailLog.registration_id == Registration.id)
+        .filter(Registration.race_id == race_id)
+        .order_by(RegistrationEmailLog.created_at.desc(), RegistrationEmailLog.id.desc())
+    )
+
+    if status_filter:
+        query = query.filter(RegistrationEmailLog.status == status_filter)
+    if template_filter:
+        query = query.filter(RegistrationEmailLog.template_type == template_filter)
+
+    total = query.count()
+    logs = query.offset((page - 1) * page_size).limit(page_size).all()
+
+    items = [
+        {
+            'id': log.id,
+            'registration_id': log.registration_id,
+            'team_id': log.registration.team_id if log.registration else None,
+            'user_id': log.user_id,
+            'email_address': log.email_address,
+            'template_type': log.template_type,
+            'provider': log.provider,
+            'provider_message_id': log.provider_message_id,
+            'status': log.status,
+            'error_message': log.error_message,
+            'attempt_count': log.attempt_count,
+            'last_attempted_at': log.last_attempted_at.isoformat() if log.last_attempted_at else None,
+            'delivered_at': log.delivered_at.isoformat() if log.delivered_at else None,
+            'created_at': log.created_at.isoformat() if log.created_at else None,
+            'updated_at': log.updated_at.isoformat() if log.updated_at else None,
+        }
+        for log in logs
+    ]
+
+    return jsonify(
+        {
+            'data': items,
+            'pagination': {
+                'page': page,
+                'page_size': page_size,
+                'total': total,
+            },
+        }
+    ), 200
+
+
+@team_bp.route("/race/<int:race_id>/retry-failed-emails/", methods=["POST"])
+@admin_required()
+def retry_failed_registration_emails(race_id):
+    """Retry failed registration confirmation emails for a race."""
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    limit = min(max(int((request.get_json(silent=True) or {}).get('limit', 50) or 50), 1), 500)
+
+    failed_logs = (
+        RegistrationEmailLog.query
+        .join(Registration, RegistrationEmailLog.registration_id == Registration.id)
+        .filter(
+            Registration.race_id == race_id,
+            RegistrationEmailLog.template_type == 'registration_confirmation',
+            RegistrationEmailLog.status == 'failed',
+        )
+        .order_by(RegistrationEmailLog.last_attempted_at.asc(), RegistrationEmailLog.id.asc())
+        .limit(limit)
+        .all()
+    )
+
+    retried = 0
+    sent = 0
+    failed = 0
+    skipped = 0
+
+    for failed_log in failed_logs:
+        registration = Registration.query.filter_by(id=failed_log.registration_id).first()
+        if not registration or not registration.team:
+            skipped += 1
+            continue
+
+        member = next((m for m in registration.team.members if m.id == failed_log.user_id), None)
+        if not member:
+            skipped += 1
+            continue
+
+        category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
+        retried += 1
+        try:
+            reset_token = generate_reset_token()
+            member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+            send_result = EmailService.send_registration_confirmation_email(
+                user_email=member.email,
+                user_name=member.name or member.email,
+                race_name=_resolve_race_name(race, member.preferred_language),
+                team_name=registration.team.name,
+                race_category=_resolve_race_category_name(category, race, member.preferred_language),
+                reset_token=reset_token,
+                language=member.preferred_language,
+                race_greeting=_resolve_race_greeting(race, member.preferred_language),
+                return_result=True,
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            send_result = {
+                "success": False,
+                "error": str(exc),
+                "provider": "smtp",
+                "provider_message_id": None,
+            }
+
+        add_registration_email_log(
+          registration,
+          member.id if member else None,
+          member.email if member else "",
+          'registration_confirmation',
+          send_result,
+        )
+        if normalize_email_send_result(send_result)["success"]:
+            sent += 1
+        else:
+            failed += 1
+
+        registration.email_sent = _registration_members_all_sent(registration)
+        db.session.commit()
+
+    return jsonify(
+        {
+            'message': 'Retry processed',
+            'retried': retried,
+            'sent': sent,
+            'failed': failed,
+            'skipped': skipped,
+        }
+    ), 200
 
 # TODO: get race by team
 

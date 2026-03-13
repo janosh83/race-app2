@@ -29,9 +29,9 @@ class EmailService:
         return DEFAULT_LANGUAGE
 
     @staticmethod
-    def _send_email(subject, recipient, body_text, body_html=None):
+    def _send_email_result(subject, recipient, body_text, body_html=None):
         """
-        Send an email using Flask-Mail.
+        Send an email using Flask-Mail and return a detailed result object.
 
         Args:
             subject: Email subject line
@@ -40,7 +40,7 @@ class EmailService:
             body_html: Optional HTML email body
 
         Returns:
-            bool: True if email sent successfully, False otherwise
+            dict: Structured result with success/error/provider fields
         """
         try:
             msg = Message(
@@ -51,13 +51,28 @@ class EmailService:
                 sender=current_app.config['MAIL_DEFAULT_SENDER']
             )
             mail.send(msg)
-            return True
+            return {
+                'success': True,
+                'error': None,
+                'provider': 'smtp',
+                'provider_message_id': None,
+            }
         except (smtplib.SMTPException, ConnectionError, OSError, KeyError, ValueError, RuntimeError) as err:
             current_app.logger.error("Failed to send email to %s: %s", recipient, err)
-            return False
+            return {
+                'success': False,
+                'error': str(err),
+                'provider': 'smtp',
+                'provider_message_id': None,
+            }
 
     @staticmethod
-    def send_password_reset_email(user_email, reset_token, language=None):
+    def _send_email(subject, recipient, body_text, body_html=None):
+        """Backward-compatible boolean wrapper used by existing callers/tests."""
+        return EmailService._send_email_result(subject, recipient, body_text, body_html).get('success', False)
+
+    @staticmethod
+    def send_password_reset_email(user_email, reset_token, language=None, return_result=False):
         """
         Send password reset email to user.
 
@@ -83,7 +98,8 @@ class EmailService:
 
         body_html = render_template(f'emails/{lang}/password_reset.html', reset_link=reset_link)
 
-        return EmailService._send_email(subject, user_email, None, body_html)
+        result = EmailService._send_email_result(subject, user_email, None, body_html)
+        return result if return_result else result.get('success', False)
 
     @staticmethod
     def send_registration_confirmation_email(
@@ -100,6 +116,7 @@ class EmailService:
         payment_confirmed_at=None,
         payment_receipt_url=None,
         race_greeting=None,
+        return_result=False,
     ):
         """
         Send race registration confirmation email.
@@ -151,7 +168,8 @@ class EmailService:
             race_greeting=resolved_race_greeting,
         )
 
-        return EmailService._send_email(subject, user_email, None, body_html)
+        result = EmailService._send_email_result(subject, user_email, None, body_html)
+        return result if return_result else result.get('success', False)
 
     @staticmethod
     def send_admin_registration_completed_email(
@@ -168,6 +186,7 @@ class EmailService:
         payment_currency=None,
         payment_reference=None,
         payment_confirmed_at=None,
+        return_result=False,
     ):
         """Send an admin notification when registration payment is confirmed."""
         lang = EmailService._get_template_language(language)
@@ -198,7 +217,8 @@ class EmailService:
         }
         body_html = render_template(f"emails/{lang}/admin_registration_completed.html", **template_context)
 
-        return EmailService._send_email(subject, admin_email, None, body_html)
+        result = EmailService._send_email_result(subject, admin_email, None, body_html)
+        return result if return_result else result.get('success', False)
 
 
 def generate_reset_token():

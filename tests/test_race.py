@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import create_app, db
-from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RaceCategory, RaceCategoryTranslation
+from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RegistrationEmailLog, RaceCategory, RaceCategoryTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 from datetime import datetime, timedelta
 
@@ -891,6 +891,12 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
         assert updated.stripe_session_id == "cs_webhook_123"
         team = Team.query.filter_by(id=team_id).first()
         assert send_calls["count"] == len(team.members)
+        email_logs = RegistrationEmailLog.query.filter_by(
+            registration_id=updated.id,
+            template_type='registration_confirmation',
+        ).all()
+        assert len(email_logs) == len(team.members)
+        assert all(log.status == 'sent' for log in email_logs)
 
     assert captured_kwargs
     first_call = captured_kwargs[0]
@@ -973,6 +979,15 @@ def test_stripe_registration_webhook_sends_admin_notification_when_configured(te
     assert admin_calls[0]["team_id"] == team_id
     assert admin_calls[0]["language"] == "cs"
     assert admin_calls[0]["payment_type"] == "driver"
+
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+        admin_logs = RegistrationEmailLog.query.filter_by(
+            registration_id=registration.id,
+            template_type='admin_registration_completed',
+        ).all()
+        assert len(admin_logs) == 2
+        assert all(log.status == 'sent' for log in admin_logs)
 
 
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):

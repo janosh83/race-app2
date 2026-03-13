@@ -67,6 +67,7 @@ class Registration(db.Model):
     payment_confirmed_at = db.Column(db.DateTime, nullable=True)
     stripe_session_id = db.Column(db.String(255), nullable=True, unique=True)
     payment_attempts = db.relationship('RegistrationPaymentAttempt', backref='registration', cascade="all, delete-orphan", lazy=True)
+    email_logs = db.relationship('RegistrationEmailLog', backref='registration', cascade="all, delete-orphan", lazy=True)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'team_id', name='uq_race_team'),
@@ -83,6 +84,35 @@ class RegistrationPaymentAttempt(db.Model):
     currency = db.Column(db.String(3), nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
     confirmed_at = db.Column(db.DateTime, nullable=True)
+
+
+class RegistrationEmailLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    registration_id = db.Column(db.Integer, db.ForeignKey('registration.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    email_address = db.Column(db.String(128), nullable=False)
+    template_type = db.Column(db.String(64), nullable=False)
+    provider = db.Column(db.String(32), nullable=False, default='smtp')
+    provider_message_id = db.Column(db.String(255), nullable=True)
+    status = db.Column(db.String(32), nullable=False, default='pending')
+    error_message = db.Column(db.Text, nullable=True)
+    attempt_count = db.Column(db.Integer, nullable=False, default=1)
+    first_attempted_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+    last_attempted_at = db.Column(db.DateTime, nullable=True)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+    opened_at = db.Column(db.DateTime, nullable=True)
+    bounced_at = db.Column(db.DateTime, nullable=True)
+    blocked_at = db.Column(db.DateTime, nullable=True)
+    provider_event_payload = db.Column(db.JSON, nullable=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+    updated_at = db.Column(db.DateTime, server_default=db.func.now(), onupdate=db.func.now(), nullable=False)
+
+    __table_args__ = (
+        db.Index('ix_registration_email_log_registration_id', 'registration_id'),
+        db.Index('ix_registration_email_log_status', 'status'),
+        db.Index('ix_registration_email_log_email_address', 'email_address'),
+        db.Index('ix_registration_email_log_provider_message_id', 'provider_message_id'),
+    )
 
 class RaceCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)

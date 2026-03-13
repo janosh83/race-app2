@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Race, RaceCategory, RaceTranslation, Registration, RegistrationPaymentAttempt, Team
 from app.services.email_service import EmailService, generate_reset_token
+from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.services.stripe_service import construct_stripe_event
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_receipt_url
@@ -20,8 +21,6 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 race_registration_bp = Blueprint('race_registration', __name__)
-
-
 def _payment_summary(registration, race):
     mode = _registration_mode(race)
     attempts = RegistrationPaymentAttempt.query.filter_by(registration_id=registration.id).order_by(
@@ -87,26 +86,45 @@ def _get_registration_admin_recipients():
 def _notify_admins_registration_completed(race, team, registration, payment_attempt):
     recipients = _get_registration_admin_recipients()
     if not recipients:
+        logger.warning('No admin email configured to receive registration completion notifications')
         return True
 
     all_sent = True
     for admin_email in recipients:
-        sent = EmailService.send_admin_registration_completed_email(
-            admin_email=admin_email,
-            race_name=race.name if race else f'Race #{registration.race_id}',
-            team_name=team.name if team else f'Team #{registration.team_id}',
-            registration_mode=_registration_mode(race) if race else None,
-            registration_id=registration.id,
-            race_id=registration.race_id,
-            team_id=registration.team_id,
-            language=(race.default_language if race else None),
-            payment_type=payment_attempt.payment_type,
-            payment_amount_cents=payment_attempt.amount_cents,
-            payment_currency=payment_attempt.currency,
-            payment_reference=payment_attempt.stripe_session_id,
-            payment_confirmed_at=payment_attempt.confirmed_at,
+        try:
+            send_result = EmailService.send_admin_registration_completed_email(
+                admin_email=admin_email,
+                race_name=race.name if race else f'Race #{registration.race_id}',
+                team_name=team.name if team else f'Team #{registration.team_id}',
+                registration_mode=_registration_mode(race) if race else None,
+                registration_id=registration.id,
+                race_id=registration.race_id,
+                team_id=registration.team_id,
+                language=(race.default_language if race else None),
+                payment_type=payment_attempt.payment_type,
+                payment_amount_cents=payment_attempt.amount_cents,
+                payment_currency=payment_attempt.currency,
+                payment_reference=payment_attempt.stripe_session_id,
+                payment_confirmed_at=payment_attempt.confirmed_at,
+                return_result=True,
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            send_result = {
+                'success': False,
+                'error': str(exc),
+                'provider': 'smtp',
+                'provider_message_id': None,
+            }
+
+        add_registration_email_log(
+            registration=registration,
+            user_id=None,
+            email_address=admin_email,
+            template_type='admin_registration_completed',
+            send_result=send_result,
         )
-        if not sent:
+
+        if not normalize_email_send_result(send_result)['success']:
             all_sent = False
 
     return all_sent
@@ -600,22 +618,40 @@ def stripe_registration_webhook():
         for member in team.members:
             reset_token = generate_reset_token()
             member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
-            sent = EmailService.send_registration_confirmation_email(
-                user_email=member.email,
-                user_name=member.name or member.email,
-                race_name=_resolve_race_name(race, member.preferred_language),
-                team_name=team.name,
-                race_category=_resolve_race_category_name(category, race, member.preferred_language),
-                reset_token=reset_token,
-                language=member.preferred_language,
-                payment_amount_cents=receipt_amount_cents,
-                payment_currency=receipt_currency,
-                payment_reference=receipt_reference,
-                payment_confirmed_at=receipt_confirmed_at,
-                payment_receipt_url=receipt_url,
-                race_greeting=_resolve_race_greeting(race, member.preferred_language),
+            try:
+                send_result = EmailService.send_registration_confirmation_email(
+                    user_email=member.email,
+                    user_name=member.name or member.email,
+                    race_name=_resolve_race_name(race, member.preferred_language),
+                    team_name=team.name,
+                    race_category=_resolve_race_category_name(category, race, member.preferred_language),
+                    reset_token=reset_token,
+                    language=member.preferred_language,
+                    payment_amount_cents=receipt_amount_cents,
+                    payment_currency=receipt_currency,
+                    payment_reference=receipt_reference,
+                    payment_confirmed_at=receipt_confirmed_at,
+                    payment_receipt_url=receipt_url,
+                    race_greeting=_resolve_race_greeting(race, member.preferred_language),
+                    return_result=True,
+                )
+            except (OSError, ValueError, TypeError) as exc:
+                send_result = {
+                    'success': False,
+                    'error': str(exc),
+                    'provider': 'smtp',
+                    'provider_message_id': None,
+                }
+
+            add_registration_email_log(
+                registration=registration,
+                user_id=member.id,
+                email_address=member.email,
+                template_type='registration_confirmation',
+                send_result=send_result,
             )
-            if not sent:
+
+            if not normalize_email_send_result(send_result)['success']:
                 email_sent_for_all = False
 
         admin_notification_sent = _notify_admins_registration_completed(
