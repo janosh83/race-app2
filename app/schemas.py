@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate, pre_load, validates_schema, ValidationError
+from marshmallow import INCLUDE, Schema, fields, validate, pre_load, validates_schema, ValidationError
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 
@@ -418,3 +418,48 @@ class TeamAddMembersSchema(Schema):
 
 class TeamDisqualifySchema(Schema):
     disqualified = fields.Boolean(required=True)
+
+
+class RegistrationEmailLogQuerySchema(Schema):
+    status = fields.String(
+        load_default=None,
+        allow_none=True,
+        validate=validate.OneOf(['pending', 'sent', 'delivered', 'opened', 'failed', 'bounced', 'blocked']),
+    )
+    template_type = fields.String(
+        load_default=None,
+        allow_none=True,
+        validate=validate.OneOf(['registration_confirmation', 'admin_registration_completed']),
+    )
+    page = fields.Integer(load_default=1, validate=validate.Range(min=1))
+    page_size = fields.Integer(load_default=50, validate=validate.Range(min=1, max=200))
+
+
+class RetryFailedEmailsSchema(Schema):
+    limit = fields.Integer(load_default=50, validate=validate.Range(min=1, max=500))
+
+
+class BrevoWebhookEventSchema(Schema):
+    class Meta:
+        unknown = INCLUDE
+
+    event = fields.String(required=True, validate=validate.Length(min=1))
+    email = fields.Email(load_default=None, allow_none=True)
+    recipient = fields.Email(load_default=None, allow_none=True)
+    message_id = fields.String(load_default=None, allow_none=True, data_key='message_id')
+    message_id_dash = fields.String(load_default=None, allow_none=True, data_key='message-id')
+    message_id_camel = fields.String(load_default=None, allow_none=True, data_key='messageId')
+    smtp_id = fields.String(load_default=None, allow_none=True, data_key='smtp_id')
+    smtp_id_dash = fields.String(load_default=None, allow_none=True, data_key='smtp-id')
+    date = fields.Raw(load_default=None, allow_none=True)
+    ts = fields.Raw(load_default=None, allow_none=True)
+
+    @validates_schema
+    def validate_identity(self, data, **kwargs):
+        message_ref = data.get('message_id') or data.get('message_id_dash') or data.get('message_id_camel') or data.get('smtp_id') or data.get('smtp_id_dash')
+        recipient = data.get('email') or data.get('recipient')
+        if not message_ref and not recipient:
+            raise ValidationError(
+                'At least one message identifier or recipient email is required.',
+                field_name='message_id',
+            )

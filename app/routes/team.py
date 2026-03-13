@@ -9,7 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog
 from app.routes.admin import admin_required
-from app.schemas import TeamCreateSchema, TeamSignUpSchema, TeamAddMembersSchema, TeamDisqualifySchema
+from app.schemas import (
+  RegistrationEmailLogQuerySchema,
+  RetryFailedEmailsSchema,
+  TeamAddMembersSchema,
+  TeamCreateSchema,
+  TeamDisqualifySchema,
+  TeamSignUpSchema,
+)
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.utils import (
@@ -22,20 +29,22 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 team_bp = Blueprint("team", __name__)
-def _registration_members_all_sent(registration):
-  if not registration or not registration.team or not registration.team.members:
-    return False
 
-  for member in registration.team.members:
-    has_sent_log = RegistrationEmailLog.query.filter_by(
-      registration_id=registration.id,
-      user_id=member.id,
-      template_type='registration_confirmation',
-      status='sent',
-    ).first()
-    if not has_sent_log:
-      return False
-  return True
+
+def _registration_members_all_sent(registration):
+    if not registration or not registration.team or not registration.team.members:
+        return False
+
+    for member in registration.team.members:
+        has_sent_log = RegistrationEmailLog.query.filter_by(
+            registration_id=registration.id,
+            user_id=member.id,
+            template_type='registration_confirmation',
+            status='sent',
+        ).first()
+        if not has_sent_log:
+            return False
+    return True
 
 # get all teams
 # tested by test_teams.py -> test_get_teams
@@ -606,13 +615,65 @@ def send_registration_emails(race_id):
 @team_bp.route("/race/<int:race_id>/email-logs/", methods=["GET"])
 @admin_required()
 def get_registration_email_logs(race_id):
-    """List registration email logs for race with simple filtering and pagination."""
+    """
+    List registration email logs for a race - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: query
+        name: status
+        schema:
+          type: string
+        required: false
+        description: Optional status filter (e.g. sent, delivered, failed, bounced, blocked)
+      - in: query
+        name: template_type
+        schema:
+          type: string
+        required: false
+        description: Optional template filter (e.g. registration_confirmation)
+      - in: query
+        name: page
+        schema:
+          type: integer
+        required: false
+        description: 1-based page number (default 1)
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+        required: false
+        description: Number of items per page (default 50, max 200)
+    responses:
+      200:
+        description: Paginated list of email logs
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+      404:
+        description: Race not found
+    """
     Race.query.filter_by(id=race_id).first_or_404()
 
-    status_filter = (request.args.get('status') or '').strip().lower()
-    template_filter = (request.args.get('template_type') or '').strip().lower()
-    page = max(int(request.args.get('page', 1) or 1), 1)
-    page_size = min(max(int(request.args.get('page_size', 50) or 50), 1), 200)
+    try:
+        query_data = RegistrationEmailLogQuerySchema().load(request.args.to_dict())
+    except ValidationError as err:
+        return jsonify({'errors': err.messages}), 400
+
+    status_filter = (query_data.get('status') or '').strip().lower()
+    template_filter = (query_data.get('template_type') or '').strip().lower()
+    page = query_data['page']
+    page_size = query_data['page_size']
 
     query = (
         RegistrationEmailLog.query
@@ -665,9 +726,47 @@ def get_registration_email_logs(race_id):
 @team_bp.route("/race/<int:race_id>/retry-failed-emails/", methods=["POST"])
 @admin_required()
 def retry_failed_registration_emails(race_id):
-    """Retry failed registration confirmation emails for a race."""
+    """
+    Retry failed registration confirmation emails for a race - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+    requestBody:
+      required: false
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              limit:
+                type: integer
+                description: Maximum failed-email rows to retry in one call (default 50, max 500)
+    responses:
+      200:
+        description: Retry run completed
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+      404:
+        description: Race not found
+    """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    limit = min(max(int((request.get_json(silent=True) or {}).get('limit', 50) or 50), 1), 500)
+    try:
+        payload = RetryFailedEmailsSchema().load(request.get_json(silent=True) or {})
+    except ValidationError as err:
+        return jsonify({'errors': err.messages}), 400
+
+    limit = payload['limit']
 
     failed_logs = (
         RegistrationEmailLog.query
