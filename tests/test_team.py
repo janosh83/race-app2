@@ -820,6 +820,63 @@ def test_retry_failed_registration_emails_endpoint(test_client, add_test_data, a
         assert registration.email_sent is True
 
 
+def test_get_registration_email_logs_endpoint(test_client, add_test_data, admin_auth_headers):
+    """Email log listing endpoint should return paginated logs for a race."""
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        db.session.add(
+            RegistrationEmailLog(
+                registration_id=registration.id,
+                user_id=1,
+                email_address='john@example.com',
+                template_type='registration_confirmation',
+                status='failed',
+                attempt_count=1,
+                error_message='smtp timeout',
+                last_attempted_at=datetime.now(),
+            )
+        )
+        db.session.commit()
+
+    response = test_client.get(
+        "/api/team/race/1/email-logs/?status=failed&template_type=registration_confirmation&page=1&page_size=20",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert isinstance(response.json.get('data'), list)
+    assert response.json.get('pagination', {}).get('total', 0) >= 1
+    first = response.json['data'][0]
+    assert first['status'] == 'failed'
+    assert first['template_type'] == 'registration_confirmation'
+
+
+def test_get_registration_email_logs_endpoint_rejects_invalid_query(test_client, add_test_data, admin_auth_headers):
+    response = test_client.get(
+        "/api/team/race/1/email-logs/?page=0&page_size=5000&status=not-valid",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 400
+    assert 'errors' in response.json
+
+
+def test_retry_failed_registration_emails_endpoint_rejects_invalid_limit(test_client, add_test_data, admin_auth_headers):
+    response = test_client.post(
+        "/api/team/race/1/retry-failed-emails/",
+        json={"limit": 0},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 400
+    assert 'errors' in response.json
+
+
 def test_retry_registration_payment_creates_pending_attempt(test_client, add_test_data, admin_auth_headers, test_app, monkeypatch):
     """Admin retry endpoint creates a pending payment attempt and returns checkout URL."""
     with test_app.app_context():

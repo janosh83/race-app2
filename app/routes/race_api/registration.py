@@ -2,12 +2,14 @@ import logging
 from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
+from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.models import Race, RaceCategory, RaceTranslation, Registration, RegistrationPaymentAttempt, Team
 from app.services.email_service import EmailService, generate_reset_token
-from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
+from app.services.email_tracking_service import add_registration_email_log, apply_brevo_event, normalize_email_send_result
+from app.schemas import BrevoWebhookEventSchema
 from app.services.stripe_service import construct_stripe_event
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_receipt_url
@@ -701,5 +703,83 @@ def stripe_registration_webhook():
         session_id,
     )
     return jsonify({'message': 'Payment confirmed.'}), 200
+
+
+@race_registration_bp.route('/brevo/webhook/', methods=['POST'])
+def brevo_email_webhook():
+    """
+    Brevo webhook handler for asynchronous email delivery events.
+    ---
+    tags:
+      - Races
+    parameters:
+      - in: header
+        name: X-Brevo-Webhook-Secret
+        schema:
+          type: string
+        required: true
+        description: Shared secret header used to authenticate Brevo webhook requests.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - type: object
+                description: Single Brevo event payload
+              - type: array
+                items:
+                  type: object
+                description: Batch of Brevo event payloads
+    responses:
+      200:
+        description: Webhook events processed successfully
+      400:
+        description: Invalid JSON payload
+      401:
+        description: Invalid webhook secret header
+      503:
+        description: Brevo webhook secret is not configured
+    """
+    secret = (current_app.config.get('BREVO_WEBHOOK_SECRET') or '').strip()
+    secret_header = (current_app.config.get('BREVO_WEBHOOK_SECRET_HEADER') or 'X-Brevo-Webhook-Secret').strip()
+
+    if not secret:
+        logger.warning('Brevo webhook called but BREVO_WEBHOOK_SECRET is not configured')
+        return jsonify({'message': 'Webhook is not configured.'}), 503
+
+    provided = request.headers.get(secret_header, '')
+    if provided != secret:
+        logger.warning('Brevo webhook authorization failed: missing/invalid secret header %s', secret_header)
+        return jsonify({'message': 'Invalid webhook secret.'}), 401
+
+    payload = request.get_json(silent=True)
+    if payload is None:
+        return jsonify({'message': 'Invalid payload.'}), 400
+
+    events = payload if isinstance(payload, list) else [payload]
+
+    validated_events = []
+    schema = BrevoWebhookEventSchema()
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            return jsonify({'message': 'Invalid payload.', 'errors': {str(index): ['Event must be an object.']}}), 400
+        try:
+            schema.load(event)
+        except ValidationError as err:
+            return jsonify({'message': 'Invalid payload.', 'errors': {str(index): err.messages}}), 400
+        validated_events.append(event)
+
+    updated = 0
+    skipped = 0
+
+    for event in validated_events:
+        result = apply_brevo_event(event)
+        updated += int(result.get('updated', 0))
+        skipped += int(result.get('skipped', 0))
+
+    db.session.commit()
+    logger.info('Brevo webhook processed %s event(s): updated=%s skipped=%s', len(validated_events), updated, skipped)
+    return jsonify({'message': 'Webhook processed.', 'updated': updated, 'skipped': skipped}), 200
 
 

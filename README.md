@@ -52,6 +52,10 @@ MAIL_DEFAULT_SENDER=noreply@localhost.dev
 ADMIN_EMAIL=admin@example.com
 REGISTRATION_ADMIN_EMAILS=admin1@example.com,admin2@example.com
 
+# Brevo delivery webhook auth
+BREVO_WEBHOOK_SECRET=replace-with-random-secret
+BREVO_WEBHOOK_SECRET_HEADER=X-Brevo-Webhook-Secret
+
 # Optional image storage override
 # IMAGE_UPLOAD_FOLDER=./app/static/images
 
@@ -313,7 +317,53 @@ Delivery details:
   - `app/templates/emails/cs/admin_registration_completed.html`
   - `app/templates/emails/de/admin_registration_completed.html`
 
-### 4.6 Upload validation and limits
+### 4.6 Brevo webhook setup (email delivery tracking)
+
+Backend endpoint:
+
+```text
+POST /api/race/registration/brevo/webhook/
+```
+
+1) Configure backend environment variables:
+
+```env
+BREVO_WEBHOOK_SECRET=replace-with-random-secret
+BREVO_WEBHOOK_SECRET_HEADER=X-Brevo-Webhook-Secret
+```
+
+2) Deploy backend so endpoint is publicly reachable (Brevo cannot call localhost directly).
+
+3) In Brevo dashboard, create a transactional webhook (menu naming may vary by Brevo UI version):
+- URL: `https://<your-backend-domain>/api/race/registration/brevo/webhook/`
+- Method: `POST`
+- Header name: value from `BREVO_WEBHOOK_SECRET_HEADER` (default `X-Brevo-Webhook-Secret`)
+- Header value: value from `BREVO_WEBHOOK_SECRET`
+
+4) Enable delivery lifecycle events used by backend status tracking:
+- `sent`
+- `delivered`
+- `opened` (or unique open/click variants)
+- `hard_bounce` / `soft_bounce` (bounce variants)
+- `blocked` / `spam` / `unsubscribed`
+
+5) Save and send a test webhook from Brevo.
+
+Expected behavior:
+- `200` when webhook secret and payload are valid.
+- `401` when secret/header do not match backend config.
+- `400` for invalid JSON or missing required event identity fields.
+
+Quick manual test from terminal:
+
+```bash
+curl -X POST https://<your-backend-domain>/api/race/registration/brevo/webhook/ \
+  -H "Content-Type: application/json" \
+  -H "X-Brevo-Webhook-Secret: replace-with-random-secret" \
+  -d '{"event":"delivered","email":"user@example.com","message-id":"msg-123","date":"2026-03-13T10:00:00Z"}'
+```
+
+### 4.7 Upload validation and limits
 
 Image uploads for checkpoint/task logging are validated by:
 - extension allowlist,
@@ -361,6 +411,8 @@ MAIL_PASSWORD=your-brevo-smtp-key
 MAIL_DEFAULT_SENDER=noreply@yourdomain.com
 ADMIN_EMAIL=admin@yourdomain.com
 REGISTRATION_ADMIN_EMAILS=admin1@yourdomain.com,admin2@yourdomain.com
+BREVO_WEBHOOK_SECRET=replace-with-random-secret
+BREVO_WEBHOOK_SECRET_HEADER=X-Brevo-Webhook-Secret
 
 STRIPE_RESTRICTED_KEY=rk_live_...
 STRIPE_PUBLISHABLE_KEY=pk_live_...
@@ -467,6 +519,8 @@ npm run lint:fix
 - **Stripe checkout fails:** verify `STRIPE_RESTRICTED_KEY` has `Checkout Sessions: Write` and frontend/backend URLs for return links.
 - **Receipt URL missing in confirmation email:** verify restricted key has `Payment Intents: Read` and `Charges: Read`.
 - **Stripe webhook rejected:** verify `STRIPE_WEBHOOK_SECRET` and request signature source.
+- **Brevo webhook rejected (401):** verify `BREVO_WEBHOOK_SECRET` and `BREVO_WEBHOOK_SECRET_HEADER` match what Brevo sends.
+- **Brevo webhook returns 400:** verify payload contains `event` and at least one identity (`message-id`/`message_id`/`messageId`/`smtp-id`/`smtp_id` or recipient `email`).
 - **Missing request logs:** verify `LOG_REQUESTS=true` and suitable `LOG_LEVEL` (e.g., `INFO`).
 
 ## 9) Logging and Request Tracing

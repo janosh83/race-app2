@@ -25,6 +25,11 @@ export const adminApi = {
     { method: 'POST', body: { payment_type, stripe_session_id } }
   ),
   sendRegistrationEmails: (raceId) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST' }),
+  getRegistrationEmailLogs: (raceId, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return apiFetch(`/api/team/race/${raceId}/email-logs/${query ? `?${query}` : ''}`);
+  },
+  retryFailedRegistrationEmails: (raceId, payload = {}) => apiFetch(`/api/team/race/${raceId}/retry-failed-emails/`, { method: 'POST', body: payload }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
 
   // User management (admin)

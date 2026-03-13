@@ -990,6 +990,86 @@ def test_stripe_registration_webhook_sends_admin_notification_when_configured(te
         assert all(log.status == 'sent' for log in admin_logs)
 
 
+def test_brevo_webhook_requires_configuration(test_client, add_test_data):
+    response = test_client.post('/api/race/registration/brevo/webhook/', json={"event": "delivered"})
+    assert response.status_code == 503
+    assert response.json["message"] == "Webhook is not configured."
+
+
+def test_brevo_webhook_updates_email_log_status(test_client, add_test_data, test_app):
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "brevo-race"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Brevo")
+        team = Team(name="Brevo Team")
+        user = User(name="Brevo User", email="brevo-user@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.flush()
+
+        db.session.add(
+            RegistrationEmailLog(
+                registration_id=registration.id,
+                user_id=user.id,
+                email_address=user.email,
+                template_type='registration_confirmation',
+                provider='smtp',
+                provider_message_id='brevo-message-1',
+                status='sent',
+                attempt_count=1,
+                last_attempted_at=datetime.now(),
+            )
+        )
+        test_app.config['BREVO_WEBHOOK_SECRET'] = 'brevo-secret'
+        test_app.config['BREVO_WEBHOOK_SECRET_HEADER'] = 'X-Brevo-Webhook-Secret'
+        db.session.commit()
+        registration_id = registration.id
+
+    response = test_client.post(
+        '/api/race/registration/brevo/webhook/',
+        json={
+            'event': 'delivered',
+            'email': 'brevo-user@example.com',
+            'message-id': 'brevo-message-1',
+            'date': datetime.now().isoformat(),
+        },
+        headers={'X-Brevo-Webhook-Secret': 'brevo-secret'},
+    )
+    assert response.status_code == 200
+    assert response.json['updated'] == 1
+
+    with test_app.app_context():
+        log = RegistrationEmailLog.query.filter_by(registration_id=registration_id).first()
+        assert log.status == 'delivered'
+        assert log.provider == 'brevo'
+        assert log.delivered_at is not None
+
+
+def test_brevo_webhook_rejects_invalid_event_payload(test_client, add_test_data, test_app):
+    with test_app.app_context():
+        test_app.config['BREVO_WEBHOOK_SECRET'] = 'brevo-secret'
+        test_app.config['BREVO_WEBHOOK_SECRET_HEADER'] = 'X-Brevo-Webhook-Secret'
+
+    response = test_client.post(
+        '/api/race/registration/brevo/webhook/',
+        json={
+            'event': 'delivered',
+        },
+        headers={'X-Brevo-Webhook-Secret': 'brevo-secret'},
+    )
+    assert response.status_code == 400
+    assert response.json['message'] == 'Invalid payload.'
+    assert 'errors' in response.json
+
+
 def test_get_registration_payment_status_by_slug(test_client, add_test_data, test_app):
     """Public payment-status endpoint returns confirmation state for registration."""
     with test_app.app_context():

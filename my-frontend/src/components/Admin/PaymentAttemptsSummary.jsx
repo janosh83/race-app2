@@ -19,6 +19,9 @@ export default function PaymentAttemptsSummary({ raceId }) {
   const [error, setError] = useState(null);
   const [registrations, setRegistrations] = useState([]);
   const [reconcilingAttemptKey, setReconcilingAttemptKey] = useState(null);
+  const [emailLogsLoading, setEmailLogsLoading] = useState(false);
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [retryingFailedEmails, setRetryingFailedEmails] = useState(false);
 
   const loadRegistrations = useCallback(async () => {
     setLoading(true);
@@ -37,14 +40,35 @@ export default function PaymentAttemptsSummary({ raceId }) {
     }
   }, [raceId, t]);
 
+  const loadEmailLogs = useCallback(async () => {
+    setEmailLogsLoading(true);
+    try {
+      const payload = await adminApi.getRegistrationEmailLogs(raceId, {
+        page: 1,
+        page_size: 100,
+        template_type: 'registration_confirmation',
+      });
+      const items = Array.isArray(payload) ? payload : (payload?.data || []);
+      setEmailLogs(items);
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to load registration email logs', err);
+      setError(t('admin.paymentAttemptsSummary.errorLoadEmailLogs'));
+      setEmailLogs([]);
+    } finally {
+      setEmailLogsLoading(false);
+    }
+  }, [raceId, t]);
+
   useEffect(() => {
     if (!raceId) {
       setRegistrations([]);
+      setEmailLogs([]);
       return;
     }
 
     loadRegistrations();
-  }, [raceId, loadRegistrations]);
+    loadEmailLogs();
+  }, [raceId, loadRegistrations, loadEmailLogs]);
 
   const handleReconcileAttempt = async (attempt) => {
     const teamId = attempt?.teamId;
@@ -63,11 +87,27 @@ export default function PaymentAttemptsSummary({ raceId }) {
         attempt?.stripe_session_id,
       );
       await loadRegistrations();
+      await loadEmailLogs();
     } catch (err) {
       logger.error('ADMIN', 'Failed to reconcile payment from summary table', err);
       setError(t('admin.registrations.errorReconcilePayment'));
     } finally {
       setReconcilingAttemptKey(null);
+    }
+  };
+
+  const handleRetryFailedEmails = async () => {
+    setRetryingFailedEmails(true);
+    setError(null);
+    try {
+      await adminApi.retryFailedRegistrationEmails(raceId, { limit: 100 });
+      await loadEmailLogs();
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to retry failed registration emails', err);
+      setError(t('admin.paymentAttemptsSummary.errorRetryFailedEmails'));
+    } finally {
+      setRetryingFailedEmails(false);
     }
   };
 
@@ -243,6 +283,60 @@ export default function PaymentAttemptsSummary({ raceId }) {
                             <span className="text-muted">—</span>
                           )}
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="row g-3 mb-3">
+        <div className="col-12">
+          <div className="card h-100">
+            <div className="card-body">
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <h5 className="card-title mb-0">{t('admin.paymentAttemptsSummary.emailTrackingTitle')}</h5>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={handleRetryFailedEmails}
+                  disabled={retryingFailedEmails}
+                >
+                  {retryingFailedEmails
+                    ? t('admin.paymentAttemptsSummary.retryingFailedEmails')
+                    : t('admin.paymentAttemptsSummary.retryFailedEmails')}
+                </button>
+              </div>
+
+              {emailLogsLoading && <div className="small text-muted mb-2">{t('admin.paymentAttemptsSummary.loading')}</div>}
+
+              <div className="table-responsive">
+                <table className="table table-sm mb-0">
+                  <thead>
+                    <tr>
+                      <th>{t('admin.paymentAttemptsSummary.emailAddress')}</th>
+                      <th>{t('admin.paymentAttemptsSummary.emailStatus')}</th>
+                      <th>{t('admin.paymentAttemptsSummary.emailAttempts')}</th>
+                      <th>{t('admin.paymentAttemptsSummary.lastAttempt')}</th>
+                      <th>{t('admin.paymentAttemptsSummary.lastError')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emailLogs.length === 0 && (
+                      <tr>
+                        <td colSpan="5" className="text-muted">{t('admin.paymentAttemptsSummary.noEmailLogs')}</td>
+                      </tr>
+                    )}
+                    {emailLogs.map((log) => (
+                      <tr key={log.id}>
+                        <td>{log.email_address || '—'}</td>
+                        <td>{log.status || '—'}</td>
+                        <td>{log.attempt_count || 0}</td>
+                        <td>{formatDate(log.last_attempted_at)}</td>
+                        <td className="text-muted">{log.error_message || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
