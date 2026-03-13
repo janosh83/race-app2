@@ -431,8 +431,18 @@ class RegistrationEmailLogQuerySchema(Schema):
         allow_none=True,
         validate=validate.OneOf(['registration_confirmation', 'admin_registration_completed']),
     )
+    team_id = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=1))
+    date_from = fields.Date(load_default=None, allow_none=True)
+    date_to = fields.Date(load_default=None, allow_none=True)
     page = fields.Integer(load_default=1, validate=validate.Range(min=1))
     page_size = fields.Integer(load_default=50, validate=validate.Range(min=1, max=200))
+
+    @validates_schema
+    def validate_date_window(self, data, **kwargs):
+        date_from = data.get('date_from')
+        date_to = data.get('date_to')
+        if date_from and date_to and date_from > date_to:
+            raise ValidationError('date_from cannot be after date_to.', field_name='date_from')
 
 
 class RetryFailedEmailsSchema(Schema):

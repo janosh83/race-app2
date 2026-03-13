@@ -22,6 +22,13 @@ export default function PaymentAttemptsSummary({ raceId }) {
   const [emailLogsLoading, setEmailLogsLoading] = useState(false);
   const [emailLogs, setEmailLogs] = useState([]);
   const [retryingFailedEmails, setRetryingFailedEmails] = useState(false);
+  const [retryingEmailLogId, setRetryingEmailLogId] = useState(null);
+  const [emailLogFilters, setEmailLogFilters] = useState({
+    status: '',
+    teamId: '',
+    dateFrom: '',
+    dateTo: '',
+  });
 
   const loadRegistrations = useCallback(async () => {
     setLoading(true);
@@ -43,11 +50,18 @@ export default function PaymentAttemptsSummary({ raceId }) {
   const loadEmailLogs = useCallback(async () => {
     setEmailLogsLoading(true);
     try {
-      const payload = await adminApi.getRegistrationEmailLogs(raceId, {
+      const params = {
         page: 1,
         page_size: 100,
         template_type: 'registration_confirmation',
-      });
+      };
+
+      if (emailLogFilters.status) params.status = emailLogFilters.status;
+      if (emailLogFilters.teamId) params.team_id = emailLogFilters.teamId;
+      if (emailLogFilters.dateFrom) params.date_from = emailLogFilters.dateFrom;
+      if (emailLogFilters.dateTo) params.date_to = emailLogFilters.dateTo;
+
+      const payload = await adminApi.getRegistrationEmailLogs(raceId, params);
       const items = Array.isArray(payload) ? payload : (payload?.data || []);
       setEmailLogs(items);
     } catch (err) {
@@ -57,7 +71,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
     } finally {
       setEmailLogsLoading(false);
     }
-  }, [raceId, t]);
+  }, [raceId, t, emailLogFilters]);
 
   useEffect(() => {
     if (!raceId) {
@@ -110,6 +124,46 @@ export default function PaymentAttemptsSummary({ raceId }) {
       setRetryingFailedEmails(false);
     }
   };
+
+  const handleEmailFilterChange = (key, value) => {
+    setEmailLogFilters((current) => ({
+      ...current,
+      [key]: value,
+    }));
+  };
+
+  const handleApplyEmailFilters = async () => {
+    await loadEmailLogs();
+  };
+
+  const handleClearEmailFilters = async () => {
+    setEmailLogFilters({
+      status: '',
+      teamId: '',
+      dateFrom: '',
+      dateTo: '',
+    });
+  };
+
+  const handleRetryEmailLog = async (log) => {
+    if (!log?.id) return;
+    setRetryingEmailLogId(log.id);
+    setError(null);
+    try {
+      await adminApi.retryRegistrationEmailLog(raceId, log.id);
+      await loadEmailLogs();
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to retry email log row', err);
+      setError(t('admin.paymentAttemptsSummary.errorRetryEmailLog'));
+    } finally {
+      setRetryingEmailLogId(null);
+    }
+  };
+
+  useEffect(() => {
+    loadEmailLogs();
+  }, [emailLogFilters, loadEmailLogs]);
 
   const summary = useMemo(() => {
     const allAttempts = [];
@@ -311,32 +365,118 @@ export default function PaymentAttemptsSummary({ raceId }) {
                 </button>
               </div>
 
+              <div className="row g-2 mb-3">
+                <div className="col-12 col-md-3">
+                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterStatus')}</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={emailLogFilters.status}
+                    onChange={(event) => handleEmailFilterChange('status', event.target.value)}
+                  >
+                    <option value="">{t('admin.paymentAttemptsSummary.filterAnyStatus')}</option>
+                    {['pending', 'sent', 'delivered', 'opened', 'failed', 'bounced', 'blocked'].map((status) => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-12 col-md-2">
+                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterTeamId')}</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control form-control-sm"
+                    value={emailLogFilters.teamId}
+                    onChange={(event) => handleEmailFilterChange('teamId', event.target.value)}
+                    placeholder="1"
+                  />
+                </div>
+
+                <div className="col-12 col-md-3">
+                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterDateFrom')}</label>
+                  <input
+                    type="date"
+                    className="form-control form-control-sm"
+                    value={emailLogFilters.dateFrom}
+                    onChange={(event) => handleEmailFilterChange('dateFrom', event.target.value)}
+                  />
+                </div>
+
+                <div className="col-12 col-md-3">
+                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterDateTo')}</label>
+                  <input
+                    type="date"
+                    className="form-control form-control-sm"
+                    value={emailLogFilters.dateTo}
+                    onChange={(event) => handleEmailFilterChange('dateTo', event.target.value)}
+                  />
+                </div>
+
+                <div className="col-12 col-md-1 d-flex align-items-end">
+                  <div className="d-flex gap-1 w-100">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary w-100"
+                      onClick={handleApplyEmailFilters}
+                    >
+                      {t('admin.paymentAttemptsSummary.applyFilters')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-light w-100"
+                      onClick={handleClearEmailFilters}
+                    >
+                      {t('admin.paymentAttemptsSummary.clearFilters')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {emailLogsLoading && <div className="small text-muted mb-2">{t('admin.paymentAttemptsSummary.loading')}</div>}
 
               <div className="table-responsive">
                 <table className="table table-sm mb-0">
                   <thead>
                     <tr>
+                      <th>{t('admin.paymentAttemptsSummary.team')}</th>
                       <th>{t('admin.paymentAttemptsSummary.emailAddress')}</th>
                       <th>{t('admin.paymentAttemptsSummary.emailStatus')}</th>
                       <th>{t('admin.paymentAttemptsSummary.emailAttempts')}</th>
                       <th>{t('admin.paymentAttemptsSummary.lastAttempt')}</th>
                       <th>{t('admin.paymentAttemptsSummary.lastError')}</th>
+                      <th>{t('admin.paymentAttemptsSummary.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {emailLogs.length === 0 && (
                       <tr>
-                        <td colSpan="5" className="text-muted">{t('admin.paymentAttemptsSummary.noEmailLogs')}</td>
+                        <td colSpan="7" className="text-muted">{t('admin.paymentAttemptsSummary.noEmailLogs')}</td>
                       </tr>
                     )}
                     {emailLogs.map((log) => (
                       <tr key={log.id}>
+                        <td>{log.team_name || (log.team_id ? `#${log.team_id}` : '—')}</td>
                         <td>{log.email_address || '—'}</td>
                         <td>{log.status || '—'}</td>
                         <td>{log.attempt_count || 0}</td>
                         <td>{formatDate(log.last_attempted_at)}</td>
                         <td className="text-muted">{log.error_message || '—'}</td>
+                        <td>
+                          {['failed', 'bounced', 'blocked'].includes((log.status || '').toLowerCase()) ? (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-warning"
+                              disabled={retryingEmailLogId === log.id}
+                              onClick={() => handleRetryEmailLog(log)}
+                            >
+                              {retryingEmailLogId === log.id
+                                ? t('admin.paymentAttemptsSummary.retryingEmailLog')
+                                : t('admin.paymentAttemptsSummary.retryEmailLog')}
+                            </button>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -867,6 +867,96 @@ def test_get_registration_email_logs_endpoint_rejects_invalid_query(test_client,
     assert 'errors' in response.json
 
 
+def test_get_registration_email_logs_endpoint_filters_by_team_and_date(test_client, add_test_data, admin_auth_headers):
+    test_client.post("/auth/register/", json={"name": "John", "email": "john1@example.com", "password": "password"})
+    test_client.post("/auth/register/", json={"name": "Jane", "email": "jane2@example.com", "password": "password"})
+    test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    test_client.post("/api/team/2/members/", json={"user_ids": [2]})
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        reg1 = Registration.query.filter_by(race_id=1, team_id=1).first()
+        reg2 = Registration.query.filter_by(race_id=1, team_id=2).first()
+        db.session.add(
+            RegistrationEmailLog(
+                registration_id=reg1.id,
+                user_id=1,
+                email_address='john1@example.com',
+                template_type='registration_confirmation',
+                status='failed',
+                attempt_count=1,
+                created_at=datetime.now(),
+                last_attempted_at=datetime.now(),
+            )
+        )
+        db.session.add(
+            RegistrationEmailLog(
+                registration_id=reg2.id,
+                user_id=2,
+                email_address='jane2@example.com',
+                template_type='registration_confirmation',
+                status='failed',
+                attempt_count=1,
+                created_at=datetime.now(),
+                last_attempted_at=datetime.now(),
+            )
+        )
+        db.session.commit()
+
+    today = datetime.now().date().isoformat()
+    response = test_client.get(
+        f"/api/team/race/1/email-logs/?status=failed&team_id=1&date_from={today}&date_to={today}",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert len(response.json['data']) == 1
+    assert response.json['data'][0]['team_id'] == 1
+
+
+def test_retry_single_registration_email_log_endpoint(test_client, add_test_data, admin_auth_headers, mocker):
+    mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
+
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = True
+        failed_log = RegistrationEmailLog(
+            registration_id=registration.id,
+            user_id=1,
+            email_address='john@example.com',
+            template_type='registration_confirmation',
+            status='failed',
+            attempt_count=1,
+            error_message='smtp timeout',
+            last_attempted_at=datetime.now(),
+        )
+        db.session.add(failed_log)
+        db.session.commit()
+        log_id = failed_log.id
+        registration_id = registration.id
+
+    response = test_client.post(
+        f"/api/team/race/1/email-logs/{log_id}/retry/",
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json['status'] == 'sent'
+
+    with test_client.application.app_context():
+        logs = RegistrationEmailLog.query.filter_by(registration_id=registration_id, user_id=1).order_by(RegistrationEmailLog.id.asc()).all()
+        assert len(logs) == 2
+        assert logs[-1].status == 'sent'
+
+
 def test_retry_failed_registration_emails_endpoint_rejects_invalid_limit(test_client, add_test_data, admin_auth_headers):
     response = test_client.post(
         "/api/team/race/1/retry-failed-emails/",

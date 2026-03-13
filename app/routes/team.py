@@ -46,6 +46,54 @@ def _registration_members_all_sent(registration):
             return False
     return True
 
+
+def _retry_single_registration_email_log(failed_log, race):
+    registration = Registration.query.filter_by(id=failed_log.registration_id).first()
+    if not registration or not registration.team:
+        return {'status': 'skipped', 'reason': 'missing_registration_or_team'}
+
+    member = next((m for m in registration.team.members if m.id == failed_log.user_id), None)
+    if not member:
+        return {'status': 'skipped', 'reason': 'missing_member'}
+
+    category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
+    try:
+        reset_token = generate_reset_token()
+        member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+        send_result = EmailService.send_registration_confirmation_email(
+            user_email=member.email,
+            user_name=member.name or member.email,
+            race_name=_resolve_race_name(race, member.preferred_language),
+            team_name=registration.team.name,
+            race_category=_resolve_race_category_name(category, race, member.preferred_language),
+            reset_token=reset_token,
+            language=member.preferred_language,
+            race_greeting=_resolve_race_greeting(race, member.preferred_language),
+            return_result=True,
+        )
+    except (OSError, ValueError, TypeError) as exc:
+        send_result = {
+            'success': False,
+            'error': str(exc),
+            'provider': 'smtp',
+            'provider_message_id': None,
+        }
+
+    add_registration_email_log(
+        registration,
+        member.id if member else None,
+        member.email if member else '',
+        'registration_confirmation',
+        send_result,
+    )
+
+    normalized = normalize_email_send_result(send_result)
+    registration.email_sent = _registration_members_all_sent(registration)
+    return {
+        'status': 'sent' if normalized['success'] else 'failed',
+        'registration': registration,
+    }
+
 # get all teams
 # tested by test_teams.py -> test_get_teams
 # for now it can stay open, but in the future it should be somehow protected
@@ -653,6 +701,26 @@ def get_registration_email_logs(race_id):
           type: integer
         required: false
         description: Number of items per page (default 50, max 200)
+      - in: query
+        name: team_id
+        schema:
+          type: integer
+        required: false
+        description: Optional team ID filter
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+        required: false
+        description: Optional created-at lower bound (YYYY-MM-DD)
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+        required: false
+        description: Optional created-at upper bound (YYYY-MM-DD)
     responses:
       200:
         description: Paginated list of email logs
@@ -672,6 +740,9 @@ def get_registration_email_logs(race_id):
 
     status_filter = (query_data.get('status') or '').strip().lower()
     template_filter = (query_data.get('template_type') or '').strip().lower()
+    team_id_filter = query_data.get('team_id')
+    date_from = query_data.get('date_from')
+    date_to = query_data.get('date_to')
     page = query_data['page']
     page_size = query_data['page_size']
 
@@ -686,6 +757,12 @@ def get_registration_email_logs(race_id):
         query = query.filter(RegistrationEmailLog.status == status_filter)
     if template_filter:
         query = query.filter(RegistrationEmailLog.template_type == template_filter)
+    if team_id_filter:
+        query = query.filter(Registration.team_id == team_id_filter)
+    if date_from:
+        query = query.filter(RegistrationEmailLog.created_at >= datetime.combine(date_from, datetime.min.time()))
+    if date_to:
+        query = query.filter(RegistrationEmailLog.created_at <= datetime.combine(date_to, datetime.max.time()))
 
     total = query.count()
     logs = query.offset((page - 1) * page_size).limit(page_size).all()
@@ -695,6 +772,7 @@ def get_registration_email_logs(race_id):
             'id': log.id,
             'registration_id': log.registration_id,
             'team_id': log.registration.team_id if log.registration else None,
+            'team_name': log.registration.team.name if log.registration and log.registration.team else None,
             'user_id': log.user_id,
             'email_address': log.email_address,
             'template_type': log.template_type,
@@ -787,53 +865,14 @@ def retry_failed_registration_emails(race_id):
     skipped = 0
 
     for failed_log in failed_logs:
-        registration = Registration.query.filter_by(id=failed_log.registration_id).first()
-        if not registration or not registration.team:
-            skipped += 1
-            continue
-
-        member = next((m for m in registration.team.members if m.id == failed_log.user_id), None)
-        if not member:
-            skipped += 1
-            continue
-
-        category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
         retried += 1
-        try:
-            reset_token = generate_reset_token()
-            member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
-            send_result = EmailService.send_registration_confirmation_email(
-                user_email=member.email,
-                user_name=member.name or member.email,
-                race_name=_resolve_race_name(race, member.preferred_language),
-                team_name=registration.team.name,
-                race_category=_resolve_race_category_name(category, race, member.preferred_language),
-                reset_token=reset_token,
-                language=member.preferred_language,
-                race_greeting=_resolve_race_greeting(race, member.preferred_language),
-                return_result=True,
-            )
-        except (OSError, ValueError, TypeError) as exc:
-            send_result = {
-                "success": False,
-                "error": str(exc),
-                "provider": "smtp",
-                "provider_message_id": None,
-            }
-
-        add_registration_email_log(
-          registration,
-          member.id if member else None,
-          member.email if member else "",
-          'registration_confirmation',
-          send_result,
-        )
-        if normalize_email_send_result(send_result)["success"]:
+        retry_result = _retry_single_registration_email_log(failed_log, race)
+        if retry_result['status'] == 'sent':
             sent += 1
-        else:
+        elif retry_result['status'] == 'failed':
             failed += 1
-
-        registration.email_sent = _registration_members_all_sent(registration)
+        else:
+            skipped += 1
         db.session.commit()
 
     return jsonify(
@@ -845,6 +884,74 @@ def retry_failed_registration_emails(race_id):
             'skipped': skipped,
         }
     ), 200
+
+
+@team_bp.route('/race/<int:race_id>/email-logs/<int:log_id>/retry/', methods=['POST'])
+@admin_required()
+def retry_registration_email_log(race_id, log_id):
+    """
+    Retry a specific failed registration email log row for a race - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: log_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the email log row to retry
+    responses:
+      200:
+        description: Retry processed
+      400:
+        description: Unsupported log type/state for retry
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+      404:
+        description: Race or log not found
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    failed_log = (
+        RegistrationEmailLog.query
+        .join(Registration, RegistrationEmailLog.registration_id == Registration.id)
+        .filter(
+            Registration.race_id == race_id,
+            RegistrationEmailLog.id == log_id,
+        )
+        .first_or_404()
+    )
+
+    retryable_statuses = {'failed', 'bounced', 'blocked'}
+    if failed_log.template_type != 'registration_confirmation':
+        return jsonify({'message': 'Only registration confirmation emails can be retried.'}), 400
+    if (failed_log.status or '').lower() not in retryable_statuses:
+        return jsonify({'message': 'Only failed/bounced/blocked email logs can be retried.'}), 400
+
+    retry_result = _retry_single_registration_email_log(failed_log, race)
+    db.session.commit()
+
+    if retry_result['status'] == 'sent':
+        status_code = 200
+        message = 'Email retried successfully.'
+    elif retry_result['status'] == 'failed':
+        status_code = 200
+        message = 'Retry attempted but delivery failed.'
+    else:
+        status_code = 200
+        message = 'Retry skipped because related registration/member no longer exists.'
+
+    return jsonify({'message': message, 'status': retry_result['status']}), status_code
 
 # TODO: get race by team
 
