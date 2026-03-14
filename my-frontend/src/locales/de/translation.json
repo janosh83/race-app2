@@ -30,6 +30,12 @@
     "currentlyShowing": "Wird gerade angezeigt",
     "select": "Auswahlen"
   },
+  "statusBadge": {
+    "comingAt": "Verfugbar {{time}}",
+    "hidden": "{{itemName}} ausgeblendet",
+    "loggingOpen": "Protokollierung offen",
+    "readOnly": "Nur lesen"
+  },
   "map": {
     "checkpoints": "Kontrollpunkte",
     "checkpointsLoadFailed": "Checkpoints konnten nicht geladen werden. Klicke auf Erneut versuchen.",

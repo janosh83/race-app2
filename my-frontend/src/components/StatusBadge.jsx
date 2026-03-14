@@ -1,8 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { formatDate } from '../contexts/TimeContext';
 
 function StatusBadge({ topOffset = 56, isShown, loggingAllowed, timeInfo, itemName = 'Content' }) {
+  const { t } = useTranslation();
+
   return (
     <div style={{
       position: 'fixed',
@@ -11,16 +14,16 @@ function StatusBadge({ topOffset = 56, isShown, loggingAllowed, timeInfo, itemNa
       zIndex: 1500
     }}>
       <span className={`badge ${
-        !isShown 
-          ? 'bg-warning' 
+        !isShown
+          ? 'bg-warning'
           : loggingAllowed ? 'bg-success' : 'bg-secondary'
       }`}>
         {!isShown ? (
-          timeInfo.state === 'BEFORE_SHOW' 
-            ? `Coming ${formatDate(timeInfo.startShow)}`
-            : `${itemName} hidden`
+          timeInfo.state === 'BEFORE_SHOW'
+            ? t('statusBadge.comingAt', { time: formatDate(timeInfo.startShow) })
+            : t('statusBadge.hidden', { itemName })
         ) : (
-          loggingAllowed ? 'Logging open' : 'Read-only'
+          loggingAllowed ? t('statusBadge.loggingOpen') : t('statusBadge.readOnly')
         )}
       </span>
     </div>

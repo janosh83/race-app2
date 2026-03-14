@@ -30,6 +30,12 @@
     "currentlyShowing": "Právě se zobrazuje",
     "select": "Vybrat"
   },
+  "statusBadge": {
+    "comingAt": "Dostupné {{time}}",
+    "hidden": "{{itemName}} skryto",
+    "loggingOpen": "Logování otevřeno",
+    "readOnly": "Jen pro čtení"
+  },
   "map": {
     "checkpoints": "Checkpointy",
     "checkpointsLoadFailed": "Nepodařilo se načíst checkpointy. Klikněte na Opakovat.",

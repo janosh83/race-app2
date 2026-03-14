@@ -30,6 +30,12 @@
     "currentlyShowing": "Currently showing",
     "select": "Select"
   },
+  "statusBadge": {
+    "comingAt": "Coming {{time}}",
+    "hidden": "{{itemName}} hidden",
+    "loggingOpen": "Logging open",
+    "readOnly": "Read-only"
+  },
   "map": {
     "checkpoints": "Checkpoints",
     "checkpointsLoadFailed": "Failed to load checkpoints. Click retry to try again.",
