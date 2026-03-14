@@ -307,7 +307,7 @@ function Tasks({ topOffset = 56 }) {
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="card-title mb-0">{task.title}</h5>
                       <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
-                        {task.completed ? t('tasks.completed') : t('tasks.pending')}
+                        {task.completed ? t('tasks.completed') : t('tasks.notCompleted')}
                       </span>
                     </div>
                     {task.description && <p className="card-text text-muted small">{task.description}</p>}
