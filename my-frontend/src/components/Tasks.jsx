@@ -206,6 +206,8 @@ function Tasks({ topOffset = 56 }) {
     setImagePreview(null);
   };
 
+  const sortedTasks = [...tasks].sort((a, b) => Number(b.completed) - Number(a.completed));
+
   return (
     <>
       {/* Toast notification */}
@@ -300,7 +302,7 @@ function Tasks({ topOffset = 56 }) {
 
         {showTasks && (
           <div className="row g-3">
-            {tasks.map((task) => (
+            {sortedTasks.map((task) => (
               <div className="col-12 col-md-6 col-lg-4" key={task.id}>
                 <div className="card h-100" style={{ cursor: 'pointer' }} onClick={() => setSelectedTask(task)}>
                   <div className="card-body">

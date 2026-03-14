@@ -210,6 +210,8 @@ function CheckpointsList({ topOffset = 56 }) {
     setImagePreview(null);
   };
 
+  const sortedCheckpoints = [...checkpoints].sort((a, b) => Number(b.visited) - Number(a.visited));
+
   return (
     <>
       {toast && (
@@ -292,7 +294,7 @@ function CheckpointsList({ topOffset = 56 }) {
 
         {showCheckpoints && (
           <div className="row g-2">
-            {checkpoints.map((checkpoint) => (
+            {sortedCheckpoints.map((checkpoint) => (
               <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
                 <div
                   className="card h-100"
