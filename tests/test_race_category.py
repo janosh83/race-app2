@@ -46,7 +46,7 @@ def test_add_race_category(test_client, add_test_data):
 
     response = test_client.delete("/api/race-category/2/", headers = headers)
     assert response.status_code == 200
-    assert response.json == {"msg": "Category deleted"}
+    assert response.json == {"message": "Category deleted"}
 
     response = test_client.get("/api/race-category/", headers = headers)
     assert response.status_code == 200
@@ -64,11 +64,11 @@ def test_create_category_missing_name(test_client, admin_auth_headers):
     """Test creating category without name returns 400."""
     response = test_client.post("/api/race-category/", json={}, headers=admin_auth_headers)
     assert response.status_code == 400
-    assert response.json == {"msg": "Missing race category name"}
+    assert response.json == {"message": "Missing race category name"}
 
     response = test_client.post("/api/race-category/", json={"description": "Only description"}, headers=admin_auth_headers)
     assert response.status_code == 400
-    assert response.json == {"msg": "Missing race category name"}
+    assert response.json == {"message": "Missing race category name"}
 
 
 def test_create_category_no_description(test_client, admin_auth_headers):

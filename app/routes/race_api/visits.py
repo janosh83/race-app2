@@ -55,7 +55,7 @@ def get_visits_by_race_and_team(race_id, team_id):
             team_id,
             user.id,
         )
-        return 403
+        return jsonify({"message": "Unauthorized"}), 403
 
     visits = (
         db.session.query(
@@ -228,7 +228,7 @@ def get_task_completions_by_race_and_team(race_id, team_id):
             team_id,
             user.id,
         )
-        return 403
+        return jsonify({"message": "Unauthorized"}), 403
 
     completions = (
         db.session.query(

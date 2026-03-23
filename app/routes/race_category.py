@@ -132,7 +132,7 @@ def create_race_category():
         validated = RaceCategoryCreateSchema().load(data)
     except ValidationError as err:
         if 'name' in err.messages:
-            return jsonify({"msg": "Missing race category name"}), 400
+            return jsonify({"message": "Missing race category name"}), 400
         return jsonify({"errors": err.messages}), 400
     new_category = RaceCategory(name=validated['name'], description=validated.get('description', ''))
     db.session.add(new_category)
@@ -215,7 +215,7 @@ def delete_race_category(category_id):
         )
         return jsonify({"message": "Category is in use and cannot be deleted."}), 409
 
-    return jsonify({"msg": "Category deleted"}), 200
+    return jsonify({"message": "Category deleted"}), 200
 
 
 @race_category_bp.route('/<int:category_id>/translations/', methods=['GET'])

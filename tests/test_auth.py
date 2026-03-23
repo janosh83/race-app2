@@ -9,7 +9,7 @@ def test_auth_register(test_client):
     # test user registration
     response = test_client.post("/auth/register/", json={"name": "test", "email": "test@example.com", "password": "test"})
     assert response.status_code == 201
-    assert response.json == {"msg": "User created successfully"}
+    assert response.json == {"message": "User created successfully"}
 
 def test_auth_register_with_preferred_language(test_client):
     # test user registration with preferred language
@@ -75,7 +75,7 @@ def test_auth_refresh_deleted_user_returns_401(test_client, test_app):
 
     response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {refresh_token}"})
     assert response.status_code == 401
-    assert response.json["msg"] == "User not found"
+    assert response.json["message"] == "User not found"
 
 
 def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_app):
@@ -150,7 +150,7 @@ def test_auth_protected(test_client):
     response = test_client.post("/auth/login/", json={"email": "test@example.com", "password": "test"})
     response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {response.json['access_token']}"})
     assert response.status_code == 200
-    assert "Hello, user" in response.json["msg"]
+    assert "Hello, user" in response.json["message"]
 
 def test_auth_admin_required(test_client):
     # test that protected endpoint requires admin rights
@@ -162,7 +162,7 @@ def test_auth_admin_required(test_client):
     access_token = response.json["access_token"]
     response = test_client.get("/auth/protected/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 200
-    assert "Hello, user" in response.json["msg"]
+    assert "Hello, user" in response.json["message"]
 
     response = test_client.get("/auth/admin/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 403
@@ -214,7 +214,7 @@ def test_auth_register_admin_success(test_client, test_app):
         headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 201
-    assert response.json == {"msg": "Administrator created successfully"}
+    assert response.json == {"message": "Administrator created successfully"}
 
     created = User.query.filter_by(email="admin2@example.com").first()
     assert created is not None
@@ -226,7 +226,7 @@ def test_request_password_reset_missing_email(test_client):
     # missing email should return 400
     response = test_client.post("/auth/request-password-reset/", json={})
     assert response.status_code == 400
-    assert response.json["msg"] == "Email is required"
+    assert response.json["message"] == "Email is required"
 
 
 def test_request_password_reset_nonexistent_email(test_client, monkeypatch):
@@ -235,7 +235,7 @@ def test_request_password_reset_nonexistent_email(test_client, monkeypatch):
 
     response = test_client.post("/auth/request-password-reset/", json={"email": "noone@example.com"})
     assert response.status_code == 200
-    assert "msg" in response.json
+    assert "message" in response.json
     # ensure no user exists, hence no token set
     assert User.query.filter_by(email="noone@example.com").first() is None
 
@@ -263,7 +263,7 @@ def test_reset_password_invalid_token(test_client):
     # attempt reset with invalid token
     resp = test_client.post("/auth/reset-password/", json={"token": "invalid", "new_password": "new"})
     assert resp.status_code == 400
-    assert resp.json["msg"] in ["Invalid or expired token", "Token and new password are required"]
+    assert resp.json["message"] in ["Invalid or expired token", "Token and new password are required"]
 
 
 def test_reset_password_expired_token(test_client):
@@ -279,7 +279,7 @@ def test_reset_password_expired_token(test_client):
     # try to reset using expired token
     resp = test_client.post("/auth/reset-password/", json={"token": "expired-token", "new_password": "new"})
     assert resp.status_code == 400
-    assert resp.json["msg"] == "Token has expired"
+    assert resp.json["message"] == "Token has expired"
 
     # token should be cleared
     user = User.query.filter_by(email="e@example.com").first()
@@ -301,7 +301,7 @@ def test_reset_password_success(test_client):
     # reset password
     resp = test_client.post("/auth/reset-password/", json={"token": "valid-token", "new_password": "newpass"})
     assert resp.status_code == 200
-    assert resp.json["msg"] == "Password reset successfully"
+    assert resp.json["message"] == "Password reset successfully"
 
     # token cleared and password updated
     user = User.query.filter_by(email="s@example.com").first()

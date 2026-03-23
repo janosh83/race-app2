@@ -16,7 +16,7 @@ def admin_required():
             if claims["is_administrator"]:
                 return fn(*args, **kwargs)
             else:
-                return jsonify(msg="Admins only!"), 403
+                return jsonify(message="Admins only!"), 403
 
         return decorator
 
