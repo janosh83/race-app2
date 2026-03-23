@@ -103,7 +103,7 @@ def create_user():
 
     if User.query.filter_by(email=data['email']).first():
         logger.warning("Admin user creation attempt for existing email: %s", data['email'])
-        return jsonify({"msg": "User with this email already exists"}), 409
+        return jsonify({"message": "User with this email already exists"}), 409
 
     user = User(
         name=data.get('name', ''),
@@ -119,7 +119,7 @@ def create_user():
     except IntegrityError:
         db.session.rollback()
         logger.warning("Admin user creation hit unique-email conflict: %s", data['email'])
-        return jsonify({"msg": "User with this email already exists"}), 409
+        return jsonify({"message": "User with this email already exists"}), 409
 
     logger.info("Admin created user: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
     return jsonify({
@@ -186,11 +186,11 @@ def update_user(user_id):
     current_user_id = int(get_jwt_identity())
     current_user = User.query.filter_by(id=current_user_id).first()
     if not current_user:
-        return jsonify({"msg": "User not found"}), 404
+        return jsonify({"message": "User not found"}), 404
 
     is_admin = bool(current_user.is_administrator)
     if not is_admin and user_id != current_user_id:
-        return jsonify({"msg": "Forbidden"}), 403
+        return jsonify({"message": "Forbidden"}), 403
 
     user = User.query.filter_by(id=user_id).first_or_404()
     payload = request.get_json(silent=True) or {}
@@ -206,7 +206,7 @@ def update_user(user_id):
         existing = User.query.filter_by(email=data['email']).first()
         if existing:
             logger.warning("User %s update failed: email %s already taken", user_id, data['email'])
-            return jsonify({"msg": "Email already taken"}), 409
+            return jsonify({"message": "Email already taken"}), 409
         user.email = data['email']
         updated_fields.append('email')
 
@@ -216,7 +216,7 @@ def update_user(user_id):
 
     if 'is_administrator' in data:
         if not is_admin:
-            return jsonify({"msg": "Forbidden"}), 403
+            return jsonify({"message": "Forbidden"}), 403
         user.is_administrator = data['is_administrator']
         updated_fields.append('is_administrator')
 
@@ -229,7 +229,7 @@ def update_user(user_id):
     except IntegrityError:
         db.session.rollback()
         logger.warning("User %s update hit unique-email conflict", user_id)
-        return jsonify({"msg": "Email already taken"}), 409
+        return jsonify({"message": "Email already taken"}), 409
 
     logger.info("User %s updated by admin - fields: %s", user_id, ', '.join(updated_fields))
     return jsonify({
@@ -283,7 +283,7 @@ def delete_user(user_id):
     db.session.commit()
 
     logger.info("User %s (%s) deleted by admin", user_id, user_email)
-    return jsonify({"msg": "User deleted successfully"}), 200
+    return jsonify({"message": "User deleted successfully"}), 200
 
 
 @user_bp.route('/signed-races/', methods=['GET'])
@@ -371,10 +371,10 @@ def get_signed_races():
         "race_name": race.race_name,
         "race_category": race.race_category,
         "race_description": race.race_description,
-        "start_showing_checkpoints": race.start_showing_checkpoints_at,
-        "end_showing_checkpoints": race.end_showing_checkpoints_at,
-        "start_logging": race.start_logging_at,
-        "end_logging": race.end_logging_at
+        "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+        "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+        "start_logging_at": race.start_logging_at,
+        "end_logging_at": race.end_logging_at
     } for race in races_by_user]
 
     return jsonify({"signed_races": registered_races}), 200

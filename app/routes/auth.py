@@ -88,7 +88,7 @@ def register():
 
     if User.query.filter_by(email=validated['email']).first():
         logger.error("Registration attempt for existing user: %s", validated['email'])
-        return jsonify({"msg": "User already exists"}), 409
+        return jsonify({"message": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
@@ -103,9 +103,9 @@ def register():
     except IntegrityError:
         db.session.rollback()
         logger.warning("Registration conflict for email: %s", validated['email'])
-        return jsonify({"msg": "User already exists"}), 409
+        return jsonify({"message": "User already exists"}), 409
     logger.info("New user registered: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
-    return jsonify({"msg": "User created successfully"}), 201
+    return jsonify({"message": "User created successfully"}), 201
 
 
 @auth_bp.route('/register-admin/', methods=['POST'])
@@ -156,7 +156,7 @@ def register_admin():
 
     if User.query.filter_by(email=validated['email']).first():
         logger.error("Admin registration attempt for existing user: %s", validated['email'])
-        return jsonify({"msg": "User already exists"}), 409
+        return jsonify({"message": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
@@ -171,9 +171,9 @@ def register_admin():
     except IntegrityError:
         db.session.rollback()
         logger.warning("Admin registration conflict for email: %s", validated['email'])
-        return jsonify({"msg": "User already exists"}), 409
+        return jsonify({"message": "User already exists"}), 409
     logger.info("New administrator registered: %s (ID: %s)", user.email, user.id)
-    return jsonify({"msg": "Administrator created successfully"}), 201
+    return jsonify({"message": "Administrator created successfully"}), 201
 
 # tested by test_auth.py -> test_auth_login
 @auth_bp.route('/login/', methods=['POST'])
@@ -269,7 +269,7 @@ def login():
     user = User.query.filter_by(email=validated['email']).first()
     if not user or not user.check_password(validated['password']):
         logger.error("Failed login attempt for email: %s", validated.get('email', 'unknown'))
-        return jsonify({"msg": "Invalid credentials"}), 401
+        return jsonify({"message": "Invalid credentials"}), 401
 
     if user.is_administrator:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
@@ -307,10 +307,10 @@ def login():
               "race_name": race.race_name,
               "race_category": race.race_category,
               "race_description": race.race_description,
-              "start_showing_checkpoints": race.start_showing_checkpoints_at,
-              "end_showing_checkpoints": race.end_showing_checkpoints_at,
-              "start_logging": race.start_logging_at,
-              "end_logging": race.end_logging_at} for race in races_by_user]
+              "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+              "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+              "start_logging_at": race.start_logging_at,
+              "end_logging_at": race.end_logging_at} for race in races_by_user]
 
     return jsonify({
       "access_token": access_token,
@@ -353,10 +353,10 @@ def protected():
     """
 
     if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
-        return jsonify({"error": "Not found"}), 404
+        return jsonify({"message": "Not found"}), 404
 
     current_user_id = str(get_jwt_identity())
-    return jsonify({"msg": f"Hello, user {current_user_id}!"}), 200
+    return jsonify({"message": f"Hello, user {current_user_id}!"}), 200
 
 # tested by test_auth.py -> test_auth_admin_required
 @auth_bp.route('/admin/', methods=['GET'])
@@ -384,10 +384,10 @@ def admin():
         description: Not found (production environment)
     """
     if not (current_app.config.get('DEBUG') or current_app.config.get('TESTING')):
-        return jsonify({"error": "Not found"}), 404
+        return jsonify({"message": "Not found"}), 404
 
     current_user_id = str(get_jwt_identity())
-    return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
+    return jsonify({"message": f"Hello, admin {current_user_id}!"}), 200
 
 # Refresh access token using a valid refresh token
 @auth_bp.route('/refresh/', methods=['POST'])
@@ -418,13 +418,13 @@ def refresh():
         user_id_int = int(user_id)
     except (TypeError, ValueError):
         logger.warning("Refresh token has invalid subject: %s", user_id)
-        return jsonify({"msg": "Invalid refresh token subject"}), 401
+        return jsonify({"message": "Invalid refresh token subject"}), 401
 
     # Look up current admin flag to keep claims in sync and ensure user still exists.
     user = User.query.filter_by(id=user_id_int).first()
     if not user:
         logger.warning("Refresh denied: user %s not found", user_id)
-        return jsonify({"msg": "User not found"}), 401
+        return jsonify({"message": "User not found"}), 401
 
     is_admin = bool(user.is_administrator)
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
@@ -476,7 +476,7 @@ def request_password_reset():
         validated = PasswordResetRequestSchema().load(data)
     except ValidationError:
         logger.error("Password reset request with missing email")
-        return jsonify({"msg": "Email is required"}), 400
+        return jsonify({"message": "Email is required"}), 400
 
     email = validated['email']
     user = User.query.filter_by(email=email).first()
@@ -497,7 +497,7 @@ def request_password_reset():
     else:
         logger.warning("Password reset requested for non-existent email: %s", email)
 
-    return jsonify({"msg": "If the email exists, a password reset link has been sent"}), 200
+    return jsonify({"message": "If the email exists, a password reset link has been sent"}), 200
 
 @auth_bp.route('/reset-password/', methods=['POST'])
 def reset_password():
@@ -549,7 +549,7 @@ def reset_password():
         validated = PasswordResetSchema().load(data)
     except ValidationError:
         logger.warning("Password reset attempt with missing token or password")
-        return jsonify({"msg": "Token and new password are required"}), 400
+        return jsonify({"message": "Token and new password are required"}), 400
 
     token = validated['token']
     new_password = validated['new_password']
@@ -559,14 +559,14 @@ def reset_password():
 
     if not user or not user.reset_token_expiry:
         logger.warning("Password reset attempt with invalid token: %s...", token[:10])
-        return jsonify({"msg": "Invalid or expired token"}), 400
+        return jsonify({"message": "Invalid or expired token"}), 400
 
     # Check if token is expired
     if datetime.now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
         logger.warning("Password reset attempt with expired token for user: %s", user.email)
-        return jsonify({"msg": "Token has expired"}), 400
+        return jsonify({"message": "Token has expired"}), 400
 
     # Reset password
     user.set_password(new_password)
@@ -574,4 +574,4 @@ def reset_password():
     db.session.commit()
 
     logger.info("Password successfully reset for user: %s (ID: %s)", user.email, user.id)
-    return jsonify({"msg": "Password reset successfully"}), 200
+    return jsonify({"message": "Password reset successfully"}), 200
