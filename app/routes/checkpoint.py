@@ -78,7 +78,7 @@ def get_checkpoint(checkpoint_id):
     checkpoint = Checkpoint.query.filter_by(id=checkpoint_id).first_or_404()
     language = request.args.get("lang")
     if language:
-      if not is_supported_race_language(checkpoint.race, language):
+        if not is_supported_race_language(checkpoint.race, language):
             return jsonify({"errors": {"language": ["Language not supported by race"]}}), 400
 
     translation = find_translation_by_language(checkpoint.translations, language)
@@ -89,7 +89,7 @@ def get_checkpoint(checkpoint_id):
         "description": description,
         "latitude": checkpoint.latitude,
         "longitude": checkpoint.longitude,
-        "numOfPoints": checkpoint.numOfPoints
+        "num_of_points": checkpoint.numOfPoints
     }), 200
 
 @checkpoint_bp.route('/<int:checkpoint_id>/', methods=['PUT'])
@@ -187,7 +187,7 @@ def update_checkpoint(checkpoint_id):
         "description": checkpoint.description,
         "latitude": checkpoint.latitude,
         "longitude": checkpoint.longitude,
-        "numOfPoints": checkpoint.numOfPoints
+        "num_of_points": checkpoint.numOfPoints
     }), 200
 
 

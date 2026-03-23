@@ -119,7 +119,7 @@ class TestAuthValidation:
         """Missing email in password reset request should return 400"""
         response = test_client.post("/auth/request-password-reset/", json={})
         assert response.status_code == 400
-        assert response.json["msg"] == "Email is required"
+        assert response.json["message"] == "Email is required"
 
     def test_password_reset_request_invalid_email(self, test_client):
         """Invalid email format in password reset should return 400"""
@@ -234,7 +234,7 @@ class TestCheckpointValidation:
 
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = test_client.put(f"/api/checkpoint/{cp_id}/", json={
-            "numOfPoints": -5
+            "num_of_points": -5
         }, headers=headers)
         assert response.status_code == 400
 
@@ -277,11 +277,11 @@ class TestCheckpointValidation:
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = test_client.put(f"/api/checkpoint/{cp_id}/", json={
             "title": "Updated",
-            "numOfPoints": 5
+            "num_of_points": 5
         }, headers=headers)
         assert response.status_code == 200
         assert response.json["title"] == "Updated"
-        assert response.json["numOfPoints"] == 5
+        assert response.json["num_of_points"] == 5
 
 
 # ============================================================================
@@ -325,7 +325,7 @@ class TestTaskValidation:
 
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = test_client.put(f"/api/task/{task_id}/", json={
-            "numOfPoints": 0
+            "num_of_points": 0
         }, headers=headers)
         assert response.status_code == 400
 
@@ -344,7 +344,7 @@ class TestTaskValidation:
 
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = test_client.put(f"/api/task/{task_id}/", json={
-            "numOfPoints": -3
+            "num_of_points": -3
         }, headers=headers)
         assert response.status_code == 400
 
@@ -364,11 +364,11 @@ class TestTaskValidation:
         headers = {"Authorization": f"Bearer {admin_token}"}
         response = test_client.put(f"/api/task/{task_id}/", json={
             "title": "Updated Task",
-            "numOfPoints": 10
+            "num_of_points": 10
         }, headers=headers)
         assert response.status_code == 200
         assert response.json["title"] == "Updated Task"
-        assert response.json["numOfPoints"] == 10
+        assert response.json["num_of_points"] == 10
 
 
 # ============================================================================

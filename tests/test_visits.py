@@ -306,7 +306,7 @@ def test_get_checkpoints_with_status(test_client, add_test_data):
     response = test_client.get("/api/race/1/checkpoints/1/status/", headers = headers1)
     assert response.status_code == 200
     assert len(response.json) == 3
-    assert response.json[0]["numOfPoints"] == 1
+    assert response.json[0]["num_of_points"] == 1
     assert response.json[0]["visited"] == False
     assert response.json[1]["visited"] == False
     assert response.json[2]["visited"] == False

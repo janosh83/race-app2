@@ -80,7 +80,7 @@ def test_get_task_success(test_client, add_test_data, admin_auth_headers):
     assert response.json["id"] == 1
     assert response.json["title"] == "Task 1"
     assert response.json["description"] == "First task"
-    assert response.json["numOfPoints"] == 5
+    assert response.json["num_of_points"] == 5
 
 
 def test_get_task_with_different_data(test_client, add_test_data, admin_auth_headers):
@@ -90,7 +90,7 @@ def test_get_task_with_different_data(test_client, add_test_data, admin_auth_hea
     assert response.json["id"] == 2
     assert response.json["title"] == "Task 2"
     assert response.json["description"] == "Second task"
-    assert response.json["numOfPoints"] == 10
+    assert response.json["num_of_points"] == 10
 
 
 def test_get_task_not_found(test_client, add_test_data, admin_auth_headers):
@@ -131,20 +131,20 @@ def test_update_task_success(test_client, add_test_data, admin_auth_headers):
     update_data = {
         "title": "Updated Task 1",
         "description": "Updated description",
-        "numOfPoints": 15
+        "num_of_points": 15
     }
     response = test_client.put("/api/task/1/", json=update_data, headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["title"] == "Updated Task 1"
     assert response.json["description"] == "Updated description"
-    assert response.json["numOfPoints"] == 15
+    assert response.json["num_of_points"] == 15
 
     # Verify the update persisted
     response = test_client.get("/api/task/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert response.json["title"] == "Updated Task 1"
     assert response.json["description"] == "Updated description"
-    assert response.json["numOfPoints"] == 15
+    assert response.json["num_of_points"] == 15
 
 
 def test_update_task_partial(test_client, add_test_data, admin_auth_headers):
@@ -157,7 +157,7 @@ def test_update_task_partial(test_client, add_test_data, admin_auth_headers):
     assert response.json["title"] == "New Title Only"
     # Other fields should remain unchanged
     assert response.json["description"] == "Second task"
-    assert response.json["numOfPoints"] == 10
+    assert response.json["num_of_points"] == 10
 
 
 def test_update_task_not_found(test_client, add_test_data, admin_auth_headers):

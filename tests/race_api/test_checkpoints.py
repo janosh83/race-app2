@@ -62,23 +62,23 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
     response = test_client.get("/api/race/1/checkpoints/1/", headers=admin_auth_headers) # get first checkpoint
     assert response.status_code == 200
     assert response.json == {
-        "id": 1, 
-        "title": "Praha", 
-        "latitude": 50.0755381, 
-        "longitude": 14.4378005, 
-        "description": "Hlavní město České republiky", 
-        "numOfPoints": 1
+        "id": 1,
+        "title": "Praha",
+        "latitude": 50.0755381,
+        "longitude": 14.4378005,
+        "description": "Hlavní město České republiky",
+        "num_of_points": 1
     }
 
     response = test_client.get("/api/race/1/checkpoints/2/", headers=admin_auth_headers) # get second checkpoint
     assert response.status_code == 200
     assert response.json == {
-        "id": 2, 
-        "title": "Brno", 
-        "latitude": 49.1950602, 
-        "longitude": 16.6068371, 
-        "description": "Město na jihu Moravy", 
-        "numOfPoints": 1
+        "id": 2,
+        "title": "Brno",
+        "latitude": 49.1950602,
+        "longitude": 16.6068371,
+        "description": "Město na jihu Moravy",
+        "num_of_points": 1
     }
 
     response = test_client.get("/api/race/1/checkpoints/3/", headers=admin_auth_headers) # non existing checkpoint
@@ -91,20 +91,20 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
     assert response.status_code == 200
     assert response.json == [
         {
-            "id": 1, 
-            "title": "Praha", 
-            "latitude": 50.0755381, 
-            "longitude": 14.4378005, 
-            "description": "Hlavní město České republiky", 
-            "numOfPoints": 1
+            "id": 1,
+            "title": "Praha",
+            "latitude": 50.0755381,
+            "longitude": 14.4378005,
+            "description": "Hlavní město České republiky",
+            "num_of_points": 1
         },
         {
-            "id": 2, 
-            "title": "Brno", 
-            "latitude": 49.1950602, 
-            "longitude": 16.6068371, 
-            "description": "Město na jihu Moravy", 
-            "numOfPoints": 1
+            "id": 2,
+            "title": "Brno",
+            "latitude": 49.1950602,
+            "longitude": 16.6068371,
+            "description": "Město na jihu Moravy",
+            "num_of_points": 1
         }
     ]
 
@@ -121,7 +121,7 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
 
 def test_create_checkpoint(test_client, add_test_data, admin_auth_headers):
     response = test_client.post("/api/race/1/checkpoints/", json={
-        "title": "Checkpoint 3", "description": "Třetí checkpoint", "latitude": 50.0955, "longitude": 14.4578, "numOfPoints": 3}, headers=admin_auth_headers)
+        "title": "Checkpoint 3", "description": "Třetí checkpoint", "latitude": 50.0955, "longitude": 14.4578, "num_of_points": 3}, headers=admin_auth_headers)
     assert response.status_code == 201
 
     response = test_client.get("/api/checkpoint/3/", headers=admin_auth_headers)
@@ -130,7 +130,7 @@ def test_create_checkpoint(test_client, add_test_data, admin_auth_headers):
     assert response.json["description"] == "Třetí checkpoint"
     assert response.json["latitude"] == 50.0955
     assert response.json["longitude"] == 14.4578
-    assert response.json["numOfPoints"] == 3
+    assert response.json["num_of_points"] == 3
 
     response = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers)
     assert response.status_code == 200
@@ -144,7 +144,7 @@ def test_create_checkpoint_multipart_form_admin(test_client, add_test_data, admi
         "description": "Created via form",
         "latitude": 50.1234,
         "longitude": 14.9876,
-        "numOfPoints": 5,
+        "num_of_points": 5,
     }
     resp = test_client.post(
         "/api/race/1/checkpoints/",
@@ -154,7 +154,7 @@ def test_create_checkpoint_multipart_form_admin(test_client, add_test_data, admi
     )
     assert resp.status_code == 201
     assert resp.json["title"] == "Form CP"
-    assert resp.json["numOfPoints"] == 5
+    assert resp.json["num_of_points"] == 5
 
     # Verify it appears in list
     list_resp = test_client.get("/api/race/1/checkpoints/", headers=admin_auth_headers)
@@ -164,8 +164,8 @@ def test_create_checkpoint_multipart_form_admin(test_client, add_test_data, admi
 
 def test_create_checkpoint_array_payload_admin(test_client, add_test_data, admin_auth_headers):
     payload = [
-        {"title": "Bulk A", "latitude": 50.2, "longitude": 14.2, "description": "A", "numOfPoints": 2},
-        {"title": "Bulk B", "latitude": 50.3, "longitude": 14.3, "description": "B", "numOfPoints": 3},
+        {"title": "Bulk A", "latitude": 50.2, "longitude": 14.2, "description": "A", "num_of_points": 2},
+        {"title": "Bulk B", "latitude": 50.3, "longitude": 14.3, "description": "B", "num_of_points": 3},
     ]
     resp = test_client.post(
         "/api/race/1/checkpoints/",
@@ -204,7 +204,7 @@ def test_create_checkpoint_field_aliases_admin(test_client, add_test_data, admin
     assert resp.json["latitude"] == 50.4444
     assert resp.json["longitude"] == 14.5555
     assert resp.json["description"] == "Using aliases"
-    assert resp.json["numOfPoints"] == 7
+    assert resp.json["num_of_points"] == 7
 
 
 def test_create_checkpoint_missing_title_400(test_client, add_test_data, admin_auth_headers):

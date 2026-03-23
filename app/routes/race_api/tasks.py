@@ -84,7 +84,7 @@ def get_tasks(race_id):
             "id": task.id,
             "title": _apply_task_translation(task, language)[0],
             "description": _apply_task_translation(task, language)[1],
-            "numOfPoints": task.numOfPoints
+            "num_of_points": task.numOfPoints
         }
         for task in tasks
     ])
@@ -248,7 +248,7 @@ def create_task(race_id):
     result = [{"id": t.id,
                "title": t.title,
                "description": t.description,
-               "numOfPoints": t.numOfPoints } for t in created]
+               "num_of_points": t.numOfPoints } for t in created]
     # return single object when one created to remain backwards-compatible
     if len(result) == 1:
         return jsonify(result[0]), 201
@@ -315,7 +315,7 @@ def get_task(race_id, task_id):
         "id": task.id,
         "title": title,
         "description": description,
-        "numOfPoints": task.numOfPoints}), 200
+        "num_of_points": task.numOfPoints}), 200
 
 @tasks_bp.route("/log/", methods=["POST"])
 @jwt_required()
@@ -692,7 +692,7 @@ def get_tasks_with_status(race_id, team_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.warning("Unauthorized access attempt to team %s tasks by user %s", team_id, user.id)
-        return jsonify({"msg": "Unauthorized"}), 403
+        return jsonify({"message": "Unauthorized"}), 403
 
     race = Race.query.filter_by(id=race_id).first_or_404()
     requested_language = request.args.get("lang")
@@ -724,21 +724,21 @@ def get_tasks_with_status(race_id, team_id):
         image_filename = completion_entry[1] if completion_entry else None
         title, description = _apply_task_translation(task, language)
         task_data = {
-            "id": task.id,
-            "title": title,
-            "description": description,
-            "numOfPoints": task.numOfPoints,
+          "id": task.id,
+          "title": title,
+          "description": description,
+          "num_of_points": task.numOfPoints,
           "completed": completion_entry is not None,
         }
         if completion and completion.image_id:
-          if image_filename:
-            task_data["image_filename"] = image_filename
-          else:
-            logger.warning(
-              "Missing image %s referenced by task log %s",
-              completion.image_id,
-              completion.id,
-            )
+            if image_filename:
+                task_data["image_filename"] = image_filename
+            else:
+                logger.warning(
+                  "Missing image %s referenced by task log %s",
+                  completion.image_id,
+                  completion.id,
+                )
         response.append(task_data)
 
     return jsonify(response), 200

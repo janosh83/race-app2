@@ -79,7 +79,7 @@ def get_task(task_id):
       "id": task.id,
       "title": title,
       "description": description,
-      "numOfPoints": task.numOfPoints
+      "num_of_points": task.numOfPoints
     }), 200
 
 # tested by test_task.py -> test_update_task
@@ -158,7 +158,7 @@ def update_task(task_id):
         "id": task.id,
         "title": task.title,
         "description": task.description,
-        "numOfPoints": task.numOfPoints
+        "num_of_points": task.numOfPoints
     }), 200
 
 

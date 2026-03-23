@@ -10,15 +10,15 @@ def add_test_data(test_app):
         now = datetime.now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
-        
+
         # Create race category
         category1 = RaceCategory(name="Standard", description="Standard category")
         db.session.add(category1)
         db.session.commit()
-        
+
         # Create race
         race1 = Race(
-            name="Spring Race", 
+            name="Spring Race",
             description="24 hours of exploration",
             start_showing_checkpoints_at=some_time_earlier,
             end_showing_checkpoints_at=some_time_later,
@@ -31,10 +31,10 @@ def add_test_data(test_app):
         # Create users
         admin_user = User(name="Admin User", email="admin@example.com", is_administrator=True)
         admin_user.set_password("password")
-        
+
         regular_user = User(name="Regular User", email="user@example.com", is_administrator=False)
         regular_user.set_password("password")
-        
+
         db.session.add_all([admin_user, regular_user])
         db.session.commit()
 
@@ -53,7 +53,7 @@ def add_test_data(test_app):
         task1 = Task(title="Task 1", description="First task", numOfPoints=5, race_id=race1.id)
         task2 = Task(title="Task 2", description="Second task", numOfPoints=10, race_id=race1.id)
         task3 = Task(title="Task 3", description="Third task with no points", numOfPoints=1, race_id=race1.id)
-        
+
         db.session.add_all([task1, task2, task3])
         db.session.commit()
 
@@ -87,13 +87,13 @@ def test_get_single_task(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json["title"] == "Task 1"
     assert response.json["description"] == "First task"
-    assert response.json["numOfPoints"] == 5
-    
+    assert response.json["num_of_points"] == 5
+
     response = test_client.get("/api/race/1/tasks/2/", headers=headers)
     assert response.status_code == 200
     assert response.json["title"] == "Task 2"
     assert response.json["description"] == "Second task"
-    assert response.json["numOfPoints"] == 10
+    assert response.json["num_of_points"] == 10
 
     response = test_client.get("/api/race/1/tasks/1/?lang=cs", headers=headers)
     assert response.status_code == 200
@@ -112,12 +112,12 @@ def test_create_single_task(test_client, add_test_data):
     response = test_client.post("/api/race/1/tasks/", json={
         "title": "Task 4",
         "description": "Fourth task",
-        "numOfPoints": 15
+        "num_of_points": 15
     }, headers=headers)
     assert response.status_code == 201
     assert response.json["title"] == "Task 4"
     assert response.json["description"] == "Fourth task"
-    assert response.json["numOfPoints"] == 15
+    assert response.json["num_of_points"] == 15
 
     # Verify task was created
     response = test_client.get("/api/race/1/tasks/", headers=headers)
@@ -130,8 +130,8 @@ def test_create_multiple_tasks(test_client, add_test_data):
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
 
     response = test_client.post("/api/race/1/tasks/", json=[
-        {"title": "Batch Task 1", "description": "First batch task", "numOfPoints": 8},
-        {"title": "Batch Task 2", "description": "Second batch task", "numOfPoints": 12}
+        {"title": "Batch Task 1", "description": "First batch task", "num_of_points": 8},
+        {"title": "Batch Task 2", "description": "Second batch task", "num_of_points": 12}
     ], headers=headers)
     assert response.status_code == 201
     assert len(response.json) == 2
@@ -151,7 +151,7 @@ def test_create_task_non_admin(test_client, add_test_data):
     response = test_client.post("/api/race/1/tasks/", json={
         "title": "Unauthorized Task",
         "description": "Should fail",
-        "numOfPoints": 5
+        "num_of_points": 5
     }, headers=headers)
     assert response.status_code == 403
 
@@ -169,7 +169,7 @@ def test_create_task_with_field_aliases(test_client, add_test_data):
     assert response.status_code == 201
     assert response.json["title"] == "Alias Task"
     assert response.json["description"] == "Using alias fields"
-    assert response.json["numOfPoints"] == 7
+    assert response.json["num_of_points"] == 7
 
 def test_create_task_missing_title(test_client, add_test_data):
     """Test creating task without required title field"""
@@ -178,7 +178,7 @@ def test_create_task_missing_title(test_client, add_test_data):
 
     response = test_client.post("/api/race/1/tasks/", json={
         "description": "No title provided",
-        "numOfPoints": 5
+        "num_of_points": 5
     }, headers=headers)
     assert response.status_code == 400
     assert "errors" in response.json
@@ -209,7 +209,7 @@ def test_create_task_invalid_race_404(test_client, add_test_data):
 
     resp = test_client.post(
         "/api/race/999/tasks/",
-        json={"title": "Invalid Race Task", "description": "Should 404", "numOfPoints": 3},
+        json={"title": "Invalid Race Task", "description": "Should 404", "num_of_points": 3},
         headers=headers,
     )
     assert resp.status_code == 404

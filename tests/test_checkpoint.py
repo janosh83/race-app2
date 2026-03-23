@@ -34,7 +34,7 @@ def test_checkpoint(test_client, add_test_data):
     assert response.json["description"] == "První checkpoint"
     assert response.json["latitude"] == 50.0755
     assert response.json["longitude"] == 14.4378
-    assert response.json["numOfPoints"] == 1
+    assert response.json["num_of_points"] == 1
 
     response = test_client.get("/api/checkpoint/2/", headers=headers)
     assert response.status_code == 200
@@ -42,7 +42,7 @@ def test_checkpoint(test_client, add_test_data):
     assert response.json["description"] == "Druhý checkpoint"
     assert response.json["latitude"] == 50.0855
     assert response.json["longitude"] == 14.4478
-    assert response.json["numOfPoints"] == 2
+    assert response.json["num_of_points"] == 2
 
     response = test_client.get("/api/checkpoint/3/", headers=headers)
     assert response.status_code == 404
@@ -67,7 +67,7 @@ def test_update_checkpoint(test_client, add_test_data):
         "description": "Updated description",
         "latitude": 51.0755,
         "longitude": 15.4378,
-        "numOfPoints": 5
+        "num_of_points": 5
     }
     response = test_client.put("/api/checkpoint/1/", json=update_data, headers=headers)
     assert response.status_code == 200
@@ -75,7 +75,7 @@ def test_update_checkpoint(test_client, add_test_data):
     assert response.json["description"] == "Updated description"
     assert response.json["latitude"] == 51.0755
     assert response.json["longitude"] == 15.4378
-    assert response.json["numOfPoints"] == 5
+    assert response.json["num_of_points"] == 5
 
     # Verify the update persisted
     response = test_client.get("/api/checkpoint/1/", headers=headers)
@@ -84,7 +84,7 @@ def test_update_checkpoint(test_client, add_test_data):
     assert response.json["description"] == "Updated description"
     assert response.json["latitude"] == 51.0755
     assert response.json["longitude"] == 15.4378
-    assert response.json["numOfPoints"] == 5
+    assert response.json["num_of_points"] == 5
 
 def test_update_checkpoint_partial(test_client, add_test_data):
     """Test that partial updates work (only updating some fields)"""
@@ -94,12 +94,12 @@ def test_update_checkpoint_partial(test_client, add_test_data):
     # Update only title and numOfPoints
     update_data = {
         "title": "New Title",
-        "numOfPoints": 10
+        "num_of_points": 10
     }
     response = test_client.put("/api/checkpoint/2/", json=update_data, headers=headers)
     assert response.status_code == 200
     assert response.json["title"] == "New Title"
-    assert response.json["numOfPoints"] == 10
+    assert response.json["num_of_points"] == 10
     # Other fields should remain unchanged
     assert response.json["description"] == "Druhý checkpoint"
     assert response.json["latitude"] == 50.0855
@@ -140,17 +140,17 @@ def test_checkpoint_forbidden_non_admin(test_client, add_test_data):
     # Try to get checkpoint
     response = test_client.get("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 403
-    assert response.json["msg"] == "Admins only!"
+    assert response.json["message"] == "Admins only!"
 
     # Try to delete checkpoint
     response = test_client.delete("/api/checkpoint/1/", headers=headers)
     assert response.status_code == 403
-    assert response.json["msg"] == "Admins only!"
+    assert response.json["message"] == "Admins only!"
 
     # Try to update checkpoint
     response = test_client.put("/api/checkpoint/1/", json={"title": "Test"}, headers=headers)
     assert response.status_code == 403
-    assert response.json["msg"] == "Admins only!"
+    assert response.json["message"] == "Admins only!"
 
 
 def test_checkpoint_translation_crud(test_client, add_test_data):

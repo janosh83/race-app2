@@ -122,7 +122,7 @@ def get_checkpoints(race_id):
                 "latitude": checkpoint.latitude,
                 "longitude": checkpoint.longitude,
                 "description": description,
-                "numOfPoints": checkpoint.numOfPoints,
+                "num_of_points": checkpoint.numOfPoints,
             }
         )
 
@@ -324,7 +324,7 @@ def create_checkpoint(race_id):
                "title": cp.title,
                "description": cp.description,
                "latitude": cp.latitude, "longitude": cp.longitude,
-               "numOfPoints": cp.numOfPoints } for cp in created]
+               "num_of_points": cp.numOfPoints } for cp in created]
     # return single object when one created to remain backwards-compatible
     if len(result) == 1:
         return jsonify(result[0]), 201
@@ -404,7 +404,7 @@ def get_checkpoint(race_id, checkpoint_id):
         "latitude": checkpoint.latitude,
         "longitude": checkpoint.longitude,
         "description": description,
-        "numOfPoints": checkpoint.numOfPoints}), 200
+        "num_of_points": checkpoint.numOfPoints}), 200
 
 # tested by test_visits.py -> test_log_visit
 @checkpoints_bp.route("/log/", methods=["POST"])
@@ -913,7 +913,7 @@ def get_checkpoints_with_status(race_id, team_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.error("Unauthorized access attempt to team %s checkpoints by user %s", team_id, user.id)
-        return jsonify({"msg": "Unauthorized"}), 403
+        return jsonify({"message": "Unauthorized"}), 403
 
     # Get all checkpoints for the race
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -964,7 +964,7 @@ def get_checkpoints_with_status(race_id, team_id):
             "description": description,
             "latitude": checkpoint.latitude,
             "longitude": checkpoint.longitude,
-            "numOfPoints": checkpoint.numOfPoints,
+            "num_of_points": checkpoint.numOfPoints,
             "visited": visit_entry is not None,
         }
         # Add image info if visit exists and has an image.
