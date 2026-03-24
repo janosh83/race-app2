@@ -175,9 +175,9 @@ def update_checkpoint(checkpoint_id):
     if 'longitude' in validated:
         checkpoint.longitude = validated['longitude']
         updated_fields.append('longitude')
-    if 'numOfPoints' in validated:
-        checkpoint.numOfPoints = validated['numOfPoints']
-        updated_fields.append('numOfPoints')
+    if 'num_of_points' in validated:
+        checkpoint.numOfPoints = validated['num_of_points']
+        updated_fields.append('num_of_points')
 
     db.session.commit()
     logger.info("Checkpoint %s updated - fields: %s", checkpoint_id, ', '.join(updated_fields))

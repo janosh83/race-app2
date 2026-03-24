@@ -156,20 +156,17 @@ def test_create_task_non_admin(test_client, add_test_data):
     assert response.status_code == 403
 
 def test_create_task_with_field_aliases(test_client, add_test_data):
-    """Test creating task with alternative field names"""
+    """Legacy alias fields are rejected in strict mode."""
     response = test_client.post("/auth/login/", json={"email": "admin@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
 
-    # Test with 'name' instead of 'title'
     response = test_client.post("/api/race/1/tasks/", json={
         "name": "Alias Task",
         "desc": "Using alias fields",
         "numPoints": 7
     }, headers=headers)
-    assert response.status_code == 201
-    assert response.json["title"] == "Alias Task"
-    assert response.json["description"] == "Using alias fields"
-    assert response.json["num_of_points"] == 7
+    assert response.status_code == 400
+    assert "errors" in response.json
 
 def test_create_task_missing_title(test_client, add_test_data):
     """Test creating task without required title field"""

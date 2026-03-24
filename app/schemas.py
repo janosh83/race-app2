@@ -7,28 +7,7 @@ class CheckpointCreateSchema(Schema):
     description = fields.String(load_default="")
     latitude = fields.Float(allow_none=True)
     longitude = fields.Float(allow_none=True)
-    numOfPoints = fields.Integer(load_default=1, validate=validate.Range(min=0))
-
-    @pre_load
-    def normalize(self, data, **kwargs):
-        normalized = dict(data)
-        # Map aliases
-        if "name" in normalized and "title" not in normalized:
-            normalized["title"] = normalized["name"]
-        if "lat" in normalized and "latitude" not in normalized:
-            normalized["latitude"] = normalized["lat"]
-        if "lng" in normalized and "longitude" not in normalized:
-            normalized["longitude"] = normalized["lng"]
-        if "desc" in normalized and "description" not in normalized:
-            normalized["description"] = normalized["desc"]
-        if "num_of_points" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["num_of_points"]
-        if "numPoints" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["numPoints"]
-        # Remove alias keys to avoid unknown field errors
-        for alias_key in ("name", "lat", "lng", "desc", "num_of_points", "numPoints"):
-            normalized.pop(alias_key, None)
-        return normalized
+    num_of_points = fields.Integer(load_default=1, validate=validate.Range(min=0))
 
 
 class CheckpointUpdateSchema(Schema):
@@ -36,22 +15,7 @@ class CheckpointUpdateSchema(Schema):
     description = fields.String()
     latitude = fields.Float(allow_none=True)
     longitude = fields.Float(allow_none=True)
-    numOfPoints = fields.Integer(validate=validate.Range(min=0))
-
-    @pre_load
-    def normalize(self, data, **kwargs):
-        normalized = dict(data)
-        if "name" in normalized and "title" not in normalized:
-            normalized["title"] = normalized["name"]
-        if "lat" in normalized and "latitude" not in normalized:
-            normalized["latitude"] = normalized["lat"]
-        if "lng" in normalized and "longitude" not in normalized:
-            normalized["longitude"] = normalized["lng"]
-        if "num_of_points" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["num_of_points"]
-        if "numPoints" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["numPoints"]
-        return normalized
+    num_of_points = fields.Integer(validate=validate.Range(min=0))
 
 
 class CheckpointLogSchema(Schema):
@@ -68,44 +32,13 @@ class CheckpointLogSchema(Schema):
 class TaskCreateSchema(Schema):
     title = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
-    numOfPoints = fields.Integer(load_default=1, validate=validate.Range(min=1))
-
-    @pre_load
-    def normalize(self, data, **kwargs):
-        normalized = dict(data)
-        if "name" in normalized and "title" not in normalized:
-            normalized["title"] = normalized["name"]
-        if "num_of_points" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["num_of_points"]
-        if "numPoints" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["numPoints"]
-        if "desc" in normalized and "description" not in normalized:
-            normalized["description"] = normalized["desc"]
-        for alias_key in ("name", "numPoints", "num_of_points", "desc"):
-            normalized.pop(alias_key, None)
-        return normalized
+    num_of_points = fields.Integer(load_default=1, validate=validate.Range(min=1))
 
 
 class TaskUpdateSchema(Schema):
     title = fields.String(validate=validate.Length(min=1))
     description = fields.String()
-    numOfPoints = fields.Integer(validate=validate.Range(min=1))
-
-    @pre_load
-    def normalize(self, data, **kwargs):
-        normalized = dict(data)
-        if "name" in normalized and "title" not in normalized:
-            normalized["title"] = normalized["name"]
-        if "num_of_points" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["num_of_points"]
-        if "numPoints" in normalized and "numOfPoints" not in normalized:
-            normalized["numOfPoints"] = normalized["numPoints"]
-        if "desc" in normalized and "description" not in normalized:
-            normalized["description"] = normalized["desc"]
-        # Remove alias keys to avoid unknown field errors
-        for alias_key in ("name", "numPoints", "num_of_points", "desc"):
-            normalized.pop(alias_key, None)
-        return normalized
+    num_of_points = fields.Integer(validate=validate.Range(min=1))
 
 
 class TaskLogSchema(Schema):
@@ -159,15 +92,6 @@ class RaceCreateSchema(Schema):
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
             normalized["registration_currency"] = currency.strip().lower()
-
-        if "registration_team_amount" in normalized and "registration_team_amount_cents" not in normalized:
-            normalized["registration_team_amount_cents"] = normalized.get("registration_team_amount")
-        if "registration_individual_amount" in normalized and "registration_individual_amount_cents" not in normalized:
-            normalized["registration_individual_amount_cents"] = normalized.get("registration_individual_amount")
-        if "registration_driver_amount" in normalized and "registration_driver_amount_cents" not in normalized:
-            normalized["registration_driver_amount_cents"] = normalized.get("registration_driver_amount")
-        if "registration_codriver_amount" in normalized and "registration_codriver_amount_cents" not in normalized:
-            normalized["registration_codriver_amount_cents"] = normalized.get("registration_codriver_amount")
         return normalized
 
     @validates_schema
@@ -233,15 +157,6 @@ class RaceUpdateSchema(Schema):
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
             normalized["registration_currency"] = currency.strip().lower()
-
-        if "registration_team_amount" in normalized and "registration_team_amount_cents" not in normalized:
-            normalized["registration_team_amount_cents"] = normalized.get("registration_team_amount")
-        if "registration_individual_amount" in normalized and "registration_individual_amount_cents" not in normalized:
-            normalized["registration_individual_amount_cents"] = normalized.get("registration_individual_amount")
-        if "registration_driver_amount" in normalized and "registration_driver_amount_cents" not in normalized:
-            normalized["registration_driver_amount_cents"] = normalized.get("registration_driver_amount")
-        if "registration_codriver_amount" in normalized and "registration_codriver_amount_cents" not in normalized:
-            normalized["registration_codriver_amount_cents"] = normalized.get("registration_codriver_amount")
         return normalized
 
     @validates_schema

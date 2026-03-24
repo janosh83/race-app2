@@ -310,7 +310,7 @@ def create_checkpoint(race_id):
             latitude=entry.get('latitude'),
             longitude=entry.get('longitude'),
             description=entry.get('description'),
-            numOfPoints=entry.get('numOfPoints'),
+            numOfPoints=entry.get('num_of_points'),
             race_id=race_id
         )
         db.session.add(new_checkpoint)

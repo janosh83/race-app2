@@ -148,9 +148,9 @@ def update_task(task_id):
     if 'description' in validated:
         task.description = validated['description']
         updated_fields.append('description')
-    if 'numOfPoints' in validated:
-        task.numOfPoints = validated['numOfPoints']
-        updated_fields.append('numOfPoints')
+    if 'num_of_points' in validated:
+        task.numOfPoints = validated['num_of_points']
+        updated_fields.append('num_of_points')
 
     db.session.commit()
     logger.info("Task %s updated - fields: %s", task_id, ', '.join(updated_fields))

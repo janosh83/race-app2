@@ -223,7 +223,7 @@ def create_task(race_id):
             return jsonify({"message": "Invalid or missing JSON body"}), 400
         items = payload if isinstance(payload, list) else [payload]
 
-    # validate and normalize using schema (supports field aliases)
+    # Validate request body against strict schema.
     schema = TaskCreateSchema()
     try:
         loaded = schema.load(items, many=True)
@@ -237,7 +237,7 @@ def create_task(race_id):
         new_task = Task(
             title=entry.get('title'),
             description=entry.get('description'),
-            numOfPoints=entry.get('numOfPoints'),
+            numOfPoints=entry.get('num_of_points'),
             race_id=race_id
         )
         db.session.add(new_task)

@@ -186,7 +186,7 @@ def test_create_checkpoint_array_payload_admin(test_client, add_test_data, admin
 
 
 def test_create_checkpoint_field_aliases_admin(test_client, add_test_data, admin_auth_headers):
-    # Use aliases: name, lat, lng, desc, numPoints
+    # Legacy aliases are rejected in strict mode.
     payload = {
         "name": "Alias CP",
         "lat": 50.4444,
@@ -199,16 +199,12 @@ def test_create_checkpoint_field_aliases_admin(test_client, add_test_data, admin
         json=payload,
         headers=admin_auth_headers,
     )
-    assert resp.status_code == 201
-    assert resp.json["title"] == "Alias CP"
-    assert resp.json["latitude"] == 50.4444
-    assert resp.json["longitude"] == 14.5555
-    assert resp.json["description"] == "Using aliases"
-    assert resp.json["num_of_points"] == 7
+    assert resp.status_code == 400
+    assert "errors" in resp.json
 
 
 def test_create_checkpoint_missing_title_400(test_client, add_test_data, admin_auth_headers):
-    # Missing both 'title' and 'name' should yield 400
+    # Missing 'title' should yield 400.
     resp = test_client.post(
         "/api/race/1/checkpoints/",
         json={"description": "no title"},
