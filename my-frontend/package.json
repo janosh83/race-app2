@@ -40,6 +40,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
+  "overrides": {
+    "minimatch@^3.0.0": "3.1.4"
+  },
   "browserslist": {
     "production": [
       ">0.2%",
