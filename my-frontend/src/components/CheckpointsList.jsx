@@ -27,9 +27,7 @@ function CheckpointsList({ topOffset = 56 }) {
   const { t } = useTranslation();
 
   const getCheckpointPoints = (checkpoint) => {
-    if (checkpoint?.numOfPoints != null) return checkpoint.numOfPoints;
     if (checkpoint?.num_of_points != null) return checkpoint.num_of_points;
-    if (checkpoint?.points != null) return checkpoint.points;
     return 0;
   };
 

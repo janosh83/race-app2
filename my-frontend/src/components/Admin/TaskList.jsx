@@ -29,10 +29,10 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     const fetchAllTranslations = async () => {
       const taskIds = tasks.map(t => t.id ?? t.task_id).filter(Boolean);
       const currentIds = Object.keys(taskTranslations).map(Number);
-      
+
       // Only fetch for tasks we don't have translations for yet
       const idsToFetch = taskIds.filter(id => !currentIds.includes(id));
-      
+
       if (idsToFetch.length === 0) {
         // Clean up translations for removed tasks
         const removedIds = currentIds.filter(id => !taskIds.includes(id));
@@ -45,7 +45,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         }
         return;
       }
-      
+
       const newTranslations = {};
       for (const taskId of idsToFetch) {
         try {
@@ -56,7 +56,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
           newTranslations[taskId] = [];
         }
       }
-      
+
       setTaskTranslations(prev => ({ ...prev, ...newTranslations }));
     };
 
@@ -91,7 +91,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     setEditForm({
       title: task.title ?? '',
       description: task.description ?? '',
-      numOfPoints: task.numOfPoints ?? task.points ?? 0
+      numOfPoints: task.num_of_points ?? 0
     });
   };
 
@@ -108,7 +108,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       const payload = {
         title: editForm.title,
         description: editForm.description,
-        numOfPoints: editForm.numOfPoints ? parseInt(editForm.numOfPoints) : 0
+        num_of_points: editForm.numOfPoints ? parseInt(editForm.numOfPoints) : 0
       };
       await adminApi.updateTask(editingId, payload);
       onUpdate(editingId, payload);
@@ -139,7 +139,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
 
   const validateItem = (it) => {
     if (!it || typeof it !== 'object') return t('admin.tasks.validationItemNotObject');
-    if (!it.name && !it.title) return t('admin.tasks.validationMissingNameOrTitle');
+    if (!it.title) return t('admin.tasks.validationMissingTitle');
     return null;
   };
 
@@ -152,17 +152,17 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   const handleImport = async (e) => {
     e.preventDefault();
     setImportError(null);
-    
+
     if (!selectedFile) {
       setImportError(t('admin.tasks.validationSelectFile'));
       return;
     }
-    
+
     if (!raceId) {
       setImportError(t('admin.tasks.validationMissingRace'));
       return;
     }
-    
+
     // Read file content
     const fileContent = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -170,7 +170,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       reader.onerror = (error) => reject(error);
       reader.readAsText(selectedFile);
     });
-    
+
     let parsed;
     try {
       parsed = JSON.parse(fileContent);
@@ -194,20 +194,20 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       let translationsCount = 0;
       for (const it of parsed) {
         const payload = {
-          title: it.title ?? it.name,
-          description: it.description ?? it.desc ?? null,
-          numOfPoints: it.numOfPoints ?? it.points ?? 0,
+          title: it.title,
+          description: it.description ?? null,
+          num_of_points: it.num_of_points ?? 0,
         };
         const task = await adminApi.addTask(raceId, payload);
         created.push(task);
-        
+
         // Import translations for this task
         const translations = it.translations || [];
         for (const trans of translations) {
           if (trans.language) {
             try {
               const translationPayload = {
-                title: trans.title ?? trans.name ?? null,
+                title: trans.title ?? null,
                 description: trans.description ?? null
               };
               await adminApi.createTaskTranslation(task.id, trans.language, translationPayload);
@@ -223,7 +223,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       // Reset file input
       const fileInput = document.getElementById('task-file-input');
       if (fileInput) fileInput.value = '';
-      
+
       const msg = translationsCount > 0
         ? t('admin.tasks.importSuccessWithTranslations', { count: created.length, translations: translationsCount })
         : t('admin.tasks.importSuccess', { count: created.length });
@@ -254,22 +254,22 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               const isExpanded = expandedId === taskId;
               const translations = taskTranslations[taskId] || [];
               const translationLanguages = translations.map(t => t.language);
-              
+
               return (
                 <div key={taskId} className="list-group-item">
                   <div className="d-flex justify-content-between align-items-start">
                     <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : taskId)}>
                       <div className="d-flex align-items-center gap-2">
                         <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
-                        <strong>{task.title ?? task.name}</strong>
+                        <strong>{task.title}</strong>
                         {translationLanguages.length > 0 && (
-                          <LanguageFlagsDisplay 
+                          <LanguageFlagsDisplay
                             languages={translationLanguages}
                             flagWidth={20}
                             flagHeight={14}
                           />
                         )}
-                        <span className="badge bg-secondary">{task.numOfPoints ?? task.points ?? 0} {t('admin.common.pointsShort')}</span>
+                        <span className="badge bg-secondary">{task.num_of_points ?? 0} {t('admin.common.pointsShort')}</span>
                       </div>
                     </div>
                     <div className="d-flex gap-1">
@@ -277,7 +277,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                       <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(taskId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
-                  
+
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-top">
                       <div className="row">
@@ -286,18 +286,18 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                           <dl className="row small">
                             <dt className="col-sm-4">{t('admin.tasks.labelDescription')}</dt>
                             <dd className="col-sm-8">{task.description || <span className="text-muted">—</span>}</dd>
-                            
+
                             <dt className="col-sm-4">{t('admin.tasks.labelPoints')}</dt>
-                            <dd className="col-sm-8">{task.numOfPoints ?? task.points ?? 0}</dd>
+                            <dd className="col-sm-8">{task.num_of_points ?? 0}</dd>
                           </dl>
                         </div>
-                        
+
                         <div className="col-md-6">
                           <h6 className="text-muted small">{t('admin.tasks.translations')}</h6>
                           <TranslationManager
                             entityType="task"
                             entityId={taskId}
-                            entityName={task.title ?? task.name}
+                            entityName={task.title}
                             fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
                             supportedLanguages={supportedLanguages}
                           />
@@ -391,14 +391,14 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
             <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
               {importing ? t('admin.tasks.importing') : t('admin.tasks.import')}
             </button>
-            <button 
-              type="button" 
-              className="btn btn-outline-secondary" 
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
               onClick={() => {
                 setSelectedFile(null);
                 const fileInput = document.getElementById('task-file-input');
                 if (fileInput) fileInput.value = '';
-              }} 
+              }}
               disabled={importing || !selectedFile}
             >
               {t('admin.tasks.clear')}
@@ -427,21 +427,21 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               <div className="modal-body">
                 <h6>{t('admin.tasks.importHelpFormat')}</h6>
                 <p className="text-muted">{t('admin.tasks.importHelpDescription')}</p>
-                
+
                 <h6 className="mt-3">{t('admin.tasks.importHelpFields')}</h6>
                 <ul>
                   <li><strong>title</strong> {t('admin.tasks.importHelpFieldTitle')}</li>
                   <li><strong>description</strong> {t('admin.tasks.importHelpFieldDesc')}</li>
-                  <li><strong>numOfPoints</strong> {t('admin.tasks.importHelpFieldPoints')}</li>
+                  <li><strong>num_of_points</strong> {t('admin.tasks.importHelpFieldPoints')}</li>
                   <li><strong>translations</strong> {t('admin.tasks.importHelpFieldTranslations')}</li>
                 </ul>
-                
+
                 <h6 className="mt-3">{t('admin.tasks.importHelpExample')}</h6>
                 <pre className="bg-light p-3 rounded border" style={{ fontSize: '12px', overflow: 'auto' }}>{`[
   {
     "title": "Complete the quiz",
     "description": "Answer all questions correctly",
-    "numOfPoints": 15,
+    "num_of_points": 15,
     "translations": [
       {
         "language": "cs",
@@ -458,7 +458,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   {
     "title": "Take a photo",
     "description": "Capture your team at the location",
-    "numOfPoints": 10
+    "num_of_points": 10
   }
 ]`}</pre>
               </div>

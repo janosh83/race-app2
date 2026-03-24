@@ -13,10 +13,10 @@ function parseRaceTimeField(race, ...keys) {
 }
 
 function timeStateForRace(nowMs, race) {
-  const startShow = parseRaceTimeField(race, 'start_showing_checkpoints', 'start_showing_checkpoints_at', 'start_showing');
-  const startLogging = parseRaceTimeField(race, 'start_logging', 'start_logging_at');
-  const endLogging = parseRaceTimeField(race, 'end_logging', 'end_logging_at');
-  const endShow = parseRaceTimeField(race, 'end_showing_checkpoints', 'end_showing_checkpoints_at', 'end_showing');
+  const startShow = parseRaceTimeField(race, 'start_showing_checkpoints_at');
+  const startLogging = parseRaceTimeField(race, 'start_logging_at');
+  const endLogging = parseRaceTimeField(race, 'end_logging_at');
+  const endShow = parseRaceTimeField(race, 'end_showing_checkpoints_at');
 
   if (!startShow || !endShow) return { state: 'UNKNOWN', info: 'Race time window not available' };
 
@@ -45,7 +45,7 @@ export function TimeProvider({ children }) {
   const [activeRace, setActiveRace] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('activeRace') || 'null');
-      logger.info('CONTEXT', 'Initialized activeRace from localStorage', { race: stored?.race_name || stored?.name || 'none' });
+      logger.info('CONTEXT', 'Initialized activeRace from localStorage', { race: stored?.race_name || 'none' });
       return stored;
     } catch {
       logger.warn('CONTEXT', 'Failed to parse activeRace from localStorage');
@@ -111,7 +111,7 @@ export function TimeProvider({ children }) {
       logger.info('CONTEXT', 'Clearing active race');
       localStorage.removeItem('activeRace');
     } else {
-      logger.info('CONTEXT', 'Setting active race', { race: race.race_name || race.name || race.race_id });
+      logger.info('CONTEXT', 'Setting active race', { race: race.race_name || race.race_id });
       localStorage.setItem('activeRace', JSON.stringify(race));
     }
     setActiveRace(race);
@@ -138,10 +138,10 @@ export function TimeProvider({ children }) {
         setSignedRacesAndPersist(data.signed_races);
         // if our activeRace refers to an outdated object, refresh it by id
         if (activeRace) {
-          const idA = activeRace.race_id ?? activeRace.id ?? activeRace.raceId;
-          const updated = data.signed_races.find(r => (r.race_id ?? r.id ?? r.raceId) === idA);
+          const idA = activeRace.race_id;
+          const updated = data.signed_races.find(r => r.race_id === idA);
           if (updated) {
-            logger.info('CONTEXT', 'Updated active race from refresh', { race: updated.name || updated.race_id });
+            logger.info('CONTEXT', 'Updated active race from refresh', { race: updated.race_name || updated.race_id });
             setActiveRaceAndPersist(updated);
           }
         }

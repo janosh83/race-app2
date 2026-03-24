@@ -14,19 +14,19 @@ function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // HTML5 validation should prevent empty submission, but check just in case
     if (!email) {
       return;
     }
-    
+
     setMessage('');
     setError('');
     setLoading(true);
 
     try {
       const data = await authApi.requestPasswordReset(email);
-      setMessage(data.msg || t('auth.forgot.successDefault'));
+      setMessage(data.message || t('auth.forgot.successDefault'));
       setEmail('');
     } catch (err) {
       setError(err.message || t('auth.forgot.failed'));
@@ -45,13 +45,13 @@ function ForgotPassword() {
                 <h2 className="card-title mb-0">{t('auth.forgot.title')}</h2>
                 <LanguageSwitcher />
               </div>
-              
+
               {message && (
                 <div className="alert alert-success" role="alert">
                   {message}
                 </div>
               )}
-              
+
               {error && (
                 <div className="alert alert-danger" role="alert">
                   {error}

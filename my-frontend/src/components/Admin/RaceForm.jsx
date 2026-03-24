@@ -52,10 +52,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         const min = pad(d.getMinutes());
         return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
       };
-      setStartShow(toLocal(race.start_showing_checkpoints_at ?? race.start_showing_checkpoints ?? race.start_showing));
-      setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));
-      setStartLogging(toLocal(race.start_logging_at ?? race.start_logging));
-      setEndLogging(toLocal(race.end_logging_at ?? race.end_logging));
+      setStartShow(toLocal(race.start_showing_checkpoints_at));
+      setEndShow(toLocal(race.end_showing_checkpoints_at));
+      setStartLogging(toLocal(race.start_logging_at));
+      setEndLogging(toLocal(race.end_logging_at));
       setRegistrationSlug(race.registration_slug || '');
       setRegistrationEnabled(Boolean(race.registration_enabled || false));
       setMinTeamSize(Number(race.min_team_size ?? 1));

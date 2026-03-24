@@ -14,7 +14,7 @@ vi.mock('../utils/activeRaceUtils');
 
 describe('ActiveRace Component', () => {
   const mockSetActiveRace = vi.fn();
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -109,8 +109,8 @@ describe('ActiveRace Component', () => {
 
     test('displays message when no active race but multiple candidates exist', () => {
       const candidates = [
-        { race_id: 1, name: 'Race 1' },
-        { race_id: 2, name: 'Race 2' },
+        { race_id: 1, race_name: 'Race 1' },
+        { race_id: 2, race_name: 'Race 2' },
       ];
       activeRaceUtils.findCandidates.mockReturnValue(candidates);
 
@@ -121,7 +121,7 @@ describe('ActiveRace Component', () => {
       });
 
       expect(screen.getByText('No active race selected.')).toBeInTheDocument();
-      expect(screen.getByText('Multiple races are currently active — please choose one from the list below.')).toBeInTheDocument();
+      expect(screen.getByText('Multiple races are currently active - please choose one from the list below.')).toBeInTheDocument();
     });
   });
 
@@ -129,7 +129,7 @@ describe('ActiveRace Component', () => {
     test('auto-selects race when only one candidate exists', () => {
       const singleCandidate = {
         race_id: 1,
-        name: 'Only Race',
+        race_name: 'Only Race',
         start_showing_checkpoints_at: '2026-01-01',
         end_showing_checkpoints_at: '2026-01-31',
       };
@@ -146,8 +146,8 @@ describe('ActiveRace Component', () => {
     });
 
     test('does not auto-select when active race already exists', () => {
-      const activeRace = { race_id: 1, name: 'Active Race' };
-      const candidate = { race_id: 2, name: 'Other Race' };
+      const activeRace = { race_id: 1, race_name: 'Active Race' };
+      const candidate = { race_id: 2, race_name: 'Other Race' };
 
       activeRaceUtils.findCandidates.mockReturnValue([candidate]);
 
@@ -163,7 +163,7 @@ describe('ActiveRace Component', () => {
 
   describe('Active race display', () => {
     test('displays active race details correctly', () => {
-      const activeRace = { race_id: 1, name: 'Current Race' };
+      const activeRace = { race_id: 1, race_name: 'Current Race' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({
@@ -175,8 +175,8 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('Current Race')).toBeInTheDocument();
     });
 
-    test('handles alternative property names for race data', () => {
-      const activeRace = { id: 3, name: 'Race With ID' };
+    test('displays race name from canonical fields', () => {
+      const activeRace = { race_id: 3, race_name: 'Race With ID' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({
@@ -204,9 +204,9 @@ describe('ActiveRace Component', () => {
 
   describe('Other races list', () => {
     test('displays other signed races excluding active race', () => {
-      const activeRace = { race_id: 1, name: 'Active Race' };
-      const otherRace1 = { race_id: 2, name: 'Other Race 1' };
-      const otherRace2 = { race_id: 3, name: 'Other Race 2' };
+      const activeRace = { race_id: 1, race_name: 'Active Race' };
+      const otherRace1 = { race_id: 2, race_name: 'Other Race 1' };
+      const otherRace2 = { race_id: 3, race_name: 'Other Race 2' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({
@@ -220,7 +220,7 @@ describe('ActiveRace Component', () => {
     });
 
     test('shows "No other races" when only active race exists', () => {
-      const activeRace = { race_id: 1, name: 'Active Race' };
+      const activeRace = { race_id: 1, race_name: 'Active Race' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({
@@ -233,8 +233,8 @@ describe('ActiveRace Component', () => {
     });
 
     test('shows "Currently showing" badge for candidate races', () => {
-      const activeRace = { race_id: 1, name: 'Active Race' };
-      const candidateRace = { race_id: 2, name: 'Candidate Race' };
+      const activeRace = { race_id: 1, race_name: 'Active Race' };
+      const candidateRace = { race_id: 2, race_name: 'Candidate Race' };
       activeRaceUtils.findCandidates.mockReturnValue([candidateRace]);
 
       renderWithContext({
@@ -249,8 +249,8 @@ describe('ActiveRace Component', () => {
 
   describe('Race selection', () => {
     test('allows selecting a different race from the list', () => {
-      const activeRace = { race_id: 1, name: 'Active Race' };
-      const otherRace = { race_id: 2, name: 'Other Race' };
+      const activeRace = { race_id: 1, race_name: 'Active Race' };
+      const otherRace = { race_id: 2, race_name: 'Other Race' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({

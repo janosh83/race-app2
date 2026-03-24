@@ -23,6 +23,8 @@ const getTaskUploadErrorMessage = (t, err) => {
   return t('tasks.logFailed', { message: err?.message || t('tasks.unknownError') });
 };
 
+const getTaskPoints = (task) => task?.num_of_points ?? 0;
+
 function Tasks({ topOffset = 56 }) {
   const { t } = useTranslation();
   // token expiry watcher
@@ -314,7 +316,7 @@ function Tasks({ topOffset = 56 }) {
                     </div>
                     {task.description && <p className="card-text text-muted small">{task.description}</p>}
                     <div className="d-flex justify-content-between align-items-center mt-2">
-                      <span className="badge bg-primary">{t('tasks.points', { count: task.numOfPoints })}</span>
+                      <span className="badge bg-primary">{t('tasks.points', { count: getTaskPoints(task) })}</span>
                       {task.completed && task.image_filename && (
                         <span className="text-muted small">{t('tasks.photoAttached')}</span>
                       )}
@@ -362,7 +364,7 @@ function Tasks({ topOffset = 56 }) {
               <span className={`badge ${selectedTask.completed ? 'bg-success' : 'bg-secondary'}`}>
                 {selectedTask.completed ? `✓ ${t('tasks.completed')}` : t('tasks.notCompleted')}
               </span>
-              <span className="badge bg-primary ms-2">{t('tasks.points', { count: selectedTask.numOfPoints })}</span>
+              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getTaskPoints(selectedTask) })}</span>
             </div>
 
             {selectedTask.completed && selectedTask.image_filename && (

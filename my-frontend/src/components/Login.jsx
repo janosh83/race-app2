@@ -42,9 +42,9 @@ function Login() {
 
                 if (activeRaceId) {
                     // find the full signed_race object to persist (may contain team_id)
-                    const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
+                    const candidate = (data.signed_races || []).find(r => r.race_id === activeRaceId) || null;
                     if (candidate) {
-                        logger.info('RACE', 'Auto-selecting race', { race: candidate.race_name || candidate.name || candidate.race_id });
+                        logger.info('RACE', 'Auto-selecting race', { race: candidate.race_name || candidate.race_id });
                         setActiveRace(candidate);
                     }
                     else {
@@ -67,8 +67,8 @@ function Login() {
                     navigate('/race', { replace: true });
                 }
             } else {
-                logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
-                setError(data.msg || t('auth.login.failed'));
+                logger.error('AUTH', 'Login failed', data.message || 'Unknown error');
+                setError(data.message || t('auth.login.failed'));
             }
         } catch (err) {
             logger.error('AUTH', 'Login error', err.message);

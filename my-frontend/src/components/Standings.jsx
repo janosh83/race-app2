@@ -61,7 +61,7 @@ function Standings() {
   useEffect(() => {
     const fetchResults = async () => {
       const active = JSON.parse(localStorage.getItem('activeRace') || 'null');
-      const activeRaceId = active?.race_id ?? active?.id ?? active?.raceId;
+      const activeRaceId = active?.race_id;
       if (!activeRaceId) {
         setError(t('results.noActiveRace'));
         setLoading(false);

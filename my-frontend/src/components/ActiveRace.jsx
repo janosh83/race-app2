@@ -29,26 +29,26 @@ function ActiveRace() {
   const { activeRace, setActiveRace, signedRaces } = useTime();
   const candidates = useMemo(() => findCandidates(signedRaces || []), [signedRaces]);
 
-  const normalizeName = (race) => race.name || race.race_name || t('activeRace.unnamedRace');
-  const normalizeDescription = (race) => race.description || race.race_description || '';
+  const normalizeName = (race) => race.race_name || t('activeRace.unnamedRace');
+  const normalizeDescription = (race) => race.race_description || '';
 
   useEffect(() => {
     if (!activeRace && candidates.length === 1) {
-      logger.info('RACE', 'Auto-selecting single candidate race', { race: candidates[0].name || candidates[0].race_id });
+      logger.info('RACE', 'Auto-selecting single candidate race', { race: candidates[0].race_name || candidates[0].race_id });
       setActiveRace(candidates[0]);
     }
   }, [activeRace, candidates, setActiveRace]);
 
 
   const handleSelect = (race) => {
-    logger.info('RACE', 'User selected race', { race: race.name || race.race_id });
+    logger.info('RACE', 'User selected race', { race: race.race_name || race.race_id });
     setActiveRace(race);
   };
 
   const others = signedRaces.filter(r => {
     if (!activeRace) return true;
-    const idA = activeRace.race_id ?? activeRace.id ?? activeRace.raceId;
-    const idB = r.race_id ?? r.id ?? r.raceId;
+    const idA = activeRace.race_id;
+    const idB = r.race_id;
     return idA !== idB;
   });
 
@@ -75,16 +75,16 @@ function ActiveRace() {
 
             <ul className="list-group list-group-flush">
               <li className="list-group-item">
-                {t('activeRace.startShowing')}: {formatDate(activeRace.start_showing_checkpoints || activeRace.start_showing_checkpoints_at)}
+                {t('activeRace.startShowing')}: {formatDate(activeRace.start_showing_checkpoints_at)}
               </li>
               <li className="list-group-item">
-                {t('activeRace.endShowing')}: {formatDate(activeRace.end_showing_checkpoints || activeRace.end_showing_checkpoints_at)}
+                {t('activeRace.endShowing')}: {formatDate(activeRace.end_showing_checkpoints_at)}
               </li>
               <li className="list-group-item">
-                {t('activeRace.startLogging')}: {formatDate(activeRace.start_logging || activeRace.start_logging_at)}
+                {t('activeRace.startLogging')}: {formatDate(activeRace.start_logging_at)}
               </li>
               <li className="list-group-item">
-                {t('activeRace.endLogging')}: {formatDate(activeRace.end_logging || activeRace.end_logging_at)}
+                {t('activeRace.endLogging')}: {formatDate(activeRace.end_logging_at)}
               </li>
             </ul>
           </div>
@@ -108,8 +108,8 @@ function ActiveRace() {
       ) : (
         <div className="list-group">
           {others.map(r => {
-            const id = r.race_id ?? r.id ?? r.raceId;
-            const isCandidate = candidates.some(c => (c.race_id ?? c.id ?? c.raceId) === id);
+            const id = r.race_id;
+            const isCandidate = candidates.some(c => c.race_id === id);
             return (
               <div key={id} className="list-group-item">
                 <div className="d-flex justify-content-between">
@@ -117,10 +117,10 @@ function ActiveRace() {
                     <strong>{normalizeName(r)}</strong>
                     <div className="text-muted small">{normalizeDescription(r)}</div>
                     <div className="small mt-1">
-                      {t('activeRace.showingRange', { start: formatDate(r.start_showing_checkpoints || r.start_showing_checkpoints_at), end: formatDate(r.end_showing_checkpoints || r.end_showing_checkpoints_at) })}
+                      {t('activeRace.showingRange', { start: formatDate(r.start_showing_checkpoints_at), end: formatDate(r.end_showing_checkpoints_at) })}
                     </div>
                     <div className="small">
-                      {t('activeRace.loggingRange', { start: formatDate(r.start_logging || r.start_logging_at), end: formatDate(r.end_logging || r.end_logging_at) })}
+                      {t('activeRace.loggingRange', { start: formatDate(r.start_logging_at), end: formatDate(r.end_logging_at) })}
                     </div>
                   </div>
                   <div className="text-end">

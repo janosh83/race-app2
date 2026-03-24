@@ -8,7 +8,7 @@ export default function RaceList({races,onSelect}){
       <ul className="list-group">
         {races.map(r=>(
           <li key={r.id} className="list-group-item d-flex justify-content-between align-items-center">
-            <div onClick={()=>onSelect(r)} style={{cursor:'pointer'}}>{r.name}<div className="small text-muted">{r.start_showing_checkpoints} — {r.end_showing_checkpoints}</div></div>
+            <div onClick={()=>onSelect(r)} style={{cursor:'pointer'}}>{r.name}<div className="small text-muted">{r.start_showing_checkpoints_at} — {r.end_showing_checkpoints_at}</div></div>
             <div><button className="btn btn-sm btn-outline-primary" onClick={()=>onSelect(r)}>{t('admin.raceList.manage')}</button></div>
           </li>
         ))}

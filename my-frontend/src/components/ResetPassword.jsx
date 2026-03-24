@@ -42,7 +42,7 @@ function ResetPassword() {
 
     try {
       const data = await authApi.resetPassword(token, password);
-      setMessage(data.msg || t('auth.reset.success'));
+      setMessage(data.message || t('auth.reset.success'));
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -63,13 +63,13 @@ function ResetPassword() {
                 <h2 className="card-title mb-0">{t('auth.reset.title')}</h2>
                 <LanguageSwitcher />
               </div>
-              
+
               {message && (
                 <div className="alert alert-success" role="alert">
                   {message}
                 </div>
               )}
-              
+
               {error && (
                 <div className="alert alert-danger" role="alert">
                   {error}

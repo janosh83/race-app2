@@ -219,15 +219,15 @@ function AdminDashboard() {
                       <div className="small text-muted">
                         <div>
                           <strong>{t('admin.dashboard.showingCheckpoints')}:</strong>{' '}
-                          {formatIso(selected.start_showing_checkpoints_at ?? selected.start_showing_checkpoints ?? selected.start_showing)}
+                          {formatIso(selected.start_showing_checkpoints_at)}
                           {' — '}
-                          {formatIso(selected.end_showing_checkpoints_at ?? selected.end_showing_checkpoints ?? selected.end_showing)}
+                          {formatIso(selected.end_showing_checkpoints_at)}
                         </div>
                         <div>
                           <strong>{t('admin.dashboard.loggingWindow')}:</strong>{' '}
-                          {formatIso(selected.start_logging_at ?? selected.start_logging)}
+                          {formatIso(selected.start_logging_at)}
                           {' — '}
-                          {formatIso(selected.end_logging_at ?? selected.end_logging)}
+                          {formatIso(selected.end_logging_at)}
                         </div>
                         <div className="mt-2 pt-2 border-top">
                           <div>
