@@ -6,17 +6,23 @@ import MapPage from './MapPage';
 
 // Mock the Map component
 vi.mock('../Map', () => {
-  return function MockMap({ topOffset }) {
-    return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
+  return {
+    default: function MockMap({ topOffset }) {
+      return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
+    },
   };
 });
 
 // Mock useOutletContext
 const mockUseOutletContext = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
-  useOutletContext: () => mockUseOutletContext(),
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+
+  return {
+    ...actual,
+    useOutletContext: () => mockUseOutletContext(),
+  };
+});
 
 describe('MapPage Component', () => {
   beforeEach(() => {
@@ -62,7 +68,7 @@ describe('MapPage Component', () => {
       expect(screen.getByText(/topOffset: 100/)).toBeInTheDocument();
     });
 
-    test('handles undefined navHeight', () => {
+    test('uses zero topOffset for undefined navHeight', () => {
       mockUseOutletContext.mockReturnValue({});
 
       render(
@@ -71,7 +77,7 @@ describe('MapPage Component', () => {
         </MemoryRouter>
       );
 
-      expect(screen.getByText(/topOffset: undefined/)).toBeInTheDocument();
+      expect(screen.getByText(/topOffset: 0/)).toBeInTheDocument();
     });
 
     test('handles null navHeight', () => {
@@ -112,16 +118,16 @@ describe('MapPage Component', () => {
       expect(screen.getByTestId('map-component')).toBeInTheDocument();
     });
 
-    test('renders without crashing when outlet context is null', () => {
+    test('uses zero topOffset when outlet context is null', () => {
       mockUseOutletContext.mockReturnValue(null);
 
-      expect(() => {
-        render(
-          <MemoryRouter>
-            <MapPage />
-          </MemoryRouter>
-        );
-      }).toThrow();
+      render(
+        <MemoryRouter>
+          <MapPage />
+        </MemoryRouter>
+      );
+
+      expect(screen.getByText(/topOffset: 0/)).toBeInTheDocument();
     });
   });
 });

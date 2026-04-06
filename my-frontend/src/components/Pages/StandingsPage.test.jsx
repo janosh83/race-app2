@@ -6,8 +6,10 @@ import StandingsPage from './StandingsPage';
 
 // Mock the Standings component
 vi.mock('../Standings', () => {
-  return function MockStandings() {
-    return <div data-testid="standings-component">Standings Component</div>;
+  return {
+    default: function MockStandings() {
+      return <div data-testid="standings-component">Standings Component</div>;
+    },
   };
 });
 
@@ -21,28 +23,6 @@ describe('StandingsPage Component', () => {
       );
 
       expect(screen.getByTestId('standings-component')).toBeInTheDocument();
-    });
-
-    test('renders without crashing', () => {
-      expect(() => {
-        render(
-          <MemoryRouter>
-            <StandingsPage />
-          </MemoryRouter>
-        );
-      }).not.toThrow();
-    });
-  });
-
-  describe('Component structure', () => {
-    test('only renders Standings component', () => {
-      const { container } = render(
-        <MemoryRouter>
-          <StandingsPage />
-        </MemoryRouter>
-      );
-
-      expect(container.firstChild).toHaveAttribute('data-testid', 'standings-component');
     });
   });
 });

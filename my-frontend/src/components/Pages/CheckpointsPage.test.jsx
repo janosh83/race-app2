@@ -5,16 +5,22 @@ import { MemoryRouter } from 'react-router-dom';
 import CheckpointsPage from './CheckpointsPage';
 
 vi.mock('../CheckpointsList', () => {
-  return function MockCheckpointsList({ topOffset }) {
-    return <div data-testid="checkpoints-list">Checkpoints List (topOffset: {String(topOffset)})</div>;
+  return {
+    default: function MockCheckpointsList({ topOffset }) {
+      return <div data-testid="checkpoints-list">Checkpoints List (topOffset: {String(topOffset)})</div>;
+    },
   };
 });
 
 const mockUseOutletContext = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
-  useOutletContext: () => mockUseOutletContext(),
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+
+  return {
+    ...actual,
+    useOutletContext: () => mockUseOutletContext(),
+  };
+});
 
 describe('CheckpointsPage Component', () => {
   beforeEach(() => {
@@ -43,5 +49,17 @@ describe('CheckpointsPage Component', () => {
     );
 
     expect(screen.getByText(/topOffset: 72/)).toBeInTheDocument();
+  });
+
+  test('uses 0 topOffset when outlet context is missing', () => {
+    mockUseOutletContext.mockReturnValue(undefined);
+
+    render(
+      <MemoryRouter>
+        <CheckpointsPage />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/topOffset: 0/)).toBeInTheDocument();
   });
 });

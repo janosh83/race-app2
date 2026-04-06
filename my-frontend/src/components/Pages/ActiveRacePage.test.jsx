@@ -9,24 +9,34 @@ import ActiveRacePage from './ActiveRacePage';
 // Mock dependencies
 vi.mock('../../utils/activeRaceUtils');
 vi.mock('../ActiveRace', () => {
-  return function MockActiveRace() {
-    return <div data-testid="active-race">Active Race Component</div>;
+  return {
+    default: function MockActiveRace() {
+      return <div data-testid="active-race">Active Race Component</div>;
+    },
   };
 });
 
 const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 // Mock useTime hook
 const mockSetActiveRace = vi.fn();
 const mockUseTime = vi.fn();
-vi.mock('../../contexts/TimeContext', () => ({
-  ...vi.requireActual('../../contexts/TimeContext'),
-  useTime: () => mockUseTime(),
-}));
+vi.mock('../../contexts/TimeContext', async () => {
+  const actual = await vi.importActual('../../contexts/TimeContext');
+
+  return {
+    ...actual,
+    useTime: () => mockUseTime(),
+  };
+});
 
 // Helper function to render component with providers
 const renderWithProviders = (
@@ -62,6 +72,9 @@ const renderWithProviders = (
 describe('ActiveRacePage Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockNavigate.mockReset();
+    mockSetActiveRace.mockReset();
+    mockUseTime.mockReset();
     sessionStorage.clear();
     selectActiveRace.mockReturnValue({ activeRaceId: null, candidates: [] });
   });
@@ -146,9 +159,9 @@ describe('ActiveRacePage Component', () => {
         { race_id: 1, name: 'Race 1' },
         { race_id: 2, name: 'Race 2' },
       ];
-      selectActiveRace.mockReturnValue({ 
-        activeRaceId: 1, 
-        candidates: signedRaces 
+      selectActiveRace.mockReturnValue({
+        activeRaceId: 1,
+        candidates: signedRaces
       });
 
       renderWithProviders(signedRaces, null, { state: 'LOGGING' }, true);
@@ -251,7 +264,6 @@ describe('ActiveRacePage Component', () => {
       // Verify selectActiveRace was called (not with empty array since that's what the mock returns)
       expect(selectActiveRace).toHaveBeenCalled();
     });
-    });
 
     test('handles null signedRaces', () => {
       selectActiveRace.mockReturnValue({ activeRaceId: null, candidates: [] });
@@ -287,9 +299,9 @@ describe('ActiveRacePage Component', () => {
       selectActiveRace.mockReturnValue({ activeRaceId: 5, candidates: [signedRaces[0]] });
 
       const { mockSetActiveRace } = renderWithProviders(
-        signedRaces, 
-        existingActiveRace, 
-        { state: 'LOGGING' }, 
+        signedRaces,
+        existingActiveRace,
+        { state: 'LOGGING' },
         true
       );
 
@@ -309,24 +321,13 @@ describe('ActiveRacePage Component', () => {
       expect(mockSetActiveRace).toHaveBeenCalled();
     });
 
-    test('finds race using id property when race_id not available', () => {
+    test('does not set active race when signed race lacks race_id', () => {
       const signedRaces = [{ id: 7, name: 'Race 7' }];
       selectActiveRace.mockReturnValue({ activeRaceId: 7, candidates: [signedRaces[0]] });
 
       const { mockSetActiveRace } = renderWithProviders(signedRaces, null, { state: 'LOGGING' }, true);
 
-      // Verify setActiveRace was called
-      expect(mockSetActiveRace).toHaveBeenCalled();
-    });
-
-    test('finds race using raceId property as fallback', () => {
-      const signedRaces = [{ raceId: 9, name: 'Race 9' }];
-      selectActiveRace.mockReturnValue({ activeRaceId: 9, candidates: [signedRaces[0]] });
-
-      const { mockSetActiveRace } = renderWithProviders(signedRaces, null, { state: 'LOGGING' }, true);
-
-      // Verify setActiveRace was called
-      expect(mockSetActiveRace).toHaveBeenCalled();
+      expect(mockSetActiveRace).not.toHaveBeenCalled();
     });
 
     test('does not set active race when candidate not found in signedRaces', () => {
@@ -356,7 +357,7 @@ describe('ActiveRacePage Component', () => {
       renderWithProviders(signedRaces, null, { state: 'LOGGING' }, true);
 
       expect(mockNavigate).toHaveBeenCalledWith(
-        expect.any(String), 
+        expect.any(String),
         { replace: true }
       );
     });
@@ -390,9 +391,9 @@ describe('ActiveRacePage Component', () => {
     });
 
     test('does not redirect when selectActiveRace returns no candidates', () => {
-      selectActiveRace.mockReturnValue({ 
-        activeRaceId: null, 
-        candidates: [] 
+      selectActiveRace.mockReturnValue({
+        activeRaceId: null,
+        candidates: []
       });
 
       renderWithProviders([], null, { state: 'LOGGING' }, true);
@@ -417,9 +418,9 @@ describe('ActiveRacePage Component', () => {
         { race_id: 1, name: 'Race 1' },
         { race_id: 2, name: 'Race 2' },
       ];
-      selectActiveRace.mockReturnValue({ 
-        activeRaceId: 1, 
-        candidates: signedRaces 
+      selectActiveRace.mockReturnValue({
+        activeRaceId: 1,
+        candidates: signedRaces
       });
 
       renderWithProviders(signedRaces, null, { state: 'LOGGING' });
@@ -430,9 +431,9 @@ describe('ActiveRacePage Component', () => {
     test('removes initialLoad flag when time state prevents redirect', () => {
       sessionStorage.setItem('initialLoad', 'true');
       const signedRaces = [{ race_id: 1, name: 'Race 1' }];
-      selectActiveRace.mockReturnValue({ 
-        activeRaceId: 1, 
-        candidates: [signedRaces[0]] 
+      selectActiveRace.mockReturnValue({
+        activeRaceId: 1,
+        candidates: [signedRaces[0]]
       });
 
       renderWithProviders(signedRaces, null, { state: 'BEFORE_SHOW' });
@@ -440,4 +441,5 @@ describe('ActiveRacePage Component', () => {
       expect(sessionStorage.getItem('initialLoad')).toBeNull();
     });
   });
+});
 

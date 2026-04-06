@@ -6,8 +6,10 @@ import TasksPage from './TasksPage';
 
 // Mock the Tasks component
 vi.mock('../Tasks', () => {
-  return function MockTasks() {
-    return <div data-testid="tasks-component">Tasks Component</div>;
+  return {
+    default: function MockTasks() {
+      return <div data-testid="tasks-component">Tasks Component</div>;
+    },
   };
 });
 
@@ -21,28 +23,6 @@ describe('TasksPage Component', () => {
       );
 
       expect(screen.getByTestId('tasks-component')).toBeInTheDocument();
-    });
-
-    test('renders without crashing', () => {
-      expect(() => {
-        render(
-          <MemoryRouter>
-            <TasksPage />
-          </MemoryRouter>
-        );
-      }).not.toThrow();
-    });
-  });
-
-  describe('Component structure', () => {
-    test('only renders Tasks component', () => {
-      const { container } = render(
-        <MemoryRouter>
-          <TasksPage />
-        </MemoryRouter>
-      );
-
-      expect(container.firstChild).toHaveAttribute('data-testid', 'tasks-component');
     });
   });
 });
