@@ -211,6 +211,12 @@
       "unknownError": "Neznámá chyba",
       "pointsShort": "b."
     },
+    "tabs": {
+      "label": "Sekce administrace",
+      "races": "Závody",
+      "teams": "Týmy",
+      "users": "Uživatelé"
+    },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Načítám závody…",

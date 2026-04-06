@@ -211,6 +211,12 @@
       "unknownError": "Unbekannter Fehler",
       "pointsShort": "Pkt."
     },
+    "tabs": {
+      "label": "Adminbereiche",
+      "races": "Rennen",
+      "teams": "Teams",
+      "users": "Benutzer"
+    },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Rennen werden geladen…",

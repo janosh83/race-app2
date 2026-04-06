@@ -211,6 +211,12 @@
       "unknownError": "Unknown error",
       "pointsShort": "pts"
     },
+    "tabs": {
+      "label": "Admin sections",
+      "races": "Races",
+      "teams": "Teams",
+      "users": "Users"
+    },
     "dashboard": {
       "title": "Admin",
       "loadingRaces": "Loading races…",
