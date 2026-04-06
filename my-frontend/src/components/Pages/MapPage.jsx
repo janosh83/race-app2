@@ -4,8 +4,8 @@ import { useOutletContext } from 'react-router-dom';
 import Map from '../Map';
 
 function MapPage() {
-  const { navHeight } = useOutletContext();
-  
+  const { navHeight = 0 } = useOutletContext() || {};
+
   return <Map topOffset={navHeight} />;
 }
 

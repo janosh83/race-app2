@@ -129,8 +129,8 @@ describe('activeRaceUtils', () => {
       expect(result[0].race_id).toBe(1);
     });
 
-    describe('handles alternative property names', () => {
-      test('uses start_showing_checkpoints if available', () => {
+    describe('strict canonical property handling', () => {
+      test('rejects legacy start_showing_checkpoints fields', () => {
         const races = [
           {
             race_id: 1,
@@ -139,10 +139,10 @@ describe('activeRaceUtils', () => {
           }
         ];
 
-        expect(findCandidates(races)).toHaveLength(1);
+        expect(findCandidates(races)).toEqual([]);
       });
 
-      test('falls back to start_showing if _at not available', () => {
+      test('rejects legacy start_showing fields', () => {
         const races = [
           {
             race_id: 1,
@@ -151,10 +151,10 @@ describe('activeRaceUtils', () => {
           }
         ];
 
-        expect(findCandidates(races)).toHaveLength(1);
+        expect(findCandidates(races)).toEqual([]);
       });
 
-      test('falls back to start_logging as last resort', () => {
+      test('rejects legacy start_logging fields', () => {
         const races = [
           {
             race_id: 1,
@@ -163,7 +163,7 @@ describe('activeRaceUtils', () => {
           }
         ];
 
-        expect(findCandidates(races)).toHaveLength(1);
+        expect(findCandidates(races)).toEqual([]);
       });
     });
 
@@ -307,7 +307,7 @@ describe('activeRaceUtils', () => {
       expect(result.activeRaceId).toBe(42);
     });
 
-    test('handles id property when race_id not present', () => {
+    test('returns null when only legacy id property exists', () => {
       const races = [
         {
           id: 42,
@@ -317,10 +317,10 @@ describe('activeRaceUtils', () => {
       ];
 
       const result = selectActiveRace(races);
-      expect(result.activeRaceId).toBe(42);
+      expect(result.activeRaceId).toBeNull();
     });
 
-    test('handles raceId property as fallback', () => {
+    test('returns null when only legacy raceId property exists', () => {
       const races = [
         {
           raceId: 42,
@@ -330,7 +330,7 @@ describe('activeRaceUtils', () => {
       ];
 
       const result = selectActiveRace(races);
-      expect(result.activeRaceId).toBe(42);
+      expect(result.activeRaceId).toBeNull();
     });
 
     test('returns null when race has no ID property', () => {

@@ -22,7 +22,7 @@ export function findCandidates(races = []) {
     const end = endRaw ? Date.parse(endRaw) : null;
 
     // Include race only if both times exist and current time is within the window
-    return start && end && start <= now && now <= end;
+    return Number.isFinite(start) && Number.isFinite(end) && start <= now && now <= end;
   });
 }
 

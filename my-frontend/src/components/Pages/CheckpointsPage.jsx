@@ -4,7 +4,7 @@ import { useOutletContext } from 'react-router-dom';
 import CheckpointsList from '../CheckpointsList';
 
 function CheckpointsPage() {
-  const { navHeight } = useOutletContext();
+  const { navHeight = 0 } = useOutletContext() || {};
   return <CheckpointsList topOffset={navHeight} />;
 }
 

@@ -137,7 +137,12 @@ function PublicRegistrationPage() {
 
     const loadRace = async () => {
       setLoading(true);
+      setSubmitting(false);
       setError('');
+      setSuccessMessage('');
+      setTeamName('');
+      setRaceCategoryId('');
+      setMembers(buildMembers(1, 'individual'));
 
       try {
         const currentLanguage = (i18n.resolvedLanguage || i18n.language || '').split('-')[0] || undefined;
