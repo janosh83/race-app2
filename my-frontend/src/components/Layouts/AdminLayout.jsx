@@ -5,25 +5,38 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import LanguageSwitcher from '../LanguageSwitcher';
 
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
+};
+
 function AdminLayout() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [navOpen, setNavOpen] = useState(false);
+  const [user, setUser] = useState(getStoredUser);
 
-  const user = React.useMemo(() => {
-    try {
-      const userData = JSON.parse(localStorage.getItem('user') || 'null');
-      return userData;
-    } catch {
-      return null;
-    }
+  useEffect(() => {
+    const syncUser = () => setUser(getStoredUser());
+    window.addEventListener('auth-update', syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener('auth-update', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
   // Check token expiry
   useEffect(() => {
     const check = () => {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
+      if (!token) {
+        navigate('/login', { replace: true });
+        return;
+      }
       if (isTokenExpired(token, 5)) {
         logoutAndRedirect();
       }
@@ -31,20 +44,22 @@ function AdminLayout() {
     check();
     const id = setInterval(check, 30_000);
     return () => clearInterval(id);
-  }, []);
+  }, [navigate]);
 
-  // Redirect non-admins
+  // Redirect non-admins and invalid auth state.
   useEffect(() => {
-    if (user && user.is_administrator === false) {
-      navigate('/race');
+    const token = localStorage.getItem('accessToken');
+    if (!token || !user) {
+      navigate('/login', { replace: true });
+      return;
+    }
+    if (user.is_administrator !== true) {
+      navigate('/race', { replace: true });
     }
   }, [user, navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('signedRaces');
-    window.location.reload();
+    logoutAndRedirect();
   };
 
   const navigateTo = (path) => {

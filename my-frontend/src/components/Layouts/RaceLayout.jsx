@@ -7,6 +7,14 @@ import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import { logger } from '../../utils/logger';
 import LanguageSwitcher from '../LanguageSwitcher';
 
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || 'null');
+  } catch {
+    return null;
+  }
+};
+
 function RaceLayout() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -14,22 +22,27 @@ function RaceLayout() {
   const [navHeight, setNavHeight] = useState(56);
   const navRef = useRef(null);
   const { activeRace } = useTime();
+  const [user, setUser] = useState(getStoredUser);
 
-  const user = React.useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-      return null;
-    }
+  useEffect(() => {
+    const syncUser = () => setUser(getStoredUser());
+    window.addEventListener('auth-update', syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener('auth-update', syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
   }, []);
 
   // Measure navbar height for map offset
   const measureNav = useCallback(() => {
     if (navRef.current) {
       const h = Math.ceil(navRef.current.getBoundingClientRect().height);
-      if (h && h !== navHeight) setNavHeight(h);
+      if (h) {
+        setNavHeight(prev => (prev === h ? prev : h));
+      }
     }
-  }, [navHeight]);
+  }, []);
 
   useEffect(() => {
     measureNav();
@@ -52,7 +65,10 @@ function RaceLayout() {
   useEffect(() => {
     const check = () => {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
+      if (!token) {
+        navigate('/login', { replace: true });
+        return;
+      }
       if (isTokenExpired(token, 5)) {
         logger.warn('TOKEN', 'Token expiry detected, logging out');
         logoutAndRedirect();
@@ -62,7 +78,7 @@ function RaceLayout() {
     const id = setInterval(check, 30_000);
     logger.info('COMPONENT', 'Token expiry check started', { intervalMs: 30000 });
     return () => clearInterval(id);
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => {
     logger.info('AUTH', 'Logout initiated from RaceLayout');
@@ -94,22 +110,22 @@ function RaceLayout() {
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>
-                  {activeRace ? (activeRace.race_name || activeRace.name || activeRace.title || `Race #${activeRace.race_id || activeRace.id}`) : t('nav.activeRace')}
+                  {activeRace ? (activeRace.race_name || `Race #${activeRace.race_id}`) : t('nav.activeRace')}
                 </button>
               </li>
               {activeRace && (
                 <>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/map`)}>{t('nav.map')}</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id}/map`)}>{t('nav.map')}</button>
                   </li>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/checkpoints`)}>{t('nav.checkpoints')}</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id}/checkpoints`)}>{t('nav.checkpoints')}</button>
                   </li>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/tasks`)}>{t('nav.tasks')}</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id}/tasks`)}>{t('nav.tasks')}</button>
                   </li>
                   <li className="nav-item">
-                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id || activeRace.id}/standings`)}>{t('nav.standings')}</button>
+                    <button className="nav-link btn btn-link" onClick={() => navigateTo(`/race/${activeRace.race_id}/standings`)}>{t('nav.standings')}</button>
                   </li>
                 </>
               )}
