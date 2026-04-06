@@ -57,6 +57,7 @@
     "visitLoggedReadOnly": "Besuch protokolliert (nur lesen)",
     "loggingNotOpen": "Protokollierung ist noch nicht geoeffnet",
     "visitLogged": "Besuch erfolgreich protokolliert",
+    "visitDeleted": "Besuch geloescht",
     "visitLogFailed": "Besuch konnte nicht protokolliert werden: {{message}}",
     "invalidImageUpload": "Die ausgewaehlte Datei ist kein gueltiges Bild. Verwenden Sie PNG, JPG oder GIF.",
     "uploadTooLarge": "Das Bild ist zu gross. Bitte eine kleinere Datei hochladen.",

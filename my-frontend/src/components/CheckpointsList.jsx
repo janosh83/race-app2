@@ -52,7 +52,7 @@ function CheckpointsList({ topOffset = 56 }) {
   const [checkpointError, setCheckpointError] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL;
-  const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
+  const activeRaceId = activeRace?.race_id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
 
   useEffect(() => {
@@ -159,7 +159,7 @@ function CheckpointsList({ topOffset = 56 }) {
       await raceApi.deleteVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
       await refreshCheckpoints();
       setToast({
-        message: t('tasks.deleteSuccess'),
+        message: t('map.visitDeleted'),
         type: 'success',
         duration: 3000,
       });

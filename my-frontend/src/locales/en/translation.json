@@ -57,6 +57,7 @@
     "visitLoggedReadOnly": "Visit logged (read-only mode)",
     "loggingNotOpen": "Logging is not open yet",
     "visitLogged": "Visit logged successfully",
+    "visitDeleted": "Visit deleted",
     "visitLogFailed": "Failed to log visit: {{message}}",
     "invalidImageUpload": "Selected file is not a valid image. Use PNG, JPG, or GIF.",
     "uploadTooLarge": "Image is too large. Please upload a smaller file.",

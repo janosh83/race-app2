@@ -57,6 +57,7 @@
     "visitLoggedReadOnly": "Návštěva zalogována (režim jen pro čtení)",
     "loggingNotOpen": "Logování ještě není otevřené",
     "visitLogged": "Návštěva zalogována",
+    "visitDeleted": "Návštěva smazána",
     "visitLogFailed": "Nepodařilo se zalogovat návštěvu: {{message}}",
     "invalidImageUpload": "Vybraný soubor není platný obrázek. Použijte PNG, JPG nebo GIF.",
     "uploadTooLarge": "Obrázek je příliš velký. Nahrajte menší soubor.",
