@@ -13,6 +13,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [raceGreeting, setRaceGreeting] = useState('');
+  const [finishDescription, setFinishDescription] = useState('');
   const [finishLatitude, setFinishLatitude] = useState('');
   const [finishLongitude, setFinishLongitude] = useState('');
   const [bivak1Name, setBivak1Name] = useState('');
@@ -46,6 +47,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setName(race.name || '');
       setDescription(race.description || '');
       setRaceGreeting(race.race_greeting || '');
+      setFinishDescription(race.finish_description || '');
       setDefaultLanguage(race.default_language || '');
       setSupportedLanguages(Array.isArray(race.supported_languages) ? race.supported_languages : []);
       // try to parse ISO -> local datetime-local value
@@ -88,6 +90,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setName('');
       setDescription('');
       setRaceGreeting('');
+      setFinishDescription('');
       setFinishLatitude('');
       setFinishLongitude('');
       setBivak1Name('');
@@ -207,6 +210,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         name,
         description,
         race_greeting: raceGreeting.trim() || null,
+        finish_description: finishDescription.trim() || null,
         default_language: defaultLanguage || null,
         supported_languages: supportedLanguages.length > 0 ? supportedLanguages : null,
         finish_latitude: toNullableCoordinate(finishLatitude),
@@ -315,7 +319,16 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         <div className="mb-3">
           <div className="small fw-semibold mb-2">{t('admin.raceForm.finishTitle')}</div>
           <div className="row g-2">
-            <div className="col-md-6">
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.finishDescription')}</label>
+              <input
+                className="form-control"
+                type="text"
+                value={finishDescription}
+                onChange={e => setFinishDescription(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
               <label className="form-label small">{t('admin.raceForm.markerLatitude')}</label>
               <input
                 className="form-control"
@@ -325,7 +338,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
                 onChange={e => setFinishLatitude(e.target.value)}
               />
             </div>
-            <div className="col-md-6">
+            <div className="col-md-4">
               <label className="form-label small">{t('admin.raceForm.markerLongitude')}</label>
               <input
                 className="form-control"

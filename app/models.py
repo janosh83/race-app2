@@ -18,6 +18,7 @@ class Race(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
+    finish_description = db.Column(db.String(255), nullable=True)
     finish_latitude = db.Column(db.Float, nullable=True)
     finish_longitude = db.Column(db.Float, nullable=True)
     bivak_1_name = db.Column(db.String(100), nullable=True)

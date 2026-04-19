@@ -41,6 +41,7 @@ vi.mock('leaflet', () => {
 
   const marker = vi.fn((_coords, _options) => ({
     addTo: vi.fn(() => mockMap),
+    bindPopup: vi.fn(),
     on: vi.fn(),
     setIcon: vi.fn(),
   }));
@@ -228,6 +229,7 @@ describe('Map Component', () => {
         activeRace: {
           race_id: 1,
           team_id: 10,
+          finish_description: 'Finish arch by the lake',
           finish_latitude: 50.25,
           finish_longitude: 14.35,
           bivak_1_name: 'North Camp',
@@ -259,6 +261,11 @@ describe('Map Component', () => {
         [50.45, 14.55],
         expect.objectContaining({ title: 'Bivak 2' })
       );
+
+      const raceMarkerInstances = L.marker.mock.results.slice(0, 3).map((result) => result.value);
+      expect(raceMarkerInstances[0].bindPopup).toHaveBeenCalledWith('<strong>Finish</strong><br>Finish arch by the lake');
+      expect(raceMarkerInstances[1].bindPopup).toHaveBeenCalledWith('North Camp');
+      expect(raceMarkerInstances[2].bindPopup).toHaveBeenCalledWith('Bivak 2');
     });
 
     test('does not render bivak markers for blank or missing coordinates', async () => {
@@ -266,6 +273,7 @@ describe('Map Component', () => {
         activeRace: {
           race_id: 1,
           team_id: 10,
+          finish_description: '',
           finish_latitude: 50.25,
           finish_longitude: 14.35,
           bivak_1_name: 'North Camp',

@@ -251,6 +251,7 @@ function AdminDashboard() {
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.finishMarker')}:</strong>{' '}
+                              {selected.finish_description ? `${selected.finish_description} — ` : ''}
                               {formatCoordinates(selected.finish_latitude, selected.finish_longitude)}
                             </div>
                             <div>

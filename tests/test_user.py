@@ -34,6 +34,7 @@ def add_test_data(test_app):
         race1 = Race(
             name="Spring Race",
             description="24 hours exploring",
+            finish_description="Spring finish",
             finish_latitude=49.1234,
             finish_longitude=16.9876,
             bivak_1_name="Camp One",
@@ -138,6 +139,7 @@ def test_get_signed_races_success(test_client, add_test_data):
         assert "race_name" in race
         assert "race_category" in race
         assert "race_description" in race
+        assert "finish_description" in race
         assert "finish_latitude" in race
         assert "finish_longitude" in race
         assert "bivak_1_name" in race
@@ -165,6 +167,7 @@ def test_get_signed_races_specific_details(test_client, add_test_data):
     assert spring_race["race_description"] == "24 hours exploring"
     assert spring_race["race_category"] == "Bikes"
     assert spring_race["team_id"] == 1
+    assert spring_race["finish_description"] == "Spring finish"
     assert spring_race["finish_latitude"] == pytest.approx(49.1234)
     assert spring_race["finish_longitude"] == pytest.approx(16.9876)
     assert spring_race["bivak_1_name"] == "Camp One"

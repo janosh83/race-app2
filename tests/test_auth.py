@@ -87,6 +87,7 @@ def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_
         race_paid = Race(
             name="Paid Race",
             description="Visible after payment",
+            finish_description="Paid finish",
             finish_latitude=48.1234,
             finish_longitude=17.5678,
             bivak_1_name="Paid Camp",
@@ -145,6 +146,7 @@ def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_
     assert len(signed_races) == 1
     assert signed_races[0]["race_id"] == expected_paid_race_id
     assert signed_races[0]["race_name"] == "Paid Race"
+    assert signed_races[0]["finish_description"] == "Paid finish"
     assert signed_races[0]["finish_latitude"] == pytest.approx(48.1234)
     assert signed_races[0]["finish_longitude"] == pytest.approx(17.5678)
     assert signed_races[0]["bivak_1_name"] == "Paid Camp"

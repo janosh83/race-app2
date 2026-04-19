@@ -277,6 +277,7 @@
       "raceMarkersTitle": "Značky na mapě",
       "raceMarkersHelp": "Volitelné pozice cíle a bivaků zobrazené na mapě závodu.",
       "finishTitle": "Cíl",
+      "finishDescription": "Text v bublině",
       "bivak1Title": "Bivak 1",
       "bivak2Title": "Bivak 2",
       "markerName": "Název",

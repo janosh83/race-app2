@@ -36,17 +36,29 @@ const toFiniteCoordinate = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const escapeHtml = (value) => String(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
 const getRaceMarkers = (activeRace, t) => {
   const markers = [];
   const finishLatitude = toFiniteCoordinate(activeRace?.finish_latitude);
   const finishLongitude = toFiniteCoordinate(activeRace?.finish_longitude);
+  const finishDescription = activeRace?.finish_description?.trim() || '';
+  const finishLabel = t('map.finishMarker');
 
   if (finishLatitude != null && finishLongitude != null) {
     markers.push({
       id: 'finish',
       latitude: finishLatitude,
       longitude: finishLongitude,
-      title: t('map.finishMarker'),
+      title: finishLabel,
+      popupContent: finishDescription
+        ? `<strong>${escapeHtml(finishLabel)}</strong><br>${escapeHtml(finishDescription)}`
+        : `<strong>${escapeHtml(finishLabel)}</strong>`,
       iconUrl: '/map-finish-marker.svg',
       iconOptions: {
         iconSize: [32, 52],
@@ -65,6 +77,7 @@ const getRaceMarkers = (activeRace, t) => {
       latitude: bivak1Latitude,
       longitude: bivak1Longitude,
       title: activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 }),
+      popupContent: activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 }),
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -77,6 +90,7 @@ const getRaceMarkers = (activeRace, t) => {
       latitude: bivak2Latitude,
       longitude: bivak2Longitude,
       title: activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 }),
+      popupContent: activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 }),
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -395,7 +409,10 @@ function Map({ topOffset = 56 }) {
       const marker = L.marker([markerData.latitude, markerData.longitude], {
         title: markerData.title,
         icon: createMapIcon(markerData.iconUrl, markerData.iconOptions),
-      }).addTo(mapInstance.current);
+      });
+
+      marker.bindPopup(markerData.popupContent || markerData.title);
+      marker.addTo(mapInstance.current);
 
       raceMarkersRef.current[markerData.id] = marker;
     });

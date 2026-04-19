@@ -277,6 +277,7 @@
       "raceMarkersTitle": "Kartenmarker",
       "raceMarkersHelp": "Optionale Ziel- und Biwakpositionen, die auf der Rennkarte angezeigt werden.",
       "finishTitle": "Ziel",
+      "finishDescription": "Popup-Text",
       "bivak1Title": "Biwak 1",
       "bivak2Title": "Biwak 2",
       "markerName": "Name",

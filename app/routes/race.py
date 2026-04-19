@@ -22,6 +22,7 @@ from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 logger = logging.getLogger(__name__)
 
 RACE_LOCATION_FIELDS = (
+  "finish_description",
   "finish_latitude",
   "finish_longitude",
   "bivak_1_name",
@@ -39,6 +40,7 @@ def serialize_race(race, name=None, description=None, race_greeting=None):
     "name": name if name is not None else race.name,
     "description": description if description is not None else race.description,
     "race_greeting": race_greeting if race_greeting is not None else race.race_greeting,
+    "finish_description": race.finish_description,
     "finish_latitude": race.finish_latitude,
     "finish_longitude": race.finish_longitude,
     "bivak_1_name": race.bivak_1_name,
@@ -242,6 +244,7 @@ def create_race():
     new_race = Race(name=data['name'],
                     description=data['description'],
                     race_greeting=data.get('race_greeting'),
+                    finish_description=data.get('finish_description'),
                     finish_latitude=data.get('finish_latitude'),
                     finish_longitude=data.get('finish_longitude'),
                     bivak_1_name=data.get('bivak_1_name'),

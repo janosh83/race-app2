@@ -130,6 +130,7 @@ class TaskLogSchema(Schema):
 class RaceCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
+    finish_description = fields.String(load_default=None, allow_none=True)
     finish_latitude = fields.Float(load_default=None, allow_none=True, validate=LATITUDE_VALIDATOR)
     finish_longitude = fields.Float(load_default=None, allow_none=True, validate=LONGITUDE_VALIDATOR)
     bivak_1_name = fields.String(load_default=None, allow_none=True)
@@ -225,6 +226,7 @@ class RaceCreateSchema(Schema):
 class RaceUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
+    finish_description = fields.String(allow_none=True)
     finish_latitude = fields.Float(allow_none=True, validate=LATITUDE_VALIDATOR)
     finish_longitude = fields.Float(allow_none=True, validate=LONGITUDE_VALIDATOR)
     bivak_1_name = fields.String(allow_none=True)
