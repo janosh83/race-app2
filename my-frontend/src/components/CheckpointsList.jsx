@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
@@ -27,9 +28,9 @@ function CheckpointsList({ topOffset = 56 }) {
   const { t } = useTranslation();
 
   const getCheckpointPoints = (checkpoint) => {
-    if (checkpoint?.numOfPoints != null) return checkpoint.numOfPoints;
-    if (checkpoint?.num_of_points != null) return checkpoint.num_of_points;
-    if (checkpoint?.points != null) return checkpoint.points;
+    if (checkpoint?.numOfPoints !== null && checkpoint?.numOfPoints !== undefined) return checkpoint.numOfPoints;
+    if (checkpoint?.num_of_points !== null && checkpoint?.num_of_points !== undefined) return checkpoint.num_of_points;
+    if (checkpoint?.points !== null && checkpoint?.points !== undefined) return checkpoint.points;
     return 0;
   };
 
@@ -161,7 +162,7 @@ function CheckpointsList({ topOffset = 56 }) {
       await raceApi.deleteVisit(activeRaceId, { checkpoint_id: selectedCheckpoint.id, team_id: activeTeamId });
       await refreshCheckpoints();
       setToast({
-        message: t('tasks.deleteSuccess'),
+        message: t('checkpointsList.deleteSuccess'),
         type: 'success',
         duration: 3000,
       });
@@ -384,7 +385,7 @@ function CheckpointsList({ topOffset = 56 }) {
               </div>
             )}
 
-            {imagePreview && (
+            {loggingAllowed && imagePreview && (
               <div className="mb-3">
                 <label className="form-label">{t('tasks.previewLabel')}</label>
                 <div>
@@ -397,24 +398,28 @@ function CheckpointsList({ topOffset = 56 }) {
               </div>
             )}
 
-            <div className="mb-4">
-              <label className="form-label">{t('map.attachPhoto')}</label>
-              <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
-              <div className="form-text">{t('tasks.imageHelp')}</div>
-            </div>
+            {loggingAllowed ? (
+              <>
+                <div className="mb-4">
+                  <label className="form-label">{t('map.attachPhoto')}</label>
+                  <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
+                  <div className="form-text">{t('checkpointsList.imageHelp')}</div>
+                </div>
 
-            {!loggingAllowed && <div className="alert alert-warning">{t('tasks.loggingClosed')}</div>}
-
-            <div className="d-flex gap-2">
-              <button className="btn btn-primary" onClick={handleLogVisit} disabled={!loggingAllowed}>
-                {selectedCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
-              </button>
-              {selectedCheckpoint.visited && (
-                <button className="btn btn-outline-danger" onClick={handleDeleteVisit} disabled={!loggingAllowed}>
-                  {t('map.deleteVisit')}
-                </button>
-              )}
-            </div>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-primary" onClick={handleLogVisit}>
+                    {selectedCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
+                  </button>
+                  {selectedCheckpoint.visited && (
+                    <button className="btn btn-outline-danger" onClick={handleDeleteVisit}>
+                      {t('map.deleteVisit')}
+                    </button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, selectedCheckpoint)}</div>
+            )}
           </div>
         </div>
       )}

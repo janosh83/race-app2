@@ -111,7 +111,10 @@
   "checkpointsList": {
     "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar.",
     "coordinates": "Koordinaten",
-    "points": "Punkte"
+    "points": "Punkte",
+    "imageHelp": "Bilder werden auf max. 1000 px verkleinert, EXIF bleibt fuer JPEG erhalten.",
+    "loggingClosed": "Das Protokollfenster fuer Checkpoints ist geschlossen. Sie koennen Checkpoints nur ansehen.",
+    "deleteSuccess": "Checkpoint-Besuch geloescht"
   },
   "results": {
     "title": "Rennergebnisse",

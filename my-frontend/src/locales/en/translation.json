@@ -111,7 +111,10 @@
   "checkpointsList": {
     "noneAvailable": "No checkpoints available for this race.",
     "coordinates": "Coordinates",
-    "points": "Points"
+    "points": "Points",
+    "imageHelp": "Images are resized to max 1000px, EXIF preserved for JPEG.",
+    "loggingClosed": "Logging window for checkpoints is closed. You can only view checkpoints.",
+    "deleteSuccess": "Checkpoint visit deleted"
   },
   "results": {
     "title": "Race Results",

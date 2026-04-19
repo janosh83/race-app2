@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
@@ -741,9 +742,7 @@ function Map({ topOffset = 56 }) {
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
-                    {selectedCheckpoint.visited
-                      ? t('map.visitLoggedReadOnly')
-                      : t('map.loggingNotOpen')}
+                    {getCheckpointReadOnlyMessage(t, selectedCheckpoint)}
                   </div>
                 )}
               </div>

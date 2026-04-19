@@ -111,7 +111,10 @@
   "checkpointsList": {
     "noneAvailable": "Pro tento závod nejsou žádné checkpointy.",
     "coordinates": "Souřadnice",
-    "points": "Body"
+    "points": "Body",
+    "imageHelp": "Obrázky se zmenší na max 1000px, EXIF zůstává u JPEG.",
+    "loggingClosed": "Logování je uzavřeno. Checkpointy můžete pouze prohlížet.",
+    "deleteSuccess": "Návštěva checkpointu smazána"
   },
   "results": {
     "title": "Výsledky závodu",
