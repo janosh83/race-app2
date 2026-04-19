@@ -12,6 +12,64 @@ import { logger } from '../utils/logger';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
+const checkpointShadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
+
+const createMapIcon = (iconUrl) => L.icon({
+  iconUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowUrl: checkpointShadowUrl,
+  shadowSize: [41, 41],
+});
+
+const toFiniteCoordinate = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getRaceMarkers = (activeRace, t) => {
+  const markers = [];
+  const finishLatitude = toFiniteCoordinate(activeRace?.finish_latitude);
+  const finishLongitude = toFiniteCoordinate(activeRace?.finish_longitude);
+
+  if (finishLatitude != null && finishLongitude != null) {
+    markers.push({
+      id: 'finish',
+      latitude: finishLatitude,
+      longitude: finishLongitude,
+      title: t('map.finishMarker'),
+      iconUrl: '/map-finish-marker.svg',
+    });
+  }
+
+  const bivak1Latitude = toFiniteCoordinate(activeRace?.bivak_1_latitude);
+  const bivak1Longitude = toFiniteCoordinate(activeRace?.bivak_1_longitude);
+  if (bivak1Latitude != null && bivak1Longitude != null) {
+    markers.push({
+      id: 'bivak-1',
+      latitude: bivak1Latitude,
+      longitude: bivak1Longitude,
+      title: activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 }),
+      iconUrl: '/map-bivak-marker.svg',
+    });
+  }
+
+  const bivak2Latitude = toFiniteCoordinate(activeRace?.bivak_2_latitude);
+  const bivak2Longitude = toFiniteCoordinate(activeRace?.bivak_2_longitude);
+  if (bivak2Latitude != null && bivak2Longitude != null) {
+    markers.push({
+      id: 'bivak-2',
+      latitude: bivak2Latitude,
+      longitude: bivak2Longitude,
+      title: activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 }),
+      iconUrl: '/map-bivak-marker.svg',
+    });
+  }
+
+  return markers;
+};
+
 const getMapUploadErrorMessage = (t, err) => {
   if (err?.status === 413) return t('map.uploadTooLarge');
 
@@ -54,6 +112,7 @@ function Map({ topOffset = 56 }) {
   const geoWatchIdRef = useRef(null);
   const userLocationRef = useRef(null); // Store latest user position for checkpoint logging
   const markersRef = useRef({}); // Track markers by checkpoint ID
+  const raceMarkersRef = useRef({});
   const hasAutoCenteredRef = useRef(false);
   const allowAutoCenterRef = useRef(true);
   const [checkpoints, setCheckpoints] = useState([]);
@@ -280,14 +339,7 @@ function Map({ topOffset = 56 }) {
           ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
           : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
         const newIcon = currentIcon.options.iconUrl !== iconUrl
-          ? L.icon({
-              iconUrl,
-              iconSize: [25, 41],
-              iconAnchor: [12, 41],
-              popupAnchor: [1, -34],
-              shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-              shadowSize: [41, 41],
-            })
+          ? createMapIcon(iconUrl)
           : currentIcon;
         markersRef.current[cp.id].setIcon(newIcon);
       } else {
@@ -298,14 +350,7 @@ function Map({ topOffset = 56 }) {
 
         const marker = L.marker([cp.latitude, cp.longitude], {
           title: cp.title,
-          icon: L.icon({
-            iconUrl,
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-            shadowSize: [41, 41],
-          }),
+          icon: createMapIcon(iconUrl),
         }).addTo(mapInstance.current);
 
         // Open full-screen overlay on marker click
@@ -317,6 +362,30 @@ function Map({ topOffset = 56 }) {
       }
     });
   }, [checkpoints, showCheckpoints]);
+
+  useEffect(() => {
+    if (!mapInstance.current) return;
+
+    Object.values(raceMarkersRef.current).forEach(marker => {
+      if (mapInstance.current.hasLayer(marker)) {
+        mapInstance.current.removeLayer(marker);
+      }
+    });
+    raceMarkersRef.current = {};
+
+    if (!showCheckpoints) {
+      return;
+    }
+
+    getRaceMarkers(activeRace, t).forEach(markerData => {
+      const marker = L.marker([markerData.latitude, markerData.longitude], {
+        title: markerData.title,
+        icon: createMapIcon(markerData.iconUrl),
+      }).addTo(mapInstance.current);
+
+      raceMarkersRef.current[markerData.id] = marker;
+    });
+  }, [activeRace, showCheckpoints, t]);
 
   // Keep selected checkpoint details in sync with latest data (visited state, images, etc.)
   useEffect(() => {

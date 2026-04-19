@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
+import L from 'leaflet';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
@@ -9,12 +10,15 @@ import Map from './Map';
 
 
 // Mock CSS imports
-vi.mock('leaflet/dist/leaflet.css', () => {});
+vi.mock('leaflet/dist/leaflet.css', () => ({ default: {} }));
 
 // Mock Leaflet
 vi.mock('leaflet', () => {
   const mockMap = {
     setView: vi.fn(function() { return this; }),
+    on: vi.fn(function() { return this; }),
+    invalidateSize: vi.fn(function() { return this; }),
+    hasLayer: vi.fn(() => true),
     remove: vi.fn(),
     eachLayer: vi.fn(),
     removeLayer: vi.fn(),
@@ -35,6 +39,12 @@ vi.mock('leaflet', () => {
     return ExtendedControl;
   };
 
+  const marker = vi.fn((_coords, _options) => ({
+    addTo: vi.fn(() => mockMap),
+    on: vi.fn(),
+    setIcon: vi.fn(),
+  }));
+
   return {
     __esModule: true,
     default: {
@@ -46,12 +56,7 @@ vi.mock('leaflet', () => {
           addTo: vi.fn(() => mockMap),
         };
       },
-      marker(_coords, _options) {
-        return {
-          addTo: vi.fn(() => mockMap),
-          on: vi.fn(),
-        };
-      },
+      marker,
       circleMarker(_coords, _options) {
         return {
           addTo: vi.fn(() => mockMap),
@@ -100,6 +105,7 @@ describe('Map Component', () => {
     vi.spyOn(TimeContext, 'useTime').mockReturnValue({
       activeRace: { race_id: 1, team_id: 10 },
       timeInfo: { state: 'LOGGING' },
+      selectedLanguage: 'en',
     });
 
     vi.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
@@ -161,15 +167,18 @@ describe('Map Component', () => {
 
       render(<Map />);
 
-      await waitFor(() => {
-        expect(raceApi.getCheckpointsStatus).toHaveBeenCalledWith(1, 10);
+      await act(async () => {
+        await Promise.resolve();
       });
+
+      expect(raceApi.getCheckpointsStatus).toHaveBeenCalledWith(1, 10, 'en');
     });
 
     test('does not fetch checkpoints when no activeRace', () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: null,
         timeInfo: { state: 'LOGGING' },
+        selectedLanguage: 'en',
       });
 
       render(<Map />);
@@ -181,6 +190,7 @@ describe('Map Component', () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1 },
         timeInfo: { state: 'LOGGING' },
+        selectedLanguage: 'en',
       });
 
       render(<Map />);
@@ -202,12 +212,53 @@ describe('Map Component', () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
         timeInfo: { state: 'SHOW_ONLY' },
+        selectedLanguage: 'en',
       });
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
 
       render(<Map />);
 
       expect(screen.getByText('Read-only')).toBeInTheDocument();
+    });
+  });
+
+  describe('Race markers', () => {
+    test('renders finish and bivak markers from active race data', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: {
+          race_id: 1,
+          team_id: 10,
+          finish_latitude: 50.25,
+          finish_longitude: 14.35,
+          bivak_1_name: 'North Camp',
+          bivak_1_latitude: 50.15,
+          bivak_1_longitude: 14.15,
+          bivak_2_latitude: 50.45,
+          bivak_2_longitude: 14.55,
+        },
+        timeInfo: { state: 'LOGGING' },
+        selectedLanguage: 'en',
+      });
+      raceApi.getCheckpointsStatus.mockResolvedValue([]);
+
+      render(<Map />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(L.marker).toHaveBeenCalledWith(
+        [50.25, 14.35],
+        expect.objectContaining({ title: 'Finish' })
+      );
+      expect(L.marker).toHaveBeenCalledWith(
+        [50.15, 14.15],
+        expect.objectContaining({ title: 'North Camp' })
+      );
+      expect(L.marker).toHaveBeenCalledWith(
+        [50.45, 14.55],
+        expect.objectContaining({ title: 'Bivak 2' })
+      );
     });
   });
 

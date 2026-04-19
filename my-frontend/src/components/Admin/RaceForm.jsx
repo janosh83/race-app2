@@ -13,6 +13,14 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [raceGreeting, setRaceGreeting] = useState('');
+  const [finishLatitude, setFinishLatitude] = useState('');
+  const [finishLongitude, setFinishLongitude] = useState('');
+  const [bivak1Name, setBivak1Name] = useState('');
+  const [bivak1Latitude, setBivak1Latitude] = useState('');
+  const [bivak1Longitude, setBivak1Longitude] = useState('');
+  const [bivak2Name, setBivak2Name] = useState('');
+  const [bivak2Latitude, setBivak2Latitude] = useState('');
+  const [bivak2Longitude, setBivak2Longitude] = useState('');
   const [startShow, setStartShow] = useState('');
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
@@ -52,10 +60,20 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         const min = pad(d.getMinutes());
         return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
       };
+      const formatCoordinate = (value) => value == null ? '' : String(value);
+
       setStartShow(toLocal(race.start_showing_checkpoints_at ?? race.start_showing_checkpoints ?? race.start_showing));
       setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));
       setStartLogging(toLocal(race.start_logging_at ?? race.start_logging));
       setEndLogging(toLocal(race.end_logging_at ?? race.end_logging));
+      setFinishLatitude(formatCoordinate(race.finish_latitude));
+      setFinishLongitude(formatCoordinate(race.finish_longitude));
+      setBivak1Name(race.bivak_1_name || '');
+      setBivak1Latitude(formatCoordinate(race.bivak_1_latitude));
+      setBivak1Longitude(formatCoordinate(race.bivak_1_longitude));
+      setBivak2Name(race.bivak_2_name || '');
+      setBivak2Latitude(formatCoordinate(race.bivak_2_latitude));
+      setBivak2Longitude(formatCoordinate(race.bivak_2_longitude));
       setRegistrationSlug(race.registration_slug || '');
       setRegistrationEnabled(Boolean(race.registration_enabled || false));
       setMinTeamSize(Number(race.min_team_size ?? 1));
@@ -70,6 +88,14 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setName('');
       setDescription('');
       setRaceGreeting('');
+      setFinishLatitude('');
+      setFinishLongitude('');
+      setBivak1Name('');
+      setBivak1Latitude('');
+      setBivak1Longitude('');
+      setBivak2Name('');
+      setBivak2Latitude('');
+      setBivak2Longitude('');
       setDefaultLanguage('');
       setSupportedLanguages([]);
       setStartShow('');
@@ -90,6 +116,10 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   }, [race]);
 
   const toIso = (dtLocal) => dtLocal ? new Date(dtLocal).toISOString() : null;
+  const toNullableCoordinate = (value) => {
+    const trimmed = String(value ?? '').trim();
+    return trimmed ? Number(trimmed) : null;
+  };
 
   // --- Validation logic ---
   const [validationError, setValidationError] = useState('');
@@ -179,6 +209,14 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         race_greeting: raceGreeting.trim() || null,
         default_language: defaultLanguage || null,
         supported_languages: supportedLanguages.length > 0 ? supportedLanguages : null,
+        finish_latitude: toNullableCoordinate(finishLatitude),
+        finish_longitude: toNullableCoordinate(finishLongitude),
+        bivak_1_name: bivak1Name.trim() || null,
+        bivak_1_latitude: toNullableCoordinate(bivak1Latitude),
+        bivak_1_longitude: toNullableCoordinate(bivak1Longitude),
+        bivak_2_name: bivak2Name.trim() || null,
+        bivak_2_latitude: toNullableCoordinate(bivak2Latitude),
+        bivak_2_longitude: toNullableCoordinate(bivak2Longitude),
         start_showing_checkpoints_at: toIso(startShow),
         end_showing_checkpoints_at: toIso(endShow),
         start_logging_at: toIso(startLogging),
@@ -268,6 +306,107 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           placeholder={t('admin.raceForm.raceGreetingPlaceholder')}
           rows={2}
         />
+      </div>
+
+      <div className="border rounded p-3 mb-3">
+        <div className="fw-semibold mb-1">{t('admin.raceForm.raceMarkersTitle')}</div>
+        <div className="form-text mb-3">{t('admin.raceForm.raceMarkersHelp')}</div>
+
+        <div className="mb-3">
+          <div className="small fw-semibold mb-2">{t('admin.raceForm.finishTitle')}</div>
+          <div className="row g-2">
+            <div className="col-md-6">
+              <label className="form-label small">{t('admin.raceForm.markerLatitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={finishLatitude}
+                onChange={e => setFinishLatitude(e.target.value)}
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label small">{t('admin.raceForm.markerLongitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={finishLongitude}
+                onChange={e => setFinishLongitude(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-3">
+          <div className="small fw-semibold mb-2">{t('admin.raceForm.bivak1Title')}</div>
+          <div className="row g-2">
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerName')}</label>
+              <input
+                className="form-control"
+                type="text"
+                value={bivak1Name}
+                onChange={e => setBivak1Name(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerLatitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={bivak1Latitude}
+                onChange={e => setBivak1Latitude(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerLongitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={bivak1Longitude}
+                onChange={e => setBivak1Longitude(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="small fw-semibold mb-2">{t('admin.raceForm.bivak2Title')}</div>
+          <div className="row g-2">
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerName')}</label>
+              <input
+                className="form-control"
+                type="text"
+                value={bivak2Name}
+                onChange={e => setBivak2Name(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerLatitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={bivak2Latitude}
+                onChange={e => setBivak2Latitude(e.target.value)}
+              />
+            </div>
+            <div className="col-md-4">
+              <label className="form-label small">{t('admin.raceForm.markerLongitude')}</label>
+              <input
+                className="form-control"
+                type="number"
+                step="any"
+                value={bivak2Longitude}
+                onChange={e => setBivak2Longitude(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mb-3">

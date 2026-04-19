@@ -2,6 +2,20 @@ from marshmallow import INCLUDE, Schema, fields, validate, pre_load, validates_s
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 
+LATITUDE_VALIDATOR = validate.Range(min=-90, max=90)
+LONGITUDE_VALIDATOR = validate.Range(min=-180, max=180)
+
+
+def _validate_coordinate_pair(data, latitude_key, longitude_key, field_name):
+    latitude = data.get(latitude_key)
+    longitude = data.get(longitude_key)
+    if (latitude is None) != (longitude is None):
+        raise ValidationError(
+            f"{field_name} latitude and longitude must both be provided or both be omitted",
+            field_name=latitude_key,
+        )
+
+
 class CheckpointCreateSchema(Schema):
     title = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
@@ -116,6 +130,14 @@ class TaskLogSchema(Schema):
 class RaceCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
+    finish_latitude = fields.Float(load_default=None, allow_none=True, validate=LATITUDE_VALIDATOR)
+    finish_longitude = fields.Float(load_default=None, allow_none=True, validate=LONGITUDE_VALIDATOR)
+    bivak_1_name = fields.String(load_default=None, allow_none=True)
+    bivak_1_latitude = fields.Float(load_default=None, allow_none=True, validate=LATITUDE_VALIDATOR)
+    bivak_1_longitude = fields.Float(load_default=None, allow_none=True, validate=LONGITUDE_VALIDATOR)
+    bivak_2_name = fields.String(load_default=None, allow_none=True)
+    bivak_2_latitude = fields.Float(load_default=None, allow_none=True, validate=LATITUDE_VALIDATOR)
+    bivak_2_longitude = fields.Float(load_default=None, allow_none=True, validate=LONGITUDE_VALIDATOR)
     start_showing_checkpoints_at = fields.String(required=True, validate=validate.Length(min=1))
     end_showing_checkpoints_at = fields.String(required=True, validate=validate.Length(min=1))
     start_logging_at = fields.String(required=True, validate=validate.Length(min=1))
@@ -172,6 +194,10 @@ class RaceCreateSchema(Schema):
 
     @validates_schema
     def validate_language_settings(self, data, **kwargs):
+        _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
+        _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
+        _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
+
         supported = data.get("supported_languages", list(SUPPORTED_LANGUAGES))
         default = data.get("default_language", DEFAULT_LANGUAGE)
         if default not in supported:
@@ -199,6 +225,14 @@ class RaceCreateSchema(Schema):
 class RaceUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
+    finish_latitude = fields.Float(allow_none=True, validate=LATITUDE_VALIDATOR)
+    finish_longitude = fields.Float(allow_none=True, validate=LONGITUDE_VALIDATOR)
+    bivak_1_name = fields.String(allow_none=True)
+    bivak_1_latitude = fields.Float(allow_none=True, validate=LATITUDE_VALIDATOR)
+    bivak_1_longitude = fields.Float(allow_none=True, validate=LONGITUDE_VALIDATOR)
+    bivak_2_name = fields.String(allow_none=True)
+    bivak_2_latitude = fields.Float(allow_none=True, validate=LATITUDE_VALIDATOR)
+    bivak_2_longitude = fields.Float(allow_none=True, validate=LONGITUDE_VALIDATOR)
     start_showing_checkpoints_at = fields.String(validate=validate.Length(min=1))
     end_showing_checkpoints_at = fields.String(validate=validate.Length(min=1))
     start_logging_at = fields.String(validate=validate.Length(min=1))
@@ -246,6 +280,13 @@ class RaceUpdateSchema(Schema):
 
     @validates_schema
     def validate_registration_settings(self, data, **kwargs):
+        if "finish_latitude" in data and "finish_longitude" in data:
+            _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
+        if "bivak_1_latitude" in data and "bivak_1_longitude" in data:
+            _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
+        if "bivak_2_latitude" in data and "bivak_2_longitude" in data:
+            _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
+
         min_team_size = data.get("min_team_size")
         max_team_size = data.get("max_team_size")
         if min_team_size is not None and max_team_size is not None and min_team_size > max_team_size:

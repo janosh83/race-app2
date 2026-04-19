@@ -65,6 +65,8 @@ def test_get_all_races(test_client, add_test_data):
     assert response.json[0]["description"] == "24 hodin objevování Česka"
     assert response.json[0]["supported_languages"] == SUPPORTED_LANGUAGES
     assert response.json[0]["default_language"] == DEFAULT_LANGUAGE
+    assert response.json[0]["finish_latitude"] is None
+    assert response.json[0]["bivak_1_name"] is None
     # testing more races is done below as part of test_create_race
 
     # Test with Czech language translation
@@ -87,6 +89,8 @@ def test_get_single_race(test_client, add_test_data):
     assert response.json["description"] == "24 hodin objevování Česka"
     assert response.json["supported_languages"] == SUPPORTED_LANGUAGES
     assert response.json["default_language"] == DEFAULT_LANGUAGE
+    assert response.json["finish_latitude"] is None
+    assert response.json["bivak_2_longitude"] is None
 
     # Test with Czech language translation
     response = test_client.get("/api/race/1/?lang=cs")
@@ -109,6 +113,14 @@ def test_create_race(test_client, add_test_data):
     response = test_client.post("/api/race/", json={
         "name": "Hill Bill Rally",
         "description": "Roadtrip po Balkáně.",
+        "finish_latitude": 48.1234,
+        "finish_longitude": 17.5678,
+        "bivak_1_name": "Forest Camp",
+        "bivak_1_latitude": 48.2234,
+        "bivak_1_longitude": 17.6678,
+        "bivak_2_name": "River Camp",
+        "bivak_2_latitude": 48.3234,
+        "bivak_2_longitude": 17.7678,
         "start_showing_checkpoints_at": now.isoformat(),
         "end_showing_checkpoints_at": some_time_later.isoformat(),
         "start_logging_at": now.isoformat(),
@@ -118,6 +130,10 @@ def test_create_race(test_client, add_test_data):
     assert response.json["id"] == 2
     assert response.json["name"] == "Hill Bill Rally"
     assert response.json["description"] == "Roadtrip po Balkáně."
+    assert response.json["finish_latitude"] == pytest.approx(48.1234)
+    assert response.json["finish_longitude"] == pytest.approx(17.5678)
+    assert response.json["bivak_1_name"] == "Forest Camp"
+    assert response.json["bivak_2_name"] == "River Camp"
     assert response.json["supported_languages"] == SUPPORTED_LANGUAGES
     assert response.json["default_language"] == DEFAULT_LANGUAGE
 
@@ -199,6 +215,56 @@ def test_update_race(test_client, add_test_data):
     assert response.status_code == 200
     assert response.json["supported_languages"] == ["en", "cs"]
     assert response.json["default_language"] == "cs"
+
+    response = test_client.put("/api/race/1/", json={
+        "finish_latitude": 49.1234,
+        "finish_longitude": 16.9876,
+        "bivak_1_name": "Night Camp",
+        "bivak_1_latitude": 49.2234,
+        "bivak_1_longitude": 17.0876,
+    }, headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+    assert response.json["finish_latitude"] == pytest.approx(49.1234)
+    assert response.json["finish_longitude"] == pytest.approx(16.9876)
+    assert response.json["bivak_1_name"] == "Night Camp"
+    assert response.json["bivak_1_latitude"] == pytest.approx(49.2234)
+    assert response.json["bivak_1_longitude"] == pytest.approx(17.0876)
+
+
+def test_create_race_rejects_incomplete_marker_coordinates(test_client, add_test_data):
+    access_token = _admin_token(test_client, email="marker@example.com", password="test")
+
+    now = datetime.now()
+    later = now + timedelta(minutes=10)
+    response = test_client.post("/api/race/", json={
+        "name": "Broken Marker Race",
+        "description": "Should fail",
+        "finish_latitude": 48.1234,
+        "start_showing_checkpoints_at": now.isoformat(),
+        "end_showing_checkpoints_at": later.isoformat(),
+        "start_logging_at": now.isoformat(),
+        "end_logging_at": later.isoformat()
+    }, headers={"Authorization": f"Bearer {access_token}"})
+
+    assert response.status_code == 400
+    assert "finish_latitude" in response.json["errors"]
+
+
+def test_update_race_accepts_single_coordinate_when_pair_exists(test_client, add_test_data):
+    access_token = _admin_token(test_client, email="partial-marker@example.com", password="test")
+
+    response = test_client.put("/api/race/1/", json={
+        "finish_latitude": 50.0,
+        "finish_longitude": 14.0,
+    }, headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+
+    response = test_client.put("/api/race/1/", json={
+        "finish_latitude": 50.5,
+    }, headers={"Authorization": f"Bearer {access_token}"})
+    assert response.status_code == 200
+    assert response.json["finish_latitude"] == pytest.approx(50.5)
+    assert response.json["finish_longitude"] == pytest.approx(14.0)
 
 
 def test_update_race_not_found(test_client):

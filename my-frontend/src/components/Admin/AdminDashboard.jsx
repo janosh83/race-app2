@@ -27,6 +27,11 @@ function formatIso(iso) {
   }
 }
 
+function formatCoordinates(latitude, longitude) {
+  if (latitude == null || longitude == null) return '—';
+  return `${latitude}, ${longitude}`;
+}
+
 function AdminDashboard() {
   const { t } = useTranslation();
   const [races, setRaces] = useState([]);
@@ -239,6 +244,25 @@ function AdminDashboard() {
                             {selected.supported_languages && selected.supported_languages.length > 0
                               ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
                               : t('admin.dashboard.none')}
+                          </div>
+                          <div className="mt-2 pt-2 border-top">
+                            <div>
+                              <strong>{t('admin.dashboard.raceMarkers')}:</strong>
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.finishMarker')}:</strong>{' '}
+                              {formatCoordinates(selected.finish_latitude, selected.finish_longitude)}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.bivak1Marker')}:</strong>{' '}
+                              {selected.bivak_1_name ? `${selected.bivak_1_name} — ` : ''}
+                              {formatCoordinates(selected.bivak_1_latitude, selected.bivak_1_longitude)}
+                            </div>
+                            <div>
+                              <strong>{t('admin.dashboard.bivak2Marker')}:</strong>{' '}
+                              {selected.bivak_2_name ? `${selected.bivak_2_name} — ` : ''}
+                              {formatCoordinates(selected.bivak_2_latitude, selected.bivak_2_longitude)}
+                            </div>
                           </div>
                           <div className="mt-2 pt-2 border-top">
                             <div>

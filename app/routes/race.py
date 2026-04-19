@@ -21,6 +21,69 @@ from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
+RACE_LOCATION_FIELDS = (
+  "finish_latitude",
+  "finish_longitude",
+  "bivak_1_name",
+  "bivak_1_latitude",
+  "bivak_1_longitude",
+  "bivak_2_name",
+  "bivak_2_latitude",
+  "bivak_2_longitude",
+)
+
+
+def serialize_race(race, name=None, description=None, race_greeting=None):
+  return {
+    "id": race.id,
+    "name": name if name is not None else race.name,
+    "description": description if description is not None else race.description,
+    "race_greeting": race_greeting if race_greeting is not None else race.race_greeting,
+    "finish_latitude": race.finish_latitude,
+    "finish_longitude": race.finish_longitude,
+    "bivak_1_name": race.bivak_1_name,
+    "bivak_1_latitude": race.bivak_1_latitude,
+    "bivak_1_longitude": race.bivak_1_longitude,
+    "bivak_2_name": race.bivak_2_name,
+    "bivak_2_latitude": race.bivak_2_latitude,
+    "bivak_2_longitude": race.bivak_2_longitude,
+    "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+    "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+    "start_logging_at": race.start_logging_at,
+    "end_logging_at": race.end_logging_at,
+    "registration_slug": race.registration_slug,
+    "registration_enabled": race.registration_enabled,
+    "min_team_size": race.min_team_size,
+    "max_team_size": race.max_team_size,
+    "allow_team_registration": race.allow_team_registration,
+    "allow_individual_registration": race.allow_individual_registration,
+    "registration_currency": race.registration_currency,
+    "registration_pricing_strategy": race.registration_pricing_strategy,
+    "registration_team_amount_cents": race.registration_team_amount_cents,
+    "registration_individual_amount_cents": race.registration_individual_amount_cents,
+    "registration_driver_amount_cents": race.registration_driver_amount_cents,
+    "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
+    "supported_languages": race.supported_languages,
+    "default_language": race.default_language,
+  }
+
+
+def validate_race_location_state(data, race=None):
+  for latitude_key, longitude_key, name in (
+    ("finish_latitude", "finish_longitude", "finish"),
+    ("bivak_1_latitude", "bivak_1_longitude", "bivak_1"),
+    ("bivak_2_latitude", "bivak_2_longitude", "bivak_2"),
+  ):
+    latitude = data.get(latitude_key)
+    longitude = data.get(longitude_key)
+    if race is not None:
+      if latitude_key not in data:
+        latitude = getattr(race, latitude_key)
+      if longitude_key not in data:
+        longitude = getattr(race, longitude_key)
+    if (latitude is None) != (longitude is None):
+      raise ValidationError({latitude_key: [f"{name} latitude and longitude must both be provided or both be omitted"]})
+
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
 race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
@@ -78,30 +141,7 @@ def get_all_races():
             else:
                 logger.warning("Race %s requested with unsupported language %s, using default", race.id, language)
 
-        result.append({
-            "id": race.id,
-            "name": name,
-            "description": description,
-            "race_greeting": race_greeting,
-            "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-            "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
-            "start_logging_at": race.start_logging_at,
-            "end_logging_at": race.end_logging_at,
-            "registration_slug": race.registration_slug,
-            "registration_enabled": race.registration_enabled,
-            "min_team_size": race.min_team_size,
-            "max_team_size": race.max_team_size,
-            "allow_team_registration": race.allow_team_registration,
-            "allow_individual_registration": race.allow_individual_registration,
-            "registration_currency": race.registration_currency,
-            "registration_pricing_strategy": race.registration_pricing_strategy,
-            "registration_team_amount_cents": race.registration_team_amount_cents,
-            "registration_individual_amount_cents": race.registration_individual_amount_cents,
-            "registration_driver_amount_cents": race.registration_driver_amount_cents,
-            "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
-            "supported_languages": race.supported_languages,
-            "default_language": race.default_language,
-        })
+        result.append(serialize_race(race, name=name, description=description, race_greeting=race_greeting))
 
     return jsonify(result)
 
@@ -154,28 +194,7 @@ def get_single_race(race_id):
                 description = translation.description
                 if translation.race_greeting is not None:
                     race_greeting = translation.race_greeting
-    return jsonify({"id": race.id,
-                    "name": name,
-                    "description": description,
-                    "race_greeting": race_greeting,
-                    "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-                    "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
-                    "start_logging_at": race.start_logging_at,
-                    "end_logging_at": race.end_logging_at,
-                    "registration_slug": race.registration_slug,
-                    "registration_enabled": race.registration_enabled,
-                    "min_team_size": race.min_team_size,
-                    "max_team_size": race.max_team_size,
-                    "allow_team_registration": race.allow_team_registration,
-                    "allow_individual_registration": race.allow_individual_registration,
-                    "registration_currency": race.registration_currency,
-                    "registration_pricing_strategy": race.registration_pricing_strategy,
-                    "registration_team_amount_cents": race.registration_team_amount_cents,
-                    "registration_individual_amount_cents": race.registration_individual_amount_cents,
-                    "registration_driver_amount_cents": race.registration_driver_amount_cents,
-                    "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
-                    "supported_languages": race.supported_languages,
-                    "default_language": race.default_language}), 200
+    return jsonify(serialize_race(race, name=name, description=description, race_greeting=race_greeting)), 200
 
 # add race
 # tested by test_races.py -> test_create_race
@@ -219,9 +238,18 @@ def create_race():
     end_showing_checkpoints_at = parse_datetime(data['end_showing_checkpoints_at'])
     start_logging_at = parse_datetime(data['start_logging_at'])
     end_logging_at = parse_datetime(data['end_logging_at'])
+    validate_race_location_state(data)
     new_race = Race(name=data['name'],
                     description=data['description'],
                     race_greeting=data.get('race_greeting'),
+                    finish_latitude=data.get('finish_latitude'),
+                    finish_longitude=data.get('finish_longitude'),
+                    bivak_1_name=data.get('bivak_1_name'),
+                    bivak_1_latitude=data.get('bivak_1_latitude'),
+                    bivak_1_longitude=data.get('bivak_1_longitude'),
+                    bivak_2_name=data.get('bivak_2_name'),
+                    bivak_2_latitude=data.get('bivak_2_latitude'),
+                    bivak_2_longitude=data.get('bivak_2_longitude'),
                     start_showing_checkpoints_at=start_showing_checkpoints_at,
                     end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
@@ -243,30 +271,7 @@ def create_race():
     db.session.add(new_race)
     db.session.commit()
     logger.info("New race created: %s (ID: %s)", new_race.name, new_race.id)
-    return jsonify({
-      "id": new_race.id,
-      "name": new_race.name,
-      "description": new_race.description,
-      "race_greeting": new_race.race_greeting,
-      "start_showing_checkpoints_at": new_race.start_showing_checkpoints_at,
-      "end_showing_checkpoints_at": new_race.end_showing_checkpoints_at,
-      "start_logging_at": new_race.start_logging_at,
-      "end_logging_at": new_race.end_logging_at,
-      "registration_slug": new_race.registration_slug,
-      "registration_enabled": new_race.registration_enabled,
-      "min_team_size": new_race.min_team_size,
-      "max_team_size": new_race.max_team_size,
-      "allow_team_registration": new_race.allow_team_registration,
-      "allow_individual_registration": new_race.allow_individual_registration,
-      "registration_currency": new_race.registration_currency,
-      "registration_pricing_strategy": new_race.registration_pricing_strategy,
-      "registration_team_amount_cents": new_race.registration_team_amount_cents,
-      "registration_individual_amount_cents": new_race.registration_individual_amount_cents,
-      "registration_driver_amount_cents": new_race.registration_driver_amount_cents,
-      "registration_codriver_amount_cents": new_race.registration_codriver_amount_cents,
-      "supported_languages": new_race.supported_languages,
-      "default_language": new_race.default_language,
-    }), 201
+    return jsonify(serialize_race(new_race)), 201
 
 # tested by test_races.py -> test_update_race
 @race_bp.route('/<int:race_id>/', methods=['PUT'])
@@ -383,6 +388,8 @@ def update_race(race_id):
     if registration_enabled and not registration_slug:
         raise ValidationError({"registration_slug": ["registration_slug is required when registration_enabled is true"]})
 
+    validate_race_location_state(data, race=race)
+
     # simple scalar fields
     if 'name' in data:
         race.name = data.get('name')
@@ -390,6 +397,9 @@ def update_race(race_id):
         race.description = data.get('description')
     if 'race_greeting' in data:
         race.race_greeting = data.get('race_greeting')
+    for field in RACE_LOCATION_FIELDS:
+      if field in data:
+        setattr(race, field, data.get(field))
     if 'supported_languages' in data:
         race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
@@ -443,30 +453,7 @@ def update_race(race_id):
     db.session.add(race)
     db.session.commit()
     logger.info("Race %s updated: %s", race_id, race.name)
-    return jsonify({
-        "id": race.id,
-        "name": race.name,
-        "description": race.description,
-        "race_greeting": race.race_greeting,
-        "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-        "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
-        "start_logging_at": race.start_logging_at,
-        "end_logging_at": race.end_logging_at,
-        "registration_slug": race.registration_slug,
-        "registration_enabled": race.registration_enabled,
-        "min_team_size": race.min_team_size,
-        "max_team_size": race.max_team_size,
-        "allow_team_registration": race.allow_team_registration,
-        "allow_individual_registration": race.allow_individual_registration,
-        "registration_currency": race.registration_currency,
-        "registration_pricing_strategy": race.registration_pricing_strategy,
-        "registration_team_amount_cents": race.registration_team_amount_cents,
-        "registration_individual_amount_cents": race.registration_individual_amount_cents,
-        "registration_driver_amount_cents": race.registration_driver_amount_cents,
-        "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
-        "supported_languages": race.supported_languages,
-        "default_language": race.default_language,
-    }), 200
+    return jsonify(serialize_race(race)), 200
 
 
 
