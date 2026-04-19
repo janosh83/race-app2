@@ -20,6 +20,7 @@ export default function RegistrationImporter({
   const [parseErrors, setParseErrors] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [markImportedAsPaid, setMarkImportedAsPaid] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
 
   const slugify = (s) => {
     if (!s) return '';
@@ -36,6 +37,7 @@ export default function RegistrationImporter({
   const handleImportFile = async (file) => {
     setImportReport(null);
     setParseErrors([]);
+    setImportProgress(null);
     if (!file) {
       setImportRows([]);
       return;
@@ -93,8 +95,15 @@ export default function RegistrationImporter({
       }
     }
 
+    const groupedEntries = Array.from(grouped.entries());
+    const totalTeams = groupedEntries.length;
+    setImportProgress({ current: 0, total: totalTeams, team: '' });
+
     try {
-      for (const [, g] of grouped) {
+      for (let index = 0; index < groupedEntries.length; index += 1) {
+        const [, g] = groupedEntries[index];
+        setImportProgress({ current: index, total: totalTeams, team: g.team });
+
         // ensure team
         let team = teamByName.get(g.team.toLowerCase());
         if (!team) {
@@ -185,13 +194,22 @@ export default function RegistrationImporter({
             report.errors.push(t('admin.registrationImporter.errorAddMembers', { team: g.team, message: e?.message || e }));
           }
         }
+
+        setImportProgress({ current: index + 1, total: totalTeams, team: g.team });
       }
       if (onImportComplete) onImportComplete();
     } finally {
       setImportReport(report);
+      setImportProgress(null);
       setImporting(false);
     }
   };
+
+  const progressCurrent = importProgress?.current || 0;
+  const progressTotal = importProgress?.total || 0;
+  const progressPercent = progressTotal > 0
+    ? Math.round((progressCurrent / progressTotal) * 100)
+    : 0;
 
   return (
     <div>
@@ -243,6 +261,33 @@ export default function RegistrationImporter({
           {t('admin.registrationImporter.importHelp')}
         </div>
       </div>
+      {importing && importProgress && (
+        <div className="mb-3">
+          <div className="d-flex justify-content-between small text-muted mb-1">
+            <span>
+              {importProgress.team
+                ? t('admin.registrationImporter.progressCurrentTeam', { team: importProgress.team })
+                : t('admin.registrationImporter.progressPreparing')}
+            </span>
+            <span>{t('admin.registrationImporter.progressCount', { current: progressCurrent, total: progressTotal })}</span>
+          </div>
+          <div
+            className="progress"
+            role="progressbar"
+            aria-label={t('admin.registrationImporter.progressBarLabel')}
+            aria-valuenow={progressPercent}
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div
+              className="progress-bar progress-bar-striped progress-bar-animated"
+              style={{ width: `${progressPercent}%` }}
+            >
+              {progressPercent}%
+            </div>
+          </div>
+        </div>
+      )}
       {parseErrors.length > 0 && (
         <div className="alert alert-warning small">
           <strong>Parser:</strong> {parseErrors.join(' | ')}
