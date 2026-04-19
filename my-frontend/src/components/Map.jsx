@@ -14,13 +14,18 @@ import Toast from './Toast';
 
 const checkpointShadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
 
-const createMapIcon = (iconUrl) => L.icon({
+const createMapIcon = (iconUrl, {
+  iconSize = [25, 41],
+  iconAnchor = [12, 41],
+  popupAnchor = [1, -34],
+  shadowSize = [41, 41],
+} = {}) => L.icon({
   iconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
+  iconSize,
+  iconAnchor,
+  popupAnchor,
   shadowUrl: checkpointShadowUrl,
-  shadowSize: [41, 41],
+  shadowSize,
 });
 
 const toFiniteCoordinate = (value) => {
@@ -40,6 +45,12 @@ const getRaceMarkers = (activeRace, t) => {
       longitude: finishLongitude,
       title: t('map.finishMarker'),
       iconUrl: '/map-finish-marker.svg',
+      iconOptions: {
+        iconSize: [32, 52],
+        iconAnchor: [16, 52],
+        popupAnchor: [1, -42],
+        shadowSize: [48, 48],
+      },
     });
   }
 
@@ -380,7 +391,7 @@ function Map({ topOffset = 56 }) {
     getRaceMarkers(activeRace, t).forEach(markerData => {
       const marker = L.marker([markerData.latitude, markerData.longitude], {
         title: markerData.title,
-        icon: createMapIcon(markerData.iconUrl),
+        icon: createMapIcon(markerData.iconUrl, markerData.iconOptions),
       }).addTo(mapInstance.current);
 
       raceMarkersRef.current[markerData.id] = marker;
