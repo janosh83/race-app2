@@ -6,6 +6,7 @@ import { parseRegistrationImportText } from '../../utils/registrationImport';
 
 export default function RegistrationImporter({
   raceId,
+  race,
   teams,
   users,
   registrations,
@@ -18,6 +19,7 @@ export default function RegistrationImporter({
   const [importReport, setImportReport] = useState(null);
   const [parseErrors, setParseErrors] = useState([]);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [markImportedAsPaid, setMarkImportedAsPaid] = useState(false);
 
   const slugify = (s) => {
     if (!s) return '';
@@ -44,6 +46,10 @@ export default function RegistrationImporter({
     setParseErrors(parsed.errors);
   };
 
+  const importPaymentType = race?.allow_individual_registration && !race?.allow_team_registration
+    ? 'driver'
+    : 'team';
+
   const runImport = async () => {
     if (!raceId) return;
     if (importRows.length === 0) {
@@ -56,6 +62,8 @@ export default function RegistrationImporter({
       createdTeams: [],
       existingTeams: [],
       createdRegistrations: [],
+      markedPayments: [],
+      existingPayments: [],
       addedMembers: [],
       missingCategories: [],
       errors: [],
@@ -112,14 +120,38 @@ export default function RegistrationImporter({
           }
         }
         const teamId = team.id;
-        const alreadyReg = regByTeamId.has(teamId);
+        const existingRegistration = regByTeamId.get(teamId) || null;
+        const alreadyReg = Boolean(existingRegistration);
         if (!alreadyReg && cat) {
           try {
-            await adminApi.addRegistration(raceId, { team_id: teamId, race_category_id: cat.id });
+            const createdRegistration = await adminApi.addRegistration(raceId, { team_id: teamId, race_category_id: cat.id });
             report.createdRegistrations.push({ team: g.team, category: cat.name });
-            regByTeamId.set(teamId, { team_id: teamId, category: cat.name });
+            regByTeamId.set(teamId, {
+              ...(createdRegistration || {}),
+              team_id: teamId,
+              category: cat.name,
+              payment_confirmed: Boolean(createdRegistration?.payment_confirmed),
+            });
           } catch (e) {
             report.errors.push(t('admin.registrationImporter.errorRegisterTeam', { team: g.team, category: cat?.name || g.category, message: e?.message || e }));
+          }
+        }
+
+        const registrationForPayment = regByTeamId.get(teamId) || existingRegistration;
+        if (markImportedAsPaid && registrationForPayment) {
+          if (registrationForPayment.payment_confirmed) {
+            report.existingPayments.push(g.team);
+          } else {
+            try {
+              await adminApi.markRegistrationPayment(raceId, teamId, importPaymentType, true);
+              report.markedPayments.push(g.team);
+              regByTeamId.set(teamId, {
+                ...registrationForPayment,
+                payment_confirmed: true,
+              });
+            } catch (e) {
+              report.errors.push(t('admin.registrationImporter.errorMarkPayment', { team: g.team, message: e?.message || e }));
+            }
           }
         }
 
@@ -194,6 +226,19 @@ export default function RegistrationImporter({
             {importing ? t('admin.registrationImporter.importing') : t('admin.registrationImporter.import') }
           </button>
         </div>
+        <div className="form-check mt-2">
+          <input
+            id="registration-importer-mark-paid"
+            type="checkbox"
+            className="form-check-input"
+            checked={markImportedAsPaid}
+            onChange={(e) => setMarkImportedAsPaid(e.target.checked)}
+            disabled={importing}
+          />
+          <label className="form-check-label" htmlFor="registration-importer-mark-paid">
+            {t('admin.registrationImporter.markImportedAsPaid')}
+          </label>
+        </div>
         <div className="small text-muted mt-2">
           {t('admin.registrationImporter.importHelp')}
         </div>
@@ -209,9 +254,13 @@ export default function RegistrationImporter({
           <ul className="small">
             <li><strong>{t('admin.registrationImporter.teamsCreated')}:</strong> {importReport.createdTeams.length}</li>
             <li><strong>{t('admin.registrationImporter.registrationsCreated')}:</strong> {importReport.createdRegistrations.length}</li>
+            <li><strong>{t('admin.registrationImporter.markedPayments')}:</strong> {importReport.markedPayments.length}</li>
             <li><strong>{t('admin.registrationImporter.usersCreated')}:</strong> {importReport.createdUsers.length}</li>
             <li><strong>{t('admin.registrationImporter.existingUsers')}:</strong> {importReport.existingUsers.length}</li>
             <li><strong>{t('admin.registrationImporter.membersAdded')}:</strong> {importReport.addedMembers.reduce((a,b)=>a+b.count,0)}</li>
+            {importReport.existingPayments.length > 0 && (
+              <li><strong>{t('admin.registrationImporter.existingPayments')}:</strong> {importReport.existingPayments.length}</li>
+            )}
             {importReport.missingCategories.length > 0 && (
               <li className="text-warning"><strong>{t('admin.registrationImporter.missingCategories')}:</strong> {importReport.missingCategories.map(m => `${m.team} (${m.category})`).join('; ')}</li>
             )}
@@ -261,6 +310,7 @@ export default function RegistrationImporter({
                   <li>{t('admin.registrationImporter.importHelpNoteTeamRepeat')}</li>
                   <li>{t('admin.registrationImporter.importHelpNoteRequired')}</li>
                   <li>{t('admin.registrationImporter.importHelpNoteCategory')}</li>
+                  <li>{t('admin.registrationImporter.importHelpNotePaid')}</li>
                 </ul>
 
                 <h6 className="mt-3">{t('admin.registrationImporter.importHelpExample')}</h6>

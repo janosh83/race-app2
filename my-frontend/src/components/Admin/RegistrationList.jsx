@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 import RegistrationImporter from './RegistrationImporter';
 
 // Single-page management for registrations, teams, and categories
-export default function RegistrationList({ raceId }) {
+export default function RegistrationList({ raceId, race }) {
   const { t } = useTranslation();
   const [registrations, setRegistrations] = useState([]);
   const [teams, setTeams] = useState([]);
@@ -486,6 +486,7 @@ export default function RegistrationList({ raceId }) {
 
         <RegistrationImporter
           raceId={raceId}
+          race={race}
           teams={teams}
           users={users}
           registrations={registrations}
