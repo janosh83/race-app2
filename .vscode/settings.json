@@ -6,5 +6,8 @@
     "python.testing.pytestEnabled": true,
     "jest.enable": true,
     "jest.runMode": "on-demand",
-    "testing.automaticallyOpenPeekView": "failureInVisibleDocument"
+    "testing.automaticallyOpenPeekView": "failureInVisibleDocument",
+    "chat.tools.terminal.autoApprove": {
+        "npx vitest": true
+    }
 }
