@@ -64,6 +64,9 @@
     "uploadTooLarge": "Obrázek je příliš velký. Nahrajte menší soubor.",
     "visitDeleteFailed": "Nepodařilo se smazat návštěvu: {{message}}",
     "checkpointsLoaded": "Checkpointy byly načteny",
+    "descriptionLabel": "Popis",
+    "coordinatesLabel": "Souřadnice",
+    "noDescription": "Popis není k dispozici.",
     "imageProcessFailed": "Nepodařilo se zpracovat fotku. Zkuste jinou.",
     "unknownError": "Neznámá chyba"
   },

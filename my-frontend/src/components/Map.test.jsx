@@ -39,12 +39,20 @@ vi.mock('leaflet', () => {
     return ExtendedControl;
   };
 
-  const marker = vi.fn((_coords, _options) => ({
-    addTo: vi.fn(() => mockMap),
-    bindPopup: vi.fn(),
-    on: vi.fn(),
-    setIcon: vi.fn(),
-  }));
+  const marker = vi.fn((_coords, _options) => {
+    const handlers = {};
+    const markerObject = {
+      __handlers: handlers,
+      addTo: vi.fn(() => markerObject),
+      bindPopup: vi.fn(),
+      on: vi.fn((eventName, handler) => {
+        handlers[eventName] = handler;
+        return markerObject;
+      }),
+      setIcon: vi.fn(),
+    };
+    return markerObject;
+  });
 
   return {
     __esModule: true,
@@ -314,25 +322,41 @@ describe('Map Component', () => {
       expect(screen.queryByText('✕ Close')).not.toBeInTheDocument();
     });
 
-    test('displays checkpoint details when visited checkpoint is shown', async () => {
+    test('displays checkpoint details and coordinates in read-only mode', async () => {
       const checkpoint = {
         id: 1,
         title: 'Test Checkpoint',
         description: 'Test Description',
+        latitude: 50.123456,
+        longitude: 14.654321,
         visited: true,
         image_filename: 'test.jpg',
       };
 
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'SHOW_ONLY' },
+        selectedLanguage: 'en',
+      });
       raceApi.getCheckpointsStatus.mockResolvedValue([checkpoint]);
 
-      const { rerender } = render(<Map />);
+      render(<Map />);
 
-      // Simulate checkpoint selection (this would normally happen via marker click)
-      rerender(<Map />);
+      await act(async () => {
+        await Promise.resolve();
+      });
 
-      // Since we can't click Leaflet markers in tests, we'll test the overlay rendering logic
-      // by checking that the component structure exists
-      expect(screen.queryByText('Test Checkpoint')).not.toBeInTheDocument();
+      const checkpointMarker = L.marker.mock.results[0].value;
+      await act(async () => {
+        checkpointMarker.__handlers.click();
+      });
+
+      expect(screen.getByText('Test Checkpoint')).toBeInTheDocument();
+      expect(screen.getByText('Description:')).toBeInTheDocument();
+      expect(screen.getByText('Test Description')).toBeInTheDocument();
+      expect(screen.getByText('Coordinates:')).toBeInTheDocument();
+      expect(screen.getByText('50.123456, 14.654321')).toBeInTheDocument();
+      expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     });
   });
 

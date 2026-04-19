@@ -43,6 +43,11 @@ const escapeHtml = (value) => String(value)
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#39;');
 
+const formatCoordinateDisplay = (value) => {
+  const coordinate = toFiniteCoordinate(value);
+  return coordinate == null ? '—' : coordinate.toFixed(6);
+};
+
 const getRaceMarkers = (activeRace, t) => {
   const markers = [];
   const finishLatitude = toFiniteCoordinate(activeRace?.finish_latitude);
@@ -652,11 +657,14 @@ function Map({ topOffset = 56 }) {
               </button>
             </div>
 
-            {selectedCheckpoint.description && (
-              <div className="mb-3">
-                <p>{selectedCheckpoint.description}</p>
+            <div className="mb-3">
+              <div><strong>{t('map.descriptionLabel')}:</strong></div>
+              <p className="mb-2">{selectedCheckpoint.description?.trim() || t('map.noDescription')}</p>
+              <div>
+                <strong>{t('map.coordinatesLabel')}:</strong>{' '}
+                {formatCoordinateDisplay(selectedCheckpoint.latitude)}, {formatCoordinateDisplay(selectedCheckpoint.longitude)}
               </div>
-            )}
+            </div>
 
             <div className="mb-3">
               <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>

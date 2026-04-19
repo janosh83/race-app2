@@ -64,6 +64,9 @@
     "uploadTooLarge": "Das Bild ist zu gross. Bitte eine kleinere Datei hochladen.",
     "visitDeleteFailed": "Besuch konnte nicht geloescht werden: {{message}}",
     "checkpointsLoaded": "Checkpoints erfolgreich geladen",
+    "descriptionLabel": "Beschreibung",
+    "coordinatesLabel": "Koordinaten",
+    "noDescription": "Keine Beschreibung vorhanden.",
     "imageProcessFailed": "Bild konnte nicht verarbeitet werden. Bitte anderes Foto waehlen.",
     "unknownError": "Unbekannter Fehler"
   },
