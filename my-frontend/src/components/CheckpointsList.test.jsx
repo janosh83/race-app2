@@ -52,8 +52,32 @@ describe('CheckpointsList Component', () => {
 
     fireEvent.click(screen.getByText('Visited Checkpoint'));
 
+    expect(screen.getByText('Navigate')).toBeInTheDocument();
     expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     expect(screen.queryByText('Logging is not open yet')).not.toBeInTheDocument();
     expect(logoutAndRedirect).not.toHaveBeenCalled();
+  });
+
+  test('hides navigation action when checkpoint coordinates are incomplete', async () => {
+    raceApi.getCheckpointsStatus.mockResolvedValue([
+      {
+        id: 2,
+        title: 'Broken Checkpoint',
+        description: 'Missing longitude',
+        latitude: 50.1,
+        longitude: '',
+        visited: false,
+      },
+    ]);
+
+    render(<CheckpointsList />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByText('Broken Checkpoint'));
+
+    expect(screen.queryByText('Navigate')).not.toBeInTheDocument();
   });
 });

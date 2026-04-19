@@ -7,6 +7,7 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
+import { getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
@@ -211,6 +212,14 @@ function CheckpointsList({ topOffset = 56 }) {
     setImagePreview(null);
   };
 
+  const selectedCheckpointNavigationTarget = selectedCheckpoint
+    ? getNavigationTarget({
+        latitude: selectedCheckpoint.latitude,
+        longitude: selectedCheckpoint.longitude,
+        title: selectedCheckpoint.title,
+      })
+    : null;
+
   const sortedCheckpoints = [...checkpoints].sort((a, b) => Number(b.visited) - Number(a.visited));
 
   return (
@@ -357,9 +366,23 @@ function CheckpointsList({ topOffset = 56 }) {
             </div>
 
             <div className="mb-3 text-muted small">
-              <div>
-                <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
-                {selectedCheckpoint.latitude}, {selectedCheckpoint.longitude}
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <div>
+                  <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
+                  {selectedCheckpoint.latitude}, {selectedCheckpoint.longitude}
+                </div>
+                {selectedCheckpointNavigationTarget && (
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => openNavigationTarget({
+                      latitude: selectedCheckpoint.latitude,
+                      longitude: selectedCheckpoint.longitude,
+                      title: selectedCheckpoint.title,
+                    })}
+                  >
+                    {t('map.navigate')}
+                  </button>
+                )}
               </div>
               <div>
                 <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(selectedCheckpoint)}

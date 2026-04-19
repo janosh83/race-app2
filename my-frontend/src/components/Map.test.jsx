@@ -271,9 +271,21 @@ describe('Map Component', () => {
       );
 
       const raceMarkerInstances = L.marker.mock.results.slice(0, 3).map((result) => result.value);
-      expect(raceMarkerInstances[0].bindPopup).toHaveBeenCalledWith('<strong>Finish</strong><br>Finish arch by the lake');
-      expect(raceMarkerInstances[1].bindPopup).toHaveBeenCalledWith('North Camp');
-      expect(raceMarkerInstances[2].bindPopup).toHaveBeenCalledWith('Bivak 2');
+      const finishPopup = raceMarkerInstances[0].bindPopup.mock.calls[0][0];
+      const bivak1Popup = raceMarkerInstances[1].bindPopup.mock.calls[0][0];
+      const bivak2Popup = raceMarkerInstances[2].bindPopup.mock.calls[0][0];
+
+      expect(finishPopup).toContain('<strong>Finish</strong><br>Finish arch by the lake');
+      expect(finishPopup).toContain('>Navigate<');
+      expect(finishPopup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.25%2C14.35&amp;travelmode=driving');
+
+      expect(bivak1Popup).toContain('North Camp');
+      expect(bivak1Popup).toContain('>Navigate<');
+      expect(bivak1Popup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.15%2C14.15&amp;travelmode=driving');
+
+      expect(bivak2Popup).toContain('Bivak 2');
+      expect(bivak2Popup).toContain('>Navigate<');
+      expect(bivak2Popup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.45%2C14.55&amp;travelmode=driving');
     });
 
     test('does not render bivak markers for blank or missing coordinates', async () => {
@@ -356,6 +368,7 @@ describe('Map Component', () => {
       expect(screen.getByText('Test Description')).toBeInTheDocument();
       expect(screen.getByText('Coordinates:')).toBeInTheDocument();
       expect(screen.getByText('50.123456, 14.654321')).toBeInTheDocument();
+      expect(screen.getByText('Navigate')).toBeInTheDocument();
       expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     });
   });

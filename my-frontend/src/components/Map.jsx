@@ -9,6 +9,7 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
+import { getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
@@ -49,6 +50,18 @@ const formatCoordinateDisplay = (value) => {
   return coordinate == null ? '—' : coordinate.toFixed(6);
 };
 
+const buildNavigationLinkHtml = (navigationTarget, t) => {
+  if (!navigationTarget) {
+    return '';
+  }
+
+  const targetAttributes = navigationTarget.launchMode === 'new-tab'
+    ? ' target="_blank" rel="noopener noreferrer"'
+    : '';
+
+  return `<div style="margin-top:8px;"><a href="${escapeHtml(navigationTarget.url)}"${targetAttributes}>${escapeHtml(t('map.navigate'))}</a></div>`;
+};
+
 const getRaceMarkers = (activeRace, t) => {
   const markers = [];
   const finishLatitude = toFiniteCoordinate(activeRace?.finish_latitude);
@@ -57,14 +70,19 @@ const getRaceMarkers = (activeRace, t) => {
   const finishLabel = t('map.finishMarker');
 
   if (finishLatitude != null && finishLongitude != null) {
+    const finishNavigationTarget = getNavigationTarget({
+      latitude: finishLatitude,
+      longitude: finishLongitude,
+      title: finishLabel,
+    });
     markers.push({
       id: 'finish',
       latitude: finishLatitude,
       longitude: finishLongitude,
       title: finishLabel,
       popupContent: finishDescription
-        ? `<strong>${escapeHtml(finishLabel)}</strong><br>${escapeHtml(finishDescription)}`
-        : `<strong>${escapeHtml(finishLabel)}</strong>`,
+        ? `<strong>${escapeHtml(finishLabel)}</strong><br>${escapeHtml(finishDescription)}${buildNavigationLinkHtml(finishNavigationTarget, t)}`
+        : `<strong>${escapeHtml(finishLabel)}</strong>${buildNavigationLinkHtml(finishNavigationTarget, t)}`,
       iconUrl: '/map-finish-marker.svg',
       iconOptions: {
         iconSize: [32, 52],
@@ -78,12 +96,18 @@ const getRaceMarkers = (activeRace, t) => {
   const bivak1Latitude = toFiniteCoordinate(activeRace?.bivak_1_latitude);
   const bivak1Longitude = toFiniteCoordinate(activeRace?.bivak_1_longitude);
   if (bivak1Latitude != null && bivak1Longitude != null) {
+    const bivak1Title = activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 });
+    const bivak1NavigationTarget = getNavigationTarget({
+      latitude: bivak1Latitude,
+      longitude: bivak1Longitude,
+      title: bivak1Title,
+    });
     markers.push({
       id: 'bivak-1',
       latitude: bivak1Latitude,
       longitude: bivak1Longitude,
-      title: activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 }),
-      popupContent: activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 }),
+      title: bivak1Title,
+      popupContent: `${escapeHtml(bivak1Title)}${buildNavigationLinkHtml(bivak1NavigationTarget, t)}`,
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -91,12 +115,18 @@ const getRaceMarkers = (activeRace, t) => {
   const bivak2Latitude = toFiniteCoordinate(activeRace?.bivak_2_latitude);
   const bivak2Longitude = toFiniteCoordinate(activeRace?.bivak_2_longitude);
   if (bivak2Latitude != null && bivak2Longitude != null) {
+    const bivak2Title = activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 });
+    const bivak2NavigationTarget = getNavigationTarget({
+      latitude: bivak2Latitude,
+      longitude: bivak2Longitude,
+      title: bivak2Title,
+    });
     markers.push({
       id: 'bivak-2',
       latitude: bivak2Latitude,
       longitude: bivak2Longitude,
-      title: activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 }),
-      popupContent: activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 }),
+      title: bivak2Title,
+      popupContent: `${escapeHtml(bivak2Title)}${buildNavigationLinkHtml(bivak2NavigationTarget, t)}`,
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -558,6 +588,14 @@ function Map({ topOffset = 56 }) {
     setImagePreview(null);
   };
 
+  const selectedCheckpointNavigationTarget = selectedCheckpoint
+    ? getNavigationTarget({
+        latitude: selectedCheckpoint.latitude,
+        longitude: selectedCheckpoint.longitude,
+        title: selectedCheckpoint.title,
+      })
+    : null;
+
   return (
     <>
       {/* Toast notification */}
@@ -661,9 +699,23 @@ function Map({ topOffset = 56 }) {
             <div className="mb-3">
               <div><strong>{t('map.descriptionLabel')}:</strong></div>
               <p className="mb-2">{selectedCheckpoint.description?.trim() || t('map.noDescription')}</p>
-              <div>
-                <strong>{t('map.coordinatesLabel')}:</strong>{' '}
-                {formatCoordinateDisplay(selectedCheckpoint.latitude)}, {formatCoordinateDisplay(selectedCheckpoint.longitude)}
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <div>
+                  <strong>{t('map.coordinatesLabel')}:</strong>{' '}
+                  {formatCoordinateDisplay(selectedCheckpoint.latitude)}, {formatCoordinateDisplay(selectedCheckpoint.longitude)}
+                </div>
+                {selectedCheckpointNavigationTarget && (
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => openNavigationTarget({
+                      latitude: selectedCheckpoint.latitude,
+                      longitude: selectedCheckpoint.longitude,
+                      title: selectedCheckpoint.title,
+                    })}
+                  >
+                    {t('map.navigate')}
+                  </button>
+                )}
               </div>
             </div>
 

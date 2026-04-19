@@ -66,6 +66,7 @@
     "checkpointsLoaded": "Checkpoints erfolgreich geladen",
     "descriptionLabel": "Beschreibung",
     "coordinatesLabel": "Koordinaten",
+    "navigate": "Navigieren",
     "noDescription": "Keine Beschreibung vorhanden.",
     "imageProcessFailed": "Bild konnte nicht verarbeitet werden. Bitte anderes Foto waehlen.",
     "unknownError": "Unbekannter Fehler"

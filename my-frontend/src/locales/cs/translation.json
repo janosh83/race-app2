@@ -66,6 +66,7 @@
     "checkpointsLoaded": "Checkpointy byly načteny",
     "descriptionLabel": "Popis",
     "coordinatesLabel": "Souřadnice",
+    "navigate": "Navigovat",
     "noDescription": "Popis není k dispozici.",
     "imageProcessFailed": "Nepodařilo se zpracovat fotku. Zkuste jinou.",
     "unknownError": "Neznámá chyba"
