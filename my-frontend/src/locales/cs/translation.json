@@ -67,6 +67,9 @@
     "descriptionLabel": "Popis",
     "coordinatesLabel": "Souřadnice",
     "navigate": "Navigovat",
+    "copyCoordinates": "Kopírovat",
+    "coordinatesCopied": "Souřadnice zkopírovány",
+    "coordinatesCopyFailed": "Souřadnice se nepodařilo zkopírovat",
     "noDescription": "Popis není k dispozici.",
     "imageProcessFailed": "Nepodařilo se zpracovat fotku. Zkuste jinou.",
     "unknownError": "Neznámá chyba"

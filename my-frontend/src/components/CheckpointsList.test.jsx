@@ -53,6 +53,7 @@ describe('CheckpointsList Component', () => {
     fireEvent.click(screen.getByText('Visited Checkpoint'));
 
     expect(screen.getByText('Navigate')).toBeInTheDocument();
+    expect(screen.getByText('Copy')).toBeInTheDocument();
     expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     expect(screen.queryByText('Logging is not open yet')).not.toBeInTheDocument();
     expect(logoutAndRedirect).not.toHaveBeenCalled();
@@ -79,5 +80,6 @@ describe('CheckpointsList Component', () => {
     fireEvent.click(screen.getByText('Broken Checkpoint'));
 
     expect(screen.queryByText('Navigate')).not.toBeInTheDocument();
+    expect(screen.queryByText('Copy')).not.toBeInTheDocument();
   });
 });

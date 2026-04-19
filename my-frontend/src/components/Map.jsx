@@ -9,7 +9,7 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
-import { getNavigationTarget, openNavigationTarget } from '../utils/navigation';
+import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
@@ -588,6 +588,24 @@ function Map({ topOffset = 56 }) {
     setImagePreview(null);
   };
 
+  const handleCopyCoordinates = async (point) => {
+    try {
+      const copied = await copyCoordinatesToClipboard(point);
+      setToast({
+        message: copied ? t('map.coordinatesCopied') : t('map.coordinatesCopyFailed'),
+        type: copied ? 'success' : 'error',
+        duration: copied ? 2500 : 4000,
+      });
+    } catch (err) {
+      logger.error('NAVIGATION', 'Failed to copy coordinates', err?.message || err);
+      setToast({
+        message: t('map.coordinatesCopyFailed'),
+        type: 'error',
+        duration: 4000,
+      });
+    }
+  };
+
   const selectedCheckpointNavigationTarget = selectedCheckpoint
     ? getNavigationTarget({
         latitude: selectedCheckpoint.latitude,
@@ -714,6 +732,17 @@ function Map({ topOffset = 56 }) {
                     })}
                   >
                     {t('map.navigate')}
+                  </button>
+                )}
+                {selectedCheckpointNavigationTarget && (
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => handleCopyCoordinates({
+                      latitude: selectedCheckpoint.latitude,
+                      longitude: selectedCheckpoint.longitude,
+                    })}
+                  >
+                    {t('map.copyCoordinates')}
                   </button>
                 )}
               </div>

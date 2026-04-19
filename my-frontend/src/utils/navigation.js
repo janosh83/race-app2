@@ -6,6 +6,17 @@ function normalizeCoordinate(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+export function formatNavigationCoordinates(point) {
+  const latitude = normalizeCoordinate(point?.latitude ?? point?.lat);
+  const longitude = normalizeCoordinate(point?.longitude ?? point?.lng);
+
+  if (latitude == null || longitude == null) {
+    return null;
+  }
+
+  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+}
+
 export function getNavigationTarget(point, runtime = {}) {
   const latitude = normalizeCoordinate(point?.latitude ?? point?.lat);
   const longitude = normalizeCoordinate(point?.longitude ?? point?.lng);
@@ -51,6 +62,38 @@ export function getNavigationTarget(point, runtime = {}) {
     url: `https://www.google.com/maps/dir/?${search.toString()}`,
     launchMode: 'new-tab',
   };
+}
+
+export async function copyCoordinatesToClipboard(point, runtime = {}) {
+  const coordinates = formatNavigationCoordinates(point);
+  if (!coordinates) {
+    return false;
+  }
+
+  const clipboard = runtime.clipboard ?? globalThis?.navigator?.clipboard;
+  if (clipboard?.writeText) {
+    await clipboard.writeText(coordinates);
+    return true;
+  }
+
+  const documentRef = runtime.document ?? globalThis?.document;
+  if (!documentRef?.createElement?.bind(documentRef) || !documentRef?.body) {
+    return false;
+  }
+
+  const textarea = documentRef.createElement('textarea');
+  textarea.value = coordinates;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'absolute';
+  textarea.style.left = '-9999px';
+  documentRef.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return Boolean(documentRef.execCommand?.('copy'));
+  } finally {
+    documentRef.body.removeChild(textarea);
+  }
 }
 
 export function openNavigationTarget(point, runtime = {}) {

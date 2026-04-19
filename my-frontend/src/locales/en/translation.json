@@ -67,6 +67,9 @@
     "descriptionLabel": "Description",
     "coordinatesLabel": "Coordinates",
     "navigate": "Navigate",
+    "copyCoordinates": "Copy",
+    "coordinatesCopied": "Coordinates copied",
+    "coordinatesCopyFailed": "Failed to copy coordinates",
     "noDescription": "No description provided.",
     "imageProcessFailed": "Failed to process image. Please try another photo.",
     "unknownError": "Unknown error"

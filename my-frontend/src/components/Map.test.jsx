@@ -369,6 +369,7 @@ describe('Map Component', () => {
       expect(screen.getByText('Coordinates:')).toBeInTheDocument();
       expect(screen.getByText('50.123456, 14.654321')).toBeInTheDocument();
       expect(screen.getByText('Navigate')).toBeInTheDocument();
+      expect(screen.getByText('Copy')).toBeInTheDocument();
       expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     });
   });
