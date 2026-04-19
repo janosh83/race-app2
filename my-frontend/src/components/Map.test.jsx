@@ -260,6 +260,41 @@ describe('Map Component', () => {
         expect.objectContaining({ title: 'Bivak 2' })
       );
     });
+
+    test('does not render bivak markers for blank or missing coordinates', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: {
+          race_id: 1,
+          team_id: 10,
+          finish_latitude: 50.25,
+          finish_longitude: 14.35,
+          bivak_1_name: 'North Camp',
+          bivak_1_latitude: '',
+          bivak_1_longitude: '',
+          bivak_2_latitude: null,
+          bivak_2_longitude: null,
+        },
+        timeInfo: { state: 'LOGGING' },
+        selectedLanguage: 'en',
+      });
+      raceApi.getCheckpointsStatus.mockResolvedValue([]);
+
+      render(<Map />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(L.marker).toHaveBeenCalledTimes(1);
+      expect(L.marker).toHaveBeenCalledWith(
+        [50.25, 14.35],
+        expect.objectContaining({ title: 'Finish' })
+      );
+      expect(L.marker).not.toHaveBeenCalledWith(
+        [0, 0],
+        expect.anything()
+      );
+    });
   });
 
   describe('Checkpoint overlay', () => {
