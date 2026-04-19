@@ -2,19 +2,22 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
+import { parseRegistrationImportText } from '../../utils/registrationImport';
 
-export default function RegistrationImporter({ 
-  raceId, 
-  teams, 
-  users, 
-  registrations, 
-  raceCategories, 
-  onImportComplete 
+export default function RegistrationImporter({
+  raceId,
+  teams,
+  users,
+  registrations,
+  raceCategories,
+  onImportComplete
 }) {
   const { t } = useTranslation();
   const [importRows, setImportRows] = useState([]);
   const [importing, setImporting] = useState(false);
   const [importReport, setImportReport] = useState(null);
+  const [parseErrors, setParseErrors] = useState([]);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   const slugify = (s) => {
     if (!s) return '';
@@ -28,36 +31,17 @@ export default function RegistrationImporter({
       .replace(/^-|-$/g, '');
   };
 
-  const parseDelimited = (text) => {
-    const hasTabs = text.includes('\t');
-    const delim = hasTabs ? '\t' : ',';
-    const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length === 0) return [];
-    const headers = lines[0].split(delim).map(h => h.trim());
-    const idxOf = (names) => headers.findIndex(h => names.includes(h));
-    const idxEmail = idxOf(['E-mailová adresa', 'E-mail', 'Email', 'email']);
-    const idxName = idxOf(['Tvoje jméno', 'Jméno', 'Name', 'name']);
-    const idxTeam = idxOf(['Jméno posádky', 'Team', 'Tým', 'team', 'posádka']);
-    const idxCat = idxOf(['kategorie', 'Kategorie', 'category', 'race_category']);
-    const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].split(delim);
-      const email = (parts[idxEmail] || '').trim();
-      const name = (parts[idxName] || '').trim();
-      const team = (parts[idxTeam] || '').trim();
-      const category = (parts[idxCat] || '').trim();
-      if (!email || !team) continue;
-      rows.push({ email, name, team, category });
-    }
-    return rows;
-  };
-
   const handleImportFile = async (file) => {
     setImportReport(null);
-    if (!file) { setImportRows([]); return; }
+    setParseErrors([]);
+    if (!file) {
+      setImportRows([]);
+      return;
+    }
     const text = await file.text();
-    const rows = parseDelimited(text);
-    setImportRows(rows);
+    const parsed = parseRegistrationImportText(text);
+    setImportRows(parsed.rows);
+    setParseErrors(parsed.errors);
   };
 
   const runImport = async () => {
@@ -179,7 +163,20 @@ export default function RegistrationImporter({
 
   return (
     <div>
-      <h6 className="mb-2">{t('admin.registrationImporter.title')}</h6>
+      <div className="d-flex align-items-center gap-2 mb-2">
+        <h6 className="mb-0">{t('admin.registrationImporter.title')}</h6>
+        <button
+          type="button"
+          className="btn btn-sm btn-link p-0"
+          onClick={() => setShowHelpModal(true)}
+          title={t('admin.registrationImporter.importHelpTitle')}
+        >
+          <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+          </svg>
+        </button>
+      </div>
       <div className="mb-2">
         <div className="input-group">
           <input
@@ -197,7 +194,15 @@ export default function RegistrationImporter({
             {importing ? t('admin.registrationImporter.importing') : t('admin.registrationImporter.import') }
           </button>
         </div>
+        <div className="small text-muted mt-2">
+          {t('admin.registrationImporter.importHelp')}
+        </div>
       </div>
+      {parseErrors.length > 0 && (
+        <div className="alert alert-warning small">
+          <strong>Parser:</strong> {parseErrors.join(' | ')}
+        </div>
+      )}
       {importReport && (
         <div className="mt-3">
           <h6>{t('admin.registrationImporter.reportTitle')}</h6>
@@ -214,6 +219,63 @@ export default function RegistrationImporter({
               <li className="text-danger"><strong>{t('admin.registrationImporter.errors')}:</strong> {importReport.errors.join(' | ')}</li>
             )}
           </ul>
+        </div>
+      )}
+
+      {showHelpModal && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('admin.registrationImporter.importHelpTitle')}</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowHelpModal(false)}
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <h6>{t('admin.registrationImporter.importHelpFormat')}</h6>
+                <p className="text-muted">{t('admin.registrationImporter.importHelpDescription')}</p>
+
+                <h6 className="mt-3">{t('admin.registrationImporter.importHelpFields')}</h6>
+                <ul>
+                  <li><strong>Email</strong> {t('admin.registrationImporter.importHelpFieldEmail')}</li>
+                  <li><strong>Name</strong> {t('admin.registrationImporter.importHelpFieldName')}</li>
+                  <li><strong>Team</strong> {t('admin.registrationImporter.importHelpFieldTeam')}</li>
+                  <li><strong>Category</strong> {t('admin.registrationImporter.importHelpFieldCategory')}</li>
+                </ul>
+
+                <h6 className="mt-3">{t('admin.registrationImporter.importHelpAcceptedHeaders')}</h6>
+                <ul>
+                  <li><strong>Email:</strong> Email, E-mail, E-mailová adresa</li>
+                  <li><strong>Name:</strong> Name, Jméno, Tvoje jméno</li>
+                  <li><strong>Team:</strong> Team, Tým, Jméno posádky, posádka</li>
+                  <li><strong>Category:</strong> Category, Kategorie, kategorie, race_category</li>
+                </ul>
+
+                <h6 className="mt-3">{t('admin.registrationImporter.importHelpNotes')}</h6>
+                <ul>
+                  <li>{t('admin.registrationImporter.importHelpNoteOneRow')}</li>
+                  <li>{t('admin.registrationImporter.importHelpNoteTeamRepeat')}</li>
+                  <li>{t('admin.registrationImporter.importHelpNoteRequired')}</li>
+                  <li>{t('admin.registrationImporter.importHelpNoteCategory')}</li>
+                </ul>
+
+                <h6 className="mt-3">{t('admin.registrationImporter.importHelpExample')}</h6>
+                <pre className="bg-light p-3 rounded border" style={{ fontSize: '12px', overflow: 'auto' }}>{`Email,Name,Team,Category
+alice@example.com,Alice,Thunder Crew,Adventure
+bob@example.com,Bob,Thunder Crew,Adventure
+carol@example.com,Carol,Night Riders,Classic`}</pre>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowHelpModal(false)}>
+                  {t('admin.close')}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

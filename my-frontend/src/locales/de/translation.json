@@ -219,6 +219,7 @@
     "registrationCompleteTitle": "Registrierung abgeschlossen"
   },
   "admin": {
+    "close": "Schliessen",
     "common": {
       "unknownError": "Unbekannter Fehler",
       "pointsShort": "Pkt."
@@ -557,6 +558,22 @@
       "title": "Teams und Mitglieder importieren (CSV/TSV)",
       "import": "Importieren",
       "importing": "Importiere…",
+      "importHelp": "Unterstuetzt CSV und TSV mit einem Mitglied pro Zeile. Der Info-Button zeigt akzeptierte Spaltennamen und ein Beispiel.",
+      "importHelpTitle": "Hilfe zum Registrierungsimport",
+      "importHelpFormat": "Unterstuetztes Format",
+      "importHelpDescription": "Laden Sie eine CSV- oder TSV-Datei mit einem Teammitglied pro Zeile hoch. Der Import gruppiert Zeilen nach Teamnamen, ordnet bestehende Benutzer per E-Mail zu, erstellt fehlende Teams und Benutzer und registriert das Team, wenn die Kategorie zu einer vorhandenen Rennkategorie passt.",
+      "importHelpFields": "Unterstuetzte Spalten",
+      "importHelpFieldEmail": "Erforderlich. Wird verwendet, um einen vorhandenen Benutzer zu finden oder einen neuen zu erstellen.",
+      "importHelpFieldName": "Optional. Wird beim Erstellen eines neuen Benutzers verwendet.",
+      "importHelpFieldTeam": "Erforderlich. Zeilen mit demselben Teamnamen werden zu einem Team gruppiert.",
+      "importHelpFieldCategory": "Optional, aber empfohlen. Muss zu einem vorhandenen Rennkategorienamen passen.",
+      "importHelpAcceptedHeaders": "Akzeptierte Spaltennamen",
+      "importHelpNotes": "Hinweise",
+      "importHelpNoteOneRow": "Verwenden Sie eine Zeile pro Person.",
+      "importHelpNoteTeamRepeat": "Wiederholen Sie denselben Teamnamen fuer alle Mitglieder desselben Teams.",
+      "importHelpNoteRequired": "Zeilen ohne E-Mail oder Team werden ignoriert.",
+      "importHelpNoteCategory": "Wenn die Kategorie fehlt oder nicht passt, kann das Team ohne Registrierung erstellt werden.",
+      "importHelpExample": "Beispiel",
       "reportTitle": "Importbericht",
       "teamsCreated": "Teams erstellt",
       "registrationsCreated": "Registrierungen erstellt",

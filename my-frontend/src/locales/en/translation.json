@@ -219,6 +219,7 @@
     "registrationCompleteTitle": "Registration complete"
   },
   "admin": {
+    "close": "Close",
     "common": {
       "unknownError": "Unknown error",
       "pointsShort": "pts"
@@ -557,6 +558,22 @@
       "title": "Import teams & members (CSV/TSV)",
       "import": "Import",
       "importing": "Importing…",
+      "importHelp": "Supports CSV and TSV with one member per row. Use the info button for accepted headers and an example.",
+      "importHelpTitle": "Registration import help",
+      "importHelpFormat": "Supported format",
+      "importHelpDescription": "Upload a CSV or TSV file with one team member per row. The importer groups rows by team name, matches existing users by email, creates missing teams and users, and registers the team when the category matches an existing race category.",
+      "importHelpFields": "Supported columns",
+      "importHelpFieldEmail": "Required. Used to match an existing user or create a new one.",
+      "importHelpFieldName": "Optional. Used when creating a new user.",
+      "importHelpFieldTeam": "Required. Rows with the same team name are grouped into one team.",
+      "importHelpFieldCategory": "Optional but recommended. Must match an existing race category name.",
+      "importHelpAcceptedHeaders": "Accepted header names",
+      "importHelpNotes": "Notes",
+      "importHelpNoteOneRow": "Use one row per person.",
+      "importHelpNoteTeamRepeat": "Repeat the same team name for all members of that team.",
+      "importHelpNoteRequired": "Rows missing email or team are ignored.",
+      "importHelpNoteCategory": "If category is missing or does not match, the team may be created without a registration.",
+      "importHelpExample": "Example",
       "reportTitle": "Import report",
       "teamsCreated": "Teams created",
       "registrationsCreated": "Registrations created",

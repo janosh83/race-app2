@@ -219,6 +219,7 @@
     "registrationCompleteTitle": "Registrace dokončena"
   },
   "admin": {
+    "close": "Zavřít",
     "common": {
       "unknownError": "Neznámá chyba",
       "pointsShort": "b."
@@ -557,6 +558,22 @@
       "title": "Import týmů a členů (CSV/TSV)",
       "import": "Import",
       "importing": "Importuji…",
+      "importHelp": "Podporuje CSV i TSV s jedním členem na řádek. Tlačítko info ukazuje podporované hlavičky a příklad.",
+      "importHelpTitle": "Nápověda k importu registrací",
+      "importHelpFormat": "Podporovaný formát",
+      "importHelpDescription": "Nahrajte CSV nebo TSV soubor s jedním členem týmu na řádek. Import seskupuje řádky podle názvu týmu, páruje existující uživatele podle e-mailu, vytváří chybějící týmy a uživatele a zaregistruje tým, pokud kategorie odpovídá existující kategorii závodu.",
+      "importHelpFields": "Podporované sloupce",
+      "importHelpFieldEmail": "Povinné. Použije se pro dohledání existujícího uživatele nebo vytvoření nového.",
+      "importHelpFieldName": "Volitelné. Použije se při vytváření nového uživatele.",
+      "importHelpFieldTeam": "Povinné. Řádky se stejným názvem týmu se seskupí do jednoho týmu.",
+      "importHelpFieldCategory": "Volitelné, ale doporučené. Musí odpovídat existujícímu názvu kategorie závodu.",
+      "importHelpAcceptedHeaders": "Akceptované názvy hlaviček",
+      "importHelpNotes": "Poznámky",
+      "importHelpNoteOneRow": "Použijte jeden řádek pro jednu osobu.",
+      "importHelpNoteTeamRepeat": "Pro všechny členy stejného týmu opakujte stejný název týmu.",
+      "importHelpNoteRequired": "Řádky bez e-mailu nebo týmu se ignorují.",
+      "importHelpNoteCategory": "Pokud kategorie chybí nebo neodpovídá, tým může být vytvořen bez registrace.",
+      "importHelpExample": "Příklad",
       "reportTitle": "Report importu",
       "teamsCreated": "Vytvořené týmy",
       "registrationsCreated": "Vytvořené registrace",
