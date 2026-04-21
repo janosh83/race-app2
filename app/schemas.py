@@ -463,6 +463,10 @@ class TeamDisqualifySchema(Schema):
     disqualified = fields.Boolean(required=True)
 
 
+class SendRegistrationEmailsSchema(Schema):
+    team_id = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=1))
+
+
 class RegistrationEmailLogQuerySchema(Schema):
     status = fields.String(
         load_default=None,

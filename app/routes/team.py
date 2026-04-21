@@ -12,6 +12,7 @@ from app.routes.admin import admin_required
 from app.schemas import (
   RegistrationEmailLogQuerySchema,
   RetryFailedEmailsSchema,
+  SendRegistrationEmailsSchema,
   TeamAddMembersSchema,
   TeamCreateSchema,
   TeamDisqualifySchema,
@@ -557,10 +558,14 @@ def send_registration_emails(race_id):
     """
 
     race = Race.query.filter_by(id=race_id).first_or_404()
-    payload = request.get_json(silent=True) or {}
+    schema = SendRegistrationEmailsSchema()
+    raw_payload = request.get_json(silent=True) or {}
+    validation_errors = schema.validate(raw_payload)
+    if validation_errors:
+      return jsonify({"message": validation_errors}), 400
+    payload = schema.load(raw_payload)
+
     team_id = payload.get('team_id')
-    if team_id is not None and not str(team_id).strip().isdigit(): return jsonify({"message": "Invalid team_id"}), 400
-    team_id = int(str(team_id).strip()) if team_id is not None else None
 
     registration_exists = (
       Registration.query.filter(
