@@ -13,13 +13,26 @@
     "language": "Jazyk"
   },
   "activeRace": {
-    "selectTitle": "Vyberte aktivní závod",
+    "selectTitle": "Vybraný závod",
     "supportedLanguages": "Podporované jazyky",
     "unnamedRace": "Závod bez názvu",
     "startShowing": "Začátek zobrazování checkpointů",
     "endShowing": "Konec zobrazování checkpointů",
     "startLogging": "Začátek logování",
     "endLogging": "Konec logování",
+    "showingWindowLabel": "Zobrazení checkpointů",
+    "loggingWindowLabel": "Okno logování",
+    "currentPhaseLabel": "Aktuální fáze",
+    "intervalSeparator": "až",
+    "phase": {
+      "BEFORE_SHOW": "Před zobrazením checkpointů",
+      "SHOW_ONLY": "Checkpointy jsou zobrazené",
+      "LOGGING": "Logování je otevřené",
+      "POST_LOG_SHOW": "Checkpointy jsou vidět po logování",
+      "AFTER_SHOW": "Zobrazování checkpointů skončilo",
+      "UNKNOWN": "Harmonogram není k dispozici"
+    },
+    "selectedRaceScopeNote": "Mapa, checkpointy, úkoly a výsledky se zobrazují pro vybraný závod.",
     "noActiveSelected": "Není vybrán žádný aktivní závod.",
     "noneShowing": "Aktuálně se nezobrazují žádné závody.",
     "multipleActive": "Více závodů je právě aktivních - vyberte jeden ze seznamu níže.",

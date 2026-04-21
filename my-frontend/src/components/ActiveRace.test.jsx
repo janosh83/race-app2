@@ -14,7 +14,7 @@ vi.mock('../utils/activeRaceUtils');
 
 describe('ActiveRace Component', () => {
   const mockSetActiveRace = vi.fn();
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -175,6 +175,36 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('Current Race')).toBeInTheDocument();
     });
 
+    test('shows note that map, checkpoints, tasks, and results use the selected race', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+      activeRaceUtils.findCandidates.mockReturnValue([]);
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+      });
+
+      expect(screen.getByText('Map, checkpoints, tasks, and results are shown for the selected race.')).toBeInTheDocument();
+    });
+
+    test('shows the current phase of the selected race', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+      activeRaceUtils.findCandidates.mockReturnValue([]);
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+        timeInfo: { state: 'LOGGING' },
+      });
+
+      expect(screen.getByText('Logging open')).toBeInTheDocument();
+      expect(screen.getByText('Current phase')).toBeInTheDocument();
+      expect(screen.getByText('Checkpoint visibility')).toBeInTheDocument();
+      expect(screen.getByText('Logging window')).toBeInTheDocument();
+    });
+
     test('handles alternative property names for race data', () => {
       const activeRace = { id: 3, name: 'Race With ID' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
@@ -244,6 +274,32 @@ describe('ActiveRace Component', () => {
       });
 
       expect(screen.getByText('Currently showing')).toBeInTheDocument();
+    });
+
+    test('shows time status for non-active races', () => {
+      const now = new Date('2026-04-21T12:00:00Z').getTime();
+      vi.setSystemTime(now);
+
+      const activeRace = { race_id: 1, name: 'Active Race' };
+      const otherRace = {
+        race_id: 2,
+        name: 'Other Race',
+        start_showing_checkpoints_at: '2026-04-21T10:00:00Z',
+        start_logging_at: '2026-04-21T11:00:00Z',
+        end_logging_at: '2026-04-21T13:00:00Z',
+        end_showing_checkpoints_at: '2026-04-21T14:00:00Z',
+      };
+      activeRaceUtils.findCandidates.mockReturnValue([]);
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace, otherRace],
+        timeInfo: { state: 'UNKNOWN' },
+      });
+
+      expect(screen.getByText('Other Race')).toBeInTheDocument();
+      expect(screen.getByText('Logging open')).toBeInTheDocument();
     });
   });
 

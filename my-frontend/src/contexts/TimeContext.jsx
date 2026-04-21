@@ -12,7 +12,7 @@ function parseRaceTimeField(race, ...keys) {
   return null;
 }
 
-function timeStateForRace(nowMs, race) {
+export function timeStateForRace(nowMs, race) {
   const startShow = parseRaceTimeField(race, 'start_showing_checkpoints', 'start_showing_checkpoints_at', 'start_showing');
   const startLogging = parseRaceTimeField(race, 'start_logging', 'start_logging_at');
   const endLogging = parseRaceTimeField(race, 'end_logging', 'end_logging_at');
