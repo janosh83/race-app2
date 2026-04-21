@@ -15,6 +15,7 @@ from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_receipt_url
 from app.utils import (
     registration_mode as _registration_mode,
+    resolve_language as _resolve_language,
     resolve_race_category_name as _resolve_race_category_name,
     resolve_race_greeting as _resolve_race_greeting,
     resolve_race_name as _resolve_race_name,
@@ -620,21 +621,22 @@ def stripe_registration_webhook():
         for member in team.members:
             reset_token = generate_reset_token()
             member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+            email_language = _resolve_language(race, member)
             try:
                 send_result = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
-                    race_name=_resolve_race_name(race, member.preferred_language),
+                    race_name=_resolve_race_name(race, email_language),
                     team_name=team.name,
-                    race_category=_resolve_race_category_name(category, race, member.preferred_language),
+                    race_category=_resolve_race_category_name(category, race, email_language),
                     reset_token=reset_token,
-                    language=member.preferred_language,
+                    language=email_language,
                     payment_amount_cents=receipt_amount_cents,
                     payment_currency=receipt_currency,
                     payment_reference=receipt_reference,
                     payment_confirmed_at=receipt_confirmed_at,
                     payment_receipt_url=receipt_url,
-                    race_greeting=_resolve_race_greeting(race, member.preferred_language),
+                    race_greeting=_resolve_race_greeting(race, email_language),
                     return_result=True,
                 )
             except (OSError, ValueError, TypeError) as exc:

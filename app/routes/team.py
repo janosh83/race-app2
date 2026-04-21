@@ -22,6 +22,7 @@ from app.services.email_service import EmailService, generate_reset_token
 from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.utils import (
   registration_mode as _registration_mode,
+  resolve_language as _resolve_language,
   resolve_race_category_name as _resolve_race_category_name,
   resolve_race_greeting as _resolve_race_greeting,
   resolve_race_name as _resolve_race_name,
@@ -61,15 +62,16 @@ def _retry_single_registration_email_log(failed_log, race):
     try:
         reset_token = generate_reset_token()
         member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+        email_language = _resolve_language(race, member)
         send_result = EmailService.send_registration_confirmation_email(
             user_email=member.email,
             user_name=member.name or member.email,
-            race_name=_resolve_race_name(race, member.preferred_language),
+            race_name=_resolve_race_name(race, email_language),
             team_name=registration.team.name,
-            race_category=_resolve_race_category_name(category, race, member.preferred_language),
+            race_category=_resolve_race_category_name(category, race, email_language),
             reset_token=reset_token,
-            language=member.preferred_language,
-            race_greeting=_resolve_race_greeting(race, member.preferred_language),
+            language=email_language,
+            race_greeting=_resolve_race_greeting(race, email_language),
             return_result=True,
         )
     except (OSError, ValueError, TypeError) as exc:
@@ -628,24 +630,25 @@ def send_registration_emails(race_id):
                 # Generate password reset token for user
                 reset_token = generate_reset_token()
                 member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+                email_language = _resolve_language(race, member)
 
                 send_result = EmailService.send_registration_confirmation_email(
                     user_email=member.email,
                     user_name=member.name or member.email,
-                    race_name=_resolve_race_name(race, member.preferred_language),
+                    race_name=_resolve_race_name(race, email_language),
                     team_name=team.name,
-                    race_category=_resolve_race_category_name(race_category, race, member.preferred_language),
+                    race_category=_resolve_race_category_name(race_category, race, email_language),
                     reset_token=reset_token,
-                    language=member.preferred_language,
-                    race_greeting=_resolve_race_greeting(race, member.preferred_language),
+                    language=email_language,
+                    race_greeting=_resolve_race_greeting(race, email_language),
                     return_result=True,
                 )
                 add_registration_email_log(
-                  registration,
-                  member.id if member else None,
-                  member.email if member else "",
-                  "registration_confirmation",
-                  send_result,
+                    registration,
+                    member.id if member else None,
+                    member.email if member else "",
+                    "registration_confirmation",
+                    send_result,
                 )
                 if normalize_email_send_result(send_result)["success"]:
                     sent_count += 1
@@ -657,16 +660,16 @@ def send_registration_emails(race_id):
                 failed_count += 1
                 registration_success = False
                 add_registration_email_log(
-                  registration,
-                  member.id if member else None,
-                  member.email if member else "",
-                  "registration_confirmation",
-                  {
-                    "success": False,
-                    "error": str(e),
-                    "provider": "smtp",
-                    "provider_message_id": None,
-                  },
+                    registration,
+                    member.id if member else None,
+                    member.email if member else "",
+                    "registration_confirmation",
+                    {
+                        "success": False,
+                        "error": str(e),
+                        "provider": "smtp",
+                        "provider_message_id": None,
+                    },
                 )
                 logger.error("Exception sending registration email to %s: %s", member.email, e)
 

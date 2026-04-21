@@ -738,6 +738,45 @@ def test_send_registration_emails_single_team_only(test_client, add_test_data, a
         assert Registration.query.filter_by(race_id=1, team_id=2).first().email_sent is False
 
 
+def test_send_registration_emails_uses_race_default_language_when_user_preference_missing(
+    test_client,
+    add_test_data,
+    admin_auth_headers,
+    mocker,
+):
+    """When user preferred language is not set, registration emails use race.default_language."""
+    mock_email_service = mocker.patch(
+        'app.services.email_service.EmailService.send_registration_confirmation_email',
+        return_value=True,
+    )
+
+    test_client.post(
+        "/api/team/1/members/",
+        json={"members": [{"name": "No Language", "email": "nolanguage@example.com"}]},
+    )
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.default_language = 'cs'
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        registration.payment_confirmed = True
+        db.session.commit()
+
+    response = test_client.post("/api/team/race/1/send-registration-emails/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert response.json["sent"] == 1
+
+    assert mock_email_service.call_count == 1
+    assert mock_email_service.call_args[1]["language"] == "cs"
+
+
 def test_send_registration_emails_sets_reset_token(test_client, add_test_data, admin_auth_headers, mocker):
     """Test that password reset tokens are generated for users."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)

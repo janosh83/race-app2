@@ -977,9 +977,75 @@ def test_stripe_registration_webhook_marks_payment_confirmed(test_client, add_te
     assert first_call["payment_reference"] == "cs_webhook_123"
     assert first_call["payment_confirmed_at"] is not None
     assert first_call["payment_receipt_url"] == "https://pay.stripe.com/receipts/test"
+    assert first_call["language"] == "de"
     assert first_call["race_name"] == "Frühjahrsfahrt DE"
     assert first_call["race_category"] == "Webhook DE"
     assert first_call["race_greeting"] == "Hallo {user_name},"
+
+
+def test_stripe_registration_webhook_uses_race_default_language_when_user_preference_missing(
+    test_client,
+    add_test_data,
+    test_app,
+    monkeypatch,
+):
+    """Webhook member emails should use race.default_language if member preferred language is missing."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-race-default-language"
+        race.registration_enabled = True
+        race.default_language = "cs"
+        race.supported_languages = ["cs", "en", "de"]
+
+        category = RaceCategory(name="Webhook Language")
+        team = Team(name="Webhook Language Team")
+        user = User(name="Webhook Language User", email="webhook-language@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+
+        race_id = race.id
+        team_id = team.id
+
+    fake_event = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_webhook_lang_123",
+                "amount_total": 1111,
+                "currency": "czk",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    captured_kwargs = []
+
+    def fake_send_email(**kwargs):
+        captured_kwargs.append(kwargs)
+        return True
+
+    monkeypatch.setattr("app.routes.race_api.registration.construct_stripe_event", lambda **kwargs: fake_event)
+    monkeypatch.setattr("app.routes.race_api.registration.get_checkout_receipt_url", lambda **kwargs: "https://pay.stripe.com/receipts/test")
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_email)
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    assert captured_kwargs
+    assert captured_kwargs[0]["language"] == "cs"
 
 
 def test_stripe_registration_webhook_sends_admin_notification_when_configured(test_client, add_test_data, test_app, monkeypatch):
