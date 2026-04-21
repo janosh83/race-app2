@@ -704,6 +704,40 @@ def test_send_registration_emails_only_unsent(test_client, add_test_data, admin_
     assert mock_email_service.call_count == 2
 
 
+def test_send_registration_emails_single_team_only(test_client, add_test_data, admin_auth_headers, mocker):
+    """Single-team email sending should only process the requested registration."""
+    mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)
+
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    test_client.post("/auth/register/", json={"name": "Alice", "email": "alice@example.com", "password": "password"})
+    test_client.post("/api/team/2/members/", json={"user_ids": [2]})
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    with test_client.application.app_context():
+        Registration.query.filter_by(race_id=1, team_id=1).first().payment_confirmed = True
+        Registration.query.filter_by(race_id=1, team_id=2).first().payment_confirmed = True
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/send-registration-emails/",
+        json={"team_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json["sent"] == 1
+    assert response.json["failed"] == 0
+    assert mock_email_service.call_count == 1
+
+    with test_client.application.app_context():
+        assert Registration.query.filter_by(race_id=1, team_id=1).first().email_sent is True
+        assert Registration.query.filter_by(race_id=1, team_id=2).first().email_sent is False
+
+
 def test_send_registration_emails_sets_reset_token(test_client, add_test_data, admin_auth_headers, mocker):
     """Test that password reset tokens are generated for users."""
     mock_email_service = mocker.patch('app.services.email_service.EmailService.send_registration_confirmation_email', return_value=True)

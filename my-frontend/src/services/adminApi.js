@@ -24,7 +24,7 @@ export const adminApi = {
     `/api/race/${raceId}/team/${teamId}/payments/reconcile/`,
     { method: 'POST', body: { payment_type, stripe_session_id } }
   ),
-  sendRegistrationEmails: (raceId) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST' }),
+  sendRegistrationEmails: (raceId, payload = {}) => apiFetch(`/api/team/race/${raceId}/send-registration-emails/`, { method: 'POST', body: payload }),
   getRegistrationEmailLogs: (raceId, params = {}) => {
     const query = new URLSearchParams(params).toString();
     return apiFetch(`/api/team/race/${raceId}/email-logs/${query ? `?${query}` : ''}`);

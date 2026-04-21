@@ -557,18 +557,34 @@ def send_registration_emails(race_id):
     """
 
     race = Race.query.filter_by(id=race_id).first_or_404()
+    payload = request.get_json(silent=True) or {}
+    team_id = payload.get('team_id')
+    if team_id is not None and not str(team_id).strip().isdigit(): return jsonify({"message": "Invalid team_id"}), 400
+    team_id = int(str(team_id).strip()) if team_id is not None else None
+
+    registration_exists = (
+      Registration.query.filter(
+        Registration.race_id == race_id,
+        Registration.team_id == team_id,
+      ).first()
+      if team_id is not None
+      else None
+    )
+    if team_id is not None and not registration_exists: return jsonify({"message": "Registration not found for team in this race"}), 404
 
     # Send only for paid registrations where email wasn't sent yet.
-    registrations = (
+    registrations_query = (
       Registration.query
       .options(joinedload(Registration.team).selectinload(Team.members))
       .filter(
-          Registration.race_id == race_id,
-          Registration.email_sent.is_(False),
-          Registration.payment_confirmed.is_(True),
+        Registration.race_id == race_id,
+        Registration.email_sent.is_(False),
+        Registration.payment_confirmed.is_(True),
       )
-      .all()
     )
+    registrations_query = registrations_query.filter(Registration.team_id == team_id) if team_id is not None else registrations_query
+
+    registrations = registrations_query.all()
 
     category_ids = [registration.race_category_id for registration in registrations]
     categories = (
@@ -581,7 +597,12 @@ def send_registration_emails(race_id):
     )
     category_by_id = {category.id: category for category in categories}
 
-    logger.info("Starting registration email send for race %s - %s registrations pending", race_id, len(registrations))
+    logger.info(
+      "Starting registration email send for race %s%s - %s registrations pending",
+      race_id,
+      f", team {team_id}" if team_id is not None else "",
+      len(registrations),
+    )
 
     sent_count = 0
     failed_count = 0

@@ -23,6 +23,7 @@ export default function RegistrationList({ raceId, race }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [savingRegistration, setSavingRegistration] = useState(false);
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [sendingTeamEmailId, setSendingTeamEmailId] = useState(null);
   const [expandedPayments, setExpandedPayments] = useState({});
   const [paymentTimelineState, setPaymentTimelineState] = useState({});
 
@@ -124,6 +125,24 @@ export default function RegistrationList({ raceId, race }) {
       setError(t('admin.registrations.errorSendEmails'));
     } finally {
       setSendingEmails(false);
+    }
+  };
+
+  const handleSendEmailForTeam = async (teamId, teamName) => {
+    if (!window.confirm(t('admin.registrations.confirmSendTeamEmail', { team: teamName }))) {
+      return;
+    }
+    setSendingTeamEmailId(teamId);
+    setError(null);
+    try {
+      const result = await adminApi.sendRegistrationEmails(raceId, { team_id: teamId });
+      alert(t('admin.registrations.teamEmailSent', { team: teamName, sent: result.sent, failed: result.failed }));
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to send registration email for team', err);
+      setError(t('admin.registrations.errorSendTeamEmail', { team: teamName }));
+    } finally {
+      setSendingTeamEmailId(null);
     }
   };
 
@@ -349,6 +368,14 @@ export default function RegistrationList({ raceId, race }) {
                         title={disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
                       >
                         {disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-primary me-2 mb-1"
+                        onClick={() => handleSendEmailForTeam(teamId, teamName)}
+                        title={t('admin.registrations.sendTeamEmailTitle', { team: teamName })}
+                        disabled={sendingEmails || sendingTeamEmailId === teamId || emailSent || !paymentConfirmed || members.length === 0}
+                      >
+                        {sendingTeamEmailId === teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
                       </button>
                       <button
                         className="btn btn-sm btn-outline-danger mb-1"
