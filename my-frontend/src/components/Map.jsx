@@ -31,35 +31,16 @@ const createMapIcon = (iconUrl, {
 });
 
 const toFiniteCoordinate = (value) => {
-  if (value == null) return null;
+  if (value === null || value === undefined) return null;
   if (typeof value === 'string' && value.trim() === '') return null;
 
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const escapeHtml = (value) => String(value)
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&#39;');
-
 const formatCoordinateDisplay = (value) => {
   const coordinate = toFiniteCoordinate(value);
-  return coordinate == null ? '—' : coordinate.toFixed(6);
-};
-
-const buildNavigationLinkHtml = (navigationTarget, t) => {
-  if (!navigationTarget) {
-    return '';
-  }
-
-  const targetAttributes = navigationTarget.launchMode === 'new-tab'
-    ? ' target="_blank" rel="noopener noreferrer"'
-    : '';
-
-  return `<div style="margin-top:8px;"><a href="${escapeHtml(navigationTarget.url)}"${targetAttributes}>${escapeHtml(t('map.navigate'))}</a></div>`;
+  return coordinate === null || coordinate === undefined ? '—' : coordinate.toFixed(6);
 };
 
 const getRaceMarkers = (activeRace, t) => {
@@ -69,12 +50,7 @@ const getRaceMarkers = (activeRace, t) => {
   const finishDescription = activeRace?.finish_description?.trim() || '';
   const finishLabel = t('map.finishMarker');
 
-  if (finishLatitude != null && finishLongitude != null) {
-    const finishNavigationTarget = getNavigationTarget({
-      latitude: finishLatitude,
-      longitude: finishLongitude,
-      title: finishLabel,
-    });
+  if (finishLatitude !== null && finishLongitude !== null) {
     markers.push({
       id: 'finish',
       type: 'race-marker',
@@ -94,13 +70,8 @@ const getRaceMarkers = (activeRace, t) => {
 
   const bivak1Latitude = toFiniteCoordinate(activeRace?.bivak_1_latitude);
   const bivak1Longitude = toFiniteCoordinate(activeRace?.bivak_1_longitude);
-  if (bivak1Latitude != null && bivak1Longitude != null) {
+  if (bivak1Latitude !== null && bivak1Longitude !== null) {
     const bivak1Title = activeRace?.bivak_1_name?.trim() || t('map.bivakMarkerFallback', { index: 1 });
-    const bivak1NavigationTarget = getNavigationTarget({
-      latitude: bivak1Latitude,
-      longitude: bivak1Longitude,
-      title: bivak1Title,
-    });
     markers.push({
       id: 'bivak-1',
       type: 'race-marker',
@@ -114,13 +85,8 @@ const getRaceMarkers = (activeRace, t) => {
 
   const bivak2Latitude = toFiniteCoordinate(activeRace?.bivak_2_latitude);
   const bivak2Longitude = toFiniteCoordinate(activeRace?.bivak_2_longitude);
-  if (bivak2Latitude != null && bivak2Longitude != null) {
+  if (bivak2Latitude !== null && bivak2Longitude !== null) {
     const bivak2Title = activeRace?.bivak_2_name?.trim() || t('map.bivakMarkerFallback', { index: 2 });
-    const bivak2NavigationTarget = getNavigationTarget({
-      latitude: bivak2Latitude,
-      longitude: bivak2Longitude,
-      title: bivak2Title,
-    });
     markers.push({
       id: 'bivak-2',
       type: 'race-marker',
@@ -754,6 +720,28 @@ function Map({ topOffset = 56 }) {
                   </button>
                 )}
               </div>
+              {selectedCheckpointNavigationTarget && (
+                <div
+                  className="mt-3"
+                  style={{
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid rgba(13, 110, 253, 0.12)',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '0.95rem',
+                    color: '#495057',
+                  }}
+                >
+                  <div style={{ marginBottom: '6px' }}>
+                    <strong>{t('map.navigate')}:</strong>{' '}
+                    {t('map.navigateHelp')}
+                  </div>
+                  <div>
+                    <strong>{t('map.copyCoordinates')}:</strong>{' '}
+                    {t('map.copyCoordinatesHelp')}
+                  </div>
+                </div>
+              )}
             </div>
 
             {isCheckpointSelected && (

@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
+import { act, render, screen } from '@testing-library/react';
 import L from 'leaflet';
+import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
@@ -383,6 +383,10 @@ describe('Map Component', () => {
       expect(screen.getByText('50.123456, 14.654321')).toBeInTheDocument();
       expect(screen.getByText('Navigate')).toBeInTheDocument();
       expect(screen.getByText('Copy')).toBeInTheDocument();
+      expect(screen.getByText('Navigate:')).toBeInTheDocument();
+      expect(screen.getByText('Opens direct navigation to this point in your available map app.')).toBeInTheDocument();
+      expect(screen.getByText('Copy:')).toBeInTheDocument();
+      expect(screen.getByText('Copies the coordinates as a fallback for other map providers.')).toBeInTheDocument();
       expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
     });
   });
