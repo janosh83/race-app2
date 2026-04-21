@@ -4,15 +4,33 @@ import { useTranslation } from 'react-i18next';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
+const normalizeComparableId = (value) => (
+  value === null || value === undefined ? null : String(value)
+);
+
 function Standings() {
   const { t } = useTranslation();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activeRace = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('activeRace') || 'null');
+    } catch {
+      return null;
+    }
+  }, []);
+  const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? activeRace?.raceId;
+  const activeTeamId = normalizeComparableId(activeRace?.team_id);
 
   // Normalize/sort and compute ranking once results change
   const rankedResults = useMemo(() => {
-    const arr = Array.isArray(results) ? [...results] : [];
+    const arr = Array.isArray(results)
+      ? results.map((result) => ({
+          ...result,
+          normalizedTeamId: normalizeComparableId(result?.team_id ?? result?.id),
+        }))
+      : [];
     arr.sort((a, b) => {
       const totalA = a?.total_points ?? 0;
       const totalB = b?.total_points ?? 0;
@@ -60,8 +78,6 @@ function Standings() {
 
   useEffect(() => {
     const fetchResults = async () => {
-      const active = JSON.parse(localStorage.getItem('activeRace') || 'null');
-      const activeRaceId = active?.race_id ?? active?.id ?? active?.raceId;
       if (!activeRaceId) {
         setError(t('results.noActiveRace'));
         setLoading(false);
@@ -82,10 +98,20 @@ function Standings() {
     };
 
     fetchResults();
-  }, [t]);
+  }, [activeRaceId, t]);
 
   if (loading) return <div>{t('results.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
+
+  const isOwnTeam = (result) => activeTeamId !== null && result.normalizedTeamId === activeTeamId;
+
+  const renderPointsCell = (result, value, emphasize = false) => {
+    if (!isOwnTeam(result)) {
+      return <span aria-label="hidden-points">-</span>;
+    }
+
+    return emphasize ? <strong>{value}</strong> : value;
+  };
 
   return (
     <div className="container mt-5">
@@ -106,13 +132,17 @@ function Standings() {
           </thead>
           <tbody>
             {rankedResults.map((result, index) => (
-              <tr key={index}>
+              <tr
+                key={index}
+                className={isOwnTeam(result) ? 'table-warning' : ''}
+                style={isOwnTeam(result) ? { boxShadow: 'inset 4px 0 0 #fd7e14' } : undefined}
+              >
                 <td style={{ fontWeight: 600 }}>{result.positionLabel}</td>
                 <td>{result.team}</td>
                 <td>{result.category}</td>
-                <td>{result.points_for_checkpoints}</td>
-                <td>{result.points_for_tasks}</td>
-                <td><strong>{result.total_points}</strong></td>
+                <td>{renderPointsCell(result, result.points_for_checkpoints)}</td>
+                <td>{renderPointsCell(result, result.points_for_tasks)}</td>
+                <td>{renderPointsCell(result, result.total_points, true)}</td>
               </tr>
             ))}
           </tbody>

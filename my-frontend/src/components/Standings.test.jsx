@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 
@@ -180,6 +180,52 @@ describe('Standings Component', () => {
       await waitFor(() => {
         expect(screen.getByText('No results available for this race.')).toBeInTheDocument();
       });
+    });
+
+    test('shows points only for the logged-in team', async () => {
+      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1, team_id: 10 }));
+      raceApi.getResults.mockResolvedValue([
+        {
+          team_id: 10,
+          team: 'My Team',
+          category: 'Category 1',
+          points_for_checkpoints: 50,
+          points_for_tasks: 30,
+          total_points: 80,
+        },
+        {
+          team_id: 20,
+          team: 'Other Team',
+          category: 'Category 2',
+          points_for_checkpoints: 40,
+          points_for_tasks: 20,
+          total_points: 60,
+        },
+      ]);
+
+      render(<Standings />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText('My Team')).toBeInTheDocument();
+      expect(screen.getByText('Other Team')).toBeInTheDocument();
+
+      const ownRow = screen.getByRole('row', { name: /My Team/i });
+      const otherRow = screen.getByRole('row', { name: /Other Team/i });
+
+      expect(ownRow).toHaveClass('table-warning');
+      expect(otherRow).not.toHaveClass('table-warning');
+
+      expect(within(ownRow).getByText('50')).toBeInTheDocument();
+      expect(within(ownRow).getByText('30')).toBeInTheDocument();
+      expect(within(ownRow).getByText('80')).toBeInTheDocument();
+
+      expect(within(otherRow).queryByText('40')).not.toBeInTheDocument();
+      expect(within(otherRow).queryByText('20')).not.toBeInTheDocument();
+      expect(within(otherRow).queryByText('60')).not.toBeInTheDocument();
+      expect(within(otherRow).getAllByLabelText('hidden-points')).toHaveLength(3);
     });
   });
 
