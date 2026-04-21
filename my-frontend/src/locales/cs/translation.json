@@ -673,6 +673,7 @@
       "createTitle": "Vytvořit uživatele",
       "name": "Jméno",
       "email": "Email",
+      "preferredLanguage": "Preferovaný jazyk",
       "password": "Heslo",
       "admin": "Admin",
       "saving": "Ukládám…",

@@ -673,6 +673,7 @@
       "createTitle": "Create user",
       "name": "Name",
       "email": "Email",
+      "preferredLanguage": "Preferred language",
       "password": "Password",
       "admin": "Admin",
       "saving": "Saving…",

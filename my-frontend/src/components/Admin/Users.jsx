@@ -148,6 +148,14 @@ export default function Users() {
     });
   };
 
+  const renderPreferredLanguage = (language) => {
+    if (!language) {
+      return '—';
+    }
+
+    return language.toUpperCase();
+  };
+
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-3">
@@ -201,18 +209,20 @@ export default function Users() {
             <tr>
               <th>{t('admin.users.name')}</th>
               <th>{t('admin.users.email')}</th>
+              <th>{t('admin.users.preferredLanguage')}</th>
               <th>{t('admin.users.admin')}</th>
               <th>{t('admin.users.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {(!users || users.length === 0) && (
-              <tr><td colSpan="4" className="text-muted">{t('admin.users.noUsers')}</td></tr>
+              <tr><td colSpan="5" className="text-muted">{t('admin.users.noUsers')}</td></tr>
             )}
             {users.map(user => (
               <tr key={user.id}>
                 <td>{user.name || '—'}</td>
                 <td>{user.email}</td>
+                <td>{renderPreferredLanguage(user.preferred_language)}</td>
                 <td>{user.is_administrator ? t('admin.teamCreation.adminYes') : t('admin.teamCreation.adminNo')}</td>
                 <td>
                   <button className="btn btn-sm btn-primary me-2" onClick={() => handleEdit(user)}>{t('admin.users.edit')}</button>
