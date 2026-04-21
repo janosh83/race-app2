@@ -77,12 +77,11 @@ const getRaceMarkers = (activeRace, t) => {
     });
     markers.push({
       id: 'finish',
+      type: 'race-marker',
       latitude: finishLatitude,
       longitude: finishLongitude,
       title: finishLabel,
-      popupContent: finishDescription
-        ? `<strong>${escapeHtml(finishLabel)}</strong><br>${escapeHtml(finishDescription)}${buildNavigationLinkHtml(finishNavigationTarget, t)}`
-        : `<strong>${escapeHtml(finishLabel)}</strong>${buildNavigationLinkHtml(finishNavigationTarget, t)}`,
+      description: finishDescription,
       iconUrl: '/map-finish-marker.svg',
       iconOptions: {
         iconSize: [32, 52],
@@ -104,10 +103,11 @@ const getRaceMarkers = (activeRace, t) => {
     });
     markers.push({
       id: 'bivak-1',
+      type: 'race-marker',
       latitude: bivak1Latitude,
       longitude: bivak1Longitude,
       title: bivak1Title,
-      popupContent: `${escapeHtml(bivak1Title)}${buildNavigationLinkHtml(bivak1NavigationTarget, t)}`,
+      description: '',
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -123,10 +123,11 @@ const getRaceMarkers = (activeRace, t) => {
     });
     markers.push({
       id: 'bivak-2',
+      type: 'race-marker',
       latitude: bivak2Latitude,
       longitude: bivak2Longitude,
       title: bivak2Title,
-      popupContent: `${escapeHtml(bivak2Title)}${buildNavigationLinkHtml(bivak2NavigationTarget, t)}`,
+      description: '',
       iconUrl: '/map-bivak-marker.svg',
     });
   }
@@ -181,6 +182,7 @@ function Map({ topOffset = 56 }) {
   const allowAutoCenterRef = useRef(true);
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
+  const [selectedRaceMarker, setSelectedRaceMarker] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -447,7 +449,9 @@ function Map({ topOffset = 56 }) {
         icon: createMapIcon(markerData.iconUrl, markerData.iconOptions),
       });
 
-      marker.bindPopup(markerData.popupContent || markerData.title);
+      marker.on('click', () => {
+        setSelectedRaceMarker(markerData);
+      });
       marker.addTo(mapInstance.current);
 
       raceMarkersRef.current[markerData.id] = marker;
@@ -584,6 +588,7 @@ function Map({ topOffset = 56 }) {
 
   const handleCloseOverlay = () => {
     setSelectedCheckpoint(null);
+    setSelectedRaceMarker(null);
     setSelectedImage(null);
     setImagePreview(null);
   };
@@ -606,11 +611,14 @@ function Map({ topOffset = 56 }) {
     }
   };
 
-  const selectedCheckpointNavigationTarget = selectedCheckpoint
+  const selectedMapPoint = selectedCheckpoint || selectedRaceMarker;
+  const isCheckpointSelected = Boolean(selectedCheckpoint);
+
+  const selectedCheckpointNavigationTarget = selectedMapPoint
     ? getNavigationTarget({
-        latitude: selectedCheckpoint.latitude,
-        longitude: selectedCheckpoint.longitude,
-        title: selectedCheckpoint.title,
+        latitude: selectedMapPoint.latitude,
+        longitude: selectedMapPoint.longitude,
+        title: selectedMapPoint.title,
       })
     : null;
 
@@ -690,8 +698,8 @@ function Map({ topOffset = 56 }) {
         itemName={t('map.checkpoints')}
       />
 
-      {/* Full-screen checkpoint overlay */}
-      {selectedCheckpoint && (
+      {/* Full-screen marker overlay */}
+      {selectedMapPoint && (
         <div style={{
           position: 'fixed',
           top: topOffset,
@@ -705,7 +713,7 @@ function Map({ topOffset = 56 }) {
         }}>
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedCheckpoint.title}</h3>
+              <h3>{selectedMapPoint.title}</h3>
               <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleCloseOverlay}
@@ -716,19 +724,19 @@ function Map({ topOffset = 56 }) {
 
             <div className="mb-3">
               <div><strong>{t('map.descriptionLabel')}:</strong></div>
-              <p className="mb-2">{selectedCheckpoint.description?.trim() || t('map.noDescription')}</p>
+              <p className="mb-2">{selectedMapPoint.description?.trim() || t('map.noDescription')}</p>
               <div className="d-flex flex-wrap align-items-center gap-2">
                 <div>
                   <strong>{t('map.coordinatesLabel')}:</strong>{' '}
-                  {formatCoordinateDisplay(selectedCheckpoint.latitude)}, {formatCoordinateDisplay(selectedCheckpoint.longitude)}
+                  {formatCoordinateDisplay(selectedMapPoint.latitude)}, {formatCoordinateDisplay(selectedMapPoint.longitude)}
                 </div>
                 {selectedCheckpointNavigationTarget && (
                   <button
                     className="btn btn-sm btn-outline-primary"
                     onClick={() => openNavigationTarget({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
-                      title: selectedCheckpoint.title,
+                      latitude: selectedMapPoint.latitude,
+                      longitude: selectedMapPoint.longitude,
+                      title: selectedMapPoint.title,
                     })}
                   >
                     {t('map.navigate')}
@@ -738,8 +746,8 @@ function Map({ topOffset = 56 }) {
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     onClick={() => handleCopyCoordinates({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
+                      latitude: selectedMapPoint.latitude,
+                      longitude: selectedMapPoint.longitude,
                     })}
                   >
                     {t('map.copyCoordinates')}
@@ -748,13 +756,15 @@ function Map({ topOffset = 56 }) {
               </div>
             </div>
 
-            <div className="mb-3">
-              <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
-              </span>
-            </div>
+            {isCheckpointSelected && (
+              <div className="mb-3">
+                <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
+                  {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
+                </span>
+              </div>
+            )}
 
-            {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
+            {isCheckpointSelected && selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
               <div className="mb-3">
                 <label className="form-label">{t('map.visitPhotoLabel')}</label>
                 <div>
@@ -779,7 +789,7 @@ function Map({ topOffset = 56 }) {
               </div>
             )}
 
-            {showCheckpoints && (
+            {showCheckpoints && isCheckpointSelected && (
               <div>
                 {loggingAllowed && !selectedCheckpoint.visited && (
                   <>

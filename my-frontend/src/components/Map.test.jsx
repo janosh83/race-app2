@@ -271,21 +271,34 @@ describe('Map Component', () => {
       );
 
       const raceMarkerInstances = L.marker.mock.results.slice(0, 3).map((result) => result.value);
-      const finishPopup = raceMarkerInstances[0].bindPopup.mock.calls[0][0];
-      const bivak1Popup = raceMarkerInstances[1].bindPopup.mock.calls[0][0];
-      const bivak2Popup = raceMarkerInstances[2].bindPopup.mock.calls[0][0];
 
-      expect(finishPopup).toContain('<strong>Finish</strong><br>Finish arch by the lake');
-      expect(finishPopup).toContain('>Navigate<');
-      expect(finishPopup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.25%2C14.35&amp;travelmode=driving');
+      await act(async () => {
+        raceMarkerInstances[0].__handlers.click();
+      });
 
-      expect(bivak1Popup).toContain('North Camp');
-      expect(bivak1Popup).toContain('>Navigate<');
-      expect(bivak1Popup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.15%2C14.15&amp;travelmode=driving');
+      expect(screen.getByText('Finish')).toBeInTheDocument();
+      expect(screen.getByText('Finish arch by the lake')).toBeInTheDocument();
+      expect(screen.getByText('50.250000, 14.350000')).toBeInTheDocument();
+      expect(screen.getByText('Navigate')).toBeInTheDocument();
+      expect(screen.getByText('Copy')).toBeInTheDocument();
+      expect(screen.queryByText('Log Visit')).not.toBeInTheDocument();
 
-      expect(bivak2Popup).toContain('Bivak 2');
-      expect(bivak2Popup).toContain('>Navigate<');
-      expect(bivak2Popup).toContain('https://www.google.com/maps/dir/?api=1&amp;destination=50.45%2C14.55&amp;travelmode=driving');
+      await act(async () => {
+        screen.getByText('✕ Close').click();
+        raceMarkerInstances[1].__handlers.click();
+      });
+
+      expect(screen.getByText('North Camp')).toBeInTheDocument();
+      expect(screen.getByText('No description provided.')).toBeInTheDocument();
+      expect(screen.getByText('50.150000, 14.150000')).toBeInTheDocument();
+
+      await act(async () => {
+        screen.getByText('✕ Close').click();
+        raceMarkerInstances[2].__handlers.click();
+      });
+
+      expect(screen.getByText('Bivak 2')).toBeInTheDocument();
+      expect(screen.getByText('50.450000, 14.550000')).toBeInTheDocument();
     });
 
     test('does not render bivak markers for blank or missing coordinates', async () => {
