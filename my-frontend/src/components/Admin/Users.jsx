@@ -16,6 +16,7 @@ export default function Users() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +25,8 @@ export default function Users() {
     name: '',
     email: '',
     password: '',
-    isAdmin: false
+    isAdmin: false,
+    preferredLanguage: ''
   });
 
   const load = useCallback(async () => {
@@ -59,6 +61,9 @@ export default function Users() {
         email: email.trim(),
         password: password.trim(),
       };
+      if (preferredLanguage) {
+        basePayload.preferred_language = preferredLanguage;
+      }
       if (isAdmin) {
         await adminApi.registerAdminUser(basePayload);
       } else {
@@ -70,6 +75,7 @@ export default function Users() {
       setName('');
       setEmail('');
       setPassword('');
+      setPreferredLanguage('');
       setIsAdmin(false);
       await load();
     } catch (err) {
@@ -97,7 +103,8 @@ export default function Users() {
       name: user.name || '',
       email: user.email || '',
       password: '',
-      isAdmin: user.is_administrator || false
+      isAdmin: user.is_administrator || false,
+      preferredLanguage: user.preferred_language || ''
     });
   };
 
@@ -116,6 +123,9 @@ export default function Users() {
         email: editForm.email,
         is_administrator: editForm.isAdmin
       };
+      if (editForm.preferredLanguage) {
+        payload.preferred_language = editForm.preferredLanguage;
+      }
       // Only include password if provided
       if (editForm.password.trim()) {
         payload.password = editForm.password;
@@ -144,7 +154,8 @@ export default function Users() {
       name: '',
       email: '',
       password: '',
-      isAdmin: false
+      isAdmin: false,
+      preferredLanguage: ''
     });
   };
 
@@ -170,7 +181,7 @@ export default function Users() {
         <div className="card-body">
           <h5 className="card-title">{t('admin.users.createTitle')}</h5>
           <div className="row g-2 align-items-end">
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">{t('admin.users.name')}</label>
               <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
@@ -178,9 +189,18 @@ export default function Users() {
               <label className="form-label">{t('admin.users.email')}</label>
               <input className="form-control" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
-            <div className="col-md-3">
+            <div className="col-md-2">
               <label className="form-label">{t('admin.users.password')}</label>
               <input className="form-control" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            </div>
+            <div className="col-md-2">
+              <label className="form-label">{t('admin.users.preferredLanguage')}</label>
+              <select className="form-select" value={preferredLanguage} onChange={(e) => setPreferredLanguage(e.target.value)}>
+                <option value="">—</option>
+                <option value="en">EN</option>
+                <option value="cs">CS</option>
+                <option value="de">DE</option>
+              </select>
             </div>
             <div className="col-md-2 form-check mt-4 ms-2">
               <input
@@ -273,6 +293,19 @@ export default function Users() {
                       onChange={(e) => handleEditChange('password', e.target.value)}
                       placeholder={t('admin.users.passwordPlaceholder')}
                     />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">{t('admin.users.preferredLanguage')}</label>
+                    <select
+                      className="form-select"
+                      value={editForm.preferredLanguage}
+                      onChange={(e) => handleEditChange('preferredLanguage', e.target.value)}
+                    >
+                      <option value="">—</option>
+                      <option value="en">EN</option>
+                      <option value="cs">CS</option>
+                      <option value="de">DE</option>
+                    </select>
                   </div>
                   <div className="form-check">
                     <input
