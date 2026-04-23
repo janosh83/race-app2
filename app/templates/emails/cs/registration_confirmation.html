@@ -7,24 +7,26 @@
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1f2937;
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #eef4ff;
         }
         .container {
-            background-color: #f9f9f9;
+            background-color: #ffffff;
             border-radius: 8px;
             padding: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 24px rgba(15, 41, 87, 0.12);
+            border-top: 4px solid #1d4ed8;
         }
         h2 {
-            color: #28a745;
+            color: #1e40af;
             margin-top: 0;
         }
         .success-badge {
             display: inline-block;
-            background-color: #28a745;
+            background-color: #1d4ed8;
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
@@ -32,8 +34,8 @@
             margin-bottom: 20px;
         }
         .detail-box {
-            background-color: #fff;
-            border-left: 4px solid #28a745;
+            background-color: #f8fbff;
+            border-left: 4px solid #2563eb;
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
@@ -41,18 +43,36 @@
         .detail-box strong {
             color: #2c3e50;
         }
-        .reset-button {
-            display: inline-block;
-            background-color: #28a745;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
+        .detail-box a {
+            color: #1d4ed8;
+        }
+        .action-box {
+            background: linear-gradient(180deg, #eff6ff 0%, #e0ecff 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 16px;
             margin: 20px 0;
         }
+        .reset-button {
+            display: inline-block;
+            background-color: #1e3a8a;
+            color: white;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+            border: 2px solid #0f2557;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.28);
+            letter-spacing: 0.2px;
+        }
         .reset-button:hover {
-            background-color: #218838;
+            background-color: #1d4ed8;
+        }
+        .reset-button:visited,
+        .reset-button:active,
+        .reset-button:focus {
+            color: white;
         }
         .footer {
             margin-top: 30px;
@@ -70,7 +90,7 @@
 
         <p>{{ race_greeting }}</p>
 
-        <p>Potvrzujeme, že tvoje registrace do závodu {{ race_name }} byla úspěšně dokončena.</p>
+        <p>Tímto potvrzujeme, že tvoje registrace do závodu {{ race_name }} byla úspěšně dokončena.</p>
 
         <div class="detail-box">
             <p><strong>Registrovaný tým:</strong> {{ team_name }}</p>
@@ -88,18 +108,20 @@
         </div>
         {% endif %}
 
-        <p>Tímto jsi oficiálně přihlášen do závodu. V dalších dnech doporučujeme sledovat informace o akci na sociálních sítích a
-            těšit se můžeš na e-mail s pokyny před startem. Včas se tedy dozvíš přesná pravidla, čas startu, místo srazu a další
-            organizační pokyny. Podle nich se pak můžeš na závod připravit.</p>
+        <div class="action-box">
+            <p><strong>Nastavení přístupu do závodní aplikace</strong></p>
+            <p>Nejdřív si prosím nastav heslo ke svému závodnímu účtu pomocí odkazu níže:</p>
+            <p style="text-align: center; margin: 8px 0 4px;">
+                <a href="{{ reset_link }}" class="reset-button">Nastavit heslo</a>
+            </p>
+            <p style="font-size: 12px; color: #4b5563; margin: 8px 0 0;">Tento odkaz vyprší za 7 dní.</p>
+        </div>
 
-        <p><strong> Nastavení přístupu do účtu</strong></p>
-        <p>Pro správu své registrace a zobrazení informací o závodu si prosím nastav heslo ke svému účtu pomocí odkazu níže:</p>
-        <p style="text-align: center;">
-            <a href="{{ reset_link }}" class="reset-button">Nastavit heslo</a>
-        </p>
-        <p style="font-size: 12px; color: #777;">Tento odkaz vyprší za 7 dní.</p>
+        <p>Po nastavení hesla se budeš moci do závodní aplikace přihlásit. Hlavně ale najdeš v aplikaci seznam checkpointů, mapu,
+        seznamů úkolů, místo cíle a další důležité informace.</p>
 
-        <p>Po nastavení hesla se budeš moci do systému přihlásit, zkontrolovat údaje o svém týmu a případně je upravit.</p>
+        <p>Pokud bys měl k aplikaci nějaké dotazy, tak nám napiš na e-mail <a href="mailto:crew@picnicadventures.com">crew@picnicadventures.com</a>
+        nebo se ptej v rámci WhatsApp skupiny.</p>
 
         <p style="font-size: 18px; margin-top: 30px;">🏁 Ať se daří!  </p>
 

@@ -7,24 +7,26 @@
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1f2937;
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
+            background-color: #eef4ff;
         }
         .container {
-            background-color: #f9f9f9;
+            background-color: #ffffff;
             border-radius: 8px;
             padding: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 24px rgba(15, 41, 87, 0.12);
+            border-top: 4px solid #1d4ed8;
         }
         h2 {
-            color: #28a745;
+            color: #1e40af;
             margin-top: 0;
         }
         .success-badge {
             display: inline-block;
-            background-color: #28a745;
+            background-color: #1d4ed8;
             color: white;
             padding: 8px 16px;
             border-radius: 20px;
@@ -32,8 +34,8 @@
             margin-bottom: 20px;
         }
         .detail-box {
-            background-color: #fff;
-            border-left: 4px solid #28a745;
+            background-color: #f8fbff;
+            border-left: 4px solid #2563eb;
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
@@ -41,18 +43,36 @@
         .detail-box strong {
             color: #2c3e50;
         }
-        .reset-button {
-            display: inline-block;
-            background-color: #28a745;
-            color: white;
-            padding: 12px 24px;
-            text-decoration: none;
-            border-radius: 5px;
-            font-weight: bold;
+        .detail-box a {
+            color: #1d4ed8;
+        }
+        .action-box {
+            background: linear-gradient(180deg, #eff6ff 0%, #e0ecff 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 16px;
             margin: 20px 0;
         }
+        .reset-button {
+            display: inline-block;
+            background-color: #1e3a8a;
+            color: white;
+            padding: 14px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+            border: 2px solid #0f2557;
+            box-shadow: 0 4px 12px rgba(30, 58, 138, 0.28);
+            letter-spacing: 0.2px;
+        }
         .reset-button:hover {
-            background-color: #218838;
+            background-color: #1d4ed8;
+        }
+        .reset-button:visited,
+        .reset-button:active,
+        .reset-button:focus {
+            color: white;
         }
         .footer {
             margin-top: 30px;
@@ -88,16 +108,20 @@
         </div>
         {% endif %}
 
-        <p>You are now officially entered in the race. In the coming days, we recommend following event updates on social media. You will also receive a pre-start email with instructions, including rules, start time, meeting point, and other organizational details so you can prepare in time.</p>
+        <div class="action-box">
+            <p><strong>Set Up Your Account Access</strong></p>
+            <p>Please first set your password for your race account using the link below:</p>
+            <p style="text-align: center; margin: 8px 0 4px;">
+                <a href="{{ reset_link }}" class="reset-button">Set Your Password</a>
+            </p>
+            <p style="font-size: 12px; color: #4b5563; margin: 8px 0 0;">This link will expire in 7 days.</p>
+        </div>
 
-        <p><strong>Set Up Your Account Access</strong></p>
-        <p>To manage your registration and view race information, please set your account password using the link below:</p>
-        <p style="text-align: center;">
-            <a href="{{ reset_link }}" class="reset-button">Set Your Password</a>
-        </p>
-        <p style="font-size: 12px; color: #777;">This link will expire in 7 days.</p>
+        <p>After setting your password, you will be able to sign in to the race app. Most importantly, in the app you will find the list of checkpoints, the map,
+        the list of tasks, the finish location, and other important information.</p>
 
-        <p>After setting your password, you will be able to sign in, check your team details, and update them if needed.</p>
+        <p>If you have any questions about the app, write to us at <a href="mailto:crew@picnicadventures.com">crew@picnicadventures.com</a>
+        or ask in the WhatsApp group.</p>
 
         <p style="font-size: 18px; margin-top: 30px;">🏁 Good luck!</p>
 
