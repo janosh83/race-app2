@@ -795,35 +795,58 @@ def unlog_visit(race_id):
         ).first()
 
         if log:
-            if log.image_id:
-                image = Image.query.filter_by(id=log.image_id).first()
+            image_id = log.image_id
+            image = None
+            image_filename = None
+            should_delete_file = False
+
+            if image_id:
+                image = Image.query.filter_by(id=image_id).first()
                 if image:
-                    images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-                    image_path = os.path.join(images_folder, image.filename)
-                    try:
-                        if os.path.exists(image_path):
-                            os.remove(image_path)
-                            logger.info("Deleted image file %s for checkpoint log %s", image.filename, log.id)
-                    except OSError as err:
-                        logger.error("Error deleting image file %s: %s", image.filename, err)
-                    db.session.delete(image)
+                    image_filename = image.filename
                 else:
                     logger.warning(
-                        "Missing image %s referenced by checkpoint log %s during unlog",
-                        log.image_id,
-                        log.id,
+                      "Missing image %s referenced by checkpoint log %s during unlog",
+                      image_id,
+                      log.id,
                     )
 
+            # Delete log first so FK reference to image is removed before any image delete.
             db.session.delete(log)
+            db.session.flush()
+
+            if image_id and image:
+                still_referenced = CheckpointLog.query.filter(CheckpointLog.image_id == image_id).first()
+                if still_referenced is None:
+                    db.session.delete(image)
+                    should_delete_file = True
+                else:
+                    logger.info(
+                      "Image %s kept during checkpoint unlog because it is still referenced by checkpoint log %s",
+                      image_id,
+                      still_referenced.id,
+                    )
+
             db.session.commit()
-            logger.info(
-                "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
-                race_id,
-                data['team_id'],
-                data['checkpoint_id'],
-                user.id,
-            )
-            return jsonify({"message": "Log deleted successfully."}), 200
+
+            if should_delete_file and image_filename:
+                images_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                image_path = os.path.join(images_folder, image_filename)
+                try:
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                        logger.info("Deleted image file %s for checkpoint log %s", image_filename, log.id)
+                except OSError as err:
+                    logger.error("Error deleting image file %s: %s", image_filename, err)
+
+                logger.info(
+                    "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
+                    race_id,
+                    data['team_id'],
+                    data['checkpoint_id'],
+                    user.id,
+                )
+                return jsonify({"message": "Log deleted successfully."}), 200
 
         logger.error(
           "Unlog attempt for non-existent log - race: %s, team: %s, checkpoint: %s",

@@ -589,28 +589,50 @@ def unlog_task_completion(race_id):
         ).first()
 
         if log:
-            # Delete associated image file and record if present.
-            if log.image_id:
-                image = Image.query.filter_by(id=log.image_id).first()
+            image_id = log.image_id
+            image = None
+            image_filename = None
+            should_delete_file = False
+
+            if image_id:
+                image = Image.query.filter_by(id=image_id).first()
                 if image:
-                    upload_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
-                    image_path = os.path.join(upload_folder, image.filename)
-                    try:
-                        if os.path.exists(image_path):
-                            os.remove(image_path)
-                            logger.info("Deleted task image file %s for log %s", image.filename, log.id)
-                    except OSError as e:
-                        logger.error("Error deleting task image file %s: %s", image.filename, e)
-                    db.session.delete(image)
+                    image_filename = image.filename
                 else:
                     logger.warning(
                         "Missing image %s referenced by task log %s during unlog",
-                        log.image_id,
+                        image_id,
                         log.id,
                     )
 
+            # Delete log first so FK reference to image is removed before any image delete.
             db.session.delete(log)
+            db.session.flush()
+
+            if image_id and image:
+                still_referenced = TaskLog.query.filter(TaskLog.image_id == image_id).first()
+                if still_referenced is None:
+                    db.session.delete(image)
+                    should_delete_file = True
+                else:
+                    logger.info(
+                        "Image %s kept during task unlog because it is still referenced by task log %s",
+                        image_id,
+                        still_referenced.id,
+                    )
+
             db.session.commit()
+
+            if should_delete_file and image_filename:
+                upload_folder = current_app.config['IMAGE_UPLOAD_FOLDER']
+                image_path = os.path.join(upload_folder, image_filename)
+                try:
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                        logger.info("Deleted task image file %s for log %s", image_filename, log.id)
+                except OSError as e:
+                    logger.error("Error deleting task image file %s: %s", image_filename, e)
+
             logger.info(
                 "Task completion unlogged - race: %s, team: %s, task: %s, user: %s",
                 race_id,
@@ -728,17 +750,17 @@ def get_tasks_with_status(race_id, team_id):
             "title": title,
             "description": description,
             "numOfPoints": task.numOfPoints,
-          "completed": completion_entry is not None,
+            "completed": completion_entry is not None,
         }
         if completion and completion.image_id:
-          if image_filename:
-            task_data["image_filename"] = image_filename
-          else:
-            logger.warning(
-              "Missing image %s referenced by task log %s",
-              completion.image_id,
-              completion.id,
-            )
+            if image_filename:
+                task_data["image_filename"] = image_filename
+            else:
+                logger.warning(
+                    "Missing image %s referenced by task log %s",
+                    completion.image_id,
+                    completion.id,
+                )
         response.append(task_data)
 
     return jsonify(response), 200

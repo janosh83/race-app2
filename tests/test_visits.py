@@ -458,6 +458,39 @@ def test_unlog_visit_handles_missing_image_row(test_client, test_app, add_test_d
         assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first() is None
 
 
+def test_unlog_visit_with_existing_image_deletes_log_and_image(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    with test_app.app_context():
+        log_before = CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first()
+        assert log_before is not None
+        assert log_before.image_id is not None
+        image_id = log_before.image_id
+        assert Image.query.filter_by(id=image_id).first() is not None
+
+    unlog_resp = test_client.delete(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert unlog_resp.status_code == 200
+    assert unlog_resp.json["message"] == "Log deleted successfully."
+
+    with test_app.app_context():
+        assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first() is None
+        assert Image.query.filter_by(id=image_id).first() is None
+
+
 def test_log_task_completion_by_team_member(test_client, add_test_data):
     """Test logging task completion by a team member"""
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
@@ -681,6 +714,39 @@ def test_unlog_task_completion_by_admin(test_client, add_test_data):
     }, headers=headers_admin)
     assert response.status_code == 200
     assert response.json["message"] == "Log deleted successfully."
+
+
+def test_unlog_task_completion_with_existing_image_deletes_log_and_image(test_client, test_app, add_test_data):
+    response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    with open("tests/test_image.jpg", "rb") as img:
+        create_resp = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data={"image": img, "task_id": 1, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert create_resp.status_code == 201
+
+    with test_app.app_context():
+        log_before = TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first()
+        assert log_before is not None
+        assert log_before.image_id is not None
+        image_id = log_before.image_id
+        assert Image.query.filter_by(id=image_id).first() is not None
+
+    unlog_resp = test_client.delete(
+        "/api/race/1/tasks/log/",
+        headers=headers,
+        json={"task_id": 1, "team_id": 1},
+    )
+    assert unlog_resp.status_code == 200
+    assert unlog_resp.json["message"] == "Log deleted successfully."
+
+    with test_app.app_context():
+        assert TaskLog.query.filter_by(race_id=1, team_id=1, task_id=1).first() is None
+        assert Image.query.filter_by(id=image_id).first() is None
 
 
 def test_unlog_task_completion_handles_missing_image_row(test_client, test_app, add_test_data):
