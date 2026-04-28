@@ -76,6 +76,13 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
     }
   };
 
+  const handleTeamKeyDown = (event, teamId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onTeamClick?.(teamId);
+    }
+  };
+
   if (loading) return <div>{t('admin.standings.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
@@ -162,7 +169,16 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
             <td style={{ fontWeight: 600 }}>{row.positionLabel}</td>
             <td>
               {onTeamClick ? (
-                <button className="btn btn-link p-0" onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}>{row.teamName}</button>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="text-primary text-decoration-underline"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}
+                  onKeyDown={(event) => handleTeamKeyDown(event, row.teamId || row.raw?.team_id || row.raw?.id)}
+                >
+                  {row.teamName}
+                </span>
               ) : (
                 row.teamName
               )}
