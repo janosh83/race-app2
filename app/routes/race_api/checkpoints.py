@@ -839,14 +839,14 @@ def unlog_visit(race_id):
                 except OSError as err:
                     logger.error("Error deleting image file %s: %s", image_filename, err)
 
-                logger.info(
-                    "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
-                    race_id,
-                    data['team_id'],
-                    data['checkpoint_id'],
-                    user.id,
-                )
-                return jsonify({"message": "Log deleted successfully."}), 200
+            logger.info(
+                "Checkpoint visit unlogged - race: %s, team: %s, checkpoint: %s, user: %s",
+                race_id,
+                data['team_id'],
+                data['checkpoint_id'],
+                user.id,
+            )
+            return jsonify({"message": "Log deleted successfully."}), 200
 
         logger.error(
           "Unlog attempt for non-existent log - race: %s, team: %s, checkpoint: %s",
