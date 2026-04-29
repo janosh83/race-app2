@@ -9,6 +9,7 @@ from app.routes.race_api.tasks import tasks_bp
 from app.routes.race_api.race_categories import race_categories_bp
 from app.routes.race_api.visits import race_visits_bp
 from app.routes.race_api.results import race_results_bp
+from app.routes.race_api.statistics import race_statistics_bp
 from app.routes.race_api.registration import race_registration_bp
 from app.routes.race_api.team_payment import team_payment_bp
 from app.routes.admin import admin_required
@@ -92,6 +93,7 @@ race_bp.register_blueprint(tasks_bp, url_prefix='/<int:race_id>/tasks')
 race_bp.register_blueprint(race_categories_bp, url_prefix='/<int:race_id>/categories')
 race_bp.register_blueprint(race_visits_bp, url_prefix='/<int:race_id>')
 race_bp.register_blueprint(race_results_bp, url_prefix='/<int:race_id>')
+race_bp.register_blueprint(race_statistics_bp, url_prefix='/<int:race_id>')
 race_bp.register_blueprint(race_registration_bp, url_prefix='/registration')
 race_bp.register_blueprint(team_payment_bp, url_prefix='/<int:race_id>')
 

@@ -32,6 +32,7 @@ export const adminApi = {
   retryFailedRegistrationEmails: (raceId, payload = {}) => apiFetch(`/api/team/race/${raceId}/retry-failed-emails/`, { method: 'POST', body: payload }),
   retryRegistrationEmailLog: (raceId, logId) => apiFetch(`/api/team/race/${raceId}/email-logs/${logId}/retry/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
+  getRaceStatistics: (raceId) => apiFetch(`/api/race/${raceId}/statistics/`),
 
   // User management (admin)
   getUsers: () => apiFetch('/api/user/'),

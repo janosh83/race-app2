@@ -11,6 +11,7 @@ import CheckpointList from './CheckpointList';
 import PaymentAttemptsSummary from './PaymentAttemptsSummary';
 import RaceForm from './RaceForm';
 import RaceList from './RaceList';
+import RaceStatistics from './RaceStatistics';
 import RegistrationList from './RegistrationList';
 import Standings from './Standings';
 import TaskList from './TaskList';
@@ -376,6 +377,14 @@ function AdminDashboard() {
                         {t('admin.dashboard.tabVisitsResults')}
                       </button>
                     </li>
+                    <li className="nav-item">
+                      <button
+                        className={`nav-link ${activeSubmenu === 'statistics' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('statistics')}
+                      >
+                        {t('admin.dashboard.tabStatistics')}
+                      </button>
+                    </li>
                   </ul>
 
                   {/* Submenu content */}
@@ -434,6 +443,10 @@ function AdminDashboard() {
                         </div>
                       )}
                     </>
+                  )}
+
+                  {activeSubmenu === 'statistics' && (
+                    <RaceStatistics raceId={selected.id} />
                   )}
                 </>
               ) : (

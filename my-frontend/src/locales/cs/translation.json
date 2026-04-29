@@ -283,8 +283,26 @@
       "tabRegistrationsCategories": "Registrace a kategorie",
       "tabTeams": "Týmy",
       "tabVisitsResults": "Návštěvy a výsledky",
+      "tabStatistics": "Statistiky",
       "visitsTeam": "Návštěvy — tým #{{id}}",
       "selectRacePrompt": "Vyberte závod nebo klikněte na \"Nový závod\""
+    },
+    "statistics": {
+      "title": "Statistiky závodu",
+      "loading": "Načítám statistiky...",
+      "errorLoad": "Nepodařilo se načíst statistiky závodu",
+      "registeredTeams": "Registrované týmy",
+      "checkpoints": "Checkpointy",
+      "tasks": "Úkoly",
+      "visits": "Návštěvy",
+      "taskCompletions": "Splnění úkolů",
+      "checkpointsWithVisits": "Checkpointy s alespoň jednou návštěvou",
+      "tasksWithCompletions": "Úkoly s alespoň jedním splněním",
+      "topVisitedCheckpoints": "Nejnavštěvovanější checkpointy",
+      "topCompletedTasks": "Nejčastěji splněné úkoly",
+      "leastVisitedCheckpoints": "Nejméně navštěvované checkpointy (s alespoň jednou návštěvou)",
+      "leastCompletedTasks": "Nejméně plněné úkoly (s alespoň jedním splněním)",
+      "noTopData": "Zatím nejsou data"
     },
     "raceList": {
       "title": "Závody",

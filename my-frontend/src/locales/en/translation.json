@@ -283,8 +283,26 @@
       "tabRegistrationsCategories": "Registrations & Categories",
       "tabTeams": "Teams",
       "tabVisitsResults": "Visits & Results",
+      "tabStatistics": "Statistics",
       "visitsTeam": "Visits — team #{{id}}",
       "selectRacePrompt": "Select a race or click \"New race\" to create one"
+    },
+    "statistics": {
+      "title": "Race statistics",
+      "loading": "Loading statistics...",
+      "errorLoad": "Failed to load race statistics",
+      "registeredTeams": "Registered teams",
+      "checkpoints": "Checkpoints",
+      "tasks": "Tasks",
+      "visits": "Visits",
+      "taskCompletions": "Task completions",
+      "checkpointsWithVisits": "Checkpoints with at least one visit",
+      "tasksWithCompletions": "Tasks with at least one completion",
+      "topVisitedCheckpoints": "Top visited checkpoints",
+      "topCompletedTasks": "Top completed tasks",
+      "leastVisitedCheckpoints": "Least visited checkpoints (with at least one visit)",
+      "leastCompletedTasks": "Least completed tasks (with at least one completion)",
+      "noTopData": "No data yet"
     },
     "raceList": {
       "title": "Races",

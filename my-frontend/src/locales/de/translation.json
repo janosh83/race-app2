@@ -283,8 +283,26 @@
       "tabRegistrationsCategories": "Registrierungen & Kategorien",
       "tabTeams": "Teams",
       "tabVisitsResults": "Besuche & Ergebnisse",
+      "tabStatistics": "Statistiken",
       "visitsTeam": "Besuche — Team #{{id}}",
       "selectRacePrompt": "Waehlen Sie ein Rennen oder klicken Sie auf \"Neues Rennen\""
+    },
+    "statistics": {
+      "title": "Rennstatistiken",
+      "loading": "Statistiken werden geladen...",
+      "errorLoad": "Rennstatistiken konnten nicht geladen werden",
+      "registeredTeams": "Registrierte Teams",
+      "checkpoints": "Checkpoints",
+      "tasks": "Aufgaben",
+      "visits": "Besuche",
+      "taskCompletions": "Aufgabenerfuellungen",
+      "checkpointsWithVisits": "Checkpoints mit mindestens einem Besuch",
+      "tasksWithCompletions": "Aufgaben mit mindestens einer Erfuellung",
+      "topVisitedCheckpoints": "Top besuchte Checkpoints",
+      "topCompletedTasks": "Top erledigte Aufgaben",
+      "leastVisitedCheckpoints": "Am wenigsten besuchte Checkpoints (mit mindestens einem Besuch)",
+      "leastCompletedTasks": "Am wenigsten erledigte Aufgaben (mit mindestens einer Erfuellung)",
+      "noTopData": "Noch keine Daten"
     },
     "raceList": {
       "title": "Rennen",
