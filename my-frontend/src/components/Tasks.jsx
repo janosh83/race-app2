@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import './Tasks.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
@@ -223,22 +224,10 @@ function Tasks({ topOffset = 56 }) {
       {/* Retry button for task errors */}
       {taskError && (
         <div
-          style={{
-            position: 'fixed',
-            top: `${topOffset + 10}px`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1500,
-            backgroundColor: '#fff',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}
+          className="tasks-error-banner"
+          style={{ top: `${topOffset + 10}px` }}
         >
-            <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ {t('tasks.loadFailedShort')}</span>
+            <span className="tasks-error-text">⚠ {t('tasks.loadFailedShort')}</span>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRetryTasks}
@@ -249,28 +238,12 @@ function Tasks({ topOffset = 56 }) {
       )}
 
       {isUploading && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          zIndex: 3000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px 40px',
-            borderRadius: '8px',
-            textAlign: 'center'
-          }}>
-            <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+        <div className="tasks-loading-overlay">
+          <div className="tasks-loading-dialog">
+            <div className="spinner-border text-primary mb-3 tasks-loading-spinner" role="status">
               <span className="visually-hidden">{t('tasks.loading')}</span>
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '500' }}>{t('tasks.uploading')}</div>
+            <div className="tasks-loading-text">{t('tasks.uploading')}</div>
           </div>
         </div>
       )}
@@ -304,7 +277,7 @@ function Tasks({ topOffset = 56 }) {
           <div className="row g-3">
             {sortedTasks.map((task) => (
               <div className="col-12 col-md-6 col-lg-4" key={task.id}>
-                <div className="card h-100" style={{ cursor: 'pointer' }} onClick={() => setSelectedTask(task)}>
+                <div className="card h-100 tasks-card" onClick={() => setSelectedTask(task)}>
                   <div className="card-body">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="card-title mb-0">{task.title}</h5>
@@ -333,17 +306,7 @@ function Tasks({ topOffset = 56 }) {
       </div>
 
       {selectedTask && (
-        <div style={{
-          position: 'fixed',
-          top: topOffset,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'white',
-          zIndex: 2000,
-          overflowY: 'auto',
-          padding: '20px'
-        }}>
+        <div className="tasks-overlay" style={{ top: topOffset }}>
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h3>{selectedTask.title}</h3>
@@ -372,7 +335,7 @@ function Tasks({ topOffset = 56 }) {
                   <img
                     src={`${apiUrl}/static/images/${selectedTask.image_filename}`}
                     alt={t('tasks.completionPhotoAlt')}
-                    style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
+                    className="tasks-completion-photo"
                   />
                 </div>
               </div>
@@ -385,7 +348,7 @@ function Tasks({ topOffset = 56 }) {
                   <img
                     src={imagePreview}
                     alt={t('tasks.previewAlt')}
-                    style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
+                    className="tasks-image-preview"
                   />
                 </div>
               </div>

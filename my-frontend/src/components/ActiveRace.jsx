@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
@@ -109,17 +110,11 @@ function ActiveRace() {
             )}
 
             <div
-              className="mt-3 mb-3"
-              style={{
-                backgroundColor: '#fff8e7',
-                border: '1px solid rgba(255, 193, 7, 0.25)',
-                borderRadius: '12px',
-                padding: '12px 16px',
-              }}
+              className="mt-3 mb-3 active-race-current-phase"
             >
               <div>
                 <div className="text-muted small mb-1">{currentPhase.label}</div>
-                <div style={{ fontWeight: 600 }}>{currentPhase.value}</div>
+                <div className="active-race-strong">{currentPhase.value}</div>
               </div>
             </div>
 
@@ -127,18 +122,12 @@ function ActiveRace() {
               {activeRaceTimeConstraints.map((constraint) => (
                 <div key={constraint.key} className="col-12 col-md-6">
                   <div
-                    className="h-100"
-                    style={{
-                      backgroundColor: '#f8f9fa',
-                      border: '1px solid rgba(0, 0, 0, 0.08)',
-                      borderRadius: '12px',
-                      padding: '14px 16px',
-                    }}
+                    className="h-100 active-race-time-window"
                   >
                     <div className="text-muted small mb-1">{constraint.label}</div>
-                    <div style={{ fontWeight: 600 }}>{constraint.start}</div>
+                    <div className="active-race-strong">{constraint.start}</div>
                     <div className="text-muted small my-1">{t('activeRace.intervalSeparator')}</div>
-                    <div style={{ fontWeight: 600 }}>{constraint.end}</div>
+                    <div className="active-race-strong">{constraint.end}</div>
                   </div>
                 </div>
               ))}
@@ -191,19 +180,12 @@ function ActiveRace() {
                       {otherRaceConstraints.map((constraint) => (
                         <div
                           key={constraint.key}
-                          style={{
-                            backgroundColor: '#f8f9fa',
-                            border: '1px solid rgba(0, 0, 0, 0.08)',
-                            borderRadius: '999px',
-                            padding: '6px 10px',
-                            fontSize: '0.85rem',
-                            lineHeight: 1.3,
-                          }}
+                          className="active-race-chip"
                         >
                           <span className="text-muted">{constraint.label}:</span>{' '}
-                          <span style={{ fontWeight: 600 }}>{constraint.start}</span>{' '}
+                          <span className="active-race-strong">{constraint.start}</span>{' '}
                           <span className="text-muted">{t('activeRace.intervalSeparator')}</span>{' '}
-                          <span style={{ fontWeight: 600 }}>{constraint.end}</span>
+                          <span className="active-race-strong">{constraint.end}</span>
                         </div>
                       ))}
                     </div>
