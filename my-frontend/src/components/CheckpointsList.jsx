@@ -298,7 +298,7 @@ function CheckpointsList({ topOffset = 56 }) {
         itemName={t('map.checkpoints')}
       />
 
-      <div className="container mt-4" style={{ paddingTop: topOffset }}>
+      <div className="container mt-4">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">{t('map.checkpoints')}</h3>
         </div>
