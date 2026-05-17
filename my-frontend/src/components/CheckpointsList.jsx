@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import './CheckpointsList.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
@@ -253,22 +254,10 @@ function CheckpointsList({ topOffset = 56 }) {
 
       {checkpointError && (
         <div
-          style={{
-            position: 'fixed',
-            top: `${topOffset + 10}px`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1500,
-            backgroundColor: '#fff',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-          }}
+          className="checkpoint-list-error"
+          style={{ top: `${topOffset + 10}px` }}
         >
-          <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ {t('map.checkpointsLoadFailed')}</span>
+          <span className="checkpoint-list-error-text">⚠ {t('map.checkpointsLoadFailed')}</span>
           <button className="btn btn-sm btn-primary" onClick={handleRetry}>
             {t('map.retry')}
           </button>
@@ -276,25 +265,12 @@ function CheckpointsList({ topOffset = 56 }) {
       )}
 
       {isUploading && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.7)',
-            zIndex: 3000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div style={{ backgroundColor: 'white', padding: '30px 40px', borderRadius: '8px', textAlign: 'center' }}>
-            <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+        <div className="checkpoint-list-loading-overlay">
+          <div className="checkpoint-list-loading-dialog">
+            <div className="spinner-border text-primary mb-3 checkpoint-list-loading-spinner" role="status">
               <span className="visually-hidden">{t('map.loading')}</span>
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '500' }}>{t('map.uploading')}</div>
+            <div className="checkpoint-list-loading-text">{t('map.uploading')}</div>
           </div>
         </div>
       )}
@@ -325,13 +301,12 @@ function CheckpointsList({ topOffset = 56 }) {
             {sortedCheckpoints.map((checkpoint) => (
               <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
                 <div
-                  className="card h-100"
-                  style={{ cursor: 'pointer', borderRadius: '10px' }}
+                  className="card h-100 checkpoint-list-card"
                   onClick={() => setSelectedCheckpoint(checkpoint)}
                 >
                   <div className="card-body p-2">
                     <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
-                      <h6 className="card-title mb-0" style={{ lineHeight: '1.2' }}>
+                      <h6 className="card-title mb-0 checkpoint-list-card-title">
                         {checkpoint.title}
                       </h6>
                       <span className={`badge ${checkpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
@@ -356,17 +331,8 @@ function CheckpointsList({ topOffset = 56 }) {
 
       {selectedCheckpoint && (
         <div
-          style={{
-            position: 'fixed',
-            top: topOffset,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'white',
-            zIndex: 2000,
-            overflowY: 'auto',
-            padding: '20px',
-          }}
+          className="checkpoint-list-overlay"
+          style={{ top: topOffset }}
         >
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -431,7 +397,7 @@ function CheckpointsList({ topOffset = 56 }) {
                   <img
                     src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
                     alt={t('map.visitPhotoAlt')}
-                    style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
+                    className="checkpoint-list-visit-photo"
                   />
                 </div>
               </div>
@@ -444,7 +410,7 @@ function CheckpointsList({ topOffset = 56 }) {
                   <img
                     src={imagePreview}
                     alt={t('tasks.previewAlt')}
-                    style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain', borderRadius: '8px' }}
+                    className="checkpoint-list-image-preview"
                   />
                 </div>
               </div>
