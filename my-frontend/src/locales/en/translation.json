@@ -85,6 +85,8 @@
     "copyCoordinatesHelp": "Copies the coordinates as a fallback for other map providers.",
     "coordinatesCopied": "Coordinates copied",
     "coordinatesCopyFailed": "Failed to copy coordinates",
+    "goToCurrentLocation": "Go to current location",
+    "currentLocationUnavailable": "Current location is unavailable",
     "noDescription": "No description provided.",
     "imageProcessFailed": "Failed to process image. Please try another photo.",
     "unknownError": "Unknown error"

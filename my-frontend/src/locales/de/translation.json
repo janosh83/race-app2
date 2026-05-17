@@ -85,6 +85,8 @@
     "copyCoordinatesHelp": "Kopiert die Koordinaten als Reserve fuer andere Kartenanbieter.",
     "coordinatesCopied": "Koordinaten kopiert",
     "coordinatesCopyFailed": "Koordinaten konnten nicht kopiert werden",
+    "goToCurrentLocation": "Zu meinem Standort",
+    "currentLocationUnavailable": "Aktueller Standort ist nicht verfügbar",
     "noDescription": "Keine Beschreibung vorhanden.",
     "imageProcessFailed": "Bild konnte nicht verarbeitet werden. Bitte anderes Foto waehlen.",
     "unknownError": "Unbekannter Fehler"

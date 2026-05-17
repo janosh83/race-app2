@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import 'leaflet/dist/leaflet.css';
+import './Map.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
@@ -140,6 +141,7 @@ function Map({ topOffset = 56 }) {
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
+  const currentLocationControlRef = useRef(null);
   const geoWatchIdRef = useRef(null);
   const userLocationRef = useRef(null); // Store latest user position for checkpoint logging
   const markersRef = useRef({}); // Track markers by checkpoint ID
@@ -254,28 +256,97 @@ function Map({ topOffset = 56 }) {
     });
     new LogoControl().addTo(mapInstance.current);
 
+    const updateUserPosition = (latitude, longitude, accuracy) => {
+      // Store latest position for immediate use in checkpoint logging (no geolocation delay)
+      userLocationRef.current = { latitude, longitude, accuracy, timestamp: Date.now() };
+
+      // create or update a small blue circle marker
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng([latitude, longitude]);
+      } else {
+        userMarkerRef.current = L.circleMarker([latitude, longitude], {
+          radius: 8,
+          color: '#3030FF',       // blue border
+          weight: 2,
+          fillColor: '#1E90FF',   // blue fill
+          fillOpacity: 0.9,
+          interactive: false
+        }).addTo(mapInstance.current);
+      }
+    };
+
+    const centerOnUserLocation = ({ forceAcquire = false } = {}) => {
+      if (userLocationRef.current && !forceAcquire) {
+        mapInstance.current.setView(
+          [userLocationRef.current.latitude, userLocationRef.current.longitude],
+          Math.max(mapInstance.current.getZoom(), 16)
+        );
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        setToast({
+          message: t('map.currentLocationUnavailable'),
+          type: 'error',
+          duration: 3500,
+        });
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          updateUserPosition(latitude, longitude, accuracy);
+          mapInstance.current.setView([latitude, longitude], Math.max(mapInstance.current.getZoom(), 16));
+        },
+        () => {
+          setToast({
+            message: t('map.currentLocationUnavailable'),
+            type: 'error',
+            duration: 3500,
+          });
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 3000,
+        }
+      );
+    };
+
+    const CurrentLocationControl = L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd: function () {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control map-current-location-control');
+        const button = L.DomUtil.create('button', 'map-current-location-button', container);
+        button.type = 'button';
+        button.title = t('map.goToCurrentLocation');
+        button.setAttribute('aria-label', t('map.goToCurrentLocation'));
+        const icon = L.DomUtil.create('img', 'map-current-location-icon', button);
+        icon.src = '/map-current-location.svg';
+        icon.alt = '';
+        icon.setAttribute('aria-hidden', 'true');
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(button, 'click', (event) => {
+          L.DomEvent.stop(event);
+          centerOnUserLocation();
+        });
+
+        return container;
+      },
+    });
+
+    currentLocationControlRef.current = new CurrentLocationControl();
+    currentLocationControlRef.current.addTo(mapInstance.current);
+
     // show a blue dot for current position and keep it updated
     if (navigator.geolocation) {
       const onPos = (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         logger.info('GEOLOCATION', 'Position update', { lat: latitude.toFixed(4), lng: longitude.toFixed(4) });
 
-        // Store latest position for immediate use in checkpoint logging (no geolocation delay)
-        userLocationRef.current = { latitude, longitude, accuracy, timestamp: Date.now() };
-
-        // create or update a small blue circle marker
-        if (userMarkerRef.current) {
-          userMarkerRef.current.setLatLng([latitude, longitude]);
-        } else {
-          userMarkerRef.current = L.circleMarker([latitude, longitude], {
-            radius: 8,
-            color: '#3030FF',       // blue border
-            weight: 2,
-            fillColor: '#1E90FF',   // blue fill
-            fillOpacity: 0.9,
-            interactive: false
-          }).addTo(mapInstance.current);
-        }
+        updateUserPosition(latitude, longitude, accuracy);
         // Center only once automatically. Do not override user's later pan/zoom.
         if (!hasAutoCenteredRef.current && allowAutoCenterRef.current) {
           mapInstance.current.setView([latitude, longitude], mapInstance.current.getZoom());
@@ -313,12 +384,16 @@ function Map({ topOffset = 56 }) {
         mapInstance.current.removeLayer(userMarkerRef.current);
         userMarkerRef.current = null;
       }
+      if (currentLocationControlRef.current && mapInstance.current) {
+        mapInstance.current.removeControl(currentLocationControlRef.current);
+        currentLocationControlRef.current = null;
+      }
       if (mapInstance.current) {
         mapInstance.current.remove();
         mapInstance.current = null;
       }
     };
-  }, [API_KEY]);
+  }, [API_KEY, t]);
 
   useEffect(() => {
     if (!mapInstance.current) return;
@@ -603,22 +678,10 @@ function Map({ topOffset = 56 }) {
       {/* Retry button for checkpoint errors */}
       {checkpointError && (
         <div
-          style={{
-            position: 'fixed',
-            top: `${topOffset + 10}px`,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1500,
-            backgroundColor: '#fff',
-            padding: '12px 20px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}
+          className="map-checkpoint-error"
+          style={{ top: `${topOffset + 10}px` }}
         >
-            <span style={{ color: '#dc3545', fontWeight: '500' }}>⚠ {t('map.checkpointsLoadFailed')}</span>
+            <span className="map-checkpoint-error-text">⚠ {t('map.checkpointsLoadFailed')}</span>
           <button
             className="btn btn-sm btn-primary"
             onClick={handleRetryCheckpoints}
@@ -630,28 +693,12 @@ function Map({ topOffset = 56 }) {
 
       {/* Loading overlay during upload */}
       {isUploading && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.7)',
-          zIndex: 3000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '30px 40px',
-            borderRadius: '8px',
-            textAlign: 'center'
-          }}>
-            <div className="spinner-border text-primary mb-3" role="status" style={{ width: '3rem', height: '3rem' }}>
+        <div className="map-loading-overlay">
+          <div className="map-loading-dialog">
+            <div className="spinner-border text-primary mb-3 map-loading-spinner" role="status">
               <span className="visually-hidden">{t('map.loading')}</span>
             </div>
-            <div style={{ fontSize: '18px', fontWeight: '500' }}>{t('map.uploading')}</div>
+            <div className="map-loading-text">{t('map.uploading')}</div>
           </div>
         </div>
       )}
@@ -666,17 +713,10 @@ function Map({ topOffset = 56 }) {
 
       {/* Full-screen marker overlay */}
       {selectedMapPoint && (
-        <div style={{
-          position: 'fixed',
-          top: topOffset,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'white',
-          zIndex: 2000,
-          overflowY: 'auto',
-          padding: '20px'
-        }}>
+        <div
+          className="map-point-overlay"
+          style={{ top: topOffset }}
+        >
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <h3>{selectedMapPoint.title}</h3>
@@ -722,17 +762,9 @@ function Map({ topOffset = 56 }) {
               </div>
               {selectedCheckpointNavigationTarget && (
                 <div
-                  className="mt-3"
-                  style={{
-                    backgroundColor: '#f8f9fa',
-                    border: '1px solid rgba(13, 110, 253, 0.12)',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    fontSize: '0.95rem',
-                    color: '#495057',
-                  }}
+                  className="mt-3 map-navigation-hint"
                 >
-                  <div style={{ marginBottom: '6px' }}>
+                  <div className="map-navigation-hint-row">
                     <strong>{t('map.navigate')}:</strong>{' '}
                     {t('map.navigateHelp')}
                   </div>
@@ -759,7 +791,7 @@ function Map({ topOffset = 56 }) {
                   <img
                     src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
                     alt={t('map.visitPhotoAlt')}
-                    style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '8px' }}
+                    className="map-visit-photo"
                   />
                 </div>
               </div>
@@ -794,7 +826,7 @@ function Map({ topOffset = 56 }) {
                           <img
                             src={imagePreview}
                             alt="Preview"
-                            style={{ maxWidth: '100%', maxHeight: '300px', objectFit: 'contain' }}
+                            className="map-image-preview"
                           />
                         </div>
                       )}
@@ -830,10 +862,10 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
-      <div style={{ position: 'fixed', top: `${topOffset}px`, left: 0, right: 0, height: `${mapHeight}px`, zIndex: 1 }}>
+      <div className="map-container-frame" style={{ top: `${topOffset}px`, height: `${mapHeight}px` }}>
         <div
           ref={mapRef}
-          style={{ height: '100%', width: '100%' }}
+          className="map-canvas"
         />
       </div>
     </>

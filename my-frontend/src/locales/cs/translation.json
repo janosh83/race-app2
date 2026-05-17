@@ -85,6 +85,8 @@
     "copyCoordinatesHelp": "Zkopíruje souřadnice jako zálohu pro jiné mapové aplikace.",
     "coordinatesCopied": "Souřadnice zkopírovány",
     "coordinatesCopyFailed": "Souřadnice se nepodařilo zkopírovat",
+    "goToCurrentLocation": "Přejít na moji polohu",
+    "currentLocationUnavailable": "Aktuální poloha není dostupná",
     "noDescription": "Popis není k dispozici.",
     "imageProcessFailed": "Nepodařilo se zpracovat fotku. Zkuste jinou.",
     "unknownError": "Neznámá chyba"
