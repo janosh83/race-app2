@@ -55,6 +55,7 @@ function CheckpointsList({ topOffset = 56 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
@@ -238,6 +239,20 @@ function CheckpointsList({ topOffset = 56 }) {
         title: selectedCheckpoint.title,
       })
     : null;
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > 240);
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleScrollTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const sortedCheckpoints = [...checkpoints].sort((a, b) => Number(b.visited) - Number(a.visited));
 
@@ -440,6 +455,18 @@ function CheckpointsList({ topOffset = 56 }) {
             )}
           </div>
         </div>
+      )}
+
+      {!selectedCheckpoint && showScrollTop && (
+        <button
+          type="button"
+          className="checkpoint-list-scroll-top"
+          onClick={handleScrollTop}
+          aria-label={t('checkpointsList.scrollToTop')}
+          title={t('checkpointsList.scrollToTop')}
+        >
+          <span aria-hidden="true">↑</span>
+        </button>
       )}
     </>
   );

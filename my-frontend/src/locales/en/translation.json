@@ -93,6 +93,7 @@
   },
   "tasks": {
     "title": "Tasks",
+    "scrollToTop": "Back to top",
     "loadFailed": "Failed to load tasks. Click retry to try again.",
     "loadFailedShort": "Failed to load tasks",
     "retry": "Retry",
@@ -131,6 +132,7 @@
   },
   "checkpointsList": {
     "noneAvailable": "No checkpoints available for this race.",
+    "scrollToTop": "Back to top",
     "coordinates": "Coordinates",
     "points": "Points",
     "imageHelp": "Images are resized to max 1000px, EXIF preserved for JPEG.",

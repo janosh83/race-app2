@@ -46,6 +46,7 @@ function Tasks({ topOffset = 56 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [taskError, setTaskError] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
@@ -205,6 +206,20 @@ function Tasks({ topOffset = 56 }) {
     setSelectedTask(null);
     setSelectedImage(null);
     setImagePreview(null);
+  };
+
+  useEffect(() => {
+    const onScroll = () => {
+      setShowScrollTop(window.scrollY > 240);
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const handleScrollTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const sortedTasks = [...tasks].sort((a, b) => Number(b.completed) - Number(a.completed));
@@ -384,6 +399,18 @@ function Tasks({ topOffset = 56 }) {
             </div>
           </div>
         </div>
+      )}
+
+      {!selectedTask && showScrollTop && (
+        <button
+          type="button"
+          className="tasks-scroll-top"
+          onClick={handleScrollTop}
+          aria-label={t('tasks.scrollToTop')}
+          title={t('tasks.scrollToTop')}
+        >
+          <span aria-hidden="true">↑</span>
+        </button>
       )}
     </>
   );

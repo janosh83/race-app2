@@ -93,6 +93,7 @@
   },
   "tasks": {
     "title": "Úkoly",
+    "scrollToTop": "Nahoru",
     "loadFailed": "Nepodařilo se načíst úkoly. Klikněte na Opakovat.",
     "loadFailedShort": "Nepodařilo se načíst úkoly",
     "retry": "Opakovat",
@@ -131,6 +132,7 @@
   },
   "checkpointsList": {
     "noneAvailable": "Pro tento závod nejsou žádné checkpointy.",
+    "scrollToTop": "Nahoru",
     "coordinates": "Souřadnice",
     "points": "Body",
     "imageHelp": "Obrázky se zmenší na max 1000px, EXIF zůstává u JPEG.",

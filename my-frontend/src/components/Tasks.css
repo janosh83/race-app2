@@ -75,3 +75,32 @@
   object-fit: contain;
   border-radius: 8px;
 }
+
+.tasks-scroll-top {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: #0d6efd;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 18px rgba(13, 110, 253, 0.35);
+  z-index: 1600;
+  cursor: pointer;
+}
+
+.tasks-scroll-top:hover {
+  background: #0b5ed7;
+}
+
+.tasks-scroll-top:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

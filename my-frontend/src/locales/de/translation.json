@@ -93,6 +93,7 @@
   },
   "tasks": {
     "title": "Aufgaben",
+    "scrollToTop": "Nach oben",
     "loadFailed": "Aufgaben konnten nicht geladen werden. Klicke auf Erneut versuchen.",
     "loadFailedShort": "Aufgaben konnten nicht geladen werden",
     "retry": "Erneut",
@@ -131,6 +132,7 @@
   },
   "checkpointsList": {
     "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar.",
+    "scrollToTop": "Nach oben",
     "coordinates": "Koordinaten",
     "points": "Punkte",
     "imageHelp": "Bilder werden auf max. 1000 px verkleinert, EXIF bleibt fuer JPEG erhalten.",
