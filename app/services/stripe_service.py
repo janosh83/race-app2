@@ -5,6 +5,10 @@ def _to_plain_mapping(value):
     if isinstance(value, (list, tuple)):
         return [_to_plain_mapping(item) for item in value]
 
+    data = getattr(value, '_data', None)
+    if isinstance(data, dict):
+        return {key: _to_plain_mapping(item) for key, item in data.items()}
+
     if hasattr(value, 'items'):
         try:
             return {key: _to_plain_mapping(item) for key, item in value.items()}

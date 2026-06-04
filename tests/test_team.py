@@ -1219,9 +1219,6 @@ def test_get_checkout_session_payment_state_accepts_stripe_object(monkeypatch):
         def __init__(self, data):
             self._data = data
 
-        def items(self):
-            return self._data.items()
-
     class FakeStripeError(Exception):
         pass
 
@@ -1257,9 +1254,6 @@ def test_get_checkout_receipt_url_accepts_stripe_object(monkeypatch):
     class StripeLikeObject:
         def __init__(self, data):
             self._data = data
-
-        def items(self):
-            return self._data.items()
 
     class FakeStripeError(Exception):
         pass
