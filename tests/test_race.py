@@ -1288,8 +1288,28 @@ def test_stripe_registration_webhook_rejects_invalid_signature(test_client, add_
     assert "Invalid webhook signature" in response.json["message"]
 
 
+def test_stripe_registration_webhook_missing_metadata_is_ignored(test_client, add_test_data, monkeypatch):
+    """Webhook should acknowledge checkout events without registration metadata as ignored."""
+    monkeypatch.setattr(
+        "app.routes.race_api.registration.construct_stripe_event",
+        lambda **kwargs: {
+            "type": "checkout.session.completed",
+            "data": {"object": {"id": "cs_missing_meta", "metadata": {}}},
+        },
+    )
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    assert response.json["message"] == "Event ignored"
+
+
 def test_stripe_registration_webhook_accepts_stripe_object_event(test_client, add_test_data, test_app, monkeypatch):
-    """Webhook should accept Stripe SDK-like mapping objects without dict methods."""
+    """Webhook should accept Stripe SDK-like objects exposing only _data payload."""
     with test_app.app_context():
         race = Race.query.filter_by(id=1).first()
         race.registration_slug = "webhook-stripe-object"
@@ -1322,25 +1342,9 @@ def test_stripe_registration_webhook_accepts_stripe_object_event(test_client, ad
         },
     }
 
-    class StripeLikeMapping:
-        def __init__(self, data):
-            self._data = data
-
-        def items(self):
-            return self._data.items()
-
     class StripeLikeEvent:
         def __init__(self, data):
             self._data = data
-
-        def items(self):
-            wrapped = {}
-            for key, value in self._data.items():
-                if isinstance(value, dict):
-                    wrapped[key] = StripeLikeMapping(value)
-                else:
-                    wrapped[key] = value
-            return wrapped.items()
 
     send_calls = {"count": 0}
 

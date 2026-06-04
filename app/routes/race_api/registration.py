@@ -33,6 +33,10 @@ def _to_plain_mapping(value):
     if isinstance(value, (list, tuple)):
         return [_to_plain_mapping(item) for item in value]
 
+    data = getattr(value, '_data', None)
+    if isinstance(data, dict):
+        return {key: _to_plain_mapping(item) for key, item in data.items()}
+
     if hasattr(value, 'items'):
         try:
             return {key: _to_plain_mapping(item) for key, item in value.items()}
@@ -511,7 +515,7 @@ def stripe_registration_webhook():
       200:
         description: Event processed, deduplicated, or ignored successfully
       400:
-        description: Invalid webhook signature/payload or missing metadata
+                description: Invalid webhook signature/payload
       404:
         description: Registration referenced in metadata not found
       503:
@@ -553,11 +557,11 @@ def stripe_registration_webhook():
         team_id = int(metadata.get('team_id'))
     except (TypeError, ValueError):
         logger.warning('Stripe webhook invalid race/team metadata: %s', metadata)
-        return jsonify({'message': 'Missing metadata.'}), 400
+        return jsonify({'message': 'Event ignored'}), 200
 
     if not session_id:
         logger.warning('Stripe webhook missing session id')
-        return jsonify({'message': 'Missing metadata.'}), 400
+        return jsonify({'message': 'Event ignored'}), 200
 
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
     if not registration:
