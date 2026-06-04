@@ -1,8 +1,12 @@
+import sys
+import types
+
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
 from datetime import datetime, timedelta
+from app.services.stripe_service import get_checkout_receipt_url, get_checkout_session_payment_state
 
 @pytest.fixture
 def add_test_data(test_app):
@@ -1207,3 +1211,78 @@ def test_reconcile_registration_payment_confirms_paid_attempt(test_client, add_t
         assert attempt is not None
         assert attempt.status == "confirmed"
         assert attempt.confirmed_at is not None
+
+
+def test_get_checkout_session_payment_state_accepts_stripe_object(monkeypatch):
+    """Stripe checkout session helper should accept Stripe-like objects returned by the SDK."""
+    class StripeLikeObject:
+        def __init__(self, data):
+            self._data = data
+
+        def items(self):
+            return self._data.items()
+
+    class FakeStripeError(Exception):
+        pass
+
+    fake_stripe = types.ModuleType("stripe")
+    fake_stripe.error = types.SimpleNamespace(StripeError=FakeStripeError)
+    fake_stripe.checkout = types.SimpleNamespace(
+        Session=types.SimpleNamespace(
+            retrieve=lambda session_id: StripeLikeObject(
+                {
+                    "id": session_id,
+                    "payment_status": "paid",
+                    "status": "complete",
+                    "payment_intent": "pi_test_1",
+                }
+            )
+        )
+    )
+
+    monkeypatch.setitem(sys.modules, "stripe", fake_stripe)
+
+    result = get_checkout_session_payment_state(session_id="cs_test_1", secret_key="sk_test_1")
+
+    assert result == {
+        "session_id": "cs_test_1",
+        "payment_status": "paid",
+        "status": "complete",
+        "payment_intent": "pi_test_1",
+    }
+
+
+def test_get_checkout_receipt_url_accepts_stripe_object(monkeypatch):
+    """Receipt helper should accept Stripe-like objects returned by the SDK."""
+    class StripeLikeObject:
+        def __init__(self, data):
+            self._data = data
+
+        def items(self):
+            return self._data.items()
+
+    class FakeStripeError(Exception):
+        pass
+
+    fake_stripe = types.ModuleType("stripe")
+    fake_stripe.error = types.SimpleNamespace(StripeError=FakeStripeError)
+    fake_stripe.PaymentIntent = types.SimpleNamespace(
+        retrieve=lambda payment_intent, expand=None: StripeLikeObject(
+            {
+                "latest_charge": "ch_test_1",
+            }
+        )
+    )
+    fake_stripe.Charge = types.SimpleNamespace(
+        retrieve=lambda charge_id: StripeLikeObject(
+            {
+                "receipt_url": "https://pay.stripe.com/receipts/test",
+            }
+        )
+    )
+
+    monkeypatch.setitem(sys.modules, "stripe", fake_stripe)
+
+    result = get_checkout_receipt_url(session_object=StripeLikeObject({"payment_intent": "pi_test_1"}), secret_key="sk_test_1")
+
+    assert result == "https://pay.stripe.com/receipts/test"

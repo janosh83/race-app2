@@ -1288,6 +1288,87 @@ def test_stripe_registration_webhook_rejects_invalid_signature(test_client, add_
     assert "Invalid webhook signature" in response.json["message"]
 
 
+def test_stripe_registration_webhook_accepts_stripe_object_event(test_client, add_test_data, test_app, monkeypatch):
+    """Webhook should accept Stripe SDK-like mapping objects without dict methods."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.registration_slug = "webhook-stripe-object"
+        race.registration_enabled = True
+
+        category = RaceCategory(name="Webhook Stripe Object")
+        team = Team(name="Stripe Object Team")
+        user = User(name="Stripe Object User", email="stripe-object@example.com")
+        user.set_password("pass")
+        team.members.append(user)
+        db.session.add_all([category, team, user])
+        db.session.flush()
+        race.categories.append(category)
+        registration = Registration(race_id=race.id, team_id=team.id, race_category_id=category.id)
+        db.session.add(registration)
+        db.session.commit()
+        race_id = race.id
+        team_id = team.id
+
+    event_payload = {
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_stripe_object_1",
+                "metadata": {
+                    "race_id": str(race_id),
+                    "team_id": str(team_id),
+                },
+            }
+        },
+    }
+
+    class StripeLikeMapping:
+        def __init__(self, data):
+            self._data = data
+
+        def items(self):
+            return self._data.items()
+
+    class StripeLikeEvent:
+        def __init__(self, data):
+            self._data = data
+
+        def items(self):
+            wrapped = {}
+            for key, value in self._data.items():
+                if isinstance(value, dict):
+                    wrapped[key] = StripeLikeMapping(value)
+                else:
+                    wrapped[key] = value
+            return wrapped.items()
+
+    send_calls = {"count": 0}
+
+    def fake_send_email(**kwargs):
+        send_calls["count"] += 1
+        return True
+
+    monkeypatch.setattr(
+        "app.routes.race_api.registration.construct_stripe_event",
+        lambda **kwargs: StripeLikeEvent(event_payload),
+    )
+    monkeypatch.setattr("app.routes.race_api.registration.EmailService.send_registration_confirmation_email", fake_send_email)
+
+    response = test_client.post(
+        "/api/race/registration/stripe/webhook/",
+        data=b"{}",
+        headers={"Stripe-Signature": "test-signature"},
+    )
+
+    assert response.status_code == 200
+    assert send_calls["count"] == 1
+
+    with test_app.app_context():
+        updated = Registration.query.filter_by(race_id=race_id, team_id=team_id).first()
+        assert updated.payment_confirmed is True
+        assert updated.stripe_session_id == "cs_stripe_object_1"
+
+
 def test_stripe_registration_webhook_duplicate_event_is_idempotent(test_client, add_test_data, test_app, monkeypatch):
     """Duplicate checkout.session.completed events should not resend emails."""
     with test_app.app_context():

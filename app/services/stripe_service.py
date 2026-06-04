@@ -1,3 +1,19 @@
+def _to_plain_mapping(value):
+    if isinstance(value, dict):
+        return {key: _to_plain_mapping(item) for key, item in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [_to_plain_mapping(item) for item in value]
+
+    if hasattr(value, 'items'):
+        try:
+            return {key: _to_plain_mapping(item) for key, item in value.items()}
+        except (TypeError, ValueError):
+            return value
+
+    return value
+
+
 def create_registration_checkout_session(
     *,
     secret_key,
@@ -92,7 +108,11 @@ def get_checkout_receipt_url(*, session_object, secret_key):
     if not secret_key:
         return None
 
-    payment_intent = (session_object or {}).get("payment_intent")
+    session_object = _to_plain_mapping(session_object)
+    if not isinstance(session_object, dict):
+        return None
+
+    payment_intent = session_object.get("payment_intent")
     if isinstance(payment_intent, dict):
         payment_intent = payment_intent.get("id")
     if not payment_intent:
@@ -107,13 +127,22 @@ def get_checkout_receipt_url(*, session_object, secret_key):
 
     try:
         payment_intent_obj = stripe.PaymentIntent.retrieve(payment_intent, expand=["latest_charge"])
+        payment_intent_obj = _to_plain_mapping(payment_intent_obj)
+        if not isinstance(payment_intent_obj, dict):
+            return None
+
         latest_charge = payment_intent_obj.get("latest_charge")
         if isinstance(latest_charge, dict):
             return latest_charge.get("receipt_url")
         if latest_charge:
             charge_obj = stripe.Charge.retrieve(latest_charge)
-            return charge_obj.get("receipt_url")
-    except Exception:
+            charge_obj = _to_plain_mapping(charge_obj)
+            if isinstance(charge_obj, dict):
+                return charge_obj.get("receipt_url")
+            return None
+    except stripe.error.StripeError:
+        return None
+    except (AttributeError, TypeError, ValueError):
         return None
 
     return None
@@ -137,8 +166,10 @@ def get_checkout_session_payment_state(*, session_id, secret_key):
     except stripe.error.StripeError as exc:
         raise RuntimeError("Unable to retrieve checkout session") from exc
 
+    session = _to_plain_mapping(session)
+
     return {
-        "session_id": session.id,
+        "session_id": session.get("id"),
         "payment_status": session.get("payment_status"),
         "status": session.get("status"),
         "payment_intent": session.get("payment_intent"),

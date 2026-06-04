@@ -24,6 +24,24 @@ from app.utils import (
 logger = logging.getLogger(__name__)
 
 race_registration_bp = Blueprint('race_registration', __name__)
+
+
+def _to_plain_mapping(value):
+    if isinstance(value, dict):
+        return {key: _to_plain_mapping(item) for key, item in value.items()}
+
+    if isinstance(value, (list, tuple)):
+        return [_to_plain_mapping(item) for item in value]
+
+    if hasattr(value, 'items'):
+        try:
+            return {key: _to_plain_mapping(item) for key, item in value.items()}
+        except (TypeError, ValueError):
+            return value
+
+    return value
+
+
 def _payment_summary(registration, race):
     mode = _registration_mode(race)
     attempts = RegistrationPaymentAttempt.query.filter_by(registration_id=registration.id).order_by(
@@ -520,11 +538,13 @@ def stripe_registration_webhook():
         logger.warning('Stripe webhook signature verification failed: %s', exc)
         return jsonify({'message': 'Invalid webhook signature.'}), 400
 
-    if event.get('type') != 'checkout.session.completed':
-        logger.debug('Stripe webhook event type ignored: %s', event.get('type'))
+    event_payload = _to_plain_mapping(event)
+
+    if event_payload.get('type') != 'checkout.session.completed':
+        logger.debug('Stripe webhook event type ignored: %s', event_payload.get('type'))
         return jsonify({'message': 'Event ignored'}), 200
 
-    session = event.get('data', {}).get('object', {})
+    session = event_payload.get('data', {}).get('object', {})
     metadata = session.get('metadata') or {}
     session_id = session.get('id')
 
