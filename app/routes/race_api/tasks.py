@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
+from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
@@ -28,6 +29,18 @@ def _apply_task_translation(task, language):
     else:
         logger.debug("No translation found for task %s in language '%s'", task.id, language)
         return task.title, task.description
+
+
+def _apply_task_translation_prefetched(task, language):
+  if not language:
+    return task.title, task.description
+
+  translation = next((item for item in task.translations if item.language == language), None)
+  if translation:
+    return translation.title, translation.description
+
+  logger.debug("No translation found for task %s in language '%s'", task.id, language)
+  return task.title, task.description
 
 @tasks_bp.route('/', methods=['GET'])
 @jwt_required()
@@ -78,15 +91,16 @@ def get_tasks(race_id):
             requested_language, race_id
         )
     language = resolve_language(race, user, requested_language)
-    tasks = Task.query.filter_by(race_id=race_id).all()
+    tasks = Task.query.options(selectinload(Task.translations)).filter_by(race_id=race_id).all()
     return jsonify([
         {
             "id": task.id,
-            "title": _apply_task_translation(task, language)[0],
-            "description": _apply_task_translation(task, language)[1],
+        "title": title,
+        "description": description,
             "numOfPoints": task.numOfPoints
         }
         for task in tasks
+      for title, description in [_apply_task_translation_prefetched(task, language)]
     ])
 
 @tasks_bp.route('/', methods=['POST'])
@@ -724,7 +738,7 @@ def get_tasks_with_status(race_id, team_id):
             requested_language, race_id
         )
     language = resolve_language(race, user, requested_language)
-    tasks = race.tasks
+    tasks = Task.query.options(selectinload(Task.translations)).filter_by(race_id=race_id).all()
 
     completion_rows = (
       db.session.query(TaskLog, Image.filename.label('image_filename'))
@@ -744,7 +758,7 @@ def get_tasks_with_status(race_id, team_id):
         completion_entry = completions_by_task.get(task.id)
         completion = completion_entry[0] if completion_entry else None
         image_filename = completion_entry[1] if completion_entry else None
-        title, description = _apply_task_translation(task, language)
+        title, description = _apply_task_translation_prefetched(task, language)
         task_data = {
             "id": task.id,
             "title": title,

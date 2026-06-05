@@ -16,6 +16,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [checkpointTranslations, setCheckpointTranslations] = useState({});
+  const [loadingTranslations, setLoadingTranslations] = useState({});
   const [toast, setToast] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -26,47 +27,58 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     numOfPoints: ''
   });
 
-  // Fetch translations for all checkpoints
+  // Keep translation cache aligned with currently visible checkpoints.
   useEffect(() => {
-    const fetchAllTranslations = async () => {
-      const checkpointIds = checkpoints.map(cp => cp.id ?? cp.checkpoint_id).filter(Boolean);
-      const currentIds = Object.keys(checkpointTranslations).map(Number);
-      
-      // Only fetch for checkpoints we don't have translations for yet
-      const idsToFetch = checkpointIds.filter(id => !currentIds.includes(id));
-      
-      if (idsToFetch.length === 0) {
-        // Clean up translations for removed checkpoints
-        const removedIds = currentIds.filter(id => !checkpointIds.includes(id));
-        if (removedIds.length > 0) {
-          setCheckpointTranslations(prev => {
-            const cleanedMap = { ...prev };
-            removedIds.forEach(id => delete cleanedMap[id]);
-            return cleanedMap;
-          });
-        }
-        return;
-      }
-      
-      const newTranslations = {};
-      for (const cpId of idsToFetch) {
-        try {
-          const data = await adminApi.getCheckpointTranslations(cpId);
-          newTranslations[cpId] = Array.isArray(data) ? data : (data?.data || []);
-        } catch (e) {
-          logger.error('ADMIN', `Failed to load translations for checkpoint ${cpId}`, e);
-          newTranslations[cpId] = [];
-        }
-      }
-      
-      setCheckpointTranslations(prev => ({ ...prev, ...newTranslations }));
-    };
+    const checkpointIds = checkpoints.map(cp => cp.id ?? cp.checkpoint_id).filter(Boolean);
+    const checkpointIdSet = new Set(checkpointIds);
 
-    if (checkpoints.length > 0) {
-      fetchAllTranslations();
+    setCheckpointTranslations(prev => {
+      const cleanedMap = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (checkpointIdSet.has(Number(id))) cleanedMap[id] = value;
+      }
+      return cleanedMap;
+    });
+
+    setLoadingTranslations(prev => {
+      const cleanedMap = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (checkpointIdSet.has(Number(id))) cleanedMap[id] = value;
+      }
+      return cleanedMap;
+    });
+  }, [checkpoints]);
+
+  const ensureCheckpointTranslations = async (cpId) => {
+    if (!cpId) return;
+    if (checkpointTranslations[cpId] !== undefined) return;
+    if (loadingTranslations[cpId]) return;
+
+    setLoadingTranslations(prev => ({ ...prev, [cpId]: true }));
+    try {
+      const data = await adminApi.getCheckpointTranslations(cpId);
+      const translations = Array.isArray(data) ? data : (data?.data || []);
+      setCheckpointTranslations(prev => ({ ...prev, [cpId]: translations }));
+    } catch (e) {
+      logger.error('ADMIN', `Failed to load translations for checkpoint ${cpId}`, e);
+      setCheckpointTranslations(prev => ({ ...prev, [cpId]: [] }));
+    } finally {
+      setLoadingTranslations(prev => {
+        const next = { ...prev };
+        delete next[cpId];
+        return next;
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkpoints.map(cp => cp.id ?? cp.checkpoint_id).join(',')]);
+  };
+
+  const handleToggleExpanded = async (cpId, isExpanded) => {
+    if (isExpanded) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(cpId);
+    await ensureCheckpointTranslations(cpId);
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm(t('admin.checkpoints.deleteConfirm'))) return;
@@ -161,17 +173,17 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
   const handleImport = async (e) => {
     e.preventDefault();
     setImportError(null);
-    
+
     if (!selectedFile) {
       setImportError(t('admin.checkpoints.validationSelectFile'));
       return;
     }
-    
+
     if (!raceId) {
       setImportError(t('admin.checkpoints.validationMissingRace'));
       return;
     }
-    
+
     // Read file content
     const fileContent = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -179,7 +191,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       reader.onerror = (error) => reject(error);
       reader.readAsText(selectedFile);
     });
-    
+
     let parsed;
     try {
       parsed = JSON.parse(fileContent);
@@ -209,14 +221,14 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       }));
       const created = await adminApi.addCheckpoint(raceId, payload);
       const checkpoints = Array.isArray(created) ? created : [created];
-      
+
       // Import translations for each checkpoint
       let translationsCount = 0;
       for (let i = 0; i < checkpoints.length; i++) {
         const checkpoint = checkpoints[i];
         const sourceData = parsed[i];
         const translations = sourceData.translations || [];
-        
+
         for (const trans of translations) {
           if (trans.language) {
             try {
@@ -232,15 +244,15 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           }
         }
       }
-      
+
       // notify parent and clear file selection
       onImported(checkpoints);
       setSelectedFile(null);
       // Reset file input
       const fileInput = document.getElementById('checkpoint-file-input');
       if (fileInput) fileInput.value = '';
-      
-      const msg = translationsCount > 0 
+
+      const msg = translationsCount > 0
         ? t('admin.checkpoints.importSuccessWithTranslations', { count: checkpoints.length, translations: translationsCount })
         : t('admin.checkpoints.importSuccess', { count: checkpoints.length });
       setToast({
@@ -270,16 +282,16 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
               const isExpanded = expandedId === cpId;
               const translations = checkpointTranslations[cpId] || [];
               const translationLanguages = translations.map(t => t.language);
-              
+
               return (
                 <div key={cpId} className="list-group-item">
                   <div className="d-flex justify-content-between align-items-start">
-                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : cpId)}>
+                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => handleToggleExpanded(cpId, isExpanded)}>
                       <div className="d-flex align-items-center gap-2">
                         <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
                         <strong>{cp.name ?? cp.title}</strong>
                         {translationLanguages.length > 0 && (
-                          <LanguageFlagsDisplay 
+                          <LanguageFlagsDisplay
                             languages={translationLanguages}
                             flagWidth={20}
                             flagHeight={14}
@@ -293,7 +305,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                       <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
-                  
+
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-top">
                       <div className="row">
@@ -302,19 +314,19 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                           <dl className="row small">
                             <dt className="col-sm-4">{t('admin.checkpoints.labelDescription')}</dt>
                             <dd className="col-sm-8">{cp.description || <span className="text-muted">—</span>}</dd>
-                            
+
                             <dt className="col-sm-4">{t('admin.checkpoints.labelCoordinates')}</dt>
                             <dd className="col-sm-8">
                               {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
                                 ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
                                 : <span className="text-muted">—</span>}
                             </dd>
-                            
+
                             <dt className="col-sm-4">{t('admin.checkpoints.labelPoints')}</dt>
                             <dd className="col-sm-8">{cp.numOfPoints}</dd>
                           </dl>
                         </div>
-                        
+
                         <div className="col-md-6">
                           <h6 className="text-muted small">{t('admin.checkpoints.translations')}</h6>
                           <TranslationManager
@@ -434,14 +446,14 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
             <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
               {importing ? t('admin.checkpoints.importing') : t('admin.checkpoints.import')}
             </button>
-            <button 
-              type="button" 
-              className="btn btn-outline-secondary" 
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
               onClick={() => {
                 setSelectedFile(null);
                 const fileInput = document.getElementById('checkpoint-file-input');
                 if (fileInput) fileInput.value = '';
-              }} 
+              }}
               disabled={importing || !selectedFile}
             >
               {t('admin.checkpoints.clear')}
@@ -470,7 +482,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
               <div className="modal-body">
                 <h6>{t('admin.checkpoints.importHelpFormat')}</h6>
                 <p className="text-muted">{t('admin.checkpoints.importHelpDescription')}</p>
-                
+
                 <h6 className="mt-3">{t('admin.checkpoints.importHelpFields')}</h6>
                 <ul>
                   <li><strong>title</strong> {t('admin.checkpoints.importHelpFieldTitle')}</li>
@@ -480,7 +492,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                   <li><strong>numOfPoints</strong> {t('admin.checkpoints.importHelpFieldPoints')}</li>
                   <li><strong>translations</strong> {t('admin.checkpoints.importHelpFieldTranslations')}</li>
                 </ul>
-                
+
                 <h6 className="mt-3">{t('admin.checkpoints.importHelpExample')}</h6>
                 <pre className="bg-light p-3 rounded border" style={{ fontSize: '12px', overflow: 'auto' }}>{`[
   {

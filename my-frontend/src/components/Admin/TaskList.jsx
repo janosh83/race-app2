@@ -16,6 +16,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   const [editingId, setEditingId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [taskTranslations, setTaskTranslations] = useState({});
+  const [loadingTranslations, setLoadingTranslations] = useState({});
   const [toast, setToast] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -24,47 +25,58 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
     numOfPoints: ''
   });
 
-  // Fetch translations for all tasks
+  // Keep translation cache aligned with currently visible tasks.
   useEffect(() => {
-    const fetchAllTranslations = async () => {
-      const taskIds = tasks.map(t => t.id ?? t.task_id).filter(Boolean);
-      const currentIds = Object.keys(taskTranslations).map(Number);
-      
-      // Only fetch for tasks we don't have translations for yet
-      const idsToFetch = taskIds.filter(id => !currentIds.includes(id));
-      
-      if (idsToFetch.length === 0) {
-        // Clean up translations for removed tasks
-        const removedIds = currentIds.filter(id => !taskIds.includes(id));
-        if (removedIds.length > 0) {
-          setTaskTranslations(prev => {
-            const cleanedMap = { ...prev };
-            removedIds.forEach(id => delete cleanedMap[id]);
-            return cleanedMap;
-          });
-        }
-        return;
-      }
-      
-      const newTranslations = {};
-      for (const taskId of idsToFetch) {
-        try {
-          const data = await adminApi.getTaskTranslations(taskId);
-          newTranslations[taskId] = Array.isArray(data) ? data : (data?.data || []);
-        } catch (e) {
-          logger.error('ADMIN', `Failed to load translations for task ${taskId}`, e);
-          newTranslations[taskId] = [];
-        }
-      }
-      
-      setTaskTranslations(prev => ({ ...prev, ...newTranslations }));
-    };
+    const taskIds = tasks.map(t => t.id ?? t.task_id).filter(Boolean);
+    const taskIdSet = new Set(taskIds);
 
-    if (tasks.length > 0) {
-      fetchAllTranslations();
+    setTaskTranslations(prev => {
+      const cleanedMap = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (taskIdSet.has(Number(id))) cleanedMap[id] = value;
+      }
+      return cleanedMap;
+    });
+
+    setLoadingTranslations(prev => {
+      const cleanedMap = {};
+      for (const [id, value] of Object.entries(prev)) {
+        if (taskIdSet.has(Number(id))) cleanedMap[id] = value;
+      }
+      return cleanedMap;
+    });
+  }, [tasks]);
+
+  const ensureTaskTranslations = async (taskId) => {
+    if (!taskId) return;
+    if (taskTranslations[taskId] !== undefined) return;
+    if (loadingTranslations[taskId]) return;
+
+    setLoadingTranslations(prev => ({ ...prev, [taskId]: true }));
+    try {
+      const data = await adminApi.getTaskTranslations(taskId);
+      const translations = Array.isArray(data) ? data : (data?.data || []);
+      setTaskTranslations(prev => ({ ...prev, [taskId]: translations }));
+    } catch (e) {
+      logger.error('ADMIN', `Failed to load translations for task ${taskId}`, e);
+      setTaskTranslations(prev => ({ ...prev, [taskId]: [] }));
+    } finally {
+      setLoadingTranslations(prev => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks.map(t => t.id ?? t.task_id).join(',')]);
+  };
+
+  const handleToggleExpanded = async (taskId, isExpanded) => {
+    if (isExpanded) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(taskId);
+    await ensureTaskTranslations(taskId);
+  };
 
   const handleDelete = async (id) => {
     if (!window.confirm(t('admin.tasks.deleteConfirm'))) return;
@@ -152,17 +164,17 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
   const handleImport = async (e) => {
     e.preventDefault();
     setImportError(null);
-    
+
     if (!selectedFile) {
       setImportError(t('admin.tasks.validationSelectFile'));
       return;
     }
-    
+
     if (!raceId) {
       setImportError(t('admin.tasks.validationMissingRace'));
       return;
     }
-    
+
     // Read file content
     const fileContent = await new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -170,7 +182,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       reader.onerror = (error) => reject(error);
       reader.readAsText(selectedFile);
     });
-    
+
     let parsed;
     try {
       parsed = JSON.parse(fileContent);
@@ -200,7 +212,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         };
         const task = await adminApi.addTask(raceId, payload);
         created.push(task);
-        
+
         // Import translations for this task
         const translations = it.translations || [];
         for (const trans of translations) {
@@ -223,7 +235,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       // Reset file input
       const fileInput = document.getElementById('task-file-input');
       if (fileInput) fileInput.value = '';
-      
+
       const msg = translationsCount > 0
         ? t('admin.tasks.importSuccessWithTranslations', { count: created.length, translations: translationsCount })
         : t('admin.tasks.importSuccess', { count: created.length });
@@ -254,16 +266,16 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               const isExpanded = expandedId === taskId;
               const translations = taskTranslations[taskId] || [];
               const translationLanguages = translations.map(t => t.language);
-              
+
               return (
                 <div key={taskId} className="list-group-item">
                   <div className="d-flex justify-content-between align-items-start">
-                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : taskId)}>
+                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => handleToggleExpanded(taskId, isExpanded)}>
                       <div className="d-flex align-items-center gap-2">
                         <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
                         <strong>{task.title ?? task.name}</strong>
                         {translationLanguages.length > 0 && (
-                          <LanguageFlagsDisplay 
+                          <LanguageFlagsDisplay
                             languages={translationLanguages}
                             flagWidth={20}
                             flagHeight={14}
@@ -277,7 +289,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                       <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(taskId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
-                  
+
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-top">
                       <div className="row">
@@ -286,12 +298,12 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                           <dl className="row small">
                             <dt className="col-sm-4">{t('admin.tasks.labelDescription')}</dt>
                             <dd className="col-sm-8">{task.description || <span className="text-muted">—</span>}</dd>
-                            
+
                             <dt className="col-sm-4">{t('admin.tasks.labelPoints')}</dt>
                             <dd className="col-sm-8">{task.numOfPoints ?? task.points ?? 0}</dd>
                           </dl>
                         </div>
-                        
+
                         <div className="col-md-6">
                           <h6 className="text-muted small">{t('admin.tasks.translations')}</h6>
                           <TranslationManager
@@ -391,14 +403,14 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
             <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
               {importing ? t('admin.tasks.importing') : t('admin.tasks.import')}
             </button>
-            <button 
-              type="button" 
-              className="btn btn-outline-secondary" 
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
               onClick={() => {
                 setSelectedFile(null);
                 const fileInput = document.getElementById('task-file-input');
                 if (fileInput) fileInput.value = '';
-              }} 
+              }}
               disabled={importing || !selectedFile}
             >
               {t('admin.tasks.clear')}
@@ -427,7 +439,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               <div className="modal-body">
                 <h6>{t('admin.tasks.importHelpFormat')}</h6>
                 <p className="text-muted">{t('admin.tasks.importHelpDescription')}</p>
-                
+
                 <h6 className="mt-3">{t('admin.tasks.importHelpFields')}</h6>
                 <ul>
                   <li><strong>title</strong> {t('admin.tasks.importHelpFieldTitle')}</li>
@@ -435,7 +447,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
                   <li><strong>numOfPoints</strong> {t('admin.tasks.importHelpFieldPoints')}</li>
                   <li><strong>translations</strong> {t('admin.tasks.importHelpFieldTranslations')}</li>
                 </ul>
-                
+
                 <h6 className="mt-3">{t('admin.tasks.importHelpExample')}</h6>
                 <pre className="bg-light p-3 rounded border" style={{ fontSize: '12px', overflow: 'auto' }}>{`[
   {
