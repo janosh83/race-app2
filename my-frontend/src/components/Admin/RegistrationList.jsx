@@ -213,6 +213,190 @@ export default function RegistrationList({ raceId, race }) {
     }));
   };
 
+  const getPaymentTypeLabel = (type) => {
+    if (type === 'driver') return t('admin.registrations.paymentTypeDriver');
+    if (type === 'codriver') return t('admin.registrations.paymentTypeCodriver');
+    return t('admin.registrations.paymentTypeTeam');
+  };
+
+  const getRegistrationViewModel = (reg, idx) => {
+    const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
+    const teamId = reg.team_id || reg.id;
+    const categoryName = reg.race_category || reg.category || reg.category_name || '';
+    const members = Array.isArray(reg.members) ? reg.members : (reg.team?.members || []);
+    const membersDisplay = (members || []).length > 0
+      ? members.map(m => m.name || m.email || `#${m.id}`).join(', ')
+      : '—';
+    const emailSent = reg.email_sent || false;
+    const disqualified = !!reg.disqualified;
+    const paymentConfirmed = !!reg.payment_confirmed;
+    const paymentDetails = reg.payment_details || {};
+    const attempts = Array.isArray(paymentDetails.attempts) ? paymentDetails.attempts : [];
+    const showPaymentDetails = !!expandedPayments[teamId];
+    const timelineState = paymentTimelineState[teamId] || { status: 'all', order: 'newest' };
+    const paymentMode = paymentDetails.mode;
+    const paymentItems = paymentMode === 'team'
+      ? [{ type: 'team', paid: !!paymentDetails.team_paid }]
+      : [
+          { type: 'driver', paid: !!paymentDetails.driver_paid },
+          { type: 'codriver', paid: !!paymentDetails.codriver_paid },
+        ];
+    const filteredAttempts = (attempts || []).filter(attempt => (
+      timelineState.status === 'all' || (attempt.status || '').toLowerCase() === timelineState.status
+    ));
+    const sortedAttempts = [...filteredAttempts].sort((left, right) => {
+      const leftValue = new Date(left.confirmed_at || left.created_at || 0).getTime();
+      const rightValue = new Date(right.confirmed_at || right.created_at || 0).getTime();
+      return timelineState.order === 'oldest' ? leftValue - rightValue : rightValue - leftValue;
+    });
+
+    return {
+      teamName,
+      teamId,
+      categoryName,
+      members,
+      membersDisplay,
+      emailSent,
+      disqualified,
+      paymentConfirmed,
+      paymentDetails,
+      showPaymentDetails,
+      timelineState,
+      paymentItems,
+      sortedAttempts,
+    };
+  };
+
+  const renderPaymentDetails = (item) => (
+    <div className="bg-light border rounded p-2">
+      <div className="d-flex flex-wrap gap-1 mb-2">
+        <button
+          className="btn btn-sm btn-outline-warning"
+          onClick={() => handleToggleDisqualification(item.teamId, item.disqualified)}
+          title={item.disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
+        >
+          {item.disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
+        </button>
+        <button
+          className="btn btn-sm btn-outline-primary"
+          onClick={() => handleSendEmailForTeam(item.teamId, item.teamName)}
+          title={t('admin.registrations.sendTeamEmailTitle', { team: item.teamName })}
+          disabled={sendingEmails || sendingTeamEmailId === item.teamId || item.emailSent || !item.paymentConfirmed || item.members.length === 0}
+        >
+          {sendingTeamEmailId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
+        </button>
+        <button
+          className="btn btn-sm btn-outline-danger"
+          onClick={() => handleDeleteRegistration(item.teamId)}
+          title={t('admin.registrations.deleteRegistration')}
+        >
+          {t('admin.registrations.delete')}
+        </button>
+      </div>
+      <div className="small text-muted mb-2">
+        {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}
+        {' · '}
+        {t('admin.registrations.driverPaid')}: {item.paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
+        {' · '}
+        {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
+      </div>
+      <div className="d-flex flex-wrap gap-2 mb-2">
+        {item.paymentItems.map(paymentItem => (
+          <div key={paymentItem.type} className="border rounded p-2 bg-white">
+            <div className="fw-semibold small mb-2">{getPaymentTypeLabel(paymentItem.type)}</div>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary me-2"
+              onClick={() => handleRetryPayment(item.teamId, paymentItem.type)}
+              disabled={paymentItem.paid}
+            >
+              {t('admin.registrations.retryPayment')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-info me-2"
+              onClick={() => handleReconcilePayment(item.teamId, paymentItem.type)}
+            >
+              {t('admin.registrations.reconcilePayment')}
+            </button>
+            {paymentItem.paid ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-warning"
+                onClick={() => handleMarkPayment(item.teamId, paymentItem.type, false)}
+              >
+                {t('admin.registrations.markUnpaid')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-success"
+                onClick={() => handleMarkPayment(item.teamId, paymentItem.type, true)}
+              >
+                {t('admin.registrations.markPaid')}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span className="small text-muted">{t('admin.registrations.timelineFilter')}</span>
+        <select
+          className="form-select form-select-sm"
+          style={{ width: 180 }}
+          value={item.timelineState.status}
+          onChange={(e) => updatePaymentTimelineState(item.teamId, { status: e.target.value })}
+        >
+          <option value="all">{t('admin.registrations.timelineStatusAll')}</option>
+          <option value="confirmed">{t('admin.registrations.timelineStatusConfirmed')}</option>
+          <option value="pending">{t('admin.registrations.timelineStatusPending')}</option>
+          <option value="failed">{t('admin.registrations.timelineStatusFailed')}</option>
+        </select>
+        <span className="small text-muted">{t('admin.registrations.timelineSort')}</span>
+        <select
+          className="form-select form-select-sm"
+          style={{ width: 180 }}
+          value={item.timelineState.order}
+          onChange={(e) => updatePaymentTimelineState(item.teamId, { order: e.target.value })}
+        >
+          <option value="newest">{t('admin.registrations.timelineSortNewest')}</option>
+          <option value="oldest">{t('admin.registrations.timelineSortOldest')}</option>
+        </select>
+      </div>
+      <div className="table-responsive">
+        <table className="table table-sm table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>{t('admin.registrations.attemptType')}</th>
+              <th>{t('admin.registrations.attemptStatus')}</th>
+              <th>{t('admin.registrations.attemptAmount')}</th>
+              <th>{t('admin.registrations.attemptCreated')}</th>
+              <th>{t('admin.registrations.attemptConfirmed')}</th>
+              <th>{t('admin.registrations.attemptSession')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {item.sortedAttempts.length === 0 && (
+              <tr>
+                <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+              </tr>
+            )}
+            {item.sortedAttempts.map(attempt => (
+              <tr key={attempt.id || attempt.stripe_session_id}>
+                <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
+                <td>{attempt.status || '—'}</td>
+                <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
+                <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
+                <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
+                <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   if (!raceId) return null;
 
   return (
@@ -275,229 +459,122 @@ export default function RegistrationList({ raceId, race }) {
 
         <h5 className="mb-3">{t('admin.registrations.currentRegistrations')}</h5>
 
-        <table className="table table-sm">
-          <thead>
-            <tr>
-              <th>{t('admin.registrations.tableTeam')}</th>
-              <th>{t('admin.registrations.tableCategory')}</th>
-              <th>{t('admin.registrations.tableMembers')}</th>
-              <th>{t('admin.registrations.tableEmailSent')}</th>
-              <th>{t('admin.registrations.tablePayment')}</th>
-              <th>{t('admin.registrations.tableDisqualified')}</th>
-              <th style={{ width: 220 }}>{t('admin.registrations.tableActions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(!registrations || registrations.length === 0) && (
-              <tr><td colSpan="7" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
-            )}
-            {registrations.map((reg, idx) => {
-              const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
-              const teamId = reg.team_id || reg.id;
-              const categoryName = reg.race_category || reg.category || reg.category_name || '';
-              const members = Array.isArray(reg.members) ? reg.members : (reg.team?.members || []);
-              const membersDisplay = (members || []).length > 0
-                ? members.map(m => m.name || m.email || `#${m.id}`).join(', ')
-                : '—';
-              const emailSent = reg.email_sent || false;
-              const disqualified = !!reg.disqualified;
-              const paymentConfirmed = !!reg.payment_confirmed;
-              const paymentDetails = reg.payment_details || {};
-              const attempts = Array.isArray(paymentDetails.attempts) ? paymentDetails.attempts : [];
-              const showPaymentDetails = !!expandedPayments[teamId];
-              const timelineState = paymentTimelineState[teamId] || { status: 'all', order: 'newest' };
-              const paymentMode = paymentDetails.mode;
-              const paymentItems = paymentMode === 'team'
-                ? [{ type: 'team', paid: !!paymentDetails.team_paid }]
-                : [
-                    { type: 'driver', paid: !!paymentDetails.driver_paid },
-                    { type: 'codriver', paid: !!paymentDetails.codriver_paid },
-                  ];
-              const filteredAttempts = (attempts || []).filter(attempt => (
-                timelineState.status === 'all' || (attempt.status || '').toLowerCase() === timelineState.status
-              ));
-              const sortedAttempts = [...filteredAttempts].sort((left, right) => {
-                const leftValue = new Date(left.confirmed_at || left.created_at || 0).getTime();
-                const rightValue = new Date(right.confirmed_at || right.created_at || 0).getTime();
-                return timelineState.order === 'oldest' ? leftValue - rightValue : rightValue - leftValue;
-              });
+        <div className="d-none d-md-block">
+          <div className="w-100 overflow-hidden">
+            <table className="table table-sm align-middle" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '22%' }}>{t('admin.registrations.tableTeam')}</th>
+                  <th style={{ width: '36%' }}>{t('admin.registrations.tableMembers')}</th>
+                  <th style={{ width: '26%' }}>
+                    {t('admin.registrations.tableEmailSent')} / {t('admin.registrations.tablePayment')} / {t('admin.registrations.tableDisqualified')}
+                  </th>
+                  <th style={{ width: '16%' }}>{t('admin.registrations.tableActions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!registrations || registrations.length === 0) && (
+                  <tr><td colSpan="4" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
+                )}
+                {registrations.map((reg, idx) => {
+                  const item = getRegistrationViewModel(reg, idx);
+                  return (
+                    <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
+                      <tr>
+                        <td className="text-break">
+                          <div className="fw-semibold">{item.teamName}</div>
+                          <div className="text-muted small">{item.categoryName || '—'}</div>
+                        </td>
+                        <td className="text-muted small text-break" title={item.membersDisplay}>
+                          {item.membersDisplay}
+                        </td>
+                        <td>
+                          <div className="d-flex flex-wrap gap-1">
+                            <span className={`badge ${item.emailSent ? 'bg-success' : 'bg-secondary'}`}>
+                              {item.emailSent ? t('admin.registrations.emailSent') : t('admin.registrations.notSent')}
+                            </span>
+                            <span className={`badge ${item.paymentConfirmed ? 'bg-success' : 'bg-warning text-dark'}`}>
+                              {item.paymentConfirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
+                            </span>
+                            <span className={`badge ${item.disqualified ? 'bg-danger' : 'bg-success'}`}>
+                              {item.disqualified ? t('admin.registrations.disqualified') : t('admin.registrations.eligible')}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => togglePaymentDetails(item.teamId)}
+                            title={t('admin.registrations.paymentDetails')}
+                          >
+                            {item.showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
+                          </button>
+                        </td>
+                      </tr>
+                      {item.showPaymentDetails && (
+                        <tr>
+                          <td colSpan="4">{renderPaymentDetails(item)}</td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-              const getPaymentTypeLabel = (type) => {
-                if (type === 'driver') return t('admin.registrations.paymentTypeDriver');
-                if (type === 'codriver') return t('admin.registrations.paymentTypeCodriver');
-                return t('admin.registrations.paymentTypeTeam');
-              };
-              return (
-                <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
-                  <tr>
-                    <td>{teamName}</td>
-                    <td>{categoryName}</td>
-                    <td className="text-muted small">{membersDisplay}</td>
-                    <td>
-                      {emailSent ? (
-                        <span className="badge bg-success">{t('admin.registrations.emailSent')}</span>
-                      ) : (
-                        <span className="badge bg-secondary">{t('admin.registrations.notSent')}</span>
-                      )}
-                    </td>
-                    <td>
-                      {paymentConfirmed ? (
-                        <span className="badge bg-success">{t('admin.registrations.paymentPaid')}</span>
-                      ) : (
-                        <span className="badge bg-warning text-dark">{t('admin.registrations.paymentUnpaid')}</span>
-                      )}
-                    </td>
-                    <td>
-                      {disqualified ? (
-                        <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>
-                      ) : (
-                        <span className="badge bg-success">{t('admin.registrations.eligible')}</span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-sm btn-outline-secondary me-2 mb-1"
-                        onClick={() => togglePaymentDetails(teamId)}
-                        title={t('admin.registrations.paymentDetails')}
-                      >
-                        {showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-warning me-2 mb-1"
-                        onClick={() => handleToggleDisqualification(teamId, disqualified)}
-                        title={disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
-                      >
-                        {disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-primary me-2 mb-1"
-                        onClick={() => handleSendEmailForTeam(teamId, teamName)}
-                        title={t('admin.registrations.sendTeamEmailTitle', { team: teamName })}
-                        disabled={sendingEmails || sendingTeamEmailId === teamId || emailSent || !paymentConfirmed || members.length === 0}
-                      >
-                        {sendingTeamEmailId === teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
-                      </button>
-                      <button
-                        className="btn btn-sm btn-outline-danger mb-1"
-                        onClick={() => handleDeleteRegistration(teamId)}
-                        title={t('admin.registrations.deleteRegistration')}
-                      >
-                        {t('admin.registrations.delete')}
-                      </button>
-                    </td>
-                  </tr>
-                  {showPaymentDetails && (
-                    <tr>
-                      <td colSpan="7" className="bg-light">
-                        <div className="small text-muted mb-2">
-                          {t('admin.registrations.paymentMode')}: {paymentDetails.mode || '—'}
-                          {' · '}
-                          {t('admin.registrations.driverPaid')}: {paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
-                          {' · '}
-                          {t('admin.registrations.codriverPaid')}: {paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
-                        </div>
-                        <div className="d-flex flex-wrap gap-2 mb-2">
-                          {paymentItems.map(item => (
-                            <div key={item.type} className="border rounded p-2 bg-white">
-                              <div className="fw-semibold small mb-2">{getPaymentTypeLabel(item.type)}</div>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary me-2"
-                                onClick={() => handleRetryPayment(teamId, item.type)}
-                                disabled={item.paid}
-                              >
-                                {t('admin.registrations.retryPayment')}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-info me-2"
-                                onClick={() => handleReconcilePayment(teamId, item.type)}
-                              >
-                                {t('admin.registrations.reconcilePayment')}
-                              </button>
-                              {item.paid ? (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-warning"
-                                  onClick={() => handleMarkPayment(teamId, item.type, false)}
-                                >
-                                  {t('admin.registrations.markUnpaid')}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-outline-success"
-                                  onClick={() => handleMarkPayment(teamId, item.type, true)}
-                                >
-                                  {t('admin.registrations.markPaid')}
-                                </button>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-                          <span className="small text-muted">{t('admin.registrations.timelineFilter')}</span>
-                          <select
-                            className="form-select form-select-sm"
-                            style={{ width: 180 }}
-                            value={timelineState.status}
-                            onChange={(e) => updatePaymentTimelineState(teamId, { status: e.target.value })}
-                          >
-                            <option value="all">{t('admin.registrations.timelineStatusAll')}</option>
-                            <option value="confirmed">{t('admin.registrations.timelineStatusConfirmed')}</option>
-                            <option value="pending">{t('admin.registrations.timelineStatusPending')}</option>
-                            <option value="failed">{t('admin.registrations.timelineStatusFailed')}</option>
-                          </select>
-                          <span className="small text-muted">{t('admin.registrations.timelineSort')}</span>
-                          <select
-                            className="form-select form-select-sm"
-                            style={{ width: 180 }}
-                            value={timelineState.order}
-                            onChange={(e) => updatePaymentTimelineState(teamId, { order: e.target.value })}
-                          >
-                            <option value="newest">{t('admin.registrations.timelineSortNewest')}</option>
-                            <option value="oldest">{t('admin.registrations.timelineSortOldest')}</option>
-                          </select>
-                        </div>
-                        <div className="table-responsive">
-                          <table className="table table-sm table-bordered mb-0">
-                            <thead>
-                              <tr>
-                                <th>{t('admin.registrations.attemptType')}</th>
-                                <th>{t('admin.registrations.attemptStatus')}</th>
-                                <th>{t('admin.registrations.attemptAmount')}</th>
-                                <th>{t('admin.registrations.attemptCreated')}</th>
-                                <th>{t('admin.registrations.attemptConfirmed')}</th>
-                                <th>{t('admin.registrations.attemptSession')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {sortedAttempts.length === 0 && (
-                                <tr>
-                                  <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
-                                </tr>
-                              )}
-                              {sortedAttempts.map(attempt => (
-                                <tr key={attempt.id || attempt.stripe_session_id}>
-                                  <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
-                                  <td>{attempt.status || '—'}</td>
-                                  <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
-                                  <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
-                                  <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
-                                  <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
+        <div className="d-md-none">
+          {(!registrations || registrations.length === 0) && (
+            <div className="text-muted small">{t('admin.registrations.noRegistrations')}</div>
+          )}
+          {(registrations || []).map((reg, idx) => {
+            const item = getRegistrationViewModel(reg, idx);
+            return (
+              <div key={reg.id ?? reg.team_id ?? idx} className="card mb-2">
+                <div className="card-body p-2">
+                  <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                      <div className="fw-semibold small">{item.teamName}</div>
+                      <div className="text-muted small">{item.categoryName || '—'}</div>
+                    </div>
+                    <div className="d-flex flex-wrap gap-1 justify-content-end">
+                      <span className={`badge ${item.emailSent ? 'bg-success' : 'bg-secondary'}`}>
+                        {item.emailSent ? t('admin.registrations.emailSent') : t('admin.registrations.notSent')}
+                      </span>
+                      <span className={`badge ${item.paymentConfirmed ? 'bg-success' : 'bg-warning text-dark'}`}>
+                        {item.paymentConfirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
+                      </span>
+                      <span className={`badge ${item.disqualified ? 'bg-danger' : 'bg-success'}`}>
+                        {item.disqualified ? t('admin.registrations.disqualified') : t('admin.registrations.eligible')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="small text-muted mb-2 text-break" style={{ lineHeight: 1.3 }}>
+                    <strong>{t('admin.registrations.tableMembers')}:</strong> {item.membersDisplay}
+                  </div>
+
+                  <div className="d-grid gap-1">
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={() => togglePaymentDetails(item.teamId)}
+                      title={t('admin.registrations.paymentDetails')}
+                    >
+                      {item.showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
+                    </button>
+                  </div>
+
+                  {item.showPaymentDetails && (
+                    <div className="mt-2">
+                      {renderPaymentDetails(item)}
+                    </div>
                   )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="d-flex justify-content-end mt-3">
           <button
