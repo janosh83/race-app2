@@ -43,6 +43,33 @@ def test_get_teams(test_client, add_test_data):
         {"id": 3, "name": "Team3"}
     ]
 
+
+def test_get_teams_paginated(test_client, add_test_data):
+    response = test_client.get("/api/team/?page=1&per_page=2")
+    assert response.status_code == 200
+    assert "data" in response.json
+    assert "meta" in response.json
+    assert response.json["meta"]["page"] == 1
+    assert response.json["meta"]["per_page"] == 2
+    assert response.json["meta"]["total"] == 3
+    assert len(response.json["data"]) == 2
+    assert response.json["data"][0] == {"id": 1, "name": "Team1"}
+
+
+def test_get_teams_paginated_invalid_params(test_client, add_test_data):
+    response = test_client.get("/api/team/?page=1&per_page=x")
+    assert response.status_code == 400
+    assert "errors" in response.json
+    assert "per_page" in response.json["errors"]
+
+
+def test_get_teams_paginated_out_of_range_params(test_client, add_test_data):
+    response = test_client.get("/api/team/?page=0&per_page=101")
+    assert response.status_code == 400
+    assert "errors" in response.json
+    assert "page" in response.json["errors"]
+    assert "per_page" in response.json["errors"]
+
 def test_get_single_team(test_client, add_test_data):
     response = test_client.get("/api/team/1/")
     assert response.status_code == 200

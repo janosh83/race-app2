@@ -1,11 +1,13 @@
 import logging
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_
 from app.models import Registration, Team, Race, RaceCategory, User, team_members
 from app.routes.admin import admin_required
 from app import db
-from app.schemas import UserCreateSchema, UserUpdateSchema
+from app.schemas import PaginationQuerySchema, UserCreateSchema, UserUpdateSchema
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +37,51 @@ def get_users():
       403:
         description: Forbidden - admin access required
     """
-    users = User.query.all()
+    query = User.query.order_by(User.id.asc())
+    paginate_requested = 'page' in request.args or 'per_page' in request.args
+    search_term = (request.args.get('search') or '').strip()
+
+    if search_term:
+        like_term = f"%{search_term}%"
+        query = query.filter(or_(User.name.ilike(like_term), User.email.ilike(like_term)))
+
+    if paginate_requested:
+        try:
+            paging = PaginationQuerySchema().load(request.args.to_dict())
+        except ValidationError as err:
+            return jsonify({"errors": err.messages}), 400
+
+        page = paging['page']
+        per_page = paging['per_page']
+
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        data = [{
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "is_administrator": user.is_administrator,
+            "preferred_language": user.preferred_language
+        } for user in pagination.items]
+
+        return jsonify({
+            "data": data,
+            "meta": {
+                "page": page,
+                "per_page": per_page,
+                "total": pagination.total,
+                "total_pages": pagination.pages,
+                "has_next": pagination.has_next,
+                "has_prev": pagination.has_prev,
+            }
+        })
+
+    users = query.all()
     return jsonify([{
-        "id": user.id,
-        "name": user.name,
-        "email": user.email,
-        "is_administrator": user.is_administrator,
-        "preferred_language": user.preferred_language
+      "id": user.id,
+      "name": user.name,
+      "email": user.email,
+      "is_administrator": user.is_administrator,
+      "preferred_language": user.preferred_language
     } for user in users])
 
 # duplicate of auth/register which needs to be removed in future

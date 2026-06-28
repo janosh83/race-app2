@@ -1,5 +1,12 @@
 import { apiFetch } from '../utils/api';
 
+const toQueryString = (params = {}) => {
+  const filtered = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  );
+  return new URLSearchParams(filtered).toString();
+};
+
 export const adminApi = {
   listRaces: () => apiFetch('/api/race/'),  // OK
   createRace: (payload) => apiFetch('/api/race/', { method: 'POST', body: payload }),  // OK
@@ -35,7 +42,10 @@ export const adminApi = {
   getRaceStatistics: (raceId) => apiFetch(`/api/race/${raceId}/statistics/`),
 
   // User management (admin)
-  getUsers: () => apiFetch('/api/user/'),
+  getUsers: (params = {}) => {
+    const query = toQueryString(params);
+    return apiFetch(`/api/user/${query ? `?${query}` : ''}`);
+  },
   registerAdminUser: (payload) => apiFetch('/auth/register-admin/', { method: 'POST', body: payload }),
   createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
   updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
@@ -62,7 +72,10 @@ export const adminApi = {
   deleteTaskCompletion: (raceId, payload) => apiFetch(`/api/race/${raceId}/tasks/log/`, { method: 'DELETE', body: payload }), // OK
 
   // Team management
-  getTeams: () => apiFetch('/api/team/'),
+  getTeams: (params = {}) => {
+    const query = toQueryString(params);
+    return apiFetch(`/api/team/${query ? `?${query}` : ''}`);
+  },
   getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),

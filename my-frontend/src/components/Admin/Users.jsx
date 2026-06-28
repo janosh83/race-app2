@@ -5,9 +5,13 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import Toast from '../Toast';
 
+const USERS_PAGE_SIZE = 20;
+
 export default function Users() {
   const { t } = useTranslation();
   const [users, setUsers] = useState([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formError, setFormError] = useState(null);
@@ -21,6 +25,7 @@ export default function Users() {
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
+  const [userSearch, setUserSearch] = useState('');
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -29,24 +34,30 @@ export default function Users() {
     preferredLanguage: ''
   });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (pageToLoad) => {
     setLoading(true);
     setError(null);
     try {
-      const payload = await adminApi.getUsers();
+      const payload = await adminApi.getUsers({
+        page: pageToLoad,
+        per_page: USERS_PAGE_SIZE,
+        search: userSearch.trim() || undefined,
+      });
       const list = Array.isArray(payload) ? payload : (payload?.data || []);
+      const total = Array.isArray(payload) ? list.length : Number(payload?.meta?.total || 0);
       setUsers(list || []);
+      setTotalUsers(total);
     } catch (err) {
       logger.error('ADMIN', 'Failed to load users', err);
       setError(t('admin.users.errorLoad'));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, userSearch]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    load(usersPage);
+  }, [load, usersPage]);
 
   const handleCreate = async () => {
     setFormError(null);
@@ -77,7 +88,8 @@ export default function Users() {
       setPassword('');
       setPreferredLanguage('');
       setIsAdmin(false);
-      await load();
+      setUsersPage(1);
+      await load(1);
     } catch (err) {
       logger.error('ADMIN', 'Failed to create user', err);
       setFormError(t('admin.users.errorCreate'));
@@ -90,7 +102,7 @@ export default function Users() {
     if (!window.confirm(t('admin.users.confirmDelete'))) return;
     try {
       await adminApi.deleteUser(userId);
-      setUsers(users.filter(u => u.id !== userId));
+      await load(usersPage);
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete user', err);
       setError(t('admin.users.errorDelete'));
@@ -167,11 +179,25 @@ export default function Users() {
     return language.toUpperCase();
   };
 
+  const usersTotalPages = Math.max(1, Math.ceil(totalUsers / USERS_PAGE_SIZE));
+  const usersPageStartIndex = totalUsers === 0 ? 0 : ((usersPage - 1) * USERS_PAGE_SIZE) + 1;
+  const usersPageEndIndex = Math.min((usersPage - 1) * USERS_PAGE_SIZE + users.length, totalUsers);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [userSearch]);
+
+  useEffect(() => {
+    if (usersPage > usersTotalPages) {
+      setUsersPage(usersTotalPages);
+    }
+  }, [usersPage, usersTotalPages]);
+
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-3">
         <h3 className="mb-0">{t('admin.users.title')}</h3>
-        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>{t('admin.users.refresh')}</button>
+        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={() => load(usersPage)}>{t('admin.users.refresh')}</button>
       </div>
 
       {formError && <div className="alert alert-warning py-2">{formError}</div>}
@@ -221,6 +247,16 @@ export default function Users() {
         </div>
       </div>
 
+      <div className="mb-3">
+        <label className="form-label fw-semibold text-uppercase small mb-1">{t('admin.users.searchUsers')}</label>
+        <input
+          className="form-control"
+          placeholder={t('admin.users.searchPlaceholder')}
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+        />
+      </div>
+
       {loading ? (
         <div>{t('admin.users.loading')}</div>
       ) : (
@@ -252,6 +288,39 @@ export default function Users() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {!loading && totalUsers > 0 && (
+        <div className="d-flex align-items-center justify-content-between mt-2">
+          <small className="text-muted">
+            {t('admin.common.paginationShowing', {
+              from: usersPageStartIndex,
+              to: usersPageEndIndex,
+              total: totalUsers,
+            })}
+          </small>
+          <div className="btn-group" role="group" aria-label={t('admin.common.paginationAria')}>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              disabled={usersPage <= 1}
+              onClick={() => setUsersPage((prev) => Math.max(1, prev - 1))}
+            >
+              {t('admin.common.paginationPrev')}
+            </button>
+            <span className="btn btn-sm btn-light disabled">
+              {usersPage} / {usersTotalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              disabled={usersPage >= usersTotalPages}
+              onClick={() => setUsersPage((prev) => Math.min(usersTotalPages, prev + 1))}
+            >
+              {t('admin.common.paginationNext')}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Edit Modal */}

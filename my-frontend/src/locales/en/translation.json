@@ -241,7 +241,11 @@
     "close": "Close",
     "common": {
       "unknownError": "Unknown error",
-      "pointsShort": "pts"
+      "pointsShort": "pts",
+      "paginationShowing": "Showing {{from}}-{{to}} of {{total}}",
+      "paginationPrev": "Prev",
+      "paginationNext": "Next",
+      "paginationAria": "Pagination"
     },
     "dashboard": {
       "title": "Admin",
@@ -671,6 +675,8 @@
       "addMembersTitle": "Add members by user name",
       "searchUsers": "Search users",
       "searchPlaceholder": "Type name or email to filter",
+      "searchTeams": "Search teams",
+      "searchTeamsPlaceholder": "Type team name to filter",
       "tableName": "Name",
       "tableEmail": "Email",
       "tableAdmin": "Admin",
@@ -692,6 +698,8 @@
       "title": "Users",
       "actions": "Actions",
       "refresh": "Refresh",
+      "searchUsers": "Search users",
+      "searchPlaceholder": "Type name or email to filter",
       "createTitle": "Create user",
       "name": "Name",
       "email": "Email",

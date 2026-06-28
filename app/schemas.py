@@ -496,6 +496,12 @@ class RetryFailedEmailsSchema(Schema):
     limit = fields.Integer(load_default=50, validate=validate.Range(min=1, max=500))
 
 
+class PaginationQuerySchema(Schema):
+    page = fields.Integer(load_default=1, validate=validate.Range(min=1))
+    per_page = fields.Integer(load_default=20, validate=validate.Range(min=1, max=100))
+    search = fields.String(load_default=None, allow_none=True)
+
+
 class BrevoWebhookEventSchema(Schema):
     class Meta:
         unknown = INCLUDE

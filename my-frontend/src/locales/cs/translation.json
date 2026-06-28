@@ -241,7 +241,11 @@
     "close": "Zavřít",
     "common": {
       "unknownError": "Neznámá chyba",
-      "pointsShort": "b."
+      "pointsShort": "b.",
+      "paginationShowing": "Zobrazeno {{from}}-{{to}} z {{total}}",
+      "paginationPrev": "Předchozí",
+      "paginationNext": "Další",
+      "paginationAria": "Stránkování"
     },
     "dashboard": {
       "title": "Admin",
@@ -671,6 +675,8 @@
       "addMembersTitle": "Přidat členy podle jména",
       "searchUsers": "Hledat uživatele",
       "searchPlaceholder": "Pište jméno nebo email pro filtrování",
+      "searchTeams": "Hledat týmy",
+      "searchTeamsPlaceholder": "Pište název týmu pro filtrování",
       "tableName": "Jméno",
       "tableEmail": "Email",
       "tableAdmin": "Admin",
@@ -692,6 +698,8 @@
       "title": "Uživatelé",
       "actions": "Akce",
       "refresh": "Obnovit",
+      "searchUsers": "Hledat uživatele",
+      "searchPlaceholder": "Pište jméno nebo email pro filtrování",
       "createTitle": "Vytvořit uživatele",
       "name": "Jméno",
       "email": "Email",
