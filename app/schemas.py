@@ -44,6 +44,10 @@ class CheckpointCreateSchema(Schema):
             normalized.pop(alias_key, None)
         return normalized
 
+    @validates_schema
+    def validate_coordinate_pair(self, data, **kwargs):
+        _validate_coordinate_pair(data, "latitude", "longitude", "checkpoint")
+
 
 class CheckpointUpdateSchema(Schema):
     title = fields.String(validate=validate.Length(min=1))
@@ -66,6 +70,10 @@ class CheckpointUpdateSchema(Schema):
         if "numPoints" in normalized and "numOfPoints" not in normalized:
             normalized["numOfPoints"] = normalized["numPoints"]
         return normalized
+
+    @validates_schema
+    def validate_coordinate_pair(self, data, **kwargs):
+        _validate_coordinate_pair(data, "latitude", "longitude", "checkpoint")
 
 
 class CheckpointLogSchema(Schema):
@@ -282,12 +290,9 @@ class RaceUpdateSchema(Schema):
 
     @validates_schema
     def validate_registration_settings(self, data, **kwargs):
-        if "finish_latitude" in data and "finish_longitude" in data:
-            _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
-        if "bivak_1_latitude" in data and "bivak_1_longitude" in data:
-            _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
-        if "bivak_2_latitude" in data and "bivak_2_longitude" in data:
-            _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
+        _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
+        _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
+        _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
 
         min_team_size = data.get("min_team_size")
         max_team_size = data.get("max_team_size")

@@ -256,7 +256,7 @@ def test_create_race_rejects_incomplete_marker_coordinates(test_client, add_test
     assert "finish_latitude" in response.json["errors"]
 
 
-def test_update_race_accepts_single_coordinate_when_pair_exists(test_client, add_test_data):
+def test_update_race_rejects_single_coordinate_update(test_client, add_test_data):
     access_token = _admin_token(test_client, email="partial-marker@example.com", password="test")
 
     response = test_client.put("/api/race/1/", json={
@@ -268,9 +268,8 @@ def test_update_race_accepts_single_coordinate_when_pair_exists(test_client, add
     response = test_client.put("/api/race/1/", json={
         "finish_latitude": 50.5,
     }, headers={"Authorization": f"Bearer {access_token}"})
-    assert response.status_code == 200
-    assert response.json["finish_latitude"] == pytest.approx(50.5)
-    assert response.json["finish_longitude"] == pytest.approx(14.0)
+    assert response.status_code == 400
+    assert "finish_latitude" in response.json["errors"]
 
 
 def test_update_race_not_found(test_client):
