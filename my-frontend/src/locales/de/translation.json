@@ -568,7 +568,8 @@
       "addMemberPlaceholder": "Mitglied hinzufuegen...",
       "addMemberButton": "Hinzufuegen",
       "resetMembersButton": "Zuruecksetzen",
-      "selectedMembersCount": "Ausgewaehlt: {{count}}",
+      "selectedMembersCount": "Ausgewaehlt: {{count}} / {{max}}",
+      "maxMembersReached": "Maximale Teamgroesse erreicht ({{max}})",
       "saveMembersButton": "Mitglieder speichern",
       "clearAllMembersButton": "Alle entfernen",
       "otherActionsSectionTitle": "Weitere Aktionen"

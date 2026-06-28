@@ -98,6 +98,47 @@ def _retry_single_registration_email_log(failed_log, race):
         'registration': registration,
     }
 
+
+def _resolve_team_member_limit(team):
+    """Return strictest max_team_size across races where team is already registered."""
+    limits = []
+    for registration in (team.registrations or []):
+        race = registration.race
+        if race and isinstance(race.max_team_size, int) and race.max_team_size > 0:
+            limits.append(race.max_team_size)
+    return min(limits) if limits else None
+
+
+def _calculate_prospective_member_count(team, validated_payload):
+    """Calculate team size after add-members payload, without mutating persisted state."""
+    current_member_ids = {member.id for member in (team.members or [])}
+    prospective_count = len(current_member_ids)
+
+    if validated_payload.get('user_ids'):
+        for user_id in validated_payload['user_ids']:
+            user = User.query.filter_by(id=user_id).first_or_404()
+            if user.id not in current_member_ids:
+                current_member_ids.add(user.id)
+                prospective_count += 1
+
+    if validated_payload.get('members'):
+        seen_emails = set()
+        for member in validated_payload['members']:
+            member_email = (member.get('email') or '').strip().lower()
+            if not member_email or member_email in seen_emails:
+                continue
+            seen_emails.add(member_email)
+
+            user = User.query.filter_by(email=member_email).first()
+            if user and user.id in current_member_ids:
+                continue
+
+            if user:
+                current_member_ids.add(user.id)
+            prospective_count += 1
+
+    return prospective_count
+
 # get all teams
 # tested by test_teams.py -> test_get_teams
 # for now it can stay open, but in the future it should be somehow protected
@@ -285,6 +326,7 @@ def get_team_by_race(race_id):
             "name": team_name,
             "race_category": category_name,
           "race_category_id": registration.race_category_id,
+            "race_max_team_size": race.max_team_size if race else None,
             "members": members,
             "email_sent": registration.email_sent,
             "disqualified": bool(registration.disqualified),
@@ -396,6 +438,11 @@ def sign_up(race_id):
             team.id,
         )
         return jsonify({"message": "Team is already registered for this race"}), 409
+
+    if len(team.members or []) > race.max_team_size:
+      return jsonify({
+        "message": f"Team has too many members for this race. Maximum allowed is {race.max_team_size}."
+      }), 400
 
     if race_category in race.categories:
         registration = Registration(race_id=race.id, team_id=team.id, race_category_id=validated['race_category_id'])
@@ -512,6 +559,11 @@ def update_registration(race_id, team_id):
         return jsonify({"message": "Team is already registered for this race"}), 409
 
     team_changed = registration.team_id != new_team.id
+    if team_changed and len(new_team.members or []) > race.max_team_size:
+      return jsonify({
+        "message": f"Team has too many members for this race. Maximum allowed is {race.max_team_size}."
+      }), 400
+
     registration.team_id = new_team.id
     registration.race_category_id = new_category.id
 
@@ -1221,6 +1273,14 @@ def add_members(team_id):
     data = request.get_json() or {}
     validated = TeamAddMembersSchema().load(data)
     team = Team.query.filter_by(id=team_id).first_or_404()
+
+    member_limit = _resolve_team_member_limit(team)
+    if member_limit is not None:
+      prospective_count = _calculate_prospective_member_count(team, validated)
+      if prospective_count > member_limit:
+        return jsonify({
+          "message": f"Team has too many members for registered race options. Maximum allowed is {member_limit}."
+        }), 400
 
     added_user_ids = []
 

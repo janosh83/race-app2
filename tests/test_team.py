@@ -106,6 +106,43 @@ def test_add_members(test_client, add_test_data):
     assert response.json == []
 
 
+def test_add_members_registered_team_respects_race_max_team_size(test_client, add_test_data):
+    """Adding members to a registered team should not exceed race max_team_size."""
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john-max@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter-max@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice-max@example.com", "password": "password"})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2]})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [3]})
+    assert response.status_code == 400
+    assert "Maximum allowed is 2" in response.json["message"]
+
+
+def test_team_signup_rejects_team_with_too_many_members(test_client, add_test_data):
+    """Team signup should fail if existing team size exceeds race max_team_size."""
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john-signup@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter-signup@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Alice", "email": "alice-signup@example.com", "password": "password"})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1, 2, 3]})
+    assert response.status_code == 201
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1})
+    assert response.status_code == 400
+    assert "Maximum allowed is 2" in response.json["message"]
+
+
 def test_add_members_by_member_details_creates_users(test_client, add_test_data):
     """Members payload with name/email creates users and assigns them to team."""
     response = test_client.post(

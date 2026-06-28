@@ -568,7 +568,8 @@
       "addMemberPlaceholder": "Přidat člena...",
       "addMemberButton": "Přidat",
       "resetMembersButton": "Reset",
-      "selectedMembersCount": "Vybráno: {{count}}",
+      "selectedMembersCount": "Vybráno: {{count}} / {{max}}",
+      "maxMembersReached": "Dosažen maximální počet členů týmu ({{max}})",
       "saveMembersButton": "Uložit členy",
       "clearAllMembersButton": "Vymazat vše",
       "otherActionsSectionTitle": "Další akce"

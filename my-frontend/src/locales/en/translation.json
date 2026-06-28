@@ -568,7 +568,8 @@
       "addMemberPlaceholder": "Add member...",
       "addMemberButton": "Add",
       "resetMembersButton": "Reset",
-      "selectedMembersCount": "Selected: {{count}}",
+      "selectedMembersCount": "Selected: {{count}} / {{max}}",
+      "maxMembersReached": "Maximum team size reached ({{max}})",
       "saveMembersButton": "Save members",
       "clearAllMembersButton": "Clear all",
       "otherActionsSectionTitle": "Other actions"

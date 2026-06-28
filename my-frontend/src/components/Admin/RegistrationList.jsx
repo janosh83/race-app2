@@ -274,11 +274,26 @@ export default function RegistrationList({ raceId, race }) {
     (editMembersState[item.teamId] ?? item.members.map(member => String(member.id))).map(String)
   );
 
+  const getMaxTeamMembers = (item) => {
+    const rowMax = Number(item.raceMaxTeamSize);
+    if (Number.isInteger(rowMax) && rowMax > 0) return rowMax;
+    const raceMax = Number(race?.max_team_size);
+    if (Number.isInteger(raceMax) && raceMax > 0) return raceMax;
+    return null;
+  };
+
   const handleAddDraftMember = (item) => {
     const candidateId = memberPickerState[item.teamId];
     if (!candidateId) return;
     const draftIds = getDraftMemberIds(item);
     if (draftIds.includes(String(candidateId))) return;
+
+    const maxMembers = getMaxTeamMembers(item);
+    if (maxMembers && draftIds.length >= maxMembers) {
+      setError(t('admin.registrations.maxMembersReached', { max: maxMembers }));
+      return;
+    }
+
     updateMembersEditState(item.teamId, [...draftIds, String(candidateId)]);
     setMemberPickerState(prev => ({ ...prev, [item.teamId]: '' }));
   };
@@ -298,6 +313,12 @@ export default function RegistrationList({ raceId, race }) {
     const selectedIds = (editMembersState[item.teamId] ?? currentIds)
       .map(Number)
       .filter(Boolean);
+
+    const maxMembers = getMaxTeamMembers(item);
+    if (maxMembers && selectedIds.length > maxMembers) {
+      setError(t('admin.registrations.maxMembersReached', { max: maxMembers }));
+      return;
+    }
 
     setSavingMembersTeamId(item.teamId);
     setError(null);
@@ -360,6 +381,7 @@ export default function RegistrationList({ raceId, race }) {
       members,
       membersDisplay,
       currentRaceCategoryId,
+      raceMaxTeamSize: reg.race_max_team_size,
       emailSent,
       disqualified,
       paymentConfirmed,
@@ -453,7 +475,7 @@ export default function RegistrationList({ raceId, race }) {
                   className="form-select form-select-sm"
                   value={memberPickerState[item.teamId] ?? ''}
                   onChange={(e) => setMemberPickerState(prev => ({ ...prev, [item.teamId]: e.target.value }))}
-                  disabled={savingMembersTeamId === item.teamId}
+                  disabled={savingMembersTeamId === item.teamId || (getMaxTeamMembers(item) && getDraftMemberIds(item).length >= getMaxTeamMembers(item))}
                 >
                   <option value="">{t('admin.registrations.addMemberPlaceholder')}</option>
                   {(users || [])
@@ -468,7 +490,11 @@ export default function RegistrationList({ raceId, race }) {
                   type="button"
                   className="btn btn-sm btn-outline-primary"
                   onClick={() => handleAddDraftMember(item)}
-                  disabled={savingMembersTeamId === item.teamId || !(memberPickerState[item.teamId] ?? '')}
+                  disabled={
+                    savingMembersTeamId === item.teamId
+                    || !(memberPickerState[item.teamId] ?? '')
+                    || (getMaxTeamMembers(item) && getDraftMemberIds(item).length >= getMaxTeamMembers(item))
+                  }
                 >
                   {t('admin.registrations.addMemberButton')}
                 </button>
@@ -484,8 +510,16 @@ export default function RegistrationList({ raceId, race }) {
             </div>
             <div className="col-12 col-lg-4">
               <div className="small text-muted mb-2">
-                {t('admin.registrations.selectedMembersCount', { count: getDraftMemberIds(item).length })}
+                {t('admin.registrations.selectedMembersCount', {
+                  count: getDraftMemberIds(item).length,
+                  max: getMaxTeamMembers(item) || '-',
+                })}
               </div>
+              {getMaxTeamMembers(item) && getDraftMemberIds(item).length >= getMaxTeamMembers(item) && (
+                <div className="small text-warning mb-2">
+                  {t('admin.registrations.maxMembersReached', { max: getMaxTeamMembers(item) })}
+                </div>
+              )}
               <div className="d-grid gap-2">
               <button
                 type="button"
@@ -504,6 +538,113 @@ export default function RegistrationList({ raceId, race }) {
                   {t('admin.registrations.clearAllMembersButton')}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-top mt-2 pt-2">
+          <div className="border rounded bg-light p-2 mb-2">
+            <div className="fw-semibold small mb-2">{t('admin.registrations.paymentDetails')}</div>
+            <div className="small text-muted mb-2">
+              {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}
+              {' · '}
+              {t('admin.registrations.driverPaid')}: {item.paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
+              {' · '}
+              {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
+            </div>
+            <div className="d-flex flex-wrap gap-2 mb-2">
+              {item.paymentItems.map(paymentItem => (
+                <div key={paymentItem.type} className="border rounded p-2 bg-white">
+                  <div className="fw-semibold small mb-2">{getPaymentTypeLabel(paymentItem.type)}</div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary me-2"
+                    onClick={() => handleRetryPayment(item.teamId, paymentItem.type)}
+                    disabled={paymentItem.paid}
+                  >
+                    {t('admin.registrations.retryPayment')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-info me-2"
+                    onClick={() => handleReconcilePayment(item.teamId, paymentItem.type)}
+                  >
+                    {t('admin.registrations.reconcilePayment')}
+                  </button>
+                  {paymentItem.paid ? (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-warning"
+                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, false)}
+                    >
+                      {t('admin.registrations.markUnpaid')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-success"
+                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, true)}
+                    >
+                      {t('admin.registrations.markPaid')}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+              <span className="small text-muted">{t('admin.registrations.timelineFilter')}</span>
+              <select
+                className="form-select form-select-sm"
+                style={{ width: 180 }}
+                value={item.timelineState.status}
+                onChange={(e) => updatePaymentTimelineState(item.teamId, { status: e.target.value })}
+              >
+                <option value="all">{t('admin.registrations.timelineStatusAll')}</option>
+                <option value="confirmed">{t('admin.registrations.timelineStatusConfirmed')}</option>
+                <option value="pending">{t('admin.registrations.timelineStatusPending')}</option>
+                <option value="failed">{t('admin.registrations.timelineStatusFailed')}</option>
+              </select>
+              <span className="small text-muted">{t('admin.registrations.timelineSort')}</span>
+              <select
+                className="form-select form-select-sm"
+                style={{ width: 180 }}
+                value={item.timelineState.order}
+                onChange={(e) => updatePaymentTimelineState(item.teamId, { order: e.target.value })}
+              >
+                <option value="newest">{t('admin.registrations.timelineSortNewest')}</option>
+                <option value="oldest">{t('admin.registrations.timelineSortOldest')}</option>
+              </select>
+            </div>
+            <div className="table-responsive">
+              <table className="table table-sm table-bordered mb-0">
+                <thead>
+                  <tr>
+                    <th>{t('admin.registrations.attemptType')}</th>
+                    <th>{t('admin.registrations.attemptStatus')}</th>
+                    <th>{t('admin.registrations.attemptAmount')}</th>
+                    <th>{t('admin.registrations.attemptCreated')}</th>
+                    <th>{t('admin.registrations.attemptConfirmed')}</th>
+                    <th>{t('admin.registrations.attemptSession')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {item.sortedAttempts.length === 0 && (
+                    <tr>
+                      <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                    </tr>
+                  )}
+                  {item.sortedAttempts.map(attempt => (
+                    <tr key={attempt.id || attempt.stripe_session_id}>
+                      <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
+                      <td>{attempt.status || '—'}</td>
+                      <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
+                      <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
+                      <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
+                      <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -528,107 +669,6 @@ export default function RegistrationList({ raceId, race }) {
             </button>
           </div>
         </div>
-      </div>
-      <div className="small text-muted mb-2">
-        {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}
-        {' · '}
-        {t('admin.registrations.driverPaid')}: {item.paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
-        {' · '}
-        {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
-      </div>
-      <div className="d-flex flex-wrap gap-2 mb-2">
-        {item.paymentItems.map(paymentItem => (
-          <div key={paymentItem.type} className="border rounded p-2 bg-white">
-            <div className="fw-semibold small mb-2">{getPaymentTypeLabel(paymentItem.type)}</div>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-primary me-2"
-              onClick={() => handleRetryPayment(item.teamId, paymentItem.type)}
-              disabled={paymentItem.paid}
-            >
-              {t('admin.registrations.retryPayment')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-sm btn-outline-info me-2"
-              onClick={() => handleReconcilePayment(item.teamId, paymentItem.type)}
-            >
-              {t('admin.registrations.reconcilePayment')}
-            </button>
-            {paymentItem.paid ? (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-warning"
-                onClick={() => handleMarkPayment(item.teamId, paymentItem.type, false)}
-              >
-                {t('admin.registrations.markUnpaid')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-sm btn-outline-success"
-                onClick={() => handleMarkPayment(item.teamId, paymentItem.type, true)}
-              >
-                {t('admin.registrations.markPaid')}
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <span className="small text-muted">{t('admin.registrations.timelineFilter')}</span>
-        <select
-          className="form-select form-select-sm"
-          style={{ width: 180 }}
-          value={item.timelineState.status}
-          onChange={(e) => updatePaymentTimelineState(item.teamId, { status: e.target.value })}
-        >
-          <option value="all">{t('admin.registrations.timelineStatusAll')}</option>
-          <option value="confirmed">{t('admin.registrations.timelineStatusConfirmed')}</option>
-          <option value="pending">{t('admin.registrations.timelineStatusPending')}</option>
-          <option value="failed">{t('admin.registrations.timelineStatusFailed')}</option>
-        </select>
-        <span className="small text-muted">{t('admin.registrations.timelineSort')}</span>
-        <select
-          className="form-select form-select-sm"
-          style={{ width: 180 }}
-          value={item.timelineState.order}
-          onChange={(e) => updatePaymentTimelineState(item.teamId, { order: e.target.value })}
-        >
-          <option value="newest">{t('admin.registrations.timelineSortNewest')}</option>
-          <option value="oldest">{t('admin.registrations.timelineSortOldest')}</option>
-        </select>
-      </div>
-      <div className="table-responsive">
-        <table className="table table-sm table-bordered mb-0">
-          <thead>
-            <tr>
-              <th>{t('admin.registrations.attemptType')}</th>
-              <th>{t('admin.registrations.attemptStatus')}</th>
-              <th>{t('admin.registrations.attemptAmount')}</th>
-              <th>{t('admin.registrations.attemptCreated')}</th>
-              <th>{t('admin.registrations.attemptConfirmed')}</th>
-              <th>{t('admin.registrations.attemptSession')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {item.sortedAttempts.length === 0 && (
-              <tr>
-                <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
-              </tr>
-            )}
-            {item.sortedAttempts.map(attempt => (
-              <tr key={attempt.id || attempt.stripe_session_id}>
-                <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
-                <td>{attempt.status || '—'}</td>
-                <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
-                <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
-                <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
-                <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   );
