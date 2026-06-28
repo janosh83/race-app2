@@ -508,6 +508,7 @@
       "hideDetails": "Skrýt detail",
       "paymentMode": "Režim",
       "driverPaid": "Řidič zaplatil",
+      "teamBasedFeeNote": "Tato registrace pouziva tymove startovne.",
       "codriverPaid": "Spolujezdec zaplatil",
       "driverMember": "Řidič",
       "codriverMember": "Spolujezdec",
@@ -579,7 +580,15 @@
       "maxMembersReached": "Dosažen maximální počet členů týmu ({{max}})",
       "saveMembersButton": "Uložit členy",
       "clearAllMembersButton": "Vymazat vše",
-      "otherActionsSectionTitle": "Další akce"
+      "otherActionsSectionTitle": "Dalsi akce",
+      "exportCsv": "Export CSV",
+      "csvHeaderMemberName": "Jmeno clena",
+      "csvHeaderMemberEmail": "Email clena",
+      "csvHeaderTeamName": "Nazev tymu",
+      "csvHeaderCategory": "Kategorie",
+      "csvHeaderPaymentStatus": "Stav platby",
+      "csvHeaderRegistrationFee": "Startovne",
+      "notAssignedRole": "Neprirazeno"
     },
     "paymentAttemptsSummary": {
       "title": "Souhrn pokusů o platbu",

@@ -507,6 +507,7 @@
       "showDetails": "Details anzeigen",
       "hideDetails": "Details ausblenden",
       "paymentMode": "Modus",
+      "teamBasedFeeNote": "Diese Registrierung verwendet eine teambasierte Startgebuehr.",
       "driverPaid": "Fahrer bezahlt",
       "codriverPaid": "Beifahrer bezahlt",
       "driverMember": "Fahrer",
@@ -579,7 +580,15 @@
       "maxMembersReached": "Maximale Teamgroesse erreicht ({{max}})",
       "saveMembersButton": "Mitglieder speichern",
       "clearAllMembersButton": "Alle entfernen",
-      "otherActionsSectionTitle": "Weitere Aktionen"
+      "otherActionsSectionTitle": "Weitere Aktionen",
+      "exportCsv": "CSV exportieren",
+      "csvHeaderMemberName": "Mitgliedsname",
+      "csvHeaderMemberEmail": "Mitglieds-E-Mail",
+      "csvHeaderTeamName": "Teamname",
+      "csvHeaderCategory": "Kategorie",
+      "csvHeaderPaymentStatus": "Zahlungsstatus",
+      "csvHeaderRegistrationFee": "Startgebuehr",
+      "notAssignedRole": "Nicht zugewiesen"
     },
     "paymentAttemptsSummary": {
       "title": "Uebersicht Zahlungsversuche",

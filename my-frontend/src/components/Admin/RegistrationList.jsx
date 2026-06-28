@@ -410,6 +410,103 @@ export default function RegistrationList({ raceId, race }) {
     return t('admin.registrations.paymentTypeTeam');
   };
 
+  const getRaceAmountCents = (fieldName) => {
+    const value = Number(race?.[fieldName]);
+    if (!Number.isFinite(value) || value < 0) return null;
+    return Math.round(value);
+  };
+
+  const formatFeeForCsv = (amountCents, currency) => {
+    if (!Number.isFinite(amountCents)) return '';
+    const normalizedCurrency = (currency || race?.registration_currency || '').toUpperCase();
+    if (!normalizedCurrency) return `${(amountCents / 100).toFixed(2)}`;
+    return `${(amountCents / 100).toFixed(2)} ${normalizedCurrency}`;
+  };
+
+  const getMemberExportPaymentData = (item, member) => {
+    const details = item.paymentDetails || {};
+    const mode = details.mode || 'team';
+    const memberId = Number(member?.id);
+
+    if (mode === 'team') {
+      return {
+        status: details.team_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
+        fee: formatFeeForCsv(getRaceAmountCents('registration_team_amount_cents'), details.currency),
+      };
+    }
+
+    const driverId = Number(details?.driver_member?.id);
+    const codriverId = Number(details?.codriver_member?.id);
+
+    if (Number.isFinite(driverId) && memberId === driverId) {
+      return {
+        status: details.driver_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
+        fee: formatFeeForCsv(getRaceAmountCents('registration_driver_amount_cents'), details.currency),
+      };
+    }
+
+    if (Number.isFinite(codriverId) && memberId === codriverId) {
+      return {
+        status: details.codriver_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
+        fee: formatFeeForCsv(getRaceAmountCents('registration_codriver_amount_cents'), details.currency),
+      };
+    }
+
+    return {
+      status: t('admin.registrations.notAssignedRole'),
+      fee: '',
+    };
+  };
+
+  const escapeCsvValue = (value) => {
+    const stringValue = value === null || value === undefined ? '' : String(value);
+    if (!/[",\n\r]/.test(stringValue)) return stringValue;
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  };
+
+  const handleExportRegistrationsCsv = () => {
+    const header = [
+      t('admin.registrations.csvHeaderMemberName'),
+      t('admin.registrations.csvHeaderMemberEmail'),
+      t('admin.registrations.csvHeaderTeamName'),
+      t('admin.registrations.csvHeaderCategory'),
+      t('admin.registrations.csvHeaderPaymentStatus'),
+      t('admin.registrations.csvHeaderRegistrationFee'),
+    ];
+
+    const rows = [header];
+
+    (registrations || []).forEach((reg, idx) => {
+      const item = getRegistrationViewModel(reg, idx);
+      (item.members || []).forEach((member) => {
+        const paymentData = getMemberExportPaymentData(item, member);
+        rows.push([
+          member?.name || '',
+          member?.email || '',
+          item.teamName || '',
+          item.categoryName || '',
+          paymentData.status,
+          paymentData.fee,
+        ]);
+      });
+    });
+
+    const csv = rows
+      .map(row => row.map(escapeCsvValue).join(','))
+      .join('\r\n');
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const dateLabel = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `registrations-race-${raceId}-${dateLabel}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getRegistrationViewModel = (reg, idx) => {
     const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
     const teamId = reg.team_id || reg.id;
@@ -613,13 +710,19 @@ export default function RegistrationList({ raceId, race }) {
         <div className="border-top mt-2 pt-2">
           <div className="border rounded bg-light p-2 mb-2">
             <div className="fw-semibold small mb-2">{t('admin.registrations.paymentDetails')}</div>
-            <div className="small text-muted mb-2">
-              {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}
-              {' · '}
-              {t('admin.registrations.driverPaid')}: {item.paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
-              {' · '}
-              {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
-            </div>
+            {item.paymentDetails.mode === 'team' ? (
+              <div className="small text-muted mb-2">
+                {t('admin.registrations.teamBasedFeeNote')}
+              </div>
+            ) : (
+              <div className="small text-muted mb-2">
+                {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}
+                {' · '}
+                {t('admin.registrations.driverPaid')}: {item.paymentDetails.driver_paid ? t('common.yes') : t('common.no')}
+                {' · '}
+                {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
+              </div>
+            )}
             {item.paymentDetails.mode !== 'team' && (
               <div className="small mb-2">
                 <div>{t('admin.registrations.driverMember')}: <span className="text-muted">{formatMemberLabel(item.paymentDetails.driver_member)}</span></div>
@@ -967,7 +1070,14 @@ export default function RegistrationList({ raceId, race }) {
           })}
         </div>
 
-        <div className="d-flex justify-content-end mt-3">
+        <div className="d-flex justify-content-end flex-wrap gap-2 mt-3">
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleExportRegistrationsCsv}
+            disabled={loading || !registrations || registrations.length === 0}
+          >
+            {t('admin.registrations.exportCsv')}
+          </button>
           <button
             className="btn btn-primary"
             onClick={handleSendEmails}

@@ -507,6 +507,7 @@
       "showDetails": "Show details",
       "hideDetails": "Hide details",
       "paymentMode": "Mode",
+      "teamBasedFeeNote": "This registration uses a team-based registration fee.",
       "driverPaid": "Driver paid",
       "codriverPaid": "Co-driver paid",
       "driverMember": "Driver",
@@ -579,7 +580,15 @@
       "maxMembersReached": "Maximum team size reached ({{max}})",
       "saveMembersButton": "Save members",
       "clearAllMembersButton": "Clear all",
-      "otherActionsSectionTitle": "Other actions"
+      "otherActionsSectionTitle": "Other actions",
+      "exportCsv": "Export CSV",
+      "csvHeaderMemberName": "Member name",
+      "csvHeaderMemberEmail": "Member email",
+      "csvHeaderTeamName": "Team name",
+      "csvHeaderCategory": "Category",
+      "csvHeaderPaymentStatus": "Payment status",
+      "csvHeaderRegistrationFee": "Registration fee",
+      "notAssignedRole": "Not assigned"
     },
     "paymentAttemptsSummary": {
       "title": "Payment Attempts Summary",
