@@ -241,7 +241,11 @@
     "close": "Close",
     "common": {
       "unknownError": "Unknown error",
-      "pointsShort": "pts"
+      "pointsShort": "pts",
+      "paginationShowing": "Showing {{from}}-{{to}} of {{total}}",
+      "paginationPrev": "Prev",
+      "paginationNext": "Next",
+      "paginationAria": "Pagination"
     },
     "dashboard": {
       "title": "Admin",

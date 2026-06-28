@@ -241,7 +241,11 @@
     "close": "Zavřít",
     "common": {
       "unknownError": "Neznámá chyba",
-      "pointsShort": "b."
+      "pointsShort": "b.",
+      "paginationShowing": "Zobrazeno {{from}}-{{to}} z {{total}}",
+      "paginationPrev": "Předchozí",
+      "paginationNext": "Další",
+      "paginationAria": "Stránkování"
     },
     "dashboard": {
       "title": "Admin",

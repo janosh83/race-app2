@@ -10,6 +10,7 @@ from app import db
 from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog
 from app.routes.admin import admin_required
 from app.schemas import (
+  PaginationQuerySchema,
   RegistrationEmailLogQuerySchema,
   RetryFailedEmailsSchema,
   SendRegistrationEmailsSchema,
@@ -117,7 +118,33 @@ def get_teams():
               items:
                 $ref: '#/components/schemas/TeamObject'
     """
-    teams = Team.query.all()
+    query = Team.query.order_by(Team.id.asc())
+    paginate_requested = 'page' in request.args or 'per_page' in request.args
+
+    if paginate_requested:
+        try:
+            paging = PaginationQuerySchema().load(request.args.to_dict())
+        except ValidationError as err:
+            return jsonify({"errors": err.messages}), 400
+
+        page = paging['page']
+        per_page = paging['per_page']
+
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        data = [{"id": team.id, "name": team.name} for team in pagination.items]
+        return jsonify({
+            "data": data,
+            "meta": {
+                "page": page,
+                "per_page": per_page,
+                "total": pagination.total,
+                "total_pages": pagination.pages,
+                "has_next": pagination.has_next,
+                "has_prev": pagination.has_prev,
+            }
+        })
+
+    teams = query.all()
     return jsonify([{"id": team.id, "name": team.name} for team in teams])
 
 # get single team

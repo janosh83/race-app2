@@ -310,6 +310,36 @@ def test_get_users_contains_expected_users(test_client, add_test_data, admin_aut
     assert "user3@example.com" in emails
 
 
+def test_get_users_paginated_success(test_client, add_test_data, admin_auth_headers):
+    """Test getting paginated users returns data and metadata."""
+    response = test_client.get("/api/user/?page=1&per_page=2", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert "data" in response.json
+    assert "meta" in response.json
+    assert isinstance(response.json["data"], list)
+    assert len(response.json["data"]) <= 2
+    assert response.json["meta"]["page"] == 1
+    assert response.json["meta"]["per_page"] == 2
+    assert response.json["meta"]["total"] >= 3
+
+
+def test_get_users_paginated_invalid_params(test_client, add_test_data, admin_auth_headers):
+    """Invalid pagination params should return 400."""
+    response = test_client.get("/api/user/?page=abc&per_page=10", headers=admin_auth_headers)
+    assert response.status_code == 400
+    assert "errors" in response.json
+    assert "page" in response.json["errors"]
+
+
+def test_get_users_paginated_out_of_range(test_client, add_test_data, admin_auth_headers):
+    """Out-of-range pagination params should return 400 with field errors."""
+    response = test_client.get("/api/user/?page=0&per_page=101", headers=admin_auth_headers)
+    assert response.status_code == 400
+    assert "errors" in response.json
+    assert "page" in response.json["errors"]
+    assert "per_page" in response.json["errors"]
+
+
 def test_get_users_unauthorized(test_client, add_test_data):
     """Test getting users without authentication returns 401."""
     response = test_client.get("/api/user/")
