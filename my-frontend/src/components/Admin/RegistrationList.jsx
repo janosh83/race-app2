@@ -410,17 +410,18 @@ export default function RegistrationList({ raceId, race }) {
     return t('admin.registrations.paymentTypeTeam');
   };
 
-  const getRaceAmountCents = (fieldName) => {
+  const getRaceAmount = (fieldName) => {
     const value = Number(race?.[fieldName]);
     if (!Number.isFinite(value) || value < 0) return null;
-    return Math.round(value);
+    return value;
   };
 
-  const formatFeeForCsv = (amountCents, currency) => {
-    if (!Number.isFinite(amountCents)) return '';
+  const formatFeeForCsv = (amount, currency) => {
+    if (!Number.isFinite(amount)) return '';
     const normalizedCurrency = (currency || race?.registration_currency || '').toUpperCase();
-    if (!normalizedCurrency) return `${(amountCents / 100).toFixed(2)}`;
-    return `${(amountCents / 100).toFixed(2)} ${normalizedCurrency}`;
+    const formattedAmount = Number.isInteger(amount) ? `${amount}` : `${amount.toFixed(2)}`;
+    if (!normalizedCurrency) return formattedAmount;
+    return `${formattedAmount} ${normalizedCurrency}`;
   };
 
   const getMemberExportPaymentData = (item, member) => {
@@ -431,7 +432,7 @@ export default function RegistrationList({ raceId, race }) {
     if (mode === 'team') {
       return {
         status: details.team_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
-        fee: formatFeeForCsv(getRaceAmountCents('registration_team_amount_cents'), details.currency),
+        fee: formatFeeForCsv(getRaceAmount('registration_team_amount_cents'), details.currency),
       };
     }
 
@@ -441,14 +442,14 @@ export default function RegistrationList({ raceId, race }) {
     if (Number.isFinite(driverId) && memberId === driverId) {
       return {
         status: details.driver_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
-        fee: formatFeeForCsv(getRaceAmountCents('registration_driver_amount_cents'), details.currency),
+        fee: formatFeeForCsv(getRaceAmount('registration_driver_amount_cents'), details.currency),
       };
     }
 
     if (Number.isFinite(codriverId) && memberId === codriverId) {
       return {
         status: details.codriver_paid ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid'),
-        fee: formatFeeForCsv(getRaceAmountCents('registration_codriver_amount_cents'), details.currency),
+        fee: formatFeeForCsv(getRaceAmount('registration_codriver_amount_cents'), details.currency),
       };
     }
 
@@ -1072,13 +1073,6 @@ export default function RegistrationList({ raceId, race }) {
 
         <div className="d-flex justify-content-end flex-wrap gap-2 mt-3">
           <button
-            className="btn btn-outline-secondary"
-            onClick={handleExportRegistrationsCsv}
-            disabled={loading || !registrations || registrations.length === 0}
-          >
-            {t('admin.registrations.exportCsv')}
-          </button>
-          <button
             className="btn btn-primary"
             onClick={handleSendEmails}
             disabled={sendingEmails || !registrations || registrations.length === 0}
@@ -1101,6 +1095,21 @@ export default function RegistrationList({ raceId, race }) {
             loadMeta();
           }}
         />
+
+        <div className="mt-3">
+          <div className="d-flex align-items-center gap-2 mb-2">
+            <h6 className="mb-0">{t('admin.registrations.exportSectionTitle')}</h6>
+          </div>
+          <div className="d-flex justify-content-end">
+            <button
+              className="btn btn-outline-secondary"
+              onClick={handleExportRegistrationsCsv}
+              disabled={loading || !registrations || registrations.length === 0}
+            >
+              {t('admin.registrations.exportCsv')}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

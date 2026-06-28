@@ -581,6 +581,7 @@
       "saveMembersButton": "Uložit členy",
       "clearAllMembersButton": "Vymazat vše",
       "otherActionsSectionTitle": "Dalsi akce",
+      "exportSectionTitle": "Export registraci",
       "exportCsv": "Export CSV",
       "csvHeaderMemberName": "Jmeno clena",
       "csvHeaderMemberEmail": "Email clena",

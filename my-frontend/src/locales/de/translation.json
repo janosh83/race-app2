@@ -581,6 +581,7 @@
       "saveMembersButton": "Mitglieder speichern",
       "clearAllMembersButton": "Alle entfernen",
       "otherActionsSectionTitle": "Weitere Aktionen",
+      "exportSectionTitle": "Registrierungsexport",
       "exportCsv": "CSV exportieren",
       "csvHeaderMemberName": "Mitgliedsname",
       "csvHeaderMemberEmail": "Mitglieds-E-Mail",
