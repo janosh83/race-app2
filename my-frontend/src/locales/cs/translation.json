@@ -559,7 +559,19 @@
       "errorSendTeamEmail": "Nepodařilo se odeslat registrační email pro tým {{team}}",
       "errorToggleDisqualification": "Nepodařilo se aktualizovat diskvalifikaci",
       "noTeams": "Žádné týmy",
-      "noCategories": "Žádné kategorie"
+      "noCategories": "Žádné kategorie",
+      "editSectionTitle": "Úprava registrace",
+      "saveRegistrationButton": "Uložit",
+      "membersSectionTitle": "Členové týmu",
+      "noMembersSelected": "Nejsou vybraní žádní členové týmu",
+      "removeMemberButton": "Odebrat",
+      "addMemberPlaceholder": "Přidat člena...",
+      "addMemberButton": "Přidat",
+      "resetMembersButton": "Reset",
+      "selectedMembersCount": "Vybráno: {{count}}",
+      "saveMembersButton": "Uložit členy",
+      "clearAllMembersButton": "Vymazat vše",
+      "otherActionsSectionTitle": "Další akce"
     },
     "paymentAttemptsSummary": {
       "title": "Souhrn pokusů o platbu",

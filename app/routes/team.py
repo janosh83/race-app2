@@ -284,6 +284,7 @@ def get_team_by_race(race_id):
             "id": team_id,
             "name": team_name,
             "race_category": category_name,
+          "race_category_id": registration.race_category_id,
             "members": members,
             "email_sent": registration.email_sent,
             "disqualified": bool(registration.disqualified),
@@ -415,6 +416,123 @@ def sign_up(race_id):
     else:
         logger.error("Team %s attempted to register for unavailable category %s in race %s", team.id, race_category.id, race_id)
         return jsonify({"message": "Category not available for the race"}), 400
+
+
+@team_bp.route("/race/<int:race_id>/team/<int:team_id>/", methods=["PUT"])
+@admin_required()
+def update_registration(race_id, team_id):
+    """
+    Update a registration (change team and/or race category for an existing registration) - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+        description: Current team ID of the existing registration
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - team_id
+              - race_category_id
+            properties:
+              team_id:
+                type: integer
+                description: New team ID for the registration
+              race_category_id:
+                type: integer
+                description: New race category ID for the registration
+    responses:
+      200:
+        description: Registration updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                team_id:
+                  type: integer
+                race_id:
+                  type: integer
+                race_category_id:
+                  type: integer
+                race_category:
+                  type: string
+      400:
+        description: Validation error or selected category not available for race
+      401:
+        description: Unauthorized
+      403:
+        description: Forbidden - admin access required
+      404:
+        description: Race, team, category, or registration not found
+      409:
+        description: Team is already registered for this race
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+
+    data = request.get_json() or {}
+    try:
+        validated = TeamSignUpSchema().load(data)
+    except ValidationError as err:
+        return jsonify({"errors": err.messages}), 400
+
+    new_team = Team.query.filter_by(id=validated['team_id']).first_or_404()
+    new_category = RaceCategory.query.filter_by(id=validated['race_category_id']).first_or_404()
+
+    if new_category not in race.categories:
+        return jsonify({"message": "Category not available for the race"}), 400
+
+    duplicate = (
+        Registration.query
+        .filter(
+            Registration.race_id == race_id,
+            Registration.team_id == new_team.id,
+            Registration.id != registration.id,
+        )
+        .first()
+    )
+    if duplicate:
+        return jsonify({"message": "Team is already registered for this race"}), 409
+
+    team_changed = registration.team_id != new_team.id
+    registration.team_id = new_team.id
+    registration.race_category_id = new_category.id
+
+    if team_changed:
+        registration.email_sent = False
+        registration.payment_confirmed = False
+        registration.payment_confirmed_at = None
+        registration.disqualified = False
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"message": "Team is already registered for this race"}), 409
+
+    return jsonify({
+        "team_id": registration.team_id,
+        "race_id": registration.race_id,
+        "race_category_id": registration.race_category_id,
+        "race_category": new_category.name,
+    }), 200
 
 # delete registration (unregister team from race)
 @team_bp.route("/race/<int:race_id>/team/<int:team_id>/", methods=["DELETE"])

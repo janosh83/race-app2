@@ -26,6 +26,11 @@ export default function RegistrationList({ raceId, race }) {
   const [sendingTeamEmailId, setSendingTeamEmailId] = useState(null);
   const [expandedPayments, setExpandedPayments] = useState({});
   const [paymentTimelineState, setPaymentTimelineState] = useState({});
+  const [editRegistrationState, setEditRegistrationState] = useState({});
+  const [savingEditRegistrationTeamId, setSavingEditRegistrationTeamId] = useState(null);
+  const [editMembersState, setEditMembersState] = useState({});
+  const [memberPickerState, setMemberPickerState] = useState({});
+  const [savingMembersTeamId, setSavingMembersTeamId] = useState(null);
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -213,6 +218,103 @@ export default function RegistrationList({ raceId, race }) {
     }));
   };
 
+  const updateRegistrationEditState = (originalTeamId, patch, defaults) => {
+    setEditRegistrationState(prev => ({
+      ...prev,
+      [originalTeamId]: {
+        raceCategoryId: prev[originalTeamId]?.raceCategoryId ?? defaults.raceCategoryId,
+        ...patch,
+      },
+    }));
+  };
+
+  const handleSaveRegistrationEdit = async (item) => {
+    const defaults = {
+      raceCategoryId: String(item.currentRaceCategoryId || ''),
+    };
+    const state = editRegistrationState[item.teamId] || defaults;
+    const nextTeamId = Number(item.teamId);
+    const nextCategoryId = Number(state.raceCategoryId);
+
+    if (!nextTeamId || !nextCategoryId) {
+      setError(t('admin.registrations.formErrorSelect'));
+      return;
+    }
+
+    setSavingEditRegistrationTeamId(item.teamId);
+    setError(null);
+    try {
+      await adminApi.updateRegistration(raceId, item.teamId, {
+        team_id: nextTeamId,
+        race_category_id: nextCategoryId,
+      });
+      setExpandedPayments(prev => {
+        const next = { ...prev };
+        delete next[item.teamId];
+        next[item.teamId] = true;
+        return next;
+      });
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to update registration', err);
+      setError(err?.message || t('admin.registrations.errorRegister'));
+    } finally {
+      setSavingEditRegistrationTeamId(null);
+    }
+  };
+
+  const updateMembersEditState = (teamId, memberIds) => {
+    setEditMembersState(prev => ({
+      ...prev,
+      [teamId]: memberIds,
+    }));
+  };
+
+  const getDraftMemberIds = (item) => (
+    (editMembersState[item.teamId] ?? item.members.map(member => String(member.id))).map(String)
+  );
+
+  const handleAddDraftMember = (item) => {
+    const candidateId = memberPickerState[item.teamId];
+    if (!candidateId) return;
+    const draftIds = getDraftMemberIds(item);
+    if (draftIds.includes(String(candidateId))) return;
+    updateMembersEditState(item.teamId, [...draftIds, String(candidateId)]);
+    setMemberPickerState(prev => ({ ...prev, [item.teamId]: '' }));
+  };
+
+  const handleRemoveDraftMember = (item, memberId) => {
+    const draftIds = getDraftMemberIds(item).filter(id => id !== String(memberId));
+    updateMembersEditState(item.teamId, draftIds);
+  };
+
+  const handleResetDraftMembers = (item) => {
+    updateMembersEditState(item.teamId, item.members.map(member => String(member.id)));
+    setMemberPickerState(prev => ({ ...prev, [item.teamId]: '' }));
+  };
+
+  const handleSaveMembersEdit = async (item) => {
+    const currentIds = (item.members || []).map(member => Number(member.id)).filter(Boolean);
+    const selectedIds = (editMembersState[item.teamId] ?? currentIds)
+      .map(Number)
+      .filter(Boolean);
+
+    setSavingMembersTeamId(item.teamId);
+    setError(null);
+    try {
+      await adminApi.removeAllTeamMembers(item.teamId);
+      if (selectedIds.length > 0) {
+        await adminApi.addTeamMembers(item.teamId, { user_ids: selectedIds });
+      }
+      await loadRegistrations();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to update team members', err);
+      setError(err?.message || t('admin.registrations.errorLoadMeta'));
+    } finally {
+      setSavingMembersTeamId(null);
+    }
+  };
+
   const getPaymentTypeLabel = (type) => {
     if (type === 'driver') return t('admin.registrations.paymentTypeDriver');
     if (type === 'codriver') return t('admin.registrations.paymentTypeCodriver');
@@ -223,6 +325,7 @@ export default function RegistrationList({ raceId, race }) {
     const teamName = reg.name || reg.team?.name || `#${reg.id ?? reg.team_id ?? idx}`;
     const teamId = reg.team_id || reg.id;
     const categoryName = reg.race_category || reg.category || reg.category_name || '';
+    const currentRaceCategoryId = reg.race_category_id || raceCategories.find(c => c.name === categoryName)?.id || '';
     const members = Array.isArray(reg.members) ? reg.members : (reg.team?.members || []);
     const membersDisplay = (members || []).length > 0
       ? members.map(m => m.name || m.email || `#${m.id}`).join(', ')
@@ -256,6 +359,7 @@ export default function RegistrationList({ raceId, race }) {
       categoryName,
       members,
       membersDisplay,
+      currentRaceCategoryId,
       emailSent,
       disqualified,
       paymentConfirmed,
@@ -269,29 +373,161 @@ export default function RegistrationList({ raceId, race }) {
 
   const renderPaymentDetails = (item) => (
     <div className="bg-light border rounded p-2">
-      <div className="d-flex flex-wrap gap-1 mb-2">
-        <button
-          className="btn btn-sm btn-outline-warning"
-          onClick={() => handleToggleDisqualification(item.teamId, item.disqualified)}
-          title={item.disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
-        >
-          {item.disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
-        </button>
-        <button
-          className="btn btn-sm btn-outline-primary"
-          onClick={() => handleSendEmailForTeam(item.teamId, item.teamName)}
-          title={t('admin.registrations.sendTeamEmailTitle', { team: item.teamName })}
-          disabled={sendingEmails || sendingTeamEmailId === item.teamId || item.emailSent || !item.paymentConfirmed || item.members.length === 0}
-        >
-          {sendingTeamEmailId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
-        </button>
-        <button
-          className="btn btn-sm btn-outline-danger"
-          onClick={() => handleDeleteRegistration(item.teamId)}
-          title={t('admin.registrations.deleteRegistration')}
-        >
-          {t('admin.registrations.delete')}
-        </button>
+      <div className="border rounded bg-white p-2 mb-2">
+        <div className="fw-semibold small mb-2">{t('admin.registrations.editSectionTitle')}</div>
+        <div className="row g-2 align-items-end">
+          <div className="col-12 col-lg-6">
+            <label className="form-label form-label-sm mb-1">{t('admin.registrations.teamLabel')}</label>
+            <input className="form-control form-control-sm" value={item.teamName} disabled />
+          </div>
+          <div className="col-12 col-lg-3">
+            <label className="form-label form-label-sm mb-1">{t('admin.registrations.categoryLabel')}</label>
+            <select
+              className="form-select form-select-sm"
+              value={(editRegistrationState[item.teamId]?.raceCategoryId ?? String(item.currentRaceCategoryId || ''))}
+              onChange={(e) => updateRegistrationEditState(
+                item.teamId,
+                { raceCategoryId: e.target.value },
+                { raceCategoryId: String(item.currentRaceCategoryId || '') }
+              )}
+              disabled={savingEditRegistrationTeamId === item.teamId}
+            >
+              {(raceCategories || []).map(cat => (
+                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-12 col-lg-3">
+            <div className="d-flex flex-wrap gap-1">
+              <button
+                type="button"
+                className="btn btn-sm btn-success"
+                onClick={() => handleSaveRegistrationEdit(item)}
+                disabled={savingEditRegistrationTeamId === item.teamId}
+              >
+                {savingEditRegistrationTeamId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.saveRegistrationButton')}
+              </button>
+              <button
+                className="btn btn-sm btn-outline-danger"
+                onClick={() => handleDeleteRegistration(item.teamId)}
+                title={t('admin.registrations.deleteRegistration')}
+              >
+                {t('admin.registrations.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-top mt-2 pt-2">
+          <div className="fw-semibold small mb-2">{t('admin.registrations.membersSectionTitle')}</div>
+          <div className="row g-2 align-items-end mb-2">
+            <div className="col-12 col-lg-8">
+              <label className="form-label form-label-sm mb-1">{t('admin.registrations.tableMembers')}</label>
+              <div className="border rounded bg-white p-2" style={{ minHeight: 88 }}>
+                {getDraftMemberIds(item).length === 0 ? (
+                  <div className="small text-muted">{t('admin.registrations.noMembersSelected')}</div>
+                ) : (
+                  <div className="d-flex flex-column gap-1">
+                    {getDraftMemberIds(item).map(memberId => {
+                      const member = (users || []).find(user => String(user.id) === String(memberId));
+                      const label = member ? `${member.name || member.email} (${member.email})` : `#${memberId}`;
+                      return (
+                        <div key={memberId} className="d-flex justify-content-between align-items-center border rounded px-2 py-1">
+                          <span className="small">{label}</span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => handleRemoveDraftMember(item, memberId)}
+                            disabled={savingMembersTeamId === item.teamId}
+                          >
+                            {t('admin.registrations.removeMemberButton')}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="d-flex gap-2 mt-2">
+                <select
+                  className="form-select form-select-sm"
+                  value={memberPickerState[item.teamId] ?? ''}
+                  onChange={(e) => setMemberPickerState(prev => ({ ...prev, [item.teamId]: e.target.value }))}
+                  disabled={savingMembersTeamId === item.teamId}
+                >
+                  <option value="">{t('admin.registrations.addMemberPlaceholder')}</option>
+                  {(users || [])
+                    .filter(user => !getDraftMemberIds(item).includes(String(user.id)))
+                    .map(user => (
+                      <option key={user.id} value={String(user.id)}>
+                        {user.name || user.email} ({user.email})
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => handleAddDraftMember(item)}
+                  disabled={savingMembersTeamId === item.teamId || !(memberPickerState[item.teamId] ?? '')}
+                >
+                  {t('admin.registrations.addMemberButton')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary"
+                  onClick={() => handleResetDraftMembers(item)}
+                  disabled={savingMembersTeamId === item.teamId}
+                >
+                  {t('admin.registrations.resetMembersButton')}
+                </button>
+              </div>
+            </div>
+            <div className="col-12 col-lg-4">
+              <div className="small text-muted mb-2">
+                {t('admin.registrations.selectedMembersCount', { count: getDraftMemberIds(item).length })}
+              </div>
+              <div className="d-grid gap-2">
+              <button
+                type="button"
+                className="btn btn-sm btn-success w-100"
+                onClick={() => handleSaveMembersEdit(item)}
+                disabled={savingMembersTeamId === item.teamId}
+              >
+                {savingMembersTeamId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.saveMembersButton')}
+              </button>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-danger w-100"
+                  onClick={() => updateMembersEditState(item.teamId, [])}
+                  disabled={savingMembersTeamId === item.teamId}
+                >
+                  {t('admin.registrations.clearAllMembersButton')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-top mt-2 pt-2">
+          <div className="fw-semibold small mb-2">{t('admin.registrations.otherActionsSectionTitle')}</div>
+          <div className="d-flex flex-wrap gap-1">
+            <button
+              className="btn btn-sm btn-outline-warning"
+              onClick={() => handleToggleDisqualification(item.teamId, item.disqualified)}
+              title={item.disqualified ? t('admin.registrations.reinstateTitle') : t('admin.registrations.disqualifyTitle')}
+            >
+              {item.disqualified ? t('admin.registrations.reinstate') : t('admin.registrations.disqualify')}
+            </button>
+            <button
+              className="btn btn-sm btn-outline-primary"
+              onClick={() => handleSendEmailForTeam(item.teamId, item.teamName)}
+              title={t('admin.registrations.sendTeamEmailTitle', { team: item.teamName })}
+              disabled={sendingEmails || sendingTeamEmailId === item.teamId || item.emailSent || !item.paymentConfirmed || item.members.length === 0}
+            >
+              {sendingTeamEmailId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
+            </button>
+          </div>
+        </div>
       </div>
       <div className="small text-muted mb-2">
         {t('admin.registrations.paymentMode')}: {item.paymentDetails.mode || '—'}

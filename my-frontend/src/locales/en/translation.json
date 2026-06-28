@@ -559,7 +559,19 @@
       "errorSendTeamEmail": "Failed to send registration email for {{team}}",
       "errorToggleDisqualification": "Failed to update disqualification",
       "noTeams": "No teams",
-      "noCategories": "No categories"
+      "noCategories": "No categories",
+      "editSectionTitle": "Registration edit",
+      "saveRegistrationButton": "Save",
+      "membersSectionTitle": "Team members",
+      "noMembersSelected": "No team members selected",
+      "removeMemberButton": "Remove",
+      "addMemberPlaceholder": "Add member...",
+      "addMemberButton": "Add",
+      "resetMembersButton": "Reset",
+      "selectedMembersCount": "Selected: {{count}}",
+      "saveMembersButton": "Save members",
+      "clearAllMembersButton": "Clear all",
+      "otherActionsSectionTitle": "Other actions"
     },
     "paymentAttemptsSummary": {
       "title": "Payment Attempts Summary",

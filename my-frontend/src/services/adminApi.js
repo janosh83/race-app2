@@ -14,6 +14,7 @@ export const adminApi = {
 
   getRegistrations: (raceId) => apiFetch(`/api/team/race/${raceId}/`), // OK
   addRegistration: (raceId, payload) => apiFetch(`/api/team/race/${raceId}/`, { method: 'POST', body: payload }),
+  updateRegistration: (raceId, currentTeamId, payload) => apiFetch(`/api/team/race/${raceId}/team/${currentTeamId}/`, { method: 'PUT', body: payload }),
   deleteRegistration: (raceId, teamId) => apiFetch(`/api/team/race/${raceId}/team/${teamId}/`, { method: 'DELETE' }),
   setDisqualification: (raceId, teamId, disqualified) => apiFetch(
     `/api/team/race/${raceId}/team/${teamId}/disqualify/`,
@@ -79,6 +80,7 @@ export const adminApi = {
   getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
+  removeAllTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`, { method: 'DELETE' }),
 
   // race-category endpoints
   // list all global categories

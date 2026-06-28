@@ -559,7 +559,19 @@
       "errorSendTeamEmail": "Registrierungs-E-Mail fuer {{team}} konnte nicht gesendet werden",
       "errorToggleDisqualification": "Disqualifikation konnte nicht aktualisiert werden",
       "noTeams": "Keine Teams",
-      "noCategories": "Keine Kategorien"
+      "noCategories": "Keine Kategorien",
+      "editSectionTitle": "Registrierung bearbeiten",
+      "saveRegistrationButton": "Speichern",
+      "membersSectionTitle": "Teammitglieder",
+      "noMembersSelected": "Keine Teammitglieder ausgewaehlt",
+      "removeMemberButton": "Entfernen",
+      "addMemberPlaceholder": "Mitglied hinzufuegen...",
+      "addMemberButton": "Hinzufuegen",
+      "resetMembersButton": "Zuruecksetzen",
+      "selectedMembersCount": "Ausgewaehlt: {{count}}",
+      "saveMembersButton": "Mitglieder speichern",
+      "clearAllMembersButton": "Alle entfernen",
+      "otherActionsSectionTitle": "Weitere Aktionen"
     },
     "paymentAttemptsSummary": {
       "title": "Uebersicht Zahlungsversuche",

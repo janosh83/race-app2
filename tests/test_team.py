@@ -369,6 +369,57 @@ def test_delete_team_forbidden_non_admin(test_client, add_test_data, regular_use
 
 # Tests for DELETE /team/race/<race_id>/team/<team_id>/ (delete registration, admin only)
 
+def test_update_registration_success(test_client, add_test_data, admin_auth_headers):
+    """Test updating registration team/category as admin."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    response = test_client.put(
+        "/api/team/race/1/team/1/",
+        json={"team_id": 2, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json["team_id"] == 2
+    assert response.json["race_id"] == 1
+    assert response.json["race_category_id"] == 1
+
+    response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert len(response.json) == 1
+    assert response.json[0]["id"] == 2
+    assert response.json[0]["race_category_id"] == 1
+
+
+def test_update_registration_duplicate_returns_409(test_client, add_test_data, admin_auth_headers):
+    """Updating to an already registered team in same race returns 409."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    response = test_client.post("/api/team/race/1/", json={"team_id": 2, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    response = test_client.put(
+        "/api/team/race/1/team/1/",
+        json={"team_id": 2, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 409
+    assert response.json == {"message": "Team is already registered for this race"}
+
+
+def test_update_registration_category_not_available_returns_400(test_client, add_test_data, admin_auth_headers):
+    """Updating registration with category not available for race returns 400."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    response = test_client.put(
+        "/api/team/race/1/team/1/",
+        json={"team_id": 1, "race_category_id": 2},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 400
+    assert "Category not available for the race" in response.json["message"]
+
 def test_delete_registration_success(test_client, add_test_data, admin_auth_headers):
     """Test deleting a registration as admin."""
     # First, create a registration
