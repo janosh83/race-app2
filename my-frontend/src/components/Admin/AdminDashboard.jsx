@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { LANGUAGE_LABELS } from '../../config/languages';
@@ -50,9 +50,15 @@ function AdminDashboard() {
   const [editingRace, setEditingRace] = useState(null);
   const [visitingTeam, setVisitingTeam] = useState(null);
   const [standingsRefreshVersion, setStandingsRefreshVersion] = useState(0);
+  const teamVisitsDetailsRef = useRef(null);
 
   // submenu state for selected race
   const [activeSubmenu, setActiveSubmenu] = useState('checkpoints');
+
+  useEffect(() => {
+    if (activeSubmenu !== 'progress' || !visitingTeam || !teamVisitsDetailsRef.current) return;
+    teamVisitsDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [activeSubmenu, visitingTeam]);
 
   useEffect(() => {
     let mounted = true;
@@ -428,7 +434,7 @@ function AdminDashboard() {
                         onTeamClick={(teamId) => setVisitingTeam(teamId)}
                       />
                       {visitingTeam && (
-                        <div className="card mt-3">
+                        <div className="card mt-3" ref={teamVisitsDetailsRef}>
                           <div className="card-body">
                             <div className="d-flex justify-content-between align-items-center mb-2">
                               <h5 className="mb-0">{t('admin.dashboard.visitsTeam', { id: visitingTeam })}</h5>
