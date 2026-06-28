@@ -13,6 +13,7 @@ export default function TeamManagement() {
   const [teams, setTeams] = useState([]);
   const [allTeams, setAllTeams] = useState([]);
   const [teamsPage, setTeamsPage] = useState(1);
+  const [teamSearch, setTeamSearch] = useState('');
   const [users, setUsers] = useState([]);
   const [totalTeams, setTotalTeams] = useState(0);
   const [teamMembers, setTeamMembers] = useState({});
@@ -24,7 +25,11 @@ export default function TeamManagement() {
     setError(null);
     try {
       const [pagedTeamsPayload, allTeamsPayload, usersPayload] = await Promise.all([
-        adminApi.getTeams({ page: pageToLoad, per_page: TEAMS_PAGE_SIZE }),
+        adminApi.getTeams({
+          page: pageToLoad,
+          per_page: TEAMS_PAGE_SIZE,
+          search: teamSearch.trim() || undefined,
+        }),
         adminApi.getTeams(),
         adminApi.getUsers(),
       ]);
@@ -63,7 +68,11 @@ export default function TeamManagement() {
   useEffect(() => {
     load(teamsPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamsPage]);
+  }, [teamsPage, teamSearch]);
+
+  useEffect(() => {
+    setTeamsPage(1);
+  }, [teamSearch]);
 
   const teamsTotalPages = Math.max(1, Math.ceil(totalTeams / TEAMS_PAGE_SIZE));
   const teamsPageStartIndex = totalTeams === 0 ? 0 : ((teamsPage - 1) * TEAMS_PAGE_SIZE) + 1;
@@ -96,6 +105,15 @@ export default function TeamManagement() {
 
       <div className="border rounded p-3">
         <h5 className="mb-3">{t('admin.teamCreation.allTeams')}</h5>
+        <div className="mb-3">
+          <label className="form-label fw-semibold text-uppercase small mb-1">{t('admin.teamCreation.searchTeams')}</label>
+          <input
+            className="form-control"
+            placeholder={t('admin.teamCreation.searchTeamsPlaceholder')}
+            value={teamSearch}
+            onChange={(e) => setTeamSearch(e.target.value)}
+          />
+        </div>
         <table className="table table-sm">
           <thead>
             <tr>

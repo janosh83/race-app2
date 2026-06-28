@@ -120,6 +120,11 @@ def get_teams():
     """
     query = Team.query.order_by(Team.id.asc())
     paginate_requested = 'page' in request.args or 'per_page' in request.args
+    search_term = (request.args.get('search') or '').strip()
+
+    if search_term:
+        like_term = f"%{search_term}%"
+        query = query.filter(Team.name.ilike(like_term))
 
     if paginate_requested:
         try:

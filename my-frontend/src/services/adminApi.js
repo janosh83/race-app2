@@ -1,5 +1,12 @@
 import { apiFetch } from '../utils/api';
 
+const toQueryString = (params = {}) => {
+  const filtered = Object.fromEntries(
+    Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== '')
+  );
+  return new URLSearchParams(filtered).toString();
+};
+
 export const adminApi = {
   listRaces: () => apiFetch('/api/race/'),  // OK
   createRace: (payload) => apiFetch('/api/race/', { method: 'POST', body: payload }),  // OK
@@ -36,7 +43,7 @@ export const adminApi = {
 
   // User management (admin)
   getUsers: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const query = toQueryString(params);
     return apiFetch(`/api/user/${query ? `?${query}` : ''}`);
   },
   registerAdminUser: (payload) => apiFetch('/auth/register-admin/', { method: 'POST', body: payload }),
@@ -66,7 +73,7 @@ export const adminApi = {
 
   // Team management
   getTeams: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const query = toQueryString(params);
     return apiFetch(`/api/team/${query ? `?${query}` : ''}`);
   },
   getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),

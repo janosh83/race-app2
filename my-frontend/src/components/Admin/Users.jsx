@@ -25,6 +25,7 @@ export default function Users() {
   const [saving, setSaving] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
+  const [userSearch, setUserSearch] = useState('');
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -37,7 +38,11 @@ export default function Users() {
     setLoading(true);
     setError(null);
     try {
-      const payload = await adminApi.getUsers({ page: pageToLoad, per_page: USERS_PAGE_SIZE });
+      const payload = await adminApi.getUsers({
+        page: pageToLoad,
+        per_page: USERS_PAGE_SIZE,
+        search: userSearch.trim() || undefined,
+      });
       const list = Array.isArray(payload) ? payload : (payload?.data || []);
       const total = Array.isArray(payload) ? list.length : Number(payload?.meta?.total || 0);
       setUsers(list || []);
@@ -48,7 +53,7 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, userSearch]);
 
   useEffect(() => {
     load(usersPage);
@@ -179,6 +184,10 @@ export default function Users() {
   const usersPageEndIndex = Math.min((usersPage - 1) * USERS_PAGE_SIZE + users.length, totalUsers);
 
   useEffect(() => {
+    setUsersPage(1);
+  }, [userSearch]);
+
+  useEffect(() => {
     if (usersPage > usersTotalPages) {
       setUsersPage(usersTotalPages);
     }
@@ -236,6 +245,16 @@ export default function Users() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label fw-semibold text-uppercase small mb-1">{t('admin.users.searchUsers')}</label>
+        <input
+          className="form-control"
+          placeholder={t('admin.users.searchPlaceholder')}
+          value={userSearch}
+          onChange={(e) => setUserSearch(e.target.value)}
+        />
       </div>
 
       {loading ? (

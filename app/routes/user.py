@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_
 from app.models import Registration, Team, Race, RaceCategory, User, team_members
 from app.routes.admin import admin_required
 from app import db
@@ -38,6 +39,11 @@ def get_users():
     """
     query = User.query.order_by(User.id.asc())
     paginate_requested = 'page' in request.args or 'per_page' in request.args
+    search_term = (request.args.get('search') or '').strip()
+
+    if search_term:
+        like_term = f"%{search_term}%"
+        query = query.filter(or_(User.name.ilike(like_term), User.email.ilike(like_term)))
 
     if paginate_requested:
         try:
