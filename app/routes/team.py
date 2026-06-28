@@ -139,6 +139,59 @@ def _calculate_prospective_member_count(team, validated_payload):
 
     return prospective_count
 
+
+def _extract_manual_payment_user_id(stripe_session_id, payment_type):
+    """Extract user id from manual session id pattern: manual_*_<type>_u<id>_*."""
+    session_id = (stripe_session_id or '').strip()
+    if not session_id.startswith('manual_'):
+        return None
+
+    marker = f"_{payment_type}_u"
+    marker_index = session_id.find(marker)
+    if marker_index < 0:
+        return None
+
+    suffix = session_id[marker_index + len(marker):]
+    digits = []
+    for character in suffix:
+        if character.isdigit():
+            digits.append(character)
+        else:
+            break
+
+    if not digits:
+        return None
+
+    try:
+        return int(''.join(digits))
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_role_member_from_attempts(payment_attempts, payment_type, members_by_id):
+    """Resolve role assignee from latest confirmed/manual attempt for the payment type."""
+    candidates = [
+        attempt for attempt in (payment_attempts or [])
+        if attempt.payment_type == payment_type and attempt.status == 'confirmed'
+    ]
+    if not candidates:
+        return None
+
+    latest = max(candidates, key=lambda attempt: ((attempt.confirmed_at or attempt.created_at), attempt.id))
+    user_id = _extract_manual_payment_user_id(latest.stripe_session_id, payment_type)
+    if not user_id:
+        return None
+
+    member = members_by_id.get(user_id)
+    if not member:
+        return None
+
+    return {
+        "id": member.id,
+        "name": member.name,
+        "email": member.email,
+    }
+
 # get all teams
 # tested by test_teams.py -> test_get_teams
 # for now it can stay open, but in the future it should be somehow protected
@@ -316,11 +369,48 @@ def get_team_by_race(race_id):
         aggregate_paid = bool(team_paid or registration.payment_confirmed) if mode == 'team' else bool(driver_paid or registration.payment_confirmed)
 
         members = []
+        members_by_id = {}
         if team and team.members:
             members = [
                 {"id": user.id, "name": user.name, "email": user.email}
                 for user in team.members
             ]
+            members_by_id = {user.id: user for user in team.members}
+
+        driver_member = _resolve_role_member_from_attempts(payment_attempts, 'driver', members_by_id)
+        codriver_member = _resolve_role_member_from_attempts(payment_attempts, 'codriver', members_by_id)
+
+        attempts_payload = []
+        for attempt in sorted(
+            payment_attempts,
+            key=lambda payment_attempt: (payment_attempt.created_at, payment_attempt.id),
+            reverse=True,
+        ):
+            assignee = None
+            if attempt.payment_type in ('driver', 'codriver'):
+                assignee_id = _extract_manual_payment_user_id(attempt.stripe_session_id, attempt.payment_type)
+                member = members_by_id.get(assignee_id) if assignee_id else None
+                if member:
+                    assignee = {
+                        "id": member.id,
+                        "name": member.name,
+                        "email": member.email,
+                    }
+
+            attempts_payload.append(
+            {
+              "id": attempt.id,
+              "stripe_session_id": attempt.stripe_session_id,
+              "payment_type": attempt.payment_type,
+              "status": attempt.status,
+              "amount_cents": attempt.amount_cents,
+              "currency": attempt.currency,
+              "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
+              "confirmed_at": attempt.confirmed_at.isoformat() if attempt.confirmed_at else None,
+              "assignee": assignee,
+            }
+          )
+
         results.append({
             "id": team_id,
             "name": team_name,
@@ -337,23 +427,9 @@ def get_team_by_race(race_id):
                 "driver_paid": bool(driver_paid),
                 "codriver_paid": bool(codriver_paid),
                 "team_paid": bool(team_paid),
-                "attempts": [
-                {
-                  "id": attempt.id,
-                  "stripe_session_id": attempt.stripe_session_id,
-                  "payment_type": attempt.payment_type,
-                  "status": attempt.status,
-                  "amount_cents": attempt.amount_cents,
-                  "currency": attempt.currency,
-                  "created_at": attempt.created_at.isoformat() if attempt.created_at else None,
-                  "confirmed_at": attempt.confirmed_at.isoformat() if attempt.confirmed_at else None,
-                }
-                for attempt in sorted(
-                  payment_attempts,
-                  key=lambda attempt: (attempt.created_at, attempt.id),
-                  reverse=True,
-                )
-                ],
+            "driver_member": driver_member,
+            "codriver_member": codriver_member,
+            "attempts": attempts_payload,
             },
         })
 
@@ -1406,3 +1482,4 @@ def delete_team(team_id):
     db.session.commit()
     logger.info("Team deleted successfully: %s (ID: %s)", team.name, team.id)
     return jsonify({"message": "Team deleted successfully"}), 200
+

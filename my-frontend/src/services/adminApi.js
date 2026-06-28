@@ -24,9 +24,9 @@ export const adminApi = {
     `/api/race/${raceId}/team/${teamId}/payments/retry/`,
     { method: 'POST', body: { payment_type } }
   ),
-  markRegistrationPayment: (raceId, teamId, payment_type, confirmed) => apiFetch(
+  markRegistrationPayment: (raceId, teamId, payment_type, confirmed, user_id) => apiFetch(
     `/api/race/${raceId}/team/${teamId}/payments/mark/`,
-    { method: 'PATCH', body: { payment_type, confirmed } }
+    { method: 'PATCH', body: { payment_type, confirmed, user_id } }
   ),
   reconcileRegistrationPayment: (raceId, teamId, payment_type, stripe_session_id) => apiFetch(
     `/api/race/${raceId}/team/${teamId}/payments/reconcile/`,

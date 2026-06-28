@@ -26,6 +26,7 @@ export default function RegistrationList({ raceId, race }) {
   const [sendingTeamEmailId, setSendingTeamEmailId] = useState(null);
   const [expandedPayments, setExpandedPayments] = useState({});
   const [paymentTimelineState, setPaymentTimelineState] = useState({});
+  const [paymentAssigneeState, setPaymentAssigneeState] = useState({});
   const [editRegistrationState, setEditRegistrationState] = useState({});
   const [savingEditRegistrationTeamId, setSavingEditRegistrationTeamId] = useState(null);
   const [editMembersState, setEditMembersState] = useState({});
@@ -181,15 +182,61 @@ export default function RegistrationList({ raceId, race }) {
     }
   };
 
-  const handleMarkPayment = async (teamId, paymentType, confirmed) => {
+  const handleMarkPayment = async (teamId, paymentType, confirmed, userId) => {
     setError(null);
     try {
-      await adminApi.markRegistrationPayment(raceId, teamId, paymentType, confirmed);
+      await adminApi.markRegistrationPayment(raceId, teamId, paymentType, confirmed, userId);
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to mark payment state', err);
       setError(t('admin.registrations.errorMarkPayment'));
     }
+  };
+
+  const getDefaultAssigneeId = (item, paymentType) => {
+    if (paymentType === 'driver') {
+      return item.paymentDetails?.driver_member?.id || '';
+    }
+    if (paymentType === 'codriver') {
+      return item.paymentDetails?.codriver_member?.id || '';
+    }
+    return '';
+  };
+
+  const getSelectedAssigneeId = (item, paymentType) => {
+    const explicit = paymentAssigneeState[item.teamId]?.[paymentType];
+    if (explicit !== undefined) return explicit;
+    return getDefaultAssigneeId(item, paymentType);
+  };
+
+  const setSelectedAssigneeId = (teamId, paymentType, userId) => {
+    setPaymentAssigneeState(prev => ({
+      ...prev,
+      [teamId]: {
+        ...prev[teamId],
+        [paymentType]: userId,
+      },
+    }));
+  };
+
+  const formatMemberLabel = (member) => {
+    if (!member) return '—';
+    if (member.name && member.email) return `${member.name} (${member.email})`;
+    return member.name || member.email || '—';
+  };
+
+  const getOtherRoleType = (paymentType) => {
+    if (paymentType === 'driver') return 'codriver';
+    if (paymentType === 'codriver') return 'driver';
+    return null;
+  };
+
+  const getIsAssigneeConflict = (item, paymentType) => {
+    const otherRole = getOtherRoleType(paymentType);
+    if (!otherRole) return false;
+    const currentAssignee = String(getSelectedAssigneeId(item, paymentType) || '');
+    const otherAssignee = String(getSelectedAssigneeId(item, otherRole) || '');
+    return !!currentAssignee && !!otherAssignee && currentAssignee === otherAssignee;
   };
 
   const handleReconcilePayment = async (teamId, paymentType) => {
@@ -273,6 +320,27 @@ export default function RegistrationList({ raceId, race }) {
   const getDraftMemberIds = (item) => (
     (editMembersState[item.teamId] ?? item.members.map(member => String(member.id))).map(String)
   );
+
+  const getAssigneeMembers = (item) => {
+    const seen = new Set();
+    const selected = [];
+    const draftIds = getDraftMemberIds(item);
+
+    for (const memberId of draftIds) {
+      const id = String(memberId);
+      if (seen.has(id)) continue;
+      const user = (users || []).find(candidate => String(candidate.id) === id);
+      if (user) {
+        selected.push(user);
+      } else {
+        const fallback = (item.members || []).find(member => String(member.id) === id);
+        if (fallback) selected.push(fallback);
+      }
+      seen.add(id);
+    }
+
+    return selected;
+  };
 
   const getMaxTeamMembers = (item) => {
     const rowMax = Number(item.raceMaxTeamSize);
@@ -552,10 +620,42 @@ export default function RegistrationList({ raceId, race }) {
               {' · '}
               {t('admin.registrations.codriverPaid')}: {item.paymentDetails.codriver_paid ? t('common.yes') : t('common.no')}
             </div>
+            {item.paymentDetails.mode !== 'team' && (
+              <div className="small mb-2">
+                <div>{t('admin.registrations.driverMember')}: <span className="text-muted">{formatMemberLabel(item.paymentDetails.driver_member)}</span></div>
+                <div>{t('admin.registrations.codriverMember')}: <span className="text-muted">{formatMemberLabel(item.paymentDetails.codriver_member)}</span></div>
+              </div>
+            )}
             <div className="d-flex flex-wrap gap-2 mb-2">
               {item.paymentItems.map(paymentItem => (
                 <div key={paymentItem.type} className="border rounded p-2 bg-white">
                   <div className="fw-semibold small mb-2">{getPaymentTypeLabel(paymentItem.type)}</div>
+                  {paymentItem.type !== 'team' && (
+                    <div className="mb-2">
+                      <label className="form-label form-label-sm mb-1">{t('admin.registrations.assigneeLabel')}</label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={String(getSelectedAssigneeId(item, paymentItem.type) || '')}
+                        onChange={(e) => setSelectedAssigneeId(item.teamId, paymentItem.type, e.target.value)}
+                      >
+                        <option value="">{t('admin.registrations.selectAssignee')}</option>
+                        {getAssigneeMembers(item).map(member => (
+                          <option
+                            key={member.id}
+                            value={String(member.id)}
+                            disabled={(() => {
+                              const otherRole = getOtherRoleType(paymentItem.type);
+                              if (!otherRole) return false;
+                              const otherSelected = String(getSelectedAssigneeId(item, otherRole) || '');
+                              return otherSelected && String(member.id) === otherSelected;
+                            })()}
+                          >
+                            {member.name || member.email} ({member.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <button
                     type="button"
                     className="btn btn-sm btn-outline-primary me-2"
@@ -575,7 +675,7 @@ export default function RegistrationList({ raceId, race }) {
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-warning"
-                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, false)}
+                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, false, getSelectedAssigneeId(item, paymentItem.type) || null)}
                     >
                       {t('admin.registrations.markUnpaid')}
                     </button>
@@ -583,10 +683,23 @@ export default function RegistrationList({ raceId, race }) {
                     <button
                       type="button"
                       className="btn btn-sm btn-outline-success"
-                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, true)}
+                      onClick={() => handleMarkPayment(item.teamId, paymentItem.type, true, getSelectedAssigneeId(item, paymentItem.type) || null)}
+                      disabled={
+                        paymentItem.type !== 'team'
+                        && (
+                          !getSelectedAssigneeId(item, paymentItem.type)
+                          || getIsAssigneeConflict(item, paymentItem.type)
+                        )
+                      }
                     >
                       {t('admin.registrations.markPaid')}
                     </button>
+                  )}
+                  {paymentItem.type !== 'team' && !getSelectedAssigneeId(item, paymentItem.type) && (
+                    <div className="small text-warning mt-2">{t('admin.registrations.assigneeRequired')}</div>
+                  )}
+                  {paymentItem.type !== 'team' && getIsAssigneeConflict(item, paymentItem.type) && (
+                    <div className="small text-warning mt-2">{t('admin.registrations.assigneeMustBeDifferent')}</div>
                   )}
                 </div>
               ))}
@@ -624,13 +737,14 @@ export default function RegistrationList({ raceId, race }) {
                     <th>{t('admin.registrations.attemptAmount')}</th>
                     <th>{t('admin.registrations.attemptCreated')}</th>
                     <th>{t('admin.registrations.attemptConfirmed')}</th>
+                    <th>{t('admin.registrations.attemptAssignee')}</th>
                     <th>{t('admin.registrations.attemptSession')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {item.sortedAttempts.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                      <td colSpan="7" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
                     </tr>
                   )}
                   {item.sortedAttempts.map(attempt => (
@@ -640,6 +754,7 @@ export default function RegistrationList({ raceId, race }) {
                       <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
                       <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
                       <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
+                      <td className="text-muted">{formatMemberLabel(attempt.assignee)}</td>
                       <td className="text-muted">{attempt.stripe_session_id || '—'}</td>
                     </tr>
                   ))}

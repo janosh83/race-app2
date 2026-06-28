@@ -1224,9 +1224,14 @@ def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_tes
     )
     assert response.status_code == 201
 
+    response = test_client.post("/auth/register/", json={"name": "Driver", "email": "driver-mark@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    assert response.status_code == 201
+
     mark_paid = test_client.patch(
         "/api/race/1/team/1/payments/mark/",
-        json={"payment_type": "driver", "confirmed": True},
+        json={"payment_type": "driver", "confirmed": True, "user_id": 1},
         headers=admin_auth_headers,
     )
     assert mark_paid.status_code == 200
@@ -1242,6 +1247,71 @@ def test_mark_registration_payment_toggle_updates_aggregate(test_client, add_tes
             status="confirmed",
         ).first()
         assert confirmed_attempt is not None
+        assert "_driver_u1_" in confirmed_attempt.stripe_session_id
+
+
+def test_mark_registration_payment_requires_user_id_for_driver_role(test_client, add_test_data, admin_auth_headers, test_app):
+    """Manual driver/codriver mark must include user_id of a team member."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.allow_team_registration = False
+        race.allow_individual_registration = True
+        race.registration_driver_amount_cents = 250
+        race.registration_codriver_amount_cents = 150
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    mark_paid = test_client.patch(
+        "/api/race/1/team/1/payments/mark/",
+        json={"payment_type": "driver", "confirmed": True},
+        headers=admin_auth_headers,
+    )
+    assert mark_paid.status_code == 400
+    assert "user_id is required" in mark_paid.json["message"]
+
+
+def test_mark_registration_payment_rejects_same_user_for_driver_and_codriver(test_client, add_test_data, admin_auth_headers, test_app):
+    """Manual marks must not assign the same member to both driver and codriver roles."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.allow_team_registration = False
+        race.allow_individual_registration = True
+        race.registration_driver_amount_cents = 250
+        race.registration_codriver_amount_cents = 150
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/team/race/1/",
+        json={"team_id": 1, "race_category_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 201
+
+    response = test_client.post("/auth/register/", json={"name": "Shared", "email": "shared-role@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    assert response.status_code == 201
+
+    mark_driver = test_client.patch(
+        "/api/race/1/team/1/payments/mark/",
+        json={"payment_type": "driver", "confirmed": True, "user_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert mark_driver.status_code == 200
+
+    mark_codriver = test_client.patch(
+        "/api/race/1/team/1/payments/mark/",
+        json={"payment_type": "codriver", "confirmed": True, "user_id": 1},
+        headers=admin_auth_headers,
+    )
+    assert mark_codriver.status_code == 400
+    assert "already assigned to the other role" in mark_codriver.json["message"]
 
     mark_unpaid = test_client.patch(
         "/api/race/1/team/1/payments/mark/",
