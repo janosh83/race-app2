@@ -1,18 +1,45 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+
+const USER_PICKER_PAGE_SIZE = 20;
 
 export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdded }) {
   const { t } = useTranslation();
   const [newTeamName, setNewTeamName] = useState('');
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [usersPage, setUsersPage] = useState(1);
   const [selectedUserIds, setSelectedUserIds] = useState([]);
   const [savingTeam, setSavingTeam] = useState(false);
   const [savingMembers, setSavingMembers] = useState(false);
   const [error, setError] = useState(null);
+
+  const normalizedSearch = userSearch.trim().toLowerCase();
+  const filteredUsers = (users || []).filter((u) => {
+    if (!normalizedSearch) return true;
+    return (
+      (u.name || '').toLowerCase().includes(normalizedSearch) ||
+      (u.email || '').toLowerCase().includes(normalizedSearch)
+    );
+  });
+
+  const usersTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USER_PICKER_PAGE_SIZE));
+  const usersPageStartIndex = filteredUsers.length === 0 ? 0 : ((usersPage - 1) * USER_PICKER_PAGE_SIZE) + 1;
+  const usersPageEndIndex = Math.min((usersPage - 1) * USER_PICKER_PAGE_SIZE + USER_PICKER_PAGE_SIZE, filteredUsers.length);
+  const pagedUsers = filteredUsers.slice((usersPage - 1) * USER_PICKER_PAGE_SIZE, usersPage * USER_PICKER_PAGE_SIZE);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [normalizedSearch]);
+
+  useEffect(() => {
+    if (usersPage > usersTotalPages) {
+      setUsersPage(usersTotalPages);
+    }
+  }, [usersPage, usersTotalPages]);
 
   const handleCreateTeam = async () => {
     setError(null);
@@ -59,9 +86,9 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
   return (
     <div className="card h-100 p-3">
       <h5 className="mb-3">{t('admin.teamCreation.title')}</h5>
-      
+
       {error && <div className="alert alert-danger py-2 mb-2">{error}</div>}
-      
+
       <div className="mb-2">
         <label className="form-label">{t('admin.teamCreation.teamName')}</label>
         <div className="input-group">
@@ -104,16 +131,7 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
             </tr>
           </thead>
           <tbody>
-            {(users || [])
-              .filter(u => {
-                const q = userSearch.trim().toLowerCase();
-                if (!q) return true;
-                return (
-                  (u.name || '').toLowerCase().includes(q) ||
-                  (u.email || '').toLowerCase().includes(q)
-                );
-              })
-              .map(u => {
+            {pagedUsers.map(u => {
                 const checked = selectedUserIds.includes(u.id);
                 return (
                   <tr key={u.id}>
@@ -137,12 +155,44 @@ export default function TeamCreation({ teams, users, onTeamCreated, onMembersAdd
                   </tr>
                 );
               })}
-            {(!users || users.length === 0) && (
+            {filteredUsers.length === 0 && (
               <tr><td colSpan={4} className="text-muted">{t('admin.teamCreation.noUsers')}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+      {filteredUsers.length > 0 && (
+        <div className="d-flex align-items-center justify-content-between mb-2">
+          <small className="text-muted">
+            {t('admin.common.paginationShowing', {
+              from: usersPageStartIndex,
+              to: usersPageEndIndex,
+              total: filteredUsers.length,
+            })}
+          </small>
+          <div className="btn-group" role="group" aria-label={t('admin.common.paginationAria')}>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              disabled={usersPage <= 1}
+              onClick={() => setUsersPage((prev) => Math.max(1, prev - 1))}
+            >
+              {t('admin.common.paginationPrev')}
+            </button>
+            <span className="btn btn-sm btn-light disabled">
+              {usersPage} / {usersTotalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary"
+              disabled={usersPage >= usersTotalPages}
+              onClick={() => setUsersPage((prev) => Math.min(usersTotalPages, prev + 1))}
+            >
+              {t('admin.common.paginationNext')}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="mb-2">
         <label className="form-label">{t('admin.teamCreation.teamLabel')}</label>
         <div className="input-group">
