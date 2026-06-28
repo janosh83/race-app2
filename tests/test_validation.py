@@ -259,6 +259,27 @@ class TestCheckpointValidation:
         }, headers=headers)
         assert response.status_code == 400
 
+    def test_update_checkpoint_rejects_single_coordinate(self, test_client, admin_token, test_app, test_race):
+        """Providing only one coordinate should return 400."""
+        with test_app.app_context():
+            checkpoint = Checkpoint(
+                title="Original",
+                description="Test",
+                latitude=50.0,
+                longitude=14.0,
+                numOfPoints=1,
+                race_id=test_race
+            )
+            db.session.add(checkpoint)
+            db.session.commit()
+            cp_id = checkpoint.id
+
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = test_client.put(f"/api/checkpoint/{cp_id}/", json={
+            "latitude": 50.5
+        }, headers=headers)
+        assert response.status_code == 400
+
     def test_update_checkpoint_valid_partial(self, test_client, admin_token, test_app, test_race):
         """Valid partial update with only some fields"""
         with test_app.app_context():

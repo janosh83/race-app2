@@ -24,7 +24,7 @@ class CheckpointCreateSchema(Schema):
     numOfPoints = fields.Integer(load_default=1, validate=validate.Range(min=0))
 
     @pre_load
-    def normalize(self, data, **kwargs):
+    def normalize(self, data, **_kwargs):
         normalized = dict(data)
         # Map aliases
         if "name" in normalized and "title" not in normalized:
@@ -44,6 +44,10 @@ class CheckpointCreateSchema(Schema):
             normalized.pop(alias_key, None)
         return normalized
 
+    @validates_schema
+    def validate_coordinate_pair(self, data, **_kwargs):
+        _validate_coordinate_pair(data, "latitude", "longitude", "checkpoint")
+
 
 class CheckpointUpdateSchema(Schema):
     title = fields.String(validate=validate.Length(min=1))
@@ -53,7 +57,7 @@ class CheckpointUpdateSchema(Schema):
     numOfPoints = fields.Integer(validate=validate.Range(min=0))
 
     @pre_load
-    def normalize(self, data, **kwargs):
+    def normalize(self, data, **_kwargs):
         normalized = dict(data)
         if "name" in normalized and "title" not in normalized:
             normalized["title"] = normalized["name"]
@@ -66,6 +70,10 @@ class CheckpointUpdateSchema(Schema):
         if "numPoints" in normalized and "numOfPoints" not in normalized:
             normalized["numOfPoints"] = normalized["numPoints"]
         return normalized
+
+    @validates_schema
+    def validate_coordinate_pair(self, data, **_kwargs):
+        _validate_coordinate_pair(data, "latitude", "longitude", "checkpoint")
 
 
 class CheckpointLogSchema(Schema):
@@ -85,7 +93,7 @@ class TaskCreateSchema(Schema):
     numOfPoints = fields.Integer(load_default=1, validate=validate.Range(min=1))
 
     @pre_load
-    def normalize(self, data, **kwargs):
+    def normalize(self, data, **_kwargs):
         normalized = dict(data)
         if "name" in normalized and "title" not in normalized:
             normalized["title"] = normalized["name"]
@@ -106,7 +114,7 @@ class TaskUpdateSchema(Schema):
     numOfPoints = fields.Integer(validate=validate.Range(min=1))
 
     @pre_load
-    def normalize(self, data, **kwargs):
+    def normalize(self, data, **_kwargs):
         normalized = dict(data)
         if "name" in normalized and "title" not in normalized:
             normalized["title"] = normalized["name"]
@@ -177,7 +185,7 @@ class RaceCreateSchema(Schema):
     registration_codriver_amount_cents = fields.Integer(load_default=15, validate=validate.Range(min=1))
 
     @pre_load
-    def normalize_registration_currency(self, data, **kwargs):
+    def normalize_registration_currency(self, data, **_kwargs):
         normalized = dict(data)
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
@@ -194,7 +202,7 @@ class RaceCreateSchema(Schema):
         return normalized
 
     @validates_schema
-    def validate_language_settings(self, data, **kwargs):
+    def validate_language_settings(self, data, **_kwargs):
         _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
         _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
         _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
@@ -264,7 +272,7 @@ class RaceUpdateSchema(Schema):
     registration_codriver_amount_cents = fields.Integer(validate=validate.Range(min=1))
 
     @pre_load
-    def normalize_registration_currency(self, data, **kwargs):
+    def normalize_registration_currency(self, data, **_kwargs):
         normalized = dict(data)
         currency = normalized.get("registration_currency")
         if isinstance(currency, str):
@@ -281,13 +289,10 @@ class RaceUpdateSchema(Schema):
         return normalized
 
     @validates_schema
-    def validate_registration_settings(self, data, **kwargs):
-        if "finish_latitude" in data and "finish_longitude" in data:
-            _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
-        if "bivak_1_latitude" in data and "bivak_1_longitude" in data:
-            _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
-        if "bivak_2_latitude" in data and "bivak_2_longitude" in data:
-            _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
+    def validate_registration_settings(self, data, **_kwargs):
+        _validate_coordinate_pair(data, "finish_latitude", "finish_longitude", "finish")
+        _validate_coordinate_pair(data, "bivak_1_latitude", "bivak_1_longitude", "bivak_1")
+        _validate_coordinate_pair(data, "bivak_2_latitude", "bivak_2_longitude", "bivak_2")
 
         min_team_size = data.get("min_team_size")
         max_team_size = data.get("max_team_size")
@@ -426,7 +431,7 @@ class TeamAddMembersSchema(Schema):
     )
 
     @validates_schema
-    def validate_payload(self, data, **kwargs):
+    def validate_payload(self, data, **_kwargs):
         has_user_ids = bool(data.get('user_ids'))
         has_members = bool(data.get('members'))
 
@@ -485,7 +490,7 @@ class RegistrationEmailLogQuerySchema(Schema):
     page_size = fields.Integer(load_default=50, validate=validate.Range(min=1, max=200))
 
     @validates_schema
-    def validate_date_window(self, data, **kwargs):
+    def validate_date_window(self, data, **_kwargs):
         date_from = data.get('date_from')
         date_to = data.get('date_to')
         if date_from and date_to and date_from > date_to:
@@ -518,7 +523,7 @@ class BrevoWebhookEventSchema(Schema):
     ts = fields.Raw(load_default=None, allow_none=True)
 
     @validates_schema
-    def validate_identity(self, data, **kwargs):
+    def validate_identity(self, data, **_kwargs):
         message_ref = data.get('message_id') or data.get('message_id_dash') or data.get('message_id_camel') or data.get('smtp_id') or data.get('smtp_id_dash')
         recipient = data.get('email') or data.get('recipient')
         if not message_ref and not recipient:
