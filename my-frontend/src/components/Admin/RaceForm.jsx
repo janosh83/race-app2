@@ -26,6 +26,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [endShow, setEndShow] = useState('');
   const [startLogging, setStartLogging] = useState('');
   const [endLogging, setEndLogging] = useState('');
+  const [timeConstraintMode, setTimeConstraintMode] = useState('fixed');
+  const [startShowOffsetHours, setStartShowOffsetHours] = useState('');
+  const [endShowOffsetHours, setEndShowOffsetHours] = useState('');
+  const [startLoggingOffsetHours, setStartLoggingOffsetHours] = useState('');
+  const [endLoggingOffsetHours, setEndLoggingOffsetHours] = useState('');
   const [registrationSlug, setRegistrationSlug] = useState('');
   const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [minTeamSize, setMinTeamSize] = useState(1);
@@ -63,11 +68,17 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
       };
       const formatCoordinate = (value) => value == null ? '' : String(value);
+      const toOffsetHours = (seconds) => seconds == null ? '' : String(seconds / 3600);
 
       setStartShow(toLocal(race.start_showing_checkpoints_at ?? race.start_showing_checkpoints ?? race.start_showing));
       setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));
       setStartLogging(toLocal(race.start_logging_at ?? race.start_logging));
       setEndLogging(toLocal(race.end_logging_at ?? race.end_logging));
+      setTimeConstraintMode(race.time_constraint_mode || 'fixed');
+      setStartShowOffsetHours(toOffsetHours(race.start_showing_offset_seconds));
+      setEndShowOffsetHours(toOffsetHours(race.end_showing_offset_seconds));
+      setStartLoggingOffsetHours(toOffsetHours(race.start_logging_offset_seconds));
+      setEndLoggingOffsetHours(toOffsetHours(race.end_logging_offset_seconds));
       setFinishLatitude(formatCoordinate(race.finish_latitude));
       setFinishLongitude(formatCoordinate(race.finish_longitude));
       setBivak1Name(race.bivak_1_name || '');
@@ -105,6 +116,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
       setEndShow('');
       setStartLogging('');
       setEndLogging('');
+      setTimeConstraintMode('fixed');
+      setStartShowOffsetHours('');
+      setEndShowOffsetHours('');
+      setStartLoggingOffsetHours('');
+      setEndLoggingOffsetHours('');
       setRegistrationSlug('');
       setRegistrationEnabled(false);
       setMinTeamSize(1);
@@ -119,6 +135,13 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   }, [race]);
 
   const toIso = (dtLocal) => dtLocal ? new Date(dtLocal).toISOString() : null;
+  const toNullableSeconds = (hoursValue) => {
+    const trimmed = String(hoursValue ?? '').trim();
+    if (!trimmed) return null;
+    const numberValue = Number(trimmed);
+    if (!Number.isFinite(numberValue)) return null;
+    return Math.round(numberValue * 3600);
+  };
   const toNullableCoordinate = (value) => {
     const trimmed = String(value ?? '').trim();
     return trimmed ? Number(trimmed) : null;
@@ -128,21 +151,43 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
   const [validationError, setValidationError] = useState('');
   useEffect(() => {
     setValidationError('');
-    if (startShow && endShow && startShow > endShow) {
-      setValidationError(t('admin.raceForm.validationStartShowBeforeEndShow'));
-      return;
-    }
-    if (startLogging && endLogging && startLogging > endLogging) {
-      setValidationError(t('admin.raceForm.validationStartLogBeforeEndLog'));
-      return;
-    }
-    if (startLogging && startShow && startLogging < startShow) {
-      setValidationError(t('admin.raceForm.validationStartLogNotBeforeShow'));
-      return;
-    }
-    if (endLogging && endShow && endLogging > endShow) {
-      setValidationError(t('admin.raceForm.validationEndLogNotAfterShow'));
-      return;
+    if (timeConstraintMode === 'fixed') {
+      if (startShow && endShow && startShow > endShow) {
+        setValidationError(t('admin.raceForm.validationStartShowBeforeEndShow'));
+        return;
+      }
+      if (startLogging && endLogging && startLogging > endLogging) {
+        setValidationError(t('admin.raceForm.validationStartLogBeforeEndLog'));
+        return;
+      }
+      if (startLogging && startShow && startLogging < startShow) {
+        setValidationError(t('admin.raceForm.validationStartLogNotBeforeShow'));
+        return;
+      }
+      if (endLogging && endShow && endLogging > endShow) {
+        setValidationError(t('admin.raceForm.validationEndLogNotAfterShow'));
+        return;
+      }
+    } else {
+      const offsets = {
+        startShow: Number(startShowOffsetHours),
+        endShow: Number(endShowOffsetHours),
+        startLogging: Number(startLoggingOffsetHours),
+        endLogging: Number(endLoggingOffsetHours),
+      };
+      const hasInvalidOffset = Object.values(offsets).some(value => !Number.isFinite(value) || value < 0);
+      if (hasInvalidOffset) {
+        setValidationError(t('admin.raceForm.validationShiftOffsetNonNegative'));
+        return;
+      }
+      if (offsets.startShow > offsets.endShow) {
+        setValidationError(t('admin.raceForm.validationShiftShowOrder'));
+        return;
+      }
+      if (offsets.startLogging > offsets.endLogging) {
+        setValidationError(t('admin.raceForm.validationShiftLogOrder'));
+        return;
+      }
     }
     if (Number(minTeamSize) < 1 || Number(maxTeamSize) < 1) {
       setValidationError('Team size must be at least 1.');
@@ -188,6 +233,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
     endShow,
     startLogging,
     endLogging,
+    timeConstraintMode,
+    startShowOffsetHours,
+    endShowOffsetHours,
+    startLoggingOffsetHours,
+    endLoggingOffsetHours,
     registrationSlug,
     registrationEnabled,
     minTeamSize,
@@ -221,10 +271,11 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         bivak_2_name: bivak2Name.trim() || null,
         bivak_2_latitude: toNullableCoordinate(bivak2Latitude),
         bivak_2_longitude: toNullableCoordinate(bivak2Longitude),
-        start_showing_checkpoints_at: toIso(startShow),
-        end_showing_checkpoints_at: toIso(endShow),
-        start_logging_at: toIso(startLogging),
-        end_logging_at: toIso(endLogging),
+        time_constraint_mode: timeConstraintMode,
+        start_showing_offset_seconds: timeConstraintMode === 'registration_shift' ? toNullableSeconds(startShowOffsetHours) : null,
+        end_showing_offset_seconds: timeConstraintMode === 'registration_shift' ? toNullableSeconds(endShowOffsetHours) : null,
+        start_logging_offset_seconds: timeConstraintMode === 'registration_shift' ? toNullableSeconds(startLoggingOffsetHours) : null,
+        end_logging_offset_seconds: timeConstraintMode === 'registration_shift' ? toNullableSeconds(endLoggingOffsetHours) : null,
         registration_slug: registrationSlug.trim() || null,
         registration_enabled: registrationEnabled,
         min_team_size: Number(minTeamSize),
@@ -236,6 +287,12 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         registration_driver_amount_cents: Number(registrationDriverAmountCents),
         registration_codriver_amount_cents: Number(registrationCodriverAmountCents),
       };
+      if (timeConstraintMode === 'fixed') {
+        payload.start_showing_checkpoints_at = toIso(startShow);
+        payload.end_showing_checkpoints_at = toIso(endShow);
+        payload.start_logging_at = toIso(startLogging);
+        payload.end_logging_at = toIso(endLogging);
+      }
       let saved;
       if (isEdit) {
         saved = await adminApi.updateRace(race.id, payload);
@@ -472,24 +529,78 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         <div className="fw-semibold mb-1">{t('admin.raceForm.raceTimingTitle')}</div>
         <div className="form-text mb-3">{t('admin.raceForm.raceTimingHelp')}</div>
 
-        <div className="row g-2">
-          <div className="col-md-3">
-            <label className="form-label small">{t('admin.raceForm.startShowing')}</label>
-            <input className="form-control" type="datetime-local" value={startShow} onChange={e => setStartShow(e.target.value)} />
+        <div className="mb-3">
+          <label className="form-label small d-block">{t('admin.raceForm.timeConstraintModeLabel')}</label>
+          <div className="form-check">
+            <input
+              id="time-constraint-mode-fixed"
+              className="form-check-input"
+              type="radio"
+              name="time-constraint-mode"
+              checked={timeConstraintMode === 'fixed'}
+              onChange={() => setTimeConstraintMode('fixed')}
+            />
+            <label className="form-check-label" htmlFor="time-constraint-mode-fixed">
+              {t('admin.raceForm.timeConstraintModeFixed')}
+            </label>
           </div>
-          <div className="col-md-3">
-            <label className="form-label small">{t('admin.raceForm.endShowing')}</label>
-            <input className="form-control" type="datetime-local" value={endShow} onChange={e => setEndShow(e.target.value)} />
-          </div>
-          <div className="col-md-3">
-            <label className="form-label small">{t('admin.raceForm.startLogging')}</label>
-            <input className="form-control" type="datetime-local" value={startLogging} onChange={e => setStartLogging(e.target.value)} />
-          </div>
-          <div className="col-md-3">
-            <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
-            <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+          <div className="form-check">
+            <input
+              id="time-constraint-mode-shift"
+              className="form-check-input"
+              type="radio"
+              name="time-constraint-mode"
+              checked={timeConstraintMode === 'registration_shift'}
+              onChange={() => setTimeConstraintMode('registration_shift')}
+            />
+            <label className="form-check-label" htmlFor="time-constraint-mode-shift">
+              {t('admin.raceForm.timeConstraintModeRegistrationShift')}
+            </label>
           </div>
         </div>
+
+        {timeConstraintMode === 'fixed' ? (
+          <div className="row g-2">
+            <div className="col-md-3">
+              <label className="form-label small">{t('admin.raceForm.startShowing')}</label>
+              <input className="form-control" type="datetime-local" value={startShow} onChange={e => setStartShow(e.target.value)} />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label small">{t('admin.raceForm.endShowing')}</label>
+              <input className="form-control" type="datetime-local" value={endShow} onChange={e => setEndShow(e.target.value)} />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label small">{t('admin.raceForm.startLogging')}</label>
+              <input className="form-control" type="datetime-local" value={startLogging} onChange={e => setStartLogging(e.target.value)} />
+            </div>
+            <div className="col-md-3">
+              <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
+              <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="form-text mb-2">{t('admin.raceForm.relativeTimingHint')}</div>
+            <div className="row g-2">
+              <div className="col-md-3">
+                <label className="form-label small">{t('admin.raceForm.startShowingOffsetHours')}</label>
+                <input className="form-control" type="number" min="0" step="0.5" value={startShowOffsetHours} onChange={e => setStartShowOffsetHours(e.target.value)} />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label small">{t('admin.raceForm.endShowingOffsetHours')}</label>
+                <input className="form-control" type="number" min="0" step="0.5" value={endShowOffsetHours} onChange={e => setEndShowOffsetHours(e.target.value)} />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label small">{t('admin.raceForm.startLoggingOffsetHours')}</label>
+                <input className="form-control" type="number" min="0" step="0.5" value={startLoggingOffsetHours} onChange={e => setStartLoggingOffsetHours(e.target.value)} />
+              </div>
+              <div className="col-md-3">
+                <label className="form-label small">{t('admin.raceForm.endLoggingOffsetHours')}</label>
+                <input className="form-control" type="number" min="0" step="0.5" value={endLoggingOffsetHours} onChange={e => setEndLoggingOffsetHours(e.target.value)} />
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="row g-2 mb-3">

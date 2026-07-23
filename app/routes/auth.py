@@ -302,7 +302,12 @@ def login():
             Race.start_showing_checkpoints_at,
             Race.end_showing_checkpoints_at,
             Race.start_logging_at,
-            Race.end_logging_at)
+            Race.end_logging_at,
+            Race.time_constraint_mode,
+            Race.start_showing_offset_seconds,
+            Race.end_showing_offset_seconds,
+            Race.start_logging_offset_seconds,
+            Race.end_logging_offset_seconds)
         .join(Race, Registration.race_id == Race.id)
         .join(Team, Registration.team_id == Team.id)
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
@@ -314,7 +319,7 @@ def login():
 
     registered_races = []
     for race in races_by_user:
-        registration = Registration.query.filter_by(race_id=race.race_id, team_id=race.team_id).first()
+        registration = getattr(race, 'Registration', None)
         windows = get_registration_time_windows(registration, race)
         registered_races.append({
         "race_id": race.race_id,

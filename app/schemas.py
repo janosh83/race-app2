@@ -147,10 +147,15 @@ class RaceCreateSchema(Schema):
     bivak_2_name = fields.String(load_default=None, allow_none=True)
     bivak_2_latitude = fields.Float(load_default=None, allow_none=True, validate=LATITUDE_VALIDATOR)
     bivak_2_longitude = fields.Float(load_default=None, allow_none=True, validate=LONGITUDE_VALIDATOR)
-    start_showing_checkpoints_at = fields.String(required=True, validate=validate.Length(min=1))
-    end_showing_checkpoints_at = fields.String(required=True, validate=validate.Length(min=1))
-    start_logging_at = fields.String(required=True, validate=validate.Length(min=1))
-    end_logging_at = fields.String(required=True, validate=validate.Length(min=1))
+    start_showing_checkpoints_at = fields.String(load_default=None, allow_none=True, validate=validate.Length(min=1))
+    end_showing_checkpoints_at = fields.String(load_default=None, allow_none=True, validate=validate.Length(min=1))
+    start_logging_at = fields.String(load_default=None, allow_none=True, validate=validate.Length(min=1))
+    end_logging_at = fields.String(load_default=None, allow_none=True, validate=validate.Length(min=1))
+    time_constraint_mode = fields.String(load_default='fixed', validate=validate.OneOf(['fixed', 'registration_shift']))
+    start_showing_offset_seconds = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=0))
+    end_showing_offset_seconds = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=0))
+    start_logging_offset_seconds = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=0))
+    end_logging_offset_seconds = fields.Integer(load_default=None, allow_none=True, validate=validate.Range(min=0))
     supported_languages = fields.List(
         fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES)),
         load_default=lambda: list(SUPPORTED_LANGUAGES),
@@ -230,6 +235,16 @@ class RaceCreateSchema(Schema):
         if registration_enabled and not registration_slug:
             raise ValidationError("registration_slug is required when registration_enabled is true", field_name="registration_slug")
 
+        if data.get('time_constraint_mode', 'fixed') == 'registration_shift':
+            start_show_offset = data.get('start_showing_offset_seconds')
+            end_show_offset = data.get('end_showing_offset_seconds')
+            start_log_offset = data.get('start_logging_offset_seconds')
+            end_log_offset = data.get('end_logging_offset_seconds')
+            if start_show_offset is not None and end_show_offset is not None and start_show_offset > end_show_offset:
+                raise ValidationError("start_showing_offset_seconds must be <= end_showing_offset_seconds", field_name="start_showing_offset_seconds")
+            if start_log_offset is not None and end_log_offset is not None and start_log_offset > end_log_offset:
+                raise ValidationError("start_logging_offset_seconds must be <= end_logging_offset_seconds", field_name="start_logging_offset_seconds")
+
 
 class RaceUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
@@ -247,6 +262,11 @@ class RaceUpdateSchema(Schema):
     end_showing_checkpoints_at = fields.String(validate=validate.Length(min=1))
     start_logging_at = fields.String(validate=validate.Length(min=1))
     end_logging_at = fields.String(validate=validate.Length(min=1))
+    time_constraint_mode = fields.String(validate=validate.OneOf(['fixed', 'registration_shift']))
+    start_showing_offset_seconds = fields.Integer(allow_none=True, validate=validate.Range(min=0))
+    end_showing_offset_seconds = fields.Integer(allow_none=True, validate=validate.Range(min=0))
+    start_logging_offset_seconds = fields.Integer(allow_none=True, validate=validate.Range(min=0))
+    end_logging_offset_seconds = fields.Integer(allow_none=True, validate=validate.Range(min=0))
     supported_languages = fields.List(
         fields.String(validate=validate.OneOf(SUPPORTED_LANGUAGES)),
         validate=validate.Length(min=1),
@@ -298,6 +318,16 @@ class RaceUpdateSchema(Schema):
         max_team_size = data.get("max_team_size")
         if min_team_size is not None and max_team_size is not None and min_team_size > max_team_size:
             raise ValidationError("min_team_size must be <= max_team_size", field_name="min_team_size")
+
+        if data.get('time_constraint_mode') == 'registration_shift':
+            start_show_offset = data.get('start_showing_offset_seconds')
+            end_show_offset = data.get('end_showing_offset_seconds')
+            start_log_offset = data.get('start_logging_offset_seconds')
+            end_log_offset = data.get('end_logging_offset_seconds')
+            if start_show_offset is not None and end_show_offset is not None and start_show_offset > end_show_offset:
+                raise ValidationError("start_showing_offset_seconds must be <= end_showing_offset_seconds", field_name="start_showing_offset_seconds")
+            if start_log_offset is not None and end_log_offset is not None and start_log_offset > end_log_offset:
+                raise ValidationError("start_logging_offset_seconds must be <= end_logging_offset_seconds", field_name="start_logging_offset_seconds")
 
         allow_team_registration = data.get("allow_team_registration")
         allow_individual_registration = data.get("allow_individual_registration")

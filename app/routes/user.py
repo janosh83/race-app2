@@ -8,6 +8,7 @@ from app.models import Registration, Team, Race, RaceCategory, User, team_member
 from app.routes.admin import admin_required
 from app import db
 from app.schemas import PaginationQuerySchema, UserCreateSchema, UserUpdateSchema
+from app.utils import get_registration_time_windows
 
 logger = logging.getLogger(__name__)
 
@@ -404,7 +405,12 @@ def get_signed_races():
             Race.start_showing_checkpoints_at,
             Race.end_showing_checkpoints_at,
             Race.start_logging_at,
-            Race.end_logging_at)
+            Race.end_logging_at,
+            Race.time_constraint_mode,
+            Race.start_showing_offset_seconds,
+            Race.end_showing_offset_seconds,
+            Race.start_logging_offset_seconds,
+            Race.end_logging_offset_seconds)
         .join(Race, Registration.race_id == Race.id)
         .join(Team, Registration.team_id == Team.id)
         .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
@@ -414,7 +420,11 @@ def get_signed_races():
         .all()
     )
 
-    registered_races = [{
+    registered_races = []
+    for race in races_by_user:
+        registration = getattr(race, 'Registration', race[0] if isinstance(race, tuple) and race else None)
+        windows = get_registration_time_windows(registration, race)
+        registered_races.append({
         "race_id": race.race_id,
         "team_id": race.team_id,
         "race_name": race.race_name,
@@ -429,10 +439,10 @@ def get_signed_races():
         "bivak_2_name": race.bivak_2_name,
         "bivak_2_latitude": race.bivak_2_latitude,
         "bivak_2_longitude": race.bivak_2_longitude,
-        "start_showing_checkpoints": race.start_showing_checkpoints_at,
-        "end_showing_checkpoints": race.end_showing_checkpoints_at,
-        "start_logging": race.start_logging_at,
-        "end_logging": race.end_logging_at
-    } for race in races_by_user]
+        "start_showing_checkpoints": windows['start_showing_checkpoints_at'],
+        "end_showing_checkpoints": windows['end_showing_checkpoints_at'],
+        "start_logging": windows['start_logging_at'],
+        "end_logging": windows['end_logging_at'],
+      })
 
     return jsonify({"signed_races": registered_races}), 200

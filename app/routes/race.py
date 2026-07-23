@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 
@@ -36,56 +37,61 @@ RACE_LOCATION_FIELDS = (
 
 
 def serialize_race(race, name=None, description=None, race_greeting=None):
-  return {
-    "id": race.id,
-    "name": name if name is not None else race.name,
-    "description": description if description is not None else race.description,
-    "race_greeting": race_greeting if race_greeting is not None else race.race_greeting,
-    "finish_description": race.finish_description,
-    "finish_latitude": race.finish_latitude,
-    "finish_longitude": race.finish_longitude,
-    "bivak_1_name": race.bivak_1_name,
-    "bivak_1_latitude": race.bivak_1_latitude,
-    "bivak_1_longitude": race.bivak_1_longitude,
-    "bivak_2_name": race.bivak_2_name,
-    "bivak_2_latitude": race.bivak_2_latitude,
-    "bivak_2_longitude": race.bivak_2_longitude,
-    "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
-    "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
-    "start_logging_at": race.start_logging_at,
-    "end_logging_at": race.end_logging_at,
-    "registration_slug": race.registration_slug,
-    "registration_enabled": race.registration_enabled,
-    "min_team_size": race.min_team_size,
-    "max_team_size": race.max_team_size,
-    "allow_team_registration": race.allow_team_registration,
-    "allow_individual_registration": race.allow_individual_registration,
-    "registration_currency": race.registration_currency,
-    "registration_pricing_strategy": race.registration_pricing_strategy,
-    "registration_team_amount_cents": race.registration_team_amount_cents,
-    "registration_individual_amount_cents": race.registration_individual_amount_cents,
-    "registration_driver_amount_cents": race.registration_driver_amount_cents,
-    "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
-    "supported_languages": race.supported_languages,
-    "default_language": race.default_language,
-  }
+    return {
+        "id": race.id,
+        "name": name if name is not None else race.name,
+        "description": description if description is not None else race.description,
+        "race_greeting": race_greeting if race_greeting is not None else race.race_greeting,
+        "finish_description": race.finish_description,
+        "finish_latitude": race.finish_latitude,
+        "finish_longitude": race.finish_longitude,
+        "bivak_1_name": race.bivak_1_name,
+        "bivak_1_latitude": race.bivak_1_latitude,
+        "bivak_1_longitude": race.bivak_1_longitude,
+        "bivak_2_name": race.bivak_2_name,
+        "bivak_2_latitude": race.bivak_2_latitude,
+        "bivak_2_longitude": race.bivak_2_longitude,
+        "start_showing_checkpoints_at": race.start_showing_checkpoints_at,
+        "end_showing_checkpoints_at": race.end_showing_checkpoints_at,
+        "start_logging_at": race.start_logging_at,
+        "end_logging_at": race.end_logging_at,
+        "time_constraint_mode": race.time_constraint_mode,
+        "start_showing_offset_seconds": race.start_showing_offset_seconds,
+        "end_showing_offset_seconds": race.end_showing_offset_seconds,
+        "start_logging_offset_seconds": race.start_logging_offset_seconds,
+        "end_logging_offset_seconds": race.end_logging_offset_seconds,
+        "registration_slug": race.registration_slug,
+        "registration_enabled": race.registration_enabled,
+        "min_team_size": race.min_team_size,
+        "max_team_size": race.max_team_size,
+        "allow_team_registration": race.allow_team_registration,
+        "allow_individual_registration": race.allow_individual_registration,
+        "registration_currency": race.registration_currency,
+        "registration_pricing_strategy": race.registration_pricing_strategy,
+        "registration_team_amount_cents": race.registration_team_amount_cents,
+        "registration_individual_amount_cents": race.registration_individual_amount_cents,
+        "registration_driver_amount_cents": race.registration_driver_amount_cents,
+        "registration_codriver_amount_cents": race.registration_codriver_amount_cents,
+        "supported_languages": race.supported_languages,
+        "default_language": race.default_language,
+    }
 
 
 def validate_race_location_state(data, race=None):
-  for latitude_key, longitude_key, name in (
-    ("finish_latitude", "finish_longitude", "finish"),
-    ("bivak_1_latitude", "bivak_1_longitude", "bivak_1"),
-    ("bivak_2_latitude", "bivak_2_longitude", "bivak_2"),
-  ):
-    latitude = data.get(latitude_key)
-    longitude = data.get(longitude_key)
-    if race is not None:
-      if latitude_key not in data:
-        latitude = getattr(race, latitude_key)
-      if longitude_key not in data:
-        longitude = getattr(race, longitude_key)
-    if (latitude is None) != (longitude is None):
-      raise ValidationError({latitude_key: [f"{name} latitude and longitude must both be provided or both be omitted"]})
+    for latitude_key, longitude_key, name in (
+        ("finish_latitude", "finish_longitude", "finish"),
+        ("bivak_1_latitude", "bivak_1_longitude", "bivak_1"),
+        ("bivak_2_latitude", "bivak_2_longitude", "bivak_2"),
+    ):
+        latitude = data.get(latitude_key)
+        longitude = data.get(longitude_key)
+        if race is not None:
+            if latitude_key not in data:
+                latitude = getattr(race, latitude_key)
+            if longitude_key not in data:
+                longitude = getattr(race, longitude_key)
+        if (latitude is None) != (longitude is None):
+            raise ValidationError({latitude_key: [f"{name} latitude and longitude must both be provided or both be omitted"]})
 
 race_bp = Blueprint("race", __name__)
 race_bp.register_blueprint(checkpoints_bp, url_prefix='/<int:race_id>/checkpoints')
@@ -238,10 +244,31 @@ def create_race():
     raw_data = request.get_json(silent=True) or {}
     data = RaceCreateSchema().load(raw_data)
 
-    start_showing_checkpoints_at = parse_datetime(data['start_showing_checkpoints_at'])
-    end_showing_checkpoints_at = parse_datetime(data['end_showing_checkpoints_at'])
-    start_logging_at = parse_datetime(data['start_logging_at'])
-    end_logging_at = parse_datetime(data['end_logging_at'])
+    mode = data.get('time_constraint_mode', 'fixed')
+    start_showing_checkpoints_at = parse_datetime(data['start_showing_checkpoints_at']) if data.get('start_showing_checkpoints_at') else None
+    end_showing_checkpoints_at = parse_datetime(data['end_showing_checkpoints_at']) if data.get('end_showing_checkpoints_at') else None
+    start_logging_at = parse_datetime(data['start_logging_at']) if data.get('start_logging_at') else None
+    end_logging_at = parse_datetime(data['end_logging_at']) if data.get('end_logging_at') else None
+
+    if mode == 'fixed':
+        if not all([start_showing_checkpoints_at, end_showing_checkpoints_at, start_logging_at, end_logging_at]):
+            raise ValidationError({"time_constraint_mode": ["Fixed mode requires all four absolute window timestamps"]})
+    else:
+        now = datetime.utcnow()
+        start_show_offset = data.get('start_showing_offset_seconds')
+        end_show_offset = data.get('end_showing_offset_seconds')
+        start_log_offset = data.get('start_logging_offset_seconds')
+        end_log_offset = data.get('end_logging_offset_seconds')
+
+        if start_showing_checkpoints_at is None:
+            start_showing_checkpoints_at = now + timedelta(seconds=int(start_show_offset or 0))
+        if end_showing_checkpoints_at is None:
+            end_showing_checkpoints_at = now + timedelta(seconds=int(end_show_offset or start_show_offset or 0))
+        if start_logging_at is None:
+            start_logging_at = now + timedelta(seconds=int(start_log_offset or 0))
+        if end_logging_at is None:
+            end_logging_at = now + timedelta(seconds=int(end_log_offset or start_log_offset or 0))
+
     validate_race_location_state(data)
     new_race = Race(name=data['name'],
                     description=data['description'],
@@ -259,6 +286,11 @@ def create_race():
                     end_showing_checkpoints_at=end_showing_checkpoints_at,
                     start_logging_at=start_logging_at,
                     end_logging_at=end_logging_at,
+                    time_constraint_mode=mode,
+                    start_showing_offset_seconds=data.get('start_showing_offset_seconds'),
+                    end_showing_offset_seconds=data.get('end_showing_offset_seconds'),
+                    start_logging_offset_seconds=data.get('start_logging_offset_seconds'),
+                    end_logging_offset_seconds=data.get('end_logging_offset_seconds'),
                     registration_slug=data.get("registration_slug"),
                     registration_enabled=data.get("registration_enabled", False),
                     min_team_size=data.get("min_team_size", 1),
@@ -403,8 +435,8 @@ def update_race(race_id):
     if 'race_greeting' in data:
         race.race_greeting = data.get('race_greeting')
     for field in RACE_LOCATION_FIELDS:
-      if field in data:
-        setattr(race, field, data.get(field))
+        if field in data:
+            setattr(race, field, data.get(field))
     if 'supported_languages' in data:
         race.supported_languages = data.get('supported_languages')
     if 'default_language' in data:
@@ -433,6 +465,16 @@ def update_race(race_id):
         race.registration_driver_amount_cents = data.get('registration_driver_amount_cents')
     if 'registration_codriver_amount_cents' in data:
         race.registration_codriver_amount_cents = data.get('registration_codriver_amount_cents')
+    if 'time_constraint_mode' in data:
+        race.time_constraint_mode = data.get('time_constraint_mode')
+    if 'start_showing_offset_seconds' in data:
+        race.start_showing_offset_seconds = data.get('start_showing_offset_seconds')
+    if 'end_showing_offset_seconds' in data:
+        race.end_showing_offset_seconds = data.get('end_showing_offset_seconds')
+    if 'start_logging_offset_seconds' in data:
+        race.start_logging_offset_seconds = data.get('start_logging_offset_seconds')
+    if 'end_logging_offset_seconds' in data:
+        race.end_logging_offset_seconds = data.get('end_logging_offset_seconds')
 
     # datetime fields (accept several possible keys but prefer explicit *_at keys)
     if 'start_showing_checkpoints_at' in data:

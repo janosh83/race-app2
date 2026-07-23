@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from math import radians, sin, cos, sqrt, atan2
 from dateutil import parser
 from PIL import Image, UnidentifiedImageError
@@ -221,21 +221,44 @@ def get_registration_time_windows(registration, race=None):
             'end_logging_at': registration_windows['end_logging_at'] or race_windows['end_logging_at'],
         }
 
-    anchor = getattr(registration, 'payment_confirmed_at', None)
-    base = race_windows['start_logging_at']
-    if not (anchor and base):
+    mode = getattr(race, 'time_constraint_mode', 'fixed') if race else 'fixed'
+    if mode != 'registration_shift':
         return race_windows
 
-    def shift(window_value):
-        if window_value is None:
+    anchor = getattr(registration, 'payment_confirmed_at', None)
+    if not anchor:
+        return race_windows
+
+    start_show_offset = getattr(race, 'start_showing_offset_seconds', None) if race else None
+    end_show_offset = getattr(race, 'end_showing_offset_seconds', None) if race else None
+    start_logging_offset = getattr(race, 'start_logging_offset_seconds', None) if race else None
+    end_logging_offset = getattr(race, 'end_logging_offset_seconds', None) if race else None
+
+    if all(offset is None for offset in (start_show_offset, end_show_offset, start_logging_offset, end_logging_offset)):
+        base = race_windows['start_logging_at']
+        if not base:
+            return race_windows
+
+        def derived_offset(value):
+            if value is None:
+                return None
+            return int((value - base).total_seconds())
+
+        start_show_offset = derived_offset(race_windows['start_showing_checkpoints_at'])
+        end_show_offset = derived_offset(race_windows['end_showing_checkpoints_at'])
+        start_logging_offset = 0
+        end_logging_offset = derived_offset(race_windows['end_logging_at'])
+
+    def shift(offset_seconds):
+        if offset_seconds is None:
             return None
-        return anchor + (window_value - base)
+        return anchor + timedelta(seconds=int(offset_seconds))
 
     return {
-        'start_showing_checkpoints_at': shift(race_windows['start_showing_checkpoints_at']),
-        'end_showing_checkpoints_at': shift(race_windows['end_showing_checkpoints_at']),
-        'start_logging_at': anchor,
-        'end_logging_at': shift(race_windows['end_logging_at']),
+        'start_showing_checkpoints_at': shift(start_show_offset),
+        'end_showing_checkpoints_at': shift(end_show_offset),
+        'start_logging_at': shift(start_logging_offset),
+        'end_logging_at': shift(end_logging_offset),
     }
 
 
