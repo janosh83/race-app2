@@ -194,6 +194,51 @@ def registration_mode(race):
     return 'team' if race and race.allow_team_registration else 'individual'
 
 
+def get_registration_time_windows(registration, race=None):
+    """Return effective per-registration time windows, falling back to race defaults."""
+    race_windows = {
+        'start_showing_checkpoints_at': getattr(race, 'start_showing_checkpoints_at', None),
+        'end_showing_checkpoints_at': getattr(race, 'end_showing_checkpoints_at', None),
+        'start_logging_at': getattr(race, 'start_logging_at', None),
+        'end_logging_at': getattr(race, 'end_logging_at', None),
+    }
+
+    if not registration:
+        return race_windows
+
+    registration_windows = {
+        'start_showing_checkpoints_at': registration.start_showing_checkpoints_at,
+        'end_showing_checkpoints_at': registration.end_showing_checkpoints_at,
+        'start_logging_at': registration.start_logging_at,
+        'end_logging_at': registration.end_logging_at,
+    }
+
+    if any(registration_windows.values()):
+        return {
+            'start_showing_checkpoints_at': registration_windows['start_showing_checkpoints_at'] or race_windows['start_showing_checkpoints_at'],
+            'end_showing_checkpoints_at': registration_windows['end_showing_checkpoints_at'] or race_windows['end_showing_checkpoints_at'],
+            'start_logging_at': registration_windows['start_logging_at'] or race_windows['start_logging_at'],
+            'end_logging_at': registration_windows['end_logging_at'] or race_windows['end_logging_at'],
+        }
+
+    anchor = getattr(registration, 'payment_confirmed_at', None)
+    base = race_windows['start_logging_at']
+    if not (anchor and base):
+        return race_windows
+
+    def shift(window_value):
+        if window_value is None:
+            return None
+        return anchor + (window_value - base)
+
+    return {
+        'start_showing_checkpoints_at': shift(race_windows['start_showing_checkpoints_at']),
+        'end_showing_checkpoints_at': shift(race_windows['end_showing_checkpoints_at']),
+        'start_logging_at': anchor,
+        'end_logging_at': shift(race_windows['end_logging_at']),
+    }
+
+
 def _normalize_lang(language):
     return (language or "").strip().lower()
 

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 
 import { apiFetch } from '../utils/api';
 import { logger } from '../utils/logger';
+import { getRaceId, resolveRaceRecord } from '../utils/activeRaceUtils';
 
 const TimeContext = createContext(null);
 
@@ -77,10 +78,12 @@ export function TimeProvider({ children }) {
   const intervalRef = useRef(null);
   const refreshRef = useRef(null);
 
+  const effectiveActiveRace = resolveRaceRecord(activeRace, signedRaces);
+
   useEffect(() => {
     function compute() {
       const now = Date.now();
-      const next = timeStateForRace(now, activeRace);
+      const next = timeStateForRace(now, effectiveActiveRace);
       setTimeInfo(prev => {
         if (!prev) return next;
         if (
@@ -104,7 +107,7 @@ export function TimeProvider({ children }) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [activeRace]);
+  }, [effectiveActiveRace]);
 
   const setActiveRaceAndPersist = useCallback((race) => {
     if (!race) {
@@ -138,7 +141,7 @@ export function TimeProvider({ children }) {
         setSignedRacesAndPersist(data.signed_races);
         // if our activeRace refers to an outdated object, refresh it by id
         if (activeRace) {
-          const idA = activeRace.race_id ?? activeRace.id ?? activeRace.raceId;
+          const idA = getRaceId(activeRace);
           const updated = data.signed_races.find(r => (r.race_id ?? r.id ?? r.raceId) === idA);
           if (updated) {
             logger.info('CONTEXT', 'Updated active race from refresh', { race: updated.name || updated.race_id });

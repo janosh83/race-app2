@@ -338,6 +338,8 @@
       "supportedLanguages": "Unterstuetzte Sprachen",
       "defaultLanguage": "Standardsprache",
       "selectDefaultLanguage": "— Standardsprache waehlen —",
+      "raceTimingTitle": "Rennzeit (legacy)",
+      "raceTimingHelp": "Die aktive Zeitsteuerung kommt jetzt aus jeder Registrierung. Diese Werte nur beibehalten, wenn du alte Renn-Defaults nachpflegen oder bearbeiten musst.",
       "startShowing": "Anzeige starten",
       "endShowing": "Anzeige beenden",
       "startLogging": "Protokollierung starten",

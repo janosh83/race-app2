@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 
 import { apiFetch } from '../utils/api';
@@ -12,7 +12,7 @@ vi.mock('../utils/api');
 // Helper component to test the context
 function TestComponent() {
   const { activeRace, setActiveRace, timeInfo, signedRaces, setSignedRaces, refreshSignedRaces } = useTime();
-  
+
   return (
     <div>
       <div data-testid="active-race">{activeRace ? JSON.stringify(activeRace) : 'null'}</div>
@@ -365,7 +365,7 @@ describe('TimeContext', () => {
         { race_id: 1, name: 'Race 1' },
         { race_id: 2, name: 'Race 2' },
       ];
-      
+
       apiFetch.mockResolvedValue({ signed_races: mockRaces });
 
       render(
@@ -375,21 +375,23 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       act(() => {
         button.click();
       });
 
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalledWith('/api/user/signed-races/');
-        expect(screen.getByTestId('signed-races')).toHaveTextContent(JSON.stringify(mockRaces));
+      await act(async () => {
+        await Promise.resolve();
       });
+
+      expect(apiFetch).toHaveBeenCalledWith('/api/user/signed-races/');
+      expect(screen.getByTestId('signed-races')).toHaveTextContent(JSON.stringify(mockRaces));
     });
 
     test('updates activeRace if it exists in refreshed data', async () => {
       const oldRaceData = { race_id: 1, name: 'Old Name', team_id: 10 };
       const newRaceData = { race_id: 1, name: 'Updated Name', team_id: 10 };
-      
+
       localStorage.setItem('activeRace', JSON.stringify(oldRaceData));
       apiFetch.mockResolvedValue({ signed_races: [newRaceData] });
 
@@ -400,14 +402,16 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       act(() => {
         button.click();
       });
 
-      await waitFor(() => {
-        expect(screen.getByTestId('active-race')).toHaveTextContent('Updated Name');
+      await act(async () => {
+        await Promise.resolve();
       });
+
+      expect(screen.getByTestId('active-race')).toHaveTextContent('Updated Name');
     });
 
     test('handles API errors gracefully', async () => {
@@ -420,7 +424,7 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       await act(async () => {
         button.click();
       });
@@ -432,7 +436,7 @@ describe('TimeContext', () => {
     test('refreshes on window focus', async () => {
       const storedRaces = [{ race_id: 1 }];
       localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
-      
+
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
@@ -445,15 +449,17 @@ describe('TimeContext', () => {
         window.dispatchEvent(new Event('focus'));
       });
 
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalled();
+      await act(async () => {
+        await Promise.resolve();
       });
+
+      expect(apiFetch).toHaveBeenCalled();
     });
 
     test('refreshes when tab becomes visible', async () => {
       const storedRaces = [{ race_id: 1 }];
       localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
-      
+
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
@@ -471,9 +477,11 @@ describe('TimeContext', () => {
         document.dispatchEvent(new Event('visibilitychange'));
       });
 
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalled();
+      await act(async () => {
+        await Promise.resolve();
       });
+
+      expect(apiFetch).toHaveBeenCalled();
     });
   });
 
@@ -495,7 +503,7 @@ describe('formatDate utility', () => {
   test('formats timestamp as locale string', () => {
     const timestamp = new Date('2026-01-15T12:00:00Z').getTime();
     const result = formatDate(timestamp);
-    
+
     expect(result).toContain('2026');
     expect(result).not.toBe('—');
   });
@@ -503,7 +511,7 @@ describe('formatDate utility', () => {
   test('formats ISO string as locale string', () => {
     const isoString = '2026-01-15T12:00:00Z';
     const result = formatDate(isoString);
-    
+
     expect(result).toContain('2026');
     expect(result).not.toBe('—');
   });

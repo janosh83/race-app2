@@ -9,6 +9,7 @@ from app.models import User, Registration, Team, Race, RaceCategory, team_member
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
+from app.utils import get_registration_time_windows
 from app.schemas import (
   AuthLoginSchema,
   AuthRegisterSchema,
@@ -311,24 +312,30 @@ def login():
         .all()
     )
 
-    registered_races = [{"race_id": race.race_id,
-              "team_id": race.team_id,
-              "race_name": race.race_name,
-              "race_category": race.race_category,
-              "race_description": race.race_description,
-              "finish_description": race.finish_description,
-              "finish_latitude": race.finish_latitude,
-              "finish_longitude": race.finish_longitude,
-              "bivak_1_name": race.bivak_1_name,
-              "bivak_1_latitude": race.bivak_1_latitude,
-              "bivak_1_longitude": race.bivak_1_longitude,
-              "bivak_2_name": race.bivak_2_name,
-              "bivak_2_latitude": race.bivak_2_latitude,
-              "bivak_2_longitude": race.bivak_2_longitude,
-              "start_showing_checkpoints": race.start_showing_checkpoints_at,
-              "end_showing_checkpoints": race.end_showing_checkpoints_at,
-              "start_logging": race.start_logging_at,
-              "end_logging": race.end_logging_at} for race in races_by_user]
+    registered_races = []
+    for race in races_by_user:
+        registration = Registration.query.filter_by(race_id=race.race_id, team_id=race.team_id).first()
+        windows = get_registration_time_windows(registration, race)
+        registered_races.append({
+        "race_id": race.race_id,
+        "team_id": race.team_id,
+        "race_name": race.race_name,
+        "race_category": race.race_category,
+        "race_description": race.race_description,
+        "finish_description": race.finish_description,
+        "finish_latitude": race.finish_latitude,
+        "finish_longitude": race.finish_longitude,
+        "bivak_1_name": race.bivak_1_name,
+        "bivak_1_latitude": race.bivak_1_latitude,
+        "bivak_1_longitude": race.bivak_1_longitude,
+        "bivak_2_name": race.bivak_2_name,
+        "bivak_2_latitude": race.bivak_2_latitude,
+        "bivak_2_longitude": race.bivak_2_longitude,
+        "start_showing_checkpoints": windows['start_showing_checkpoints_at'],
+        "end_showing_checkpoints": windows['end_showing_checkpoints_at'],
+        "start_logging": windows['start_logging_at'],
+        "end_logging": windows['end_logging_at'],
+        })
 
     return jsonify({
       "access_token": access_token,

@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language, allowed_file, validate_uploaded_image
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, get_registration_time_windows
 from app.routes.admin import admin_required
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 from app.utils import extract_image_coordinates, calculate_distance
@@ -332,7 +332,6 @@ def create_checkpoint(race_id):
 
 # tested by test_races.py -> test_get_race_checkpoints
 # Note, right now it is not used in frontend, but it is still useful for testing and future-proofing for potential use of checkpoint translations in the UI.
-# TODO: return path to image
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 @jwt_required()
 def get_checkpoint(race_id, checkpoint_id):
@@ -517,18 +516,17 @@ def log_visit(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
-    # allow logging only when inside logging period or if admin
-    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
-        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
-
     registration = Registration.query.filter_by(
         race_id=race_id,
         team_id=data['team_id'],
         payment_confirmed=True,
     ).first_or_404()
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    windows = get_registration_time_windows(registration, race)
+    if not (windows['start_logging_at'] < now and now < windows['end_logging_at']) and not is_administrator:
+        logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race =  user_is_in_team and registration
 
@@ -773,18 +771,18 @@ def unlog_visit(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
-    if not (race.start_logging_at < now < race.end_logging_at) and not is_administrator:
-        logger.error("Unlog attempt outside logging period for race %s by user %s", race_id, user.id)
-        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
-
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     registration = Registration.query.filter_by(
         race_id=race_id,
         team_id=data['team_id'],
         payment_confirmed=True,
     ).first_or_404()
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    windows = get_registration_time_windows(registration, race)
+    if not (windows['start_logging_at'] < now < windows['end_logging_at']) and not is_administrator:
+        logger.error("Unlog attempt outside logging period for race %s by user %s", race_id, user.id)
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
     is_signed_to_race = user_is_in_team and registration
 
     if is_administrator or is_signed_to_race:

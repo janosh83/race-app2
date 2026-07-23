@@ -468,25 +468,27 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         </div>
       )}
 
-      <div className="row g-2 mb-2">
-        <div className="col">
-          <label className="form-label small">{t('admin.raceForm.startShowing')}</label>
-          <input className="form-control" type="datetime-local" value={startShow} onChange={e => setStartShow(e.target.value)} />
-        </div>
-        <div className="col">
-          <label className="form-label small">{t('admin.raceForm.endShowing')}</label>
-          <input className="form-control" type="datetime-local" value={endShow} onChange={e => setEndShow(e.target.value)} />
-        </div>
-      </div>
+      <div className="border rounded p-3 mb-3 bg-light">
+        <div className="fw-semibold mb-1">{t('admin.raceForm.raceTimingTitle')}</div>
+        <div className="form-text mb-3">{t('admin.raceForm.raceTimingHelp')}</div>
 
-      <div className="row g-2 mb-3">
-        <div className="col">
-          <label className="form-label small">{t('admin.raceForm.startLogging')}</label>
-          <input className="form-control" type="datetime-local" value={startLogging} onChange={e => setStartLogging(e.target.value)} />
-        </div>
-        <div className="col">
-          <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
-          <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+        <div className="row g-2">
+          <div className="col-md-3">
+            <label className="form-label small">{t('admin.raceForm.startShowing')}</label>
+            <input className="form-control" type="datetime-local" value={startShow} onChange={e => setStartShow(e.target.value)} />
+          </div>
+          <div className="col-md-3">
+            <label className="form-label small">{t('admin.raceForm.endShowing')}</label>
+            <input className="form-control" type="datetime-local" value={endShow} onChange={e => setEndShow(e.target.value)} />
+          </div>
+          <div className="col-md-3">
+            <label className="form-label small">{t('admin.raceForm.startLogging')}</label>
+            <input className="form-control" type="datetime-local" value={startLogging} onChange={e => setStartLogging(e.target.value)} />
+          </div>
+          <div className="col-md-3">
+            <label className="form-label small">{t('admin.raceForm.endLogging')}</label>
+            <input className="form-control" type="datetime-local" value={endLogging} onChange={e => setEndLogging(e.target.value)} />
+          </div>
         </div>
       </div>
 
@@ -496,6 +498,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
           <input
             className="form-control"
             type="text"
+
             value={registrationSlug}
             onChange={e => setRegistrationSlug(e.target.value)}
             placeholder="e.g. summer-rally-2026"

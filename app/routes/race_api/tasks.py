@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
 from app.schemas import TaskCreateSchema, TaskLogSchema
-from app.utils import resolve_language, allowed_file, validate_uploaded_image
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, get_registration_time_windows
 from app.routes.admin import admin_required
 
 logger = logging.getLogger(__name__)
@@ -32,16 +32,15 @@ def _apply_task_translation(task, language):
 
 
 def _apply_task_translation_prefetched(task, language):
-  if not language:
+    if not language:
+        return task.title, task.description
+
+    translation = next((item for item in task.translations if item.language == language), None)
+    if translation:
+        return translation.title, translation.description
+
+    logger.debug("No translation found for task %s in language '%s'", task.id, language)
     return task.title, task.description
-
-  translation = next((item for item in task.translations if item.language == language), None)
-  if translation:
-    return translation.title, translation.description
-
-  logger.debug("No translation found for task %s in language '%s'", task.id, language)
-  return task.title, task.description
-
 @tasks_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_tasks(race_id):
@@ -422,18 +421,17 @@ def log_task_completion(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
-    # allow logging only when inside logging period or if admin
-    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.warning("Task completion log attempt outside logging period for race %s by user %s", race_id, user.id)
-        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
-
     registration = Registration.query.filter_by(
         race_id=race_id,
         team_id=data['team_id'],
         payment_confirmed=True,
     ).first_or_404()
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    windows = get_registration_time_windows(registration, race)
+    if not (windows['start_logging_at'] < now and now < windows['end_logging_at']) and not is_administrator:
+        logger.warning("Task completion log attempt outside logging period for race %s by user %s", race_id, user.id)
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race = user_is_in_team and registration
 
@@ -497,12 +495,14 @@ def log_task_completion(race_id):
                     logger.error("Error cleaning up task image file %s: %s", saved_image_path, cleanup_err)
             logger.warning("Duplicate task log attempt - race: %s, team: %s, task: %s", race_id, data['team_id'], data['task_id'])
             return jsonify({"message": "Task already logged for this team."}), 409
-        return jsonify({
+        response = {
             "id": new_log.id,
             "task_id": new_log.task_id,
             "team_id": new_log.team_id,
             "race_id": race_id,
-            "image_id": image_id}), 201
+            "image_id": image_id,
+        }
+        return jsonify(response), 201
     else:
         logger.warning("Unauthorized task completion log attempt by user %s for team %s", user.id, data['team_id'])
         return jsonify({"message": "You are not authorized to log this task."}), 403
@@ -580,19 +580,19 @@ def unlog_task_completion(race_id):
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
     is_administrator = user.is_administrator
 
-    race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
-    # allow logging only when inside logging period or if admin
-    if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
-        logger.warning("Task unlog attempt outside logging period for race %s by user %s", race_id, user.id)
-        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
-
-    user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     registration = Registration.query.filter_by(
         race_id=race_id,
         team_id=data['team_id'],
         payment_confirmed=True,
     ).first_or_404()
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    now = datetime.now()
+    windows = get_registration_time_windows(registration, race)
+    if not (windows['start_logging_at'] < now < windows['end_logging_at']) and not is_administrator:
+        logger.warning("Task unlog attempt outside logging period for race %s by user %s", race_id, user.id)
+        return jsonify({"message": "Logging for this race is not allowed at this time."}), 403
+
+    user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
     is_signed_to_race = user_is_in_team and registration
 
     if is_administrator or is_signed_to_race:

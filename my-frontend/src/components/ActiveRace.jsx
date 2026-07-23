@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
-import { findCandidates } from '../utils/activeRaceUtils';
+import { findCandidates, resolveRaceRecord } from '../utils/activeRaceUtils';
 import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { logger } from '../utils/logger';
 
@@ -39,23 +39,24 @@ function ActiveRace() {
   }, []);
 
   const { activeRace, setActiveRace, signedRaces, timeInfo } = useTime();
+  const liveActiveRace = resolveRaceRecord(activeRace, signedRaces);
   const candidates = useMemo(() => findCandidates(signedRaces || []), [signedRaces]);
 
   const normalizeName = (race) => race.name || race.race_name || t('activeRace.unnamedRace');
   const normalizeDescription = (race) => race.description || race.race_description || '';
-  const activeRaceTimeConstraints = activeRace
+  const activeRaceTimeConstraints = liveActiveRace
     ? [
         {
           key: 'showing-window',
           label: t('activeRace.showingWindowLabel'),
-          start: formatDate(activeRace.start_showing_checkpoints || activeRace.start_showing_checkpoints_at),
-          end: formatDate(activeRace.end_showing_checkpoints || activeRace.end_showing_checkpoints_at),
+          start: formatDate(liveActiveRace.start_showing_checkpoints || liveActiveRace.start_showing_checkpoints_at),
+          end: formatDate(liveActiveRace.end_showing_checkpoints || liveActiveRace.end_showing_checkpoints_at),
         },
         {
           key: 'logging-window',
           label: t('activeRace.loggingWindowLabel'),
-          start: formatDate(activeRace.start_logging || activeRace.start_logging_at),
-          end: formatDate(activeRace.end_logging || activeRace.end_logging_at),
+          start: formatDate(liveActiveRace.start_logging || liveActiveRace.start_logging_at),
+          end: formatDate(liveActiveRace.end_logging || liveActiveRace.end_logging_at),
         },
       ]
     : [];

@@ -338,6 +338,8 @@
       "supportedLanguages": "Podporované jazyky",
       "defaultLanguage": "Výchozí jazyk",
       "selectDefaultLanguage": "— Vyberte výchozí jazyk —",
+      "raceTimingTitle": "Časování závodu (zastaralé)",
+      "raceTimingHelp": "Aktivní časování se nyní bere z každé registrace. Tyto hodnoty ponechte jen pro zpětné doplnění nebo úpravu starších výchozích hodnot závodu.",
       "startShowing": "Začátek zobrazování",
       "endShowing": "Konec zobrazování",
       "startLogging": "Začátek logování",

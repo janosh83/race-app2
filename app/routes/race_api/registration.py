@@ -19,6 +19,7 @@ from app.utils import (
     resolve_race_category_name as _resolve_race_category_name,
     resolve_race_greeting as _resolve_race_greeting,
     resolve_race_name as _resolve_race_name,
+    get_registration_time_windows as _get_registration_time_windows,
 )
 
 logger = logging.getLogger(__name__)
@@ -621,12 +622,18 @@ def stripe_registration_webhook():
     payment_attempt.confirmed_at = datetime.now()
 
     was_paid_before = bool(registration.payment_confirmed)
+    race = Race.query.filter_by(id=registration.race_id).first()
     if payment_attempt.payment_type in ('team', 'driver'):
         registration.payment_confirmed = True
         registration.payment_confirmed_at = payment_attempt.confirmed_at
         registration.stripe_session_id = session_id
+        if race:
+            windows = _get_registration_time_windows(registration, race)
+            registration.start_showing_checkpoints_at = windows['start_showing_checkpoints_at']
+            registration.end_showing_checkpoints_at = windows['end_showing_checkpoints_at']
+            registration.start_logging_at = windows['start_logging_at']
+            registration.end_logging_at = windows['end_logging_at']
 
-    race = Race.query.filter_by(id=registration.race_id).first()
     team = Team.query.filter_by(id=registration.team_id).first()
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
 

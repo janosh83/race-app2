@@ -177,6 +177,43 @@ def test_log_visit(test_client, add_test_data):
     assert response.status_code == 403
 
 
+def test_log_visit_uses_registration_specific_window(test_client, test_app, add_test_data):
+    with test_app.app_context():
+        now = datetime.now()
+        reg_team_one = Registration.query.filter_by(race_id=1, team_id=1).first()
+        reg_team_two = Registration.query.filter_by(race_id=1, team_id=2).first()
+
+        reg_team_one.start_showing_checkpoints_at = now - timedelta(minutes=15)
+        reg_team_one.end_showing_checkpoints_at = now + timedelta(minutes=15)
+        reg_team_one.start_logging_at = now - timedelta(minutes=10)
+        reg_team_one.end_logging_at = now + timedelta(minutes=10)
+
+        reg_team_two.start_showing_checkpoints_at = now + timedelta(hours=1)
+        reg_team_two.end_showing_checkpoints_at = now + timedelta(hours=2)
+        reg_team_two.start_logging_at = now + timedelta(hours=1)
+        reg_team_two.end_logging_at = now + timedelta(hours=2)
+
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    allowed = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 1, "team_id": 1},
+    )
+    assert allowed.status_code == 201
+
+    response = test_client.post("/auth/login/", json={"email": "example3@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    blocked = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=headers,
+        json={"checkpoint_id": 2, "team_id": 2},
+    )
+    assert blocked.status_code == 403
+
+
 def test_log_visit_duplicate_returns_conflict(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}
@@ -504,6 +541,43 @@ def test_log_task_completion_by_team_member(test_client, add_test_data):
     assert response.json["task_id"] == 1
     assert response.json["team_id"] == 1
     assert response.json["race_id"] == 1
+
+
+def test_log_task_completion_uses_registration_specific_window(test_client, test_app, add_test_data):
+    with test_app.app_context():
+        now = datetime.now()
+        reg_team_one = Registration.query.filter_by(race_id=1, team_id=1).first()
+        reg_team_two = Registration.query.filter_by(race_id=1, team_id=2).first()
+
+        reg_team_one.start_showing_checkpoints_at = now - timedelta(minutes=15)
+        reg_team_one.end_showing_checkpoints_at = now + timedelta(minutes=15)
+        reg_team_one.start_logging_at = now - timedelta(minutes=10)
+        reg_team_one.end_logging_at = now + timedelta(minutes=10)
+
+        reg_team_two.start_showing_checkpoints_at = now + timedelta(hours=1)
+        reg_team_two.end_showing_checkpoints_at = now + timedelta(hours=2)
+        reg_team_two.start_logging_at = now + timedelta(hours=1)
+        reg_team_two.end_logging_at = now + timedelta(hours=2)
+
+        db.session.commit()
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    allowed = test_client.post(
+        "/api/race/1/tasks/log/",
+        json={"task_id": 1, "team_id": 1},
+        headers=headers,
+    )
+    assert allowed.status_code == 201
+
+    response = test_client.post("/auth/login/", json={"email": "example3@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    blocked = test_client.post(
+        "/api/race/1/tasks/log/",
+        json={"task_id": 1, "team_id": 2},
+        headers=headers,
+    )
+    assert blocked.status_code == 403
 
 def test_log_task_completion_with_image(test_client, add_test_data):
     """Test logging task completion with image upload"""

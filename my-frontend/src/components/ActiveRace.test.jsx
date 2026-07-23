@@ -21,6 +21,7 @@ describe('ActiveRace Component', () => {
     vi.useFakeTimers();
     isTokenExpired.mockReturnValue(false);
     activeRaceUtils.findCandidates.mockReturnValue([]);
+    activeRaceUtils.resolveRaceRecord.mockImplementation((race) => race);
   });
 
   afterEach(() => {
@@ -121,7 +122,7 @@ describe('ActiveRace Component', () => {
       });
 
       expect(screen.getByText('No active race selected.')).toBeInTheDocument();
-      expect(screen.getByText('Multiple races are currently active — please choose one from the list below.')).toBeInTheDocument();
+      expect(screen.getByText('Multiple races are currently active - please choose one from the list below.')).toBeInTheDocument();
     });
   });
 
@@ -189,7 +190,14 @@ describe('ActiveRace Component', () => {
     });
 
     test('shows the current phase of the selected race', () => {
-      const activeRace = { race_id: 1, name: 'Current Race' };
+      const activeRace = {
+        race_id: 1,
+        name: 'Current Race',
+        start_showing_checkpoints_at: '2026-01-01T10:00:00Z',
+        start_logging_at: '2026-01-01T11:00:00Z',
+        end_logging_at: '2026-01-01T13:00:00Z',
+        end_showing_checkpoints_at: '2026-01-01T14:00:00Z',
+      };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({

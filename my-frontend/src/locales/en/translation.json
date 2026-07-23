@@ -338,6 +338,8 @@
       "supportedLanguages": "Supported Languages",
       "defaultLanguage": "Default Language",
       "selectDefaultLanguage": "— Select default language —",
+      "raceTimingTitle": "Race timing (legacy)",
+      "raceTimingHelp": "Active timing now comes from each registration. Keep these values only if you need to backfill or edit legacy race defaults.",
       "startShowing": "Start showing",
       "endShowing": "End showing",
       "startLogging": "Start logging",

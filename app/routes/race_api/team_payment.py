@@ -9,7 +9,7 @@ from app.models import Race, Registration, RegistrationPaymentAttempt, Team
 from app.routes.admin import admin_required
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_session_payment_state
-from app.utils import registration_mode as _registration_mode
+from app.utils import registration_mode as _registration_mode, get_registration_time_windows
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,12 @@ def _sync_registration_payment_state(registration, race):
         registration.payment_confirmed = True
         registration.payment_confirmed_at = latest.confirmed_at or latest.created_at
         registration.stripe_session_id = latest.stripe_session_id
+        if race:
+            windows = get_registration_time_windows(registration, race)
+            registration.start_showing_checkpoints_at = windows['start_showing_checkpoints_at']
+            registration.end_showing_checkpoints_at = windows['end_showing_checkpoints_at']
+            registration.start_logging_at = windows['start_logging_at']
+            registration.end_logging_at = windows['end_logging_at']
     else:
         registration.payment_confirmed = False
         registration.payment_confirmed_at = None
@@ -378,48 +384,48 @@ def mark_registration_payment(race_id, team_id):
     confirmed = payload.get('confirmed')
 
     if payment_type not in _allowed_payment_types(mode):
-      logger.warning("Invalid payment_type '%s' for manual mark race %s mode '%s'", payment_type, race_id, mode)
-      return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
+        logger.warning("Invalid payment_type '%s' for manual mark race %s mode '%s'", payment_type, race_id, mode)
+        return jsonify({"message": "Invalid payment_type for race registration mode."}), 400
     if not isinstance(confirmed, bool):
-      logger.warning("Invalid confirmed value for race %s team %s: %r", race_id, team_id, confirmed)
-      return jsonify({"message": "confirmed must be a boolean."}), 400
+        logger.warning("Invalid confirmed value for race %s team %s: %r", race_id, team_id, confirmed)
+        return jsonify({"message": "confirmed must be a boolean."}), 400
 
     assignee_member = None
     if confirmed and payment_type in ('driver', 'codriver'):
-      assignee_member, assignee_error = _resolve_assignee_member(team, payload, payment_type)
-      if assignee_error:
-        return jsonify({"message": assignee_error}), 400
-      if _has_conflicting_role_assignment(registration, payment_type, assignee_member.id):
-        return jsonify({"message": "Selected user is already assigned to the other role."}), 400
+        assignee_member, assignee_error = _resolve_assignee_member(team, payload, payment_type)
+        if assignee_error:
+            return jsonify({"message": assignee_error}), 400
+        if _has_conflicting_role_assignment(registration, payment_type, assignee_member.id):
+            return jsonify({"message": "Selected user is already assigned to the other role."}), 400
 
     if confirmed:
-      existing_confirmed = RegistrationPaymentAttempt.query.filter_by(
-        registration_id=registration.id,
-        payment_type=payment_type,
-        status='confirmed',
-      ).first()
-      if not existing_confirmed:
-        assignee_suffix = f"_u{assignee_member.id}" if assignee_member else ""
-        manual_session_id = f"manual_{race_id}_{team_id}_{payment_type}{assignee_suffix}_{int(datetime.now().timestamp())}_{secrets.token_hex(4)}"
-        db.session.add(
-          RegistrationPaymentAttempt(
+        existing_confirmed = RegistrationPaymentAttempt.query.filter_by(
             registration_id=registration.id,
-            stripe_session_id=manual_session_id,
             payment_type=payment_type,
             status='confirmed',
-            amount_cents=_resolve_payment_amount_cents(race, payment_type),
-            currency=(race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')).lower(),
-            confirmed_at=datetime.now(),
-          )
-        )
+        ).first()
+        if not existing_confirmed:
+            assignee_suffix = f"_u{assignee_member.id}" if assignee_member else ""
+            manual_session_id = f"manual_{race_id}_{team_id}_{payment_type}{assignee_suffix}_{int(datetime.now().timestamp())}_{secrets.token_hex(4)}"
+            db.session.add(
+                RegistrationPaymentAttempt(
+                    registration_id=registration.id,
+                    stripe_session_id=manual_session_id,
+                    payment_type=payment_type,
+                    status='confirmed',
+                    amount_cents=_resolve_payment_amount_cents(race, payment_type),
+                    currency=(race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')).lower(),
+                    confirmed_at=datetime.now(),
+                )
+            )
     else:
-      for attempt in RegistrationPaymentAttempt.query.filter_by(
-        registration_id=registration.id,
-        payment_type=payment_type,
-        status='confirmed',
-      ).all():
-        attempt.status = 'failed'
-        attempt.confirmed_at = None
+        for attempt in RegistrationPaymentAttempt.query.filter_by(
+            registration_id=registration.id,
+            payment_type=payment_type,
+            status='confirmed',
+        ).all():
+            attempt.status = 'failed'
+            attempt.confirmed_at = None
 
     _sync_registration_payment_state(registration, race)
     db.session.commit()
