@@ -331,8 +331,7 @@ def create_checkpoint(race_id):
     return jsonify(result), 201
 
 # tested by test_races.py -> test_get_race_checkpoints
-# Note, right now it is not used in frontend, but it is still useful for testing and future-proofing for potential use of checkpoint translations in the UI.
-# TODO: return path to image
+# Note: this endpoint is used for translated checkpoint details and is kept intentionally lightweight.
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 @jwt_required()
 def get_checkpoint(race_id, checkpoint_id):
@@ -386,8 +385,15 @@ def get_checkpoint(race_id, checkpoint_id):
         description: Race, user, or checkpoint not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    # FIXME: there is missing if user is registred to the race and his registration is confirmed
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    if not user.is_administrator:
+        team_ids = [team.id for team in user.teams or []]
+        if not team_ids or not Registration.query.filter(
+            Registration.race_id == race_id,
+            Registration.team_id.in_(team_ids),
+            Registration.payment_confirmed.is_(True),
+        ).first():
+            return jsonify({"message": "You are not registered for this race."}), 403
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(

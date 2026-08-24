@@ -77,9 +77,13 @@ def test_get_all_races(test_client, add_test_data):
     assert response.json[0]["name"] == "Jarní jízda CZ"
     assert response.json[0]["description"] == "24 hodin objevování Česka CZ"
 
-    # TODO: test also empty race list
 
-    # FIXME: test time constraints for race
+def test_get_all_races_empty_list(test_client):
+    """Empty race lists should return an empty array without errors."""
+    response = test_client.get("/api/race/")
+    assert response.status_code == 200
+    assert response.json == []
+
 
 def test_get_single_race(test_client, add_test_data):
     """Test endpoint GET /api/race/race_id """
@@ -103,7 +107,20 @@ def test_get_single_race(test_client, add_test_data):
     response = test_client.get("/api/race/2/") # non existing race
     assert response.status_code == 404
 
-    # FIXME: test time constraints for race
+
+def test_get_race_time_constraints_are_exposed(test_client, add_test_data):
+    """Race time windows should be returned in the public API payload."""
+    response = test_client.get("/api/race/1/")
+    assert response.status_code == 200
+    assert 'start_showing_checkpoints_at' in response.json
+    assert 'end_showing_checkpoints_at' in response.json
+    assert 'start_logging_at' in response.json
+    assert 'end_logging_at' in response.json
+    assert response.json["start_showing_checkpoints_at"].endswith('GMT')
+    assert response.json["end_showing_checkpoints_at"].endswith('GMT')
+    assert response.json["start_logging_at"].endswith('GMT')
+    assert response.json["end_logging_at"].endswith('GMT')
+
 
 def test_create_race(test_client, add_test_data):
     """Test endpoint POST /api/race """
@@ -151,7 +168,7 @@ def test_create_race(test_client, add_test_data):
     assert response.json[1]["description"] == "Roadtrip po Balkáně."
 
 
-    response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"}) # FIXME: test is failing due to checkpoints assigned to the race, TODO: write separate test for deleting race
+    response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400  # Cannot delete race with checkpoints
 
     response = test_client.get("/api/race/") # get all races to see both races still exist
@@ -1128,6 +1145,7 @@ def test_stripe_registration_webhook_sends_admin_notification_when_configured(te
 
 
 def test_brevo_webhook_requires_configuration(test_client, add_test_data):
+    test_client.application.config['BREVO_WEBHOOK_SECRET'] = ''
     response = test_client.post('/api/race/registration/brevo/webhook/', json={"event": "delivered"})
     assert response.status_code == 503
     assert response.json["message"] == "Webhook is not configured."

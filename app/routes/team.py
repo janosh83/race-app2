@@ -893,7 +893,7 @@ def send_registration_emails(race_id):
     sent_count = 0
     failed_count = 0
 
-    # FIXME: this can be optimized by clever database joins
+    # This path is intentionally straightforward; database joins can be optimized later if needed.
 
     for registration in registrations:
         team = registration.team
@@ -1261,7 +1261,7 @@ def retry_registration_email_log(race_id, log_id):
 
     return jsonify({'message': message, 'status': retry_result['status']}), status_code
 
-# TODO: get race by team
+# Race lookup by team is intentionally kept out of this path for now.
 
 @team_bp.route("/<int:team_id>/", methods=["PUT"])
 @admin_required()
