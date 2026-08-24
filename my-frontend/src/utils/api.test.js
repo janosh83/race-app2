@@ -1,4 +1,5 @@
-import { parseJwt, isTokenExpired, logoutAndRedirect } from './api';
+import { vi } from 'vitest';
+import { apiFetch, parseJwt, isTokenExpired, logoutAndRedirect } from './api';
 
 describe('API Utilities', () => {
   describe('parseJwt', () => {
@@ -66,6 +67,57 @@ describe('API Utilities', () => {
 
     test('returns true for malformed token', () => {
       expect(isTokenExpired('malformed')).toBe(true);
+    });
+  });
+
+  describe('apiFetch', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      global.fetch = vi.fn();
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = `header.${btoa(JSON.stringify({ exp: futureExp }))}.signature`;
+      localStorage.setItem('accessToken', validToken);
+    });
+
+    test('retries a single 401 with refresh instead of logging out immediately', async () => {
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const freshToken = `header.${btoa(JSON.stringify({ exp: futureExp }))}.signature`;
+
+      const refreshResponse = {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ access_token: freshToken }),
+      };
+      const retryResponse = {
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ ok: true }),
+      };
+      const unauthorizedResponse = {
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ message: 'Unauthorized' }),
+      };
+
+      let callCount = 0;
+      global.fetch.mockImplementation(() => {
+        callCount += 1;
+        if (callCount === 1) return Promise.resolve(unauthorizedResponse);
+        if (callCount === 2) return Promise.resolve(refreshResponse);
+        return Promise.resolve(retryResponse);
+      });
+
+      const result = await apiFetch('/api/test');
+
+      expect(result).toEqual({ ok: true });
+      const requestUrls = global.fetch.mock.calls.map(([url]) => String(url));
+      expect(requestUrls.filter((url) => url.includes('/auth/refresh/')).length).toBe(1);
+      expect(requestUrls.filter((url) => url.includes('/api/test')).length).toBeGreaterThanOrEqual(2);
+      expect(localStorage.getItem('accessToken')).toBe(freshToken);
     });
   });
 

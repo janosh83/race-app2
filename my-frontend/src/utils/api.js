@@ -153,17 +153,53 @@ async function refreshAccessToken() {
 /* ---------- low-level fetch (returns Response) ---------- */
 export async function fetchRaw(path, init = {}) {
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
-  const token = localStorage.getItem('accessToken');
-  const headers = new Headers(init.headers || {});
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  headers.set('Accept', 'application/json');
+  const method = init.method || 'GET';
+  const requestBody = init.body && !(init.body instanceof FormData) ? JSON.stringify(init.body) : init.body;
 
-  const res = await fetch(url, { ...init, headers, credentials: 'include' });
-  if (res.status === 401 || res.status === 403) {
-    logoutAndRedirect();
-    throw new Error('Unauthorized');
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let token = localStorage.getItem('accessToken');
+    if (token && isTokenExpired(token, 120)) {
+      try {
+        token = await refreshAccessToken();
+      } catch {
+        logoutAndRedirect();
+        throw new Error('Unauthorized');
+      }
+    }
+
+    const headers = new Headers(init.headers || {});
+    headers.set('Accept', 'application/json');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    if (requestBody && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+
+    const res = await fetch(url, {
+      ...init,
+      method,
+      body: requestBody,
+      headers,
+      credentials: 'include',
+    });
+
+    if ((res.status === 401 || res.status === 403) && attempt === 0) {
+      try {
+        await refreshAccessToken();
+        continue;
+      } catch {
+        logoutAndRedirect();
+        throw new Error('Unauthorized');
+      }
+    }
+
+    if (!res.ok && (res.status === 401 || res.status === 403)) {
+      logoutAndRedirect();
+      throw new Error('Unauthorized');
+    }
+
+    return res;
   }
-  return res;
+
+  logoutAndRedirect();
+  throw new Error('Unauthorized');
 }
 
 /* ---------- high-level fetch (returns parsed payload) ---------- */
@@ -172,8 +208,13 @@ async function handleResponse(res, { noRedirectOnAuthFailure = false } = {}) {
   const payload = isJson ? await res.json().catch(() => null) : null;
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
-      if (!noRedirectOnAuthFailure) logoutAndRedirect();
-      throw new Error('Unauthorized');
+      if (!noRedirectOnAuthFailure) {
+        // The caller decides whether to retry before forcing logout.
+      }
+      const err = new Error('Unauthorized');
+      err.status = res.status;
+      err.payload = payload;
+      throw err;
     }
     const msg = payload?.message || payload?.error || res.statusText || 'Request failed';
     const err = new Error(msg);
@@ -193,54 +234,76 @@ export async function apiFetch(path, opts = {}) {
   const { noAuth = false, noRedirectOnAuthFailure = false } = opts;
   const url = path.startsWith('http') ? path : `${BASE}${path}`;
   const method = opts.method || 'GET';
-  let token = localStorage.getItem('accessToken');
 
-  // Log the request
   logger.apiRequest(method, path, opts.body);
 
-  // Check if token is expired or about to expire (within 2 minutes)
-  if (token && !noAuth && isTokenExpired(token, 120)) {
-    try {
-      token = await refreshAccessToken();
-    } catch (err) {
-      // Refresh failed, let the request proceed and handle 401
-      logger.error('API', `Token refresh failed for ${method} ${path}`, err.message);
+  const request = async () => {
+    let token = localStorage.getItem('accessToken');
+
+    if (token && !noAuth && isTokenExpired(token, 120)) {
+      try {
+        token = await refreshAccessToken();
+      } catch (err) {
+        logger.error('API', `Token refresh failed for ${method} ${path}`, err?.message || String(err));
+      }
     }
-  }
 
-  const headers = new Headers(opts.headers || {});
-  headers.set('Accept', 'application/json');
-  if (token && !noAuth) headers.set('Authorization', `Bearer ${token}`);
-  // if body provided and not FormData, ensure JSON content-type
-  const body = opts.body && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body;
-  if (body && !(opts.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+    const headers = new Headers(opts.headers || {});
+    headers.set('Accept', 'application/json');
+    if (token && !noAuth) headers.set('Authorization', `Bearer ${token}`);
 
-  const controller = new AbortController();
-  const signal = opts.signal || controller.signal;
-  const timeout = opts.timeoutMs;
-  let timeoutId;
-  if (timeout) timeoutId = setTimeout(() => controller.abort(), timeout);
+    const body = opts.body && !(opts.body instanceof FormData) ? JSON.stringify(opts.body) : opts.body;
+    if (body && !(opts.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+
+    const controller = new AbortController();
+    const signal = opts.signal || controller.signal;
+    const timeout = opts.timeoutMs;
+    let timeoutId;
+    if (timeout) timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers,
+        body,
+        signal,
+        credentials: 'include',
+      });
+
+      logger.apiResponse(method, path, res.status, res.ok ? 'Success' : 'Failed');
+      return res;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
 
   try {
-    const res = await fetch(url, {
-      method,
-      headers,
-      body,
-      signal,
-      credentials: 'include',
-    });
+    const firstRes = await request();
 
-    // Log the response
-    logger.apiResponse(method, path, res.status, res.ok ? 'Success' : 'Failed');
+    if ((firstRes.status === 401 || firstRes.status === 403) && !noAuth) {
+      try {
+        await refreshAccessToken();
+        const retryRes = await request();
+        if (retryRes.status === 401 || retryRes.status === 403) {
+          if (!noRedirectOnAuthFailure) logoutAndRedirect();
+          throw new Error('Unauthorized');
+        }
+        return await handleResponse(retryRes, { noRedirectOnAuthFailure });
+      } catch (refreshErr) {
+        if (!noRedirectOnAuthFailure && refreshErr && (refreshErr.status === 401 || refreshErr.status === 403)) {
+          logoutAndRedirect();
+        }
+        throw refreshErr;
+      }
+    }
 
-    const result = await handleResponse(res, { noRedirectOnAuthFailure });
-    return result;
+    return await handleResponse(firstRes, { noRedirectOnAuthFailure });
   } catch (err) {
-    // Log the error
-    const status = err.status || 'UNKNOWN';
-    logger.apiError(method, path, status, err.message);
+    const status = err?.status || 'UNKNOWN';
+    logger.apiError(method, path, status, err?.message || String(err));
+    if (!noRedirectOnAuthFailure && (err?.status === 401 || err?.status === 403)) {
+      logoutAndRedirect();
+    }
     throw err;
-  } finally {
-    if (timeoutId) clearTimeout(timeoutId);
   }
 }
