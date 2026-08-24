@@ -21,6 +21,7 @@ export default function TeamManagement() {
   const [error, setError] = useState(null);
   const [editingTeamId, setEditingTeamId] = useState(null);
   const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamUserSearch, setEditTeamUserSearch] = useState('');
   const [editTeamMemberIds, setEditTeamMemberIds] = useState([]);
   const [savingTeamEdit, setSavingTeamEdit] = useState(false);
 
@@ -91,12 +92,14 @@ export default function TeamManagement() {
   const openTeamEdit = (team) => {
     setEditingTeamId(team.id);
     setEditTeamName(team.name || '');
+    setEditTeamUserSearch('');
     setEditTeamMemberIds((teamMembers[team.id] || []).map((member) => member.id));
   };
 
   const closeTeamEdit = () => {
     setEditingTeamId(null);
     setEditTeamName('');
+    setEditTeamUserSearch('');
     setEditTeamMemberIds([]);
   };
 
@@ -131,6 +134,15 @@ export default function TeamManagement() {
       return [...prev, userId];
     });
   };
+
+  const filteredEditUsers = (users || []).filter((user) => {
+    const term = editTeamUserSearch.trim().toLowerCase();
+    if (!term) return true;
+    return (
+      (user.name || '').toLowerCase().includes(term) ||
+      (user.email || '').toLowerCase().includes(term)
+    );
+  });
 
   return (
     <div className="mt-3">
@@ -255,6 +267,15 @@ export default function TeamManagement() {
                     />
                   </div>
                   <div className="mb-3">
+                    <label className="form-label">{t('admin.teamCreation.searchUsers')}</label>
+                    <input
+                      className="form-control"
+                      value={editTeamUserSearch}
+                      onChange={(event) => setEditTeamUserSearch(event.target.value)}
+                      placeholder={t('admin.teamCreation.searchPlaceholder')}
+                    />
+                  </div>
+                  <div className="mb-3">
                     <label className="form-label">{t('admin.teamCreation.tableMembers')}</label>
                     <div className="border rounded" style={{ maxHeight: 260, overflowY: 'auto' }}>
                       <table className="table table-sm mb-0">
@@ -266,23 +287,29 @@ export default function TeamManagement() {
                           </tr>
                         </thead>
                         <tbody>
-                          {users.map((user) => {
-                            const checked = editTeamMemberIds.includes(user.id);
-                            return (
-                              <tr key={user.id}>
-                                <td>
-                                  <input
-                                    type="checkbox"
-                                    className="form-check-input"
-                                    checked={checked}
-                                    onChange={() => toggleEditMember(user.id)}
-                                  />
-                                </td>
-                                <td>{user.name || '—'}</td>
-                                <td>{user.email}</td>
-                              </tr>
-                            );
-                          })}
+                          {filteredEditUsers.length === 0 ? (
+                            <tr>
+                              <td colSpan="3" className="text-muted">{t('admin.teamCreation.noUsers')}</td>
+                            </tr>
+                          ) : (
+                            filteredEditUsers.map((user) => {
+                              const checked = editTeamMemberIds.includes(user.id);
+                              return (
+                                <tr key={user.id}>
+                                  <td>
+                                    <input
+                                      type="checkbox"
+                                      className="form-check-input"
+                                      checked={checked}
+                                      onChange={() => toggleEditMember(user.id)}
+                                    />
+                                  </td>
+                                  <td>{user.name || '—'}</td>
+                                  <td>{user.email}</td>
+                                </tr>
+                              );
+                            })
+                          )}
                         </tbody>
                       </table>
                     </div>
