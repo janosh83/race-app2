@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 import logging
+import uuid
 from flask import current_app
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
@@ -275,13 +276,16 @@ def login():
         logger.error("Failed login attempt for email: %s", normalized_email or 'unknown')
         return jsonify({"msg": "Invalid credentials"}), 401
 
+    refresh_jti = str(uuid.uuid4())
     if user.is_administrator:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
     else:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
 
-    # Issue refresh token with longer lifetime for silent re-auth
-    refresh_token = create_refresh_token(identity=str(user.id))
+    # Issue refresh token with longer lifetime and a unique JTI so old refresh tokens can be invalidated.
+    refresh_token = create_refresh_token(identity=str(user.id), additional_claims={"refresh_jti": refresh_jti})
+    user.refresh_token_jti = refresh_jti
+    db.session.commit()
 
     logger.info("User logged in: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
 
@@ -424,13 +428,15 @@ def refresh():
       - BearerAuth: []
     responses:
       200:
-        description: Returns a new access token
+        description: Returns a new access token and refresh token
         content:
           application/json:
             schema:
               type: object
               properties:
                 access_token:
+                  type: string
+                refresh_token:
                   type: string
       401:
         description: Missing or invalid refresh token
@@ -442,15 +448,26 @@ def refresh():
         logger.warning("Refresh token has invalid subject: %s", user_id)
         return jsonify({"msg": "Invalid refresh token subject"}), 401
 
-    # Look up current admin flag to keep claims in sync and ensure user still exists.
     user = User.query.filter_by(id=user_id_int).first()
     if not user:
         logger.warning("Refresh denied: user %s not found", user_id)
         return jsonify({"msg": "User not found"}), 401
 
+    refresh_claims = get_jwt()
+    refresh_jti = refresh_claims.get("refresh_jti")
+    if not refresh_jti or user.refresh_token_jti != refresh_jti:
+        logger.warning("Refresh denied for user %s: refresh token JTI mismatch or missing", user_id)
+        return jsonify({"msg": "Invalid refresh token"}), 401
+
     is_admin = bool(user.is_administrator)
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
-    return jsonify({"access_token": new_access}), 200
+    new_refresh_jti = str(uuid.uuid4())
+    new_refresh = create_refresh_token(identity=str(user_id), additional_claims={"refresh_jti": new_refresh_jti})
+    user.refresh_token_jti = new_refresh_jti
+    db.session.commit()
+
+    logger.info("Access token refreshed for user %s (ID: %s)", user.email, user.id)
+    return jsonify({"access_token": new_access, "refresh_token": new_refresh}), 200
 
 @auth_bp.route('/request-password-reset/', methods=['POST'])
 def request_password_reset():

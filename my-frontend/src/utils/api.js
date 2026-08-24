@@ -138,7 +138,15 @@ async function refreshAccessToken() {
       }
 
       const data = await res.json();
+      if (!data.access_token) {
+        throw new Error('Refresh response missing access token');
+      }
+
       localStorage.setItem('accessToken', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refreshToken', data.refresh_token);
+      }
+
       logger.success('TOKEN', 'Token refreshed successfully');
       return data.access_token;
     } catch (err) {

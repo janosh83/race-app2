@@ -74,10 +74,20 @@ def test_auth_refresh_success(test_client):
     login = test_client.post("/auth/login/", json={"email": "refresh@example.com", "password": "test"})
     assert login.status_code == 200
 
-    refresh_token = login.json["refresh_token"]
-    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {refresh_token}"})
+    old_refresh_token = login.json["refresh_token"]
+    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {old_refresh_token}"})
     assert response.status_code == 200
     assert "access_token" in response.json
+    assert "refresh_token" in response.json
+    assert response.json["refresh_token"] != old_refresh_token
+
+    replay_response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {old_refresh_token}"})
+    assert replay_response.status_code == 401
+    assert replay_response.json["msg"] == "Invalid refresh token"
+
+    renewed_response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {response.json['refresh_token']}"})
+    assert renewed_response.status_code == 200
+    assert "access_token" in renewed_response.json
 
 
 def test_auth_refresh_deleted_user_returns_401(test_client, test_app):

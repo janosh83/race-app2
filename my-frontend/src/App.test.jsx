@@ -12,11 +12,11 @@ vi.mock('./utils/api', () => ({
 }));
 
 // Mock child components to simplify testing
-vi.mock('./components/Login', () => () => <div>Login Component</div>);
-vi.mock('./components/ForgotPassword', () => () => <div>ForgotPassword Component</div>);
-vi.mock('./components/ResetPassword', () => () => <div>ResetPassword Component</div>);
-vi.mock('./components/Layouts/RaceLayout', () => () => <div>RaceLayout Component</div>);
-vi.mock('./components/Layouts/AdminLayout', () => () => <div>AdminLayout Component</div>);
+vi.mock('./components/Login', () => ({ default: () => <div>Login Component</div> }));
+vi.mock('./components/ForgotPassword', () => ({ default: () => <div>ForgotPassword Component</div> }));
+vi.mock('./components/ResetPassword', () => ({ default: () => <div>ResetPassword Component</div> }));
+vi.mock('./components/Layouts/RaceLayout', () => ({ default: () => <div>RaceLayout Component</div> }));
+vi.mock('./components/Layouts/AdminLayout', () => ({ default: () => <div>AdminLayout Component</div> }));
 
 describe('App Component - Routing', () => {
   beforeEach(() => {

@@ -235,6 +235,7 @@ class User(db.Model):
     preferred_language = db.Column(db.String(5), nullable=True)
     reset_token = db.Column(db.String(100), nullable=True, unique=True)
     reset_token_expiry = db.Column(db.DateTime, nullable=True)
+    refresh_token_jti = db.Column(db.String(64), nullable=True, unique=True)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')
 
     def set_password(self, password):
