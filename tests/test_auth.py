@@ -49,6 +49,26 @@ def test_auth_login(test_client):
     assert "preferred_language" in response.json["user"]
 
 
+def test_auth_login_normalizes_email_case(test_client, test_app):
+    response = test_client.post(
+        "/auth/register/",
+        json={"name": "Mixed Case", "email": "MixedCase@Example.com", "password": "test"},
+    )
+    assert response.status_code == 201
+
+    response = test_client.post(
+        "/auth/login/",
+        json={"email": "mixedcase@example.com", "password": "test"},
+    )
+    assert response.status_code == 200
+    assert response.json["user"]["email"] == "mixedcase@example.com"
+
+    with test_app.app_context():
+        user = User.query.filter_by(email="mixedcase@example.com").first()
+        assert user is not None
+        assert user.email == "mixedcase@example.com"
+
+
 def test_auth_refresh_success(test_client):
     test_client.post("/auth/register/", json={"name": "refresh", "email": "refresh@example.com", "password": "test"})
     login = test_client.post("/auth/login/", json={"email": "refresh@example.com", "password": "test"})

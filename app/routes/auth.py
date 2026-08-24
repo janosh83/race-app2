@@ -9,6 +9,7 @@ from app.models import User, Registration, Team, Race, RaceCategory, team_member
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
+from app.utils import normalize_email
 from app.schemas import (
   AuthLoginSchema,
   AuthRegisterSchema,
@@ -85,14 +86,15 @@ def register():
     """
     data = request.get_json() or {}
     validated = AuthRegisterSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    if User.query.filter_by(email=validated['email']).first():
-        logger.error("Registration attempt for existing user: %s", validated['email'])
+    if User.query.filter_by(email=normalized_email).first():
+        logger.error("Registration attempt for existing user: %s", normalized_email)
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
-        email=validated['email'],
+        email=normalized_email,
         is_administrator=False,
         preferred_language=validated.get('preferred_language'),
     )
@@ -153,14 +155,15 @@ def register_admin():
     """
     data = request.get_json() or {}
     validated = AuthRegisterSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    if User.query.filter_by(email=validated['email']).first():
-        logger.error("Admin registration attempt for existing user: %s", validated['email'])
+    if User.query.filter_by(email=normalized_email).first():
+        logger.error("Admin registration attempt for existing user: %s", normalized_email)
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
-        email=validated['email'],
+        email=normalized_email,
         is_administrator=True,
         preferred_language=validated.get('preferred_language'),
     )
@@ -265,10 +268,11 @@ def login():
     """
     data = request.get_json() or {}
     validated = AuthLoginSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    user = User.query.filter_by(email=validated['email']).first()
+    user = User.query.filter_by(email=normalized_email).first()
     if not user or not user.check_password(validated['password']):
-        logger.error("Failed login attempt for email: %s", validated.get('email', 'unknown'))
+        logger.error("Failed login attempt for email: %s", normalized_email or 'unknown')
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
@@ -496,7 +500,7 @@ def request_password_reset():
         logger.error("Password reset request with missing email")
         return jsonify({"msg": "Email is required"}), 400
 
-    email = validated['email']
+    email = normalize_email(validated['email'])
     user = User.query.filter_by(email=email).first()
 
     # Always return success message for security (don't reveal if email exists)

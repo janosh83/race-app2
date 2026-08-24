@@ -11,6 +11,13 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif"}
 
 
+def normalize_email(value: str | None) -> str:
+    """Normalize email addresses to a canonical lowercase form for login and storage."""
+    if value is None:
+        return ""
+    return str(value).strip().lower()
+
+
 def allowed_file(filename: str) -> bool:
     """Check whether a filename has an allowed image extension."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS

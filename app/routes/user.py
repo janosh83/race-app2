@@ -8,6 +8,7 @@ from app.models import Registration, Team, Race, RaceCategory, User, team_member
 from app.routes.admin import admin_required
 from app import db
 from app.schemas import PaginationQuerySchema, UserCreateSchema, UserUpdateSchema
+from app.utils import normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -140,14 +141,15 @@ def create_user():
     """
     payload = request.get_json(silent=True) or {}
     data = UserCreateSchema().load(payload)
+    normalized_email = normalize_email(data['email'])
 
-    if User.query.filter_by(email=data['email']).first():
-        logger.warning("Admin user creation attempt for existing email: %s", data['email'])
+    if User.query.filter_by(email=normalized_email).first():
+        logger.warning("Admin user creation attempt for existing email: %s", normalized_email)
         return jsonify({"msg": "User with this email already exists"}), 409
 
     user = User(
         name=data.get('name', ''),
-        email=data['email'],
+        email=normalized_email,
         is_administrator=data.get('is_administrator', False),
         preferred_language=data.get('preferred_language')
     )
@@ -235,6 +237,9 @@ def update_user(user_id):
     user = User.query.filter_by(id=user_id).first_or_404()
     payload = request.get_json(silent=True) or {}
     data = UserUpdateSchema().load(payload, partial=True)
+
+    if 'email' in data:
+        data['email'] = normalize_email(data['email'])
 
     updated_fields = []
     if 'name' in data:
