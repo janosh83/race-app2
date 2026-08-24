@@ -19,6 +19,10 @@ export default function TeamManagement() {
   const [teamMembers, setTeamMembers] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [editingTeamId, setEditingTeamId] = useState(null);
+  const [editTeamName, setEditTeamName] = useState('');
+  const [editTeamMemberIds, setEditTeamMemberIds] = useState([]);
+  const [savingTeamEdit, setSavingTeamEdit] = useState(false);
 
   const load = async (pageToLoad) => {
     setLoading(true);
@@ -84,6 +88,50 @@ export default function TeamManagement() {
     }
   }, [teamsPage, teamsTotalPages]);
 
+  const openTeamEdit = (team) => {
+    setEditingTeamId(team.id);
+    setEditTeamName(team.name || '');
+    setEditTeamMemberIds((teamMembers[team.id] || []).map((member) => member.id));
+  };
+
+  const closeTeamEdit = () => {
+    setEditingTeamId(null);
+    setEditTeamName('');
+    setEditTeamMemberIds([]);
+  };
+
+  const handleSaveTeamEdit = async (event) => {
+    event.preventDefault();
+    if (!editTeamName.trim()) {
+      setError(t('admin.users.errorEmailPasswordRequired'));
+      return;
+    }
+
+    setSavingTeamEdit(true);
+    try {
+      await adminApi.updateTeam(editingTeamId, {
+        name: editTeamName.trim(),
+        user_ids: editTeamMemberIds,
+      });
+      closeTeamEdit();
+      await load(teamsPage);
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to update team', err);
+      setError(t('admin.users.updateFailed', { message: err?.message || t('admin.common.unknownError') }));
+    } finally {
+      setSavingTeamEdit(false);
+    }
+  };
+
+  const toggleEditMember = (userId) => {
+    setEditTeamMemberIds((prev) => {
+      if (prev.includes(userId)) {
+        return prev.filter((id) => id !== userId);
+      }
+      return [...prev, userId];
+    });
+  };
+
   return (
     <div className="mt-3">
       <div className="d-flex align-items-center mb-2">
@@ -121,6 +169,7 @@ export default function TeamManagement() {
               <th>{t('admin.teamCreation.teamName')}</th>
               <th>{t('admin.teamCreation.tableMembers')}</th>
               <th style={{ width: 120 }}>{t('admin.teamCreation.tableMemberCount')}</th>
+              <th style={{ width: 120 }}>{t('admin.users.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -140,6 +189,11 @@ export default function TeamManagement() {
                   <td>{team.name}</td>
                   <td className="text-muted small">{membersDisplay}</td>
                   <td>{members.length}</td>
+                  <td>
+                    <button type="button" className="btn btn-sm btn-primary" onClick={() => openTeamEdit(team)}>
+                      {t('admin.users.edit')}
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -179,6 +233,72 @@ export default function TeamManagement() {
           </div>
         )}
       </div>
+
+      {editingTeamId !== null && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('admin.users.editTitle')}</h5>
+                <button type="button" className="btn-close" onClick={closeTeamEdit}></button>
+              </div>
+              <form onSubmit={handleSaveTeamEdit}>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label">{t('admin.users.name')}</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editTeamName}
+                      onChange={(event) => setEditTeamName(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">{t('admin.teamCreation.tableMembers')}</label>
+                    <div className="border rounded" style={{ maxHeight: 260, overflowY: 'auto' }}>
+                      <table className="table table-sm mb-0">
+                        <thead>
+                          <tr>
+                            <th style={{ width: 40 }}></th>
+                            <th>{t('admin.teamCreation.tableName')}</th>
+                            <th>{t('admin.users.email')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((user) => {
+                            const checked = editTeamMemberIds.includes(user.id);
+                            return (
+                              <tr key={user.id}>
+                                <td>
+                                  <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    checked={checked}
+                                    onChange={() => toggleEditMember(user.id)}
+                                  />
+                                </td>
+                                <td>{user.name || '—'}</td>
+                                <td>{user.email}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={closeTeamEdit}>{t('admin.users.cancel')}</button>
+                  <button type="submit" className="btn btn-primary" disabled={savingTeamEdit}>
+                    {savingTeamEdit ? t('admin.users.saving') : t('admin.users.saveChanges')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

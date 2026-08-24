@@ -18,6 +18,7 @@ from app.schemas import (
   TeamCreateSchema,
   TeamDisqualifySchema,
   TeamSignUpSchema,
+  TeamUpdateSchema,
 )
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
@@ -1261,6 +1262,47 @@ def retry_registration_email_log(race_id, log_id):
     return jsonify({'message': message, 'status': retry_result['status']}), status_code
 
 # TODO: get race by team
+
+@team_bp.route("/<int:team_id>/", methods=["PUT"])
+@admin_required()
+def update_team(team_id):
+    """
+    Update a team name and/or exact member list.
+    """
+    data = request.get_json() or {}
+    validated = TeamUpdateSchema().load(data)
+    team = Team.query.filter_by(id=team_id).first_or_404()
+
+    if validated.get('name') is not None:
+        team.name = validated['name']
+
+    if validated.get('user_ids') is not None:
+        member_limit = _resolve_team_member_limit(team)
+        updated_member_ids = list(dict.fromkeys(validated['user_ids']))
+        if member_limit is not None and len(updated_member_ids) > member_limit:
+            return jsonify({
+                "message": f"Team has too many members for registered race options. Maximum allowed is {member_limit}."
+            }), 400
+
+        resolved_members = []
+        seen_ids = set()
+        for user_id in updated_member_ids:
+            user = User.query.filter_by(id=user_id).first_or_404()
+            if user.id in seen_ids:
+                continue
+            seen_ids.add(user.id)
+            resolved_members.append(user)
+
+        team.members = resolved_members
+
+    db.session.commit()
+    logger.info("Updated team %s (ID: %s)", team.name, team.id)
+    return jsonify({
+        "id": team.id,
+        "name": team.name,
+        "user_ids": [member.id for member in team.members],
+    }), 200
+
 
 # create team
 # tested by test_teams.py -> test_add_team

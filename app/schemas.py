@@ -414,6 +414,18 @@ class TeamCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
 
 
+class TeamUpdateSchema(Schema):
+    name = fields.String(load_default=None, validate=validate.Length(min=1))
+    user_ids = fields.List(fields.Integer(strict=True), load_default=None)
+
+    @validates_schema
+    def validate_payload(self, data, **_kwargs):
+        has_name = data.get('name') is not None
+        has_user_ids = data.get('user_ids') is not None
+        if not has_name and not has_user_ids:
+            raise ValidationError({'_schema': ['Provide at least one field to update.']})
+
+
 class TeamSignUpSchema(Schema):
     team_id = fields.Integer(required=True, strict=True)
     race_category_id = fields.Integer(required=True, strict=True)

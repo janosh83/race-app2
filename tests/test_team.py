@@ -85,6 +85,26 @@ def test_add_team(test_client, add_test_data):
     assert response.status_code == 201
     assert response.json == {"id": 4, "name": "Team4"}
 
+
+def test_update_team_name_and_members(test_client, add_test_data, admin_auth_headers):
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john-update@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter-update@example.com", "password": "password"})
+    assert response.status_code == 201
+
+    response = test_client.put(
+        "/api/team/1/",
+        json={"name": "Updated Team1", "user_ids": [1, 2]},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json == {"id": 1, "name": "Updated Team1", "user_ids": [1, 2]}
+
+    response = test_client.get("/api/team/1/members/")
+    assert response.status_code == 200
+    assert [member["id"] for member in response.json] == [1, 2]
+
+
 def test_add_members(test_client, add_test_data):
     # Test přidání členů do týmu
     response = test_client.post("/auth/register/", json={"name": "John", "email": "john@seznam.cz", "password": "password"})

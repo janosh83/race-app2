@@ -79,6 +79,7 @@ export const adminApi = {
   },
   getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
+  updateTeam: (teamId, payload) => apiFetch(`/api/team/${teamId}/`, { method: 'PUT', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
   removeAllTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`, { method: 'DELETE' }),
 
