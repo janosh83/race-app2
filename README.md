@@ -59,6 +59,11 @@ BREVO_WEBHOOK_SECRET_HEADER=X-Brevo-Webhook-Secret
 # Optional image storage override
 # IMAGE_UPLOAD_FOLDER=./app/static/images
 
+# Production-only strong secrets:
+# Use 32+ random characters; never reuse development secrets.
+# Example generation:
+# python -c "import secrets; print(secrets.token_urlsafe(48))"
+
 # Stripe (registration payments)
 # Per-race currency/pricing is configured in Admin UI.
 # Variables below are fallback defaults for races without explicit pricing.
@@ -396,10 +401,12 @@ gunicorn run:app
 
 - **Recommended Environment Variables:**
 
+> Production signing secrets must be at least 32 characters long and must not be default/dev placeholders. Generate them with a strong random source such as `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+
 ```env
 FLASK_CONFIG=app.config.ProductionConfig
-SECRET_KEY=strong-random-secret
-JWT_SECRET_KEY=strong-random-jwt-secret
+SECRET_KEY=replace-with-strong-random-secret-32-plus-chars
+JWT_SECRET_KEY=replace-with-strong-random-jwt-secret-32-plus-chars
 DATABASE_URL=<Render PostgreSQL connection string>
 CORS_ORIGINS=https://your-frontend.onrender.com
 
