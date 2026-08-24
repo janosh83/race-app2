@@ -26,7 +26,7 @@ function Login() {
             if (data.access_token) {
                 logger.success('AUTH', 'Login successful', { email, hasRaces: !!data.signed_races?.length });
                 localStorage.setItem('accessToken', data.access_token);
-                localStorage.setItem('refreshToken', data.refresh_token);
+                localStorage.removeItem('refreshToken');
                 localStorage.setItem('user', JSON.stringify(data.user));
                 localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
                 setSignedRaces(data.signed_races || []);

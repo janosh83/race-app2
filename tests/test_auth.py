@@ -74,18 +74,24 @@ def test_auth_refresh_success(test_client):
     login = test_client.post("/auth/login/", json={"email": "refresh@example.com", "password": "test"})
     assert login.status_code == 200
 
-    old_refresh_token = login.json["refresh_token"]
-    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {old_refresh_token}"})
+    refresh_cookie = next((c for c in login.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert refresh_cookie is not None
+    old_refresh_token = refresh_cookie.split(";", 1)[0].split("=", 1)[1]
+
+    response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={old_refresh_token}"})
     assert response.status_code == 200
     assert "access_token" in response.json
-    assert "refresh_token" in response.json
-    assert response.json["refresh_token"] != old_refresh_token
 
-    replay_response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {old_refresh_token}"})
+    refreshed_cookie = next((c for c in response.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert refreshed_cookie is not None
+    new_refresh_token = refreshed_cookie.split(";", 1)[0].split("=", 1)[1]
+    assert new_refresh_token != old_refresh_token
+
+    replay_response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={old_refresh_token}"})
     assert replay_response.status_code == 401
     assert replay_response.json["msg"] == "Invalid refresh token"
 
-    renewed_response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {response.json['refresh_token']}"})
+    renewed_response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={new_refresh_token}"})
     assert renewed_response.status_code == 200
     assert "access_token" in renewed_response.json
 
@@ -95,7 +101,9 @@ def test_auth_refresh_deleted_user_returns_401(test_client, test_app):
     login = test_client.post("/auth/login/", json={"email": "refresh2@example.com", "password": "test"})
     assert login.status_code == 200
 
-    refresh_token = login.json["refresh_token"]
+    refresh_cookie = next((c for c in login.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert refresh_cookie is not None
+    refresh_token = refresh_cookie.split(";", 1)[0].split("=", 1)[1]
 
     with test_app.app_context():
         user = User.query.filter_by(email="refresh2@example.com").first()
@@ -103,7 +111,7 @@ def test_auth_refresh_deleted_user_returns_401(test_client, test_app):
         db.session.delete(user)
         db.session.commit()
 
-    response = test_client.post("/auth/refresh/", headers={"Authorization": f"Bearer {refresh_token}"})
+    response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={refresh_token}"})
     assert response.status_code == 401
     assert response.json["msg"] == "User not found"
 

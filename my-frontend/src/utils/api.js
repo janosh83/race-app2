@@ -116,17 +116,10 @@ async function refreshAccessToken() {
 
   refreshPromise = (async () => {
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        logger.error('TOKEN', 'No refresh token found');
-        logoutAndRedirect();
-        throw new Error('No refresh token');
-      }
-
       const res = await fetch(`${BASE}/auth/refresh/`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${refreshToken}`,
           'Accept': 'application/json',
         },
       });
@@ -143,10 +136,6 @@ async function refreshAccessToken() {
       }
 
       localStorage.setItem('accessToken', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token);
-      }
-
       logger.success('TOKEN', 'Token refreshed successfully');
       return data.access_token;
     } catch (err) {
@@ -169,7 +158,7 @@ export async function fetchRaw(path, init = {}) {
   if (token) headers.set('Authorization', `Bearer ${token}`);
   headers.set('Accept', 'application/json');
 
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(url, { ...init, headers, credentials: 'include' });
   if (res.status === 401 || res.status === 403) {
     logoutAndRedirect();
     throw new Error('Unauthorized');
@@ -238,6 +227,7 @@ export async function apiFetch(path, opts = {}) {
       headers,
       body,
       signal,
+      credentials: 'include',
     });
 
     // Log the response

@@ -3,7 +3,7 @@ import logging
 import uuid
 from flask import current_app
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt, set_refresh_cookies, unset_jwt_cookies
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
@@ -338,9 +338,8 @@ def login():
               "start_logging": race.start_logging_at,
               "end_logging": race.end_logging_at} for race in races_by_user]
 
-    return jsonify({
+    response = jsonify({
       "access_token": access_token,
-      "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "name": user.name,
@@ -349,7 +348,9 @@ def login():
             "preferred_language": user.preferred_language,
         },
         "signed_races": registered_races
-    }), 200
+    })
+    set_refresh_cookies(response, refresh_token)
+    return response, 200
 
 
 # tested by test_auth.py -> test_auth_protected
@@ -415,6 +416,12 @@ def admin():
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
+@auth_bp.route('/logout/', methods=['POST'])
+def logout():
+    response = jsonify({"msg": "Logged out"})
+    unset_jwt_cookies(response)
+    return response, 200
+
 # Refresh access token using a valid refresh token
 @auth_bp.route('/refresh/', methods=['POST'])
 @jwt_required(refresh=True)
@@ -467,7 +474,9 @@ def refresh():
     db.session.commit()
 
     logger.info("Access token refreshed for user %s (ID: %s)", user.email, user.id)
-    return jsonify({"access_token": new_access, "refresh_token": new_refresh}), 200
+    response = jsonify({"access_token": new_access})
+    set_refresh_cookies(response, new_refresh)
+    return response, 200
 
 @auth_bp.route('/request-password-reset/', methods=['POST'])
 def request_password_reset():

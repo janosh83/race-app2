@@ -43,6 +43,13 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(
         days=int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES_DAYS', '30'))
     )
+    JWT_TOKEN_LOCATION = ['headers', 'cookies']
+    JWT_COOKIE_SECURE = os.environ.get('JWT_COOKIE_SECURE', 'false').lower() == 'true'
+    JWT_COOKIE_HTTPONLY = True
+    JWT_COOKIE_SAMESITE = 'Lax'
+    JWT_COOKIE_PATH = '/'
+    JWT_REFRESH_COOKIE_PATH = '/'
+    JWT_COOKIE_CSRF_PROTECT = False
 
     # Email Configuration (Brevo)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', CONFIG_DEFAULTS["MAIL_SERVER"])

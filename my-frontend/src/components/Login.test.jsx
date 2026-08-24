@@ -12,10 +12,13 @@ vi.mock('../services/authApi');
 
 // Mock react-router-dom useNavigate
 const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-}));
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 const MockLogin = () => (
   <MemoryRouter initialEntries={['/login']}>
@@ -78,7 +81,7 @@ describe('Login Component', () => {
     await waitFor(() => {
       expect(authApi.login).toHaveBeenCalledWith('test@example.com', 'password123');
       expect(localStorage.getItem('accessToken')).toBe('mock-access-token');
-      expect(localStorage.getItem('refreshToken')).toBe('mock-refresh-token');
+      expect(localStorage.getItem('refreshToken')).toBeNull();
       expect(mockNavigate).toHaveBeenCalledWith('/race', { replace: true });
     });
   });

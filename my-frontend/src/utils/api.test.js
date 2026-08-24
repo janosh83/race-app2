@@ -103,6 +103,11 @@ describe('API Utilities', () => {
       expect(window.location.href).toBe('/');
     });
 
+    test('removes any stale refresh token from localStorage during logout', () => {
+      logoutAndRedirect();
+      expect(localStorage.getItem('refreshToken')).toBeNull();
+    });
+
     test('always redirects to / (ignores custom path parameter)', () => {
       logoutAndRedirect('/custom-login');
       expect(window.location.href).toBe('/');
