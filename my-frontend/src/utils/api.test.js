@@ -174,5 +174,16 @@ describe('API Utilities', () => {
       expect(window.location.pathname).toBe('/login');
       expect(localStorage.getItem('accessToken')).toBeNull();
     });
+
+    test('clears stale redirect locks so a new logout can proceed', () => {
+      sessionStorage.setItem('auth_redirect_in_progress', JSON.stringify({ timestamp: Date.now() - 60000 }));
+      logoutAndRedirect();
+
+      const lock = sessionStorage.getItem('auth_redirect_in_progress');
+      expect(lock).not.toBeNull();
+      expect(() => JSON.parse(lock)).not.toThrow();
+      const parsed = JSON.parse(lock);
+      expect(parsed.timestamp).toBeGreaterThan(Date.now() - 15000);
+    });
   });
 });

@@ -56,6 +56,7 @@ export function logoutAndRedirect(_loginPath = '/login') {
       localStorage.removeItem('activeRace');
       localStorage.removeItem('activeSection');
       try {
+        sessionStorage.removeItem('auth_redirect_in_progress');
         sessionStorage.removeItem('initialLoad');
       } catch {
         void 0;
@@ -69,11 +70,24 @@ export function logoutAndRedirect(_loginPath = '/login') {
     }
 
     const redirectKey = 'auth_redirect_in_progress';
-    if (sessionStorage.getItem(redirectKey) === '1') {
-      logger.info('AUTH', 'Skipping duplicate logout redirect', { currentPath, targetPath: finalTarget });
-      return;
+    const redirectLockTtlMs = 15000;
+    const rawLock = sessionStorage.getItem(redirectKey);
+
+    if (rawLock) {
+      try {
+        const parsedLock = rawLock === '1' ? { timestamp: Date.now() } : JSON.parse(rawLock);
+        const ageMs = Date.now() - Number(parsedLock?.timestamp || Date.now());
+        if (ageMs < redirectLockTtlMs) {
+          logger.info('AUTH', 'Skipping duplicate logout redirect', { currentPath, targetPath: finalTarget, ageMs });
+          return;
+        }
+      } catch {
+        void 0;
+      }
+      sessionStorage.removeItem(redirectKey);
     }
-    sessionStorage.setItem(redirectKey, '1');
+
+    sessionStorage.setItem(redirectKey, JSON.stringify({ timestamp: Date.now() }));
   } catch {
     void 0;
   }
