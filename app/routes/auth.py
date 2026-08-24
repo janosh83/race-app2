@@ -417,7 +417,19 @@ def admin():
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
 @auth_bp.route('/logout/', methods=['POST'])
+@jwt_required(optional=True)
 def logout():
+    current_user_id = get_jwt_identity()
+    if current_user_id is not None:
+        try:
+            user_id_int = int(current_user_id)
+            user = User.query.filter_by(id=user_id_int).first()
+            if user is not None:
+                user.refresh_token_jti = None
+                db.session.commit()
+        except (TypeError, ValueError):
+            pass
+
     response = jsonify({"msg": "Logged out"})
     unset_jwt_cookies(response)
     return response, 200

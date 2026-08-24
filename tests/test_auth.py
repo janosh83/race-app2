@@ -87,11 +87,15 @@ def test_auth_refresh_success(test_client):
     new_refresh_token = refreshed_cookie.split(";", 1)[0].split("=", 1)[1]
     assert new_refresh_token != old_refresh_token
 
-    replay_response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={old_refresh_token}"})
+    replay_client = test_client.application.test_client()
+    replay_client.set_cookie(key="refresh_token_cookie", value=old_refresh_token, domain="localhost")
+    replay_response = replay_client.post("/auth/refresh/")
     assert replay_response.status_code == 401
     assert replay_response.json["msg"] == "Invalid refresh token"
 
-    renewed_response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={new_refresh_token}"})
+    renewed_client = test_client.application.test_client()
+    renewed_client.set_cookie(key="refresh_token_cookie", value=new_refresh_token, domain="localhost")
+    renewed_response = renewed_client.post("/auth/refresh/")
     assert renewed_response.status_code == 200
     assert "access_token" in renewed_response.json
 
