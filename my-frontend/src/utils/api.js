@@ -30,7 +30,55 @@ export function isTokenExpired(token, marginSeconds = 10) {
 }
 
 export function logoutAndRedirect(_loginPath = '/login') {
-  logger.info('AUTH', 'Logging out and redirecting to login');
+  const safeAuthPaths = new Set(['/login', '/forgot-password', '/reset-password']);
+  const finalTarget = '/';
+
+  let currentPath = '/';
+  try {
+    if (window.location) {
+      if (typeof window.location.pathname === 'string' && window.location.pathname) {
+        currentPath = window.location.pathname;
+      } else if (typeof window.location.href === 'string' && window.location.href) {
+        currentPath = new URL(window.location.href, 'http://localhost').pathname;
+      }
+    }
+  } catch {
+    currentPath = '/';
+  }
+
+  try {
+    if (safeAuthPaths.has(currentPath)) {
+      logger.info('AUTH', 'Skipping logout redirect because user is already on an auth screen', { currentPath, targetPath: finalTarget });
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('signedRaces');
+      localStorage.removeItem('activeRace');
+      localStorage.removeItem('activeSection');
+      try {
+        sessionStorage.removeItem('initialLoad');
+      } catch {
+        void 0;
+      }
+      try {
+        window.dispatchEvent(new Event('auth-update'));
+      } catch {
+        void 0;
+      }
+      return;
+    }
+
+    const redirectKey = 'auth_redirect_in_progress';
+    if (sessionStorage.getItem(redirectKey) === '1') {
+      logger.info('AUTH', 'Skipping duplicate logout redirect', { currentPath, targetPath: finalTarget });
+      return;
+    }
+    sessionStorage.setItem(redirectKey, '1');
+  } catch {
+    void 0;
+  }
+
+  logger.info('AUTH', 'Logging out and redirecting to login', { targetPath: finalTarget });
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
@@ -42,18 +90,18 @@ export function logoutAndRedirect(_loginPath = '/login') {
   } catch {
     void 0;
   }
-  // Notify app to sync auth state immediately
   try {
     window.dispatchEvent(new Event('auth-update'));
   } catch {
     void 0;
   }
-  // Replace history entry to prevent back navigation; fall back to href in tests
-  // Redirect to root (/) so server serves index.html; React Router will redirect to /login
+
   try {
-    window.location.replace('/');
+    if (window.location && typeof window.location.href === 'string') {
+      window.location.href = finalTarget;
+    }
   } catch {
-    window.location.href = '/';
+    void 0;
   }
 }
 
