@@ -122,7 +122,7 @@ export function logoutAndRedirect(_loginPath = '/login') {
 /* ---------- token refresh ---------- */
 let refreshPromise = null;
 
-async function refreshAccessToken() {
+export async function refreshAccessToken() {
   // If already refreshing, return the existing promise
   if (refreshPromise) return refreshPromise;
 

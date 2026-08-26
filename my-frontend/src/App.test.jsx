@@ -9,6 +9,7 @@ vi.mock('./utils/api', () => ({
   isTokenExpired: vi.fn(),
   parseJwt: vi.fn(),
   logoutAndRedirect: vi.fn(),
+  refreshAccessToken: vi.fn().mockRejectedValue(new Error('refresh failed')),
 }));
 
 // Mock child components to simplify testing
@@ -103,16 +104,16 @@ describe('App Component - Routing', () => {
       isTokenExpired.mockReturnValue(true);
     });
 
-    test('treats user as logged out and shows login page', () => {
+    test('treats user as logged out and shows login page', async () => {
       window.history.pushState({}, 'Login', '/login');
       render(<App />);
-      expect(screen.getByText('Login Component')).toBeInTheDocument();
+      expect(await screen.findByText('Login Component')).toBeInTheDocument();
     });
 
-    test('redirects protected routes to login', () => {
+    test('redirects protected routes to login', async () => {
       window.history.pushState({}, 'Race', '/race');
       render(<App />);
-      expect(screen.getByText('Login Component')).toBeInTheDocument();
+      expect(await screen.findByText('Login Component')).toBeInTheDocument();
     });
   });
 
