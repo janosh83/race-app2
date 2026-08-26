@@ -14,7 +14,7 @@ import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
 import ResetPassword from './components/ResetPassword';
 import { TimeProvider } from './contexts/TimeContext';
-import { isTokenExpired } from './utils/api';
+import { isTokenExpired, refreshAccessToken } from './utils/api';
 import { logger } from './utils/logger';
 
 // Logs once on mount to avoid side effects during render
@@ -30,7 +30,7 @@ function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = checking, true/false = determined
 
   useEffect(() => {
-    const syncAuth = () => {
+    const syncAuth = async () => {
       logger.info('ROUTING', 'Starting auth check');
 
       const token = localStorage.getItem('accessToken');
@@ -38,6 +38,24 @@ function App() {
 
       const isExpired = token ? isTokenExpired(token) : true;
       logger.info('ROUTING', 'Token expiry check', { isExpired });
+
+      // A stale/expired access token doesn't mean the session is gone: the
+      // HttpOnly refresh cookie may still be valid, so try a silent refresh
+      // before declaring the user logged out (this previously caused
+      // spurious logouts every time the access token's ~30min lifetime
+      // elapsed while the tab regained focus).
+      if (token && isExpired) {
+        try {
+          await refreshAccessToken();
+          logger.info('ROUTING', 'Auth check complete after silent refresh', { isLoggedIn: true });
+          setIsLoggedIn(true);
+          return;
+        } catch {
+          logger.info('ROUTING', 'Silent refresh failed, treating as logged out');
+          setIsLoggedIn(false);
+          return;
+        }
+      }
 
       const loggedIn = !!(token && !isExpired);
       logger.info('ROUTING', 'Auth check complete', { isLoggedIn: loggedIn, hasToken: !!token, isExpired });
