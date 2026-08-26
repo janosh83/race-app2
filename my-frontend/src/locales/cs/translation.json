@@ -66,6 +66,8 @@
     "checkpointsShowAt": "Checkpointy budou zobrazeny v {{time}}",
     "checkpointsEndedAt": "Zobrazování checkpointů skončilo v {{time}}",
     "attachPhoto": "Připojit fotku (volitelné)",
+    "chooseFile": "Vybrat soubor",
+    "noFileChosen": "Žádný soubor nevybrán",
     "logVisit": "Zalogovat návštěvu",
     "logVisitWithPhoto": "Zalogovat návštěvu s fotkou",
     "deleteVisit": "Smazat návštěvu",

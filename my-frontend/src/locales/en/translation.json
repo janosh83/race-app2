@@ -66,6 +66,8 @@
     "checkpointsShowAt": "Checkpoints will be shown at {{time}}",
     "checkpointsEndedAt": "Showing of checkpoints ended at {{time}}",
     "attachPhoto": "Attach Photo (optional)",
+    "chooseFile": "Choose file",
+    "noFileChosen": "No file chosen",
     "logVisit": "Log Visit",
     "logVisitWithPhoto": "Log Visit with Photo",
     "deleteVisit": "Delete Visit",

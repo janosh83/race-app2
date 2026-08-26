@@ -10,6 +10,7 @@ import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
+import FilePickerButton from './FilePickerButton';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -435,7 +436,7 @@ function CheckpointsList({ topOffset = 56 }) {
               <>
                 <div className="mb-4">
                   <label className="form-label">{t('map.attachPhoto')}</label>
-                  <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
+                  <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
                   <div className="form-text">{t('checkpointsList.imageHelp')}</div>
                 </div>
 

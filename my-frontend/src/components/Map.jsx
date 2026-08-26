@@ -12,6 +12,7 @@ import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
+import FilePickerButton from './FilePickerButton';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -815,12 +816,7 @@ function Map({ topOffset = 56 }) {
                   <>
                     <div className="mb-3">
                       <label className="form-label">{t('map.attachPhoto')}</label>
-                      <input
-                        type="file"
-                        className="form-control"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                      />
+                      <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
                       {imagePreview && (
                         <div className="mt-2">
                           <img

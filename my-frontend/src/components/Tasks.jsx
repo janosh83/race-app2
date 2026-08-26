@@ -8,6 +8,7 @@ import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
+import FilePickerButton from './FilePickerButton';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -371,7 +372,7 @@ function Tasks({ topOffset = 56 }) {
 
             <div className="mb-4">
               <label className="form-label">{t('tasks.uploadPhoto')}</label>
-              <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
+              <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
               <div className="form-text">{t('tasks.imageHelp')}</div>
             </div>
 
