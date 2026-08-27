@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
@@ -64,6 +65,7 @@ function ActiveRace() {
     label: t('activeRace.currentPhaseLabel'),
     ...getPhasePresentation(t, timeInfo?.state || 'UNKNOWN'),
   };
+  const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? activeRace?.raceId;
 
   useEffect(() => {
     if (!activeRace && candidates.length === 1) {
@@ -116,6 +118,18 @@ function ActiveRace() {
                 <div className="text-muted small mb-1">{currentPhase.label}</div>
                 <div className="active-race-strong">{currentPhase.value}</div>
               </div>
+            </div>
+
+            <div className="d-flex flex-wrap gap-2 mb-3">
+              <Link className="btn btn-sm btn-outline-primary" to={`/race/${activeRaceId}/map`}>
+                {t('nav.map')}
+              </Link>
+              <Link className="btn btn-sm btn-outline-primary" to={`/race/${activeRaceId}/checkpoints`}>
+                {t('nav.checkpoints')}
+              </Link>
+              <Link className="btn btn-sm btn-outline-primary" to={`/race/${activeRaceId}/tasks`}>
+                {t('nav.tasks')}
+              </Link>
             </div>
 
             <div className="row g-3 mt-1">

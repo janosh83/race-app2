@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 import * as TimeContext from '../contexts/TimeContext';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
@@ -32,7 +33,9 @@ describe('ActiveRace Component', () => {
     vi.spyOn(TimeContext, 'useTime').mockReturnValue(timeValue);
     return render(
       <TimeContext.TimeProvider>
-        <ActiveRace />
+        <MemoryRouter>
+          <ActiveRace />
+        </MemoryRouter>
       </TimeContext.TimeProvider>
     );
   };
@@ -203,6 +206,9 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('Current phase')).toBeInTheDocument();
       expect(screen.getByText('Checkpoint visibility')).toBeInTheDocument();
       expect(screen.getByText('Logging window')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/race/1/map');
+      expect(screen.getByRole('link', { name: 'Checkpoints' })).toHaveAttribute('href', '/race/1/checkpoints');
+      expect(screen.getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '/race/1/tasks');
     });
 
     test('handles alternative property names for race data', () => {
