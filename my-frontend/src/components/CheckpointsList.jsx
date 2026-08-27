@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './CheckpointsList.css';
@@ -57,10 +57,38 @@ function CheckpointsList({ topOffset = 56 }) {
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const userLocationRef = useRef(null);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+
+  useEffect(() => {
+    if (!navigator.geolocation) return undefined;
+
+    const onPosition = ({ coords }) => {
+      userLocationRef.current = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        timestamp: Date.now(),
+      };
+    };
+    const onError = (error) => {
+      logger.warn('GEOLOCATION', 'Checkpoint list location unavailable', error.message);
+    };
+
+    navigator.geolocation.getCurrentPosition(onPosition, onError, {
+      enableHighAccuracy: false,
+      timeout: 5000,
+    });
+    const watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 3000,
+      timeout: 8000,
+    });
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   useEffect(() => {
     if (!activeRaceId || !activeTeamId) return;
@@ -135,6 +163,10 @@ function CheckpointsList({ topOffset = 56 }) {
       const formData = new FormData();
       formData.append('checkpoint_id', selectedCheckpoint.id);
       formData.append('team_id', activeTeamId);
+      if (userLocationRef.current) {
+        formData.append('user_latitude', userLocationRef.current.latitude);
+        formData.append('user_longitude', userLocationRef.current.longitude);
+      }
       if (selectedImage) {
         formData.append('image', selectedImage);
       }
