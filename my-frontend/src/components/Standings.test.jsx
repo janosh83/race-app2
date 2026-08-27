@@ -15,11 +15,9 @@ describe('Standings Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -48,6 +46,7 @@ describe('Standings Component', () => {
     });
 
     test('checks token periodically every 30 seconds', async () => {
+      vi.useFakeTimers();
       localStorage.setItem('accessToken', 'test-token');
       localStorage.setItem('activeRace', JSON.stringify({ race_id: 1 }));
       isTokenExpired.mockReturnValue(false);

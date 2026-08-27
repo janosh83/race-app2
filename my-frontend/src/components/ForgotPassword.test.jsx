@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
+import { TimeProvider } from '../contexts/TimeContext';
 import * as authApiModule from '../services/authApi';
 
 import ForgotPassword from './ForgotPassword';
@@ -12,6 +13,12 @@ vi.mock('../services/authApi');
 // Ensure authApi.requestPasswordReset is a jest mock function
 authApiModule.authApi.requestPasswordReset = vi.fn();
 
+const renderForgotPassword = () => render(
+  <TimeProvider>
+    <ForgotPassword />
+  </TimeProvider>
+);
+
 describe('ForgotPassword Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,8 +26,8 @@ describe('ForgotPassword Component', () => {
   });
 
   test('renders forgot password form', () => {
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     expect(screen.getByRole('heading', { name: /forgot password/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /send reset link/i })).toBeInTheDocument();
@@ -29,8 +36,8 @@ describe('ForgotPassword Component', () => {
   });
 
   test('email input is required', () => {
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const emailInput = screen.getByLabelText(/email address/i);
     expect(emailInput).toBeRequired();
   });
@@ -41,8 +48,8 @@ describe('ForgotPassword Component', () => {
     };
     authApiModule.authApi.requestPasswordReset.mockResolvedValue(mockResponse);
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const emailInput = screen.getByLabelText(/email address/i);
     const submitButton = screen.getByRole('button', { name: /send reset link/i });
 
@@ -61,8 +68,8 @@ describe('ForgotPassword Component', () => {
   test('shows default success message when API does not return msg', async () => {
     authApiModule.authApi.requestPasswordReset.mockResolvedValue({});
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     fireEvent.change(screen.getByLabelText(/email address/i), {
       target: { value: 'test@example.com' }
     });
@@ -76,8 +83,8 @@ describe('ForgotPassword Component', () => {
   test('displays error message on submission failure', async () => {
     authApiModule.authApi.requestPasswordReset.mockRejectedValue(new Error('Network error'));
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     fireEvent.change(screen.getByLabelText(/email address/i), {
       target: { value: 'test@example.com' }
     });
@@ -91,8 +98,8 @@ describe('ForgotPassword Component', () => {
   test('displays default error message when error has no message', async () => {
     authApiModule.authApi.requestPasswordReset.mockRejectedValue({});
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     fireEvent.change(screen.getByLabelText(/email address/i), {
       target: { value: 'test@example.com' }
     });
@@ -104,12 +111,12 @@ describe('ForgotPassword Component', () => {
   });
 
   test('shows loading state during submission', async () => {
-    authApiModule.authApi.requestPasswordReset.mockImplementation(() => 
+    authApiModule.authApi.requestPasswordReset.mockImplementation(() =>
       new Promise(resolve => setTimeout(() => resolve({ msg: 'Sent' }), 100))
     );
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const emailInput = screen.getByLabelText(/email address/i);
     const submitButton = screen.getByRole('button', { name: /send reset link/i });
 
@@ -135,8 +142,8 @@ describe('ForgotPassword Component', () => {
       .mockResolvedValueOnce({ msg: 'First success' })
       .mockRejectedValueOnce(new Error('Second error'));
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const emailInput = screen.getByLabelText(/email address/i);
     const submitButton = screen.getByRole('button', { name: /send reset link/i });
 
@@ -163,8 +170,8 @@ describe('ForgotPassword Component', () => {
       .mockRejectedValueOnce(new Error('First error'))
       .mockResolvedValueOnce({ msg: 'Success' });
 
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const emailInput = screen.getByLabelText(/email address/i);
     const submitButton = screen.getByRole('button', { name: /send reset link/i });
 
@@ -187,8 +194,8 @@ describe('ForgotPassword Component', () => {
   });
 
   test('does not submit empty form', () => {
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const submitButton = screen.getByRole('button', { name: /send reset link/i });
     fireEvent.click(submitButton);
 
@@ -197,8 +204,8 @@ describe('ForgotPassword Component', () => {
   });
 
   test('back to login link points to correct path', () => {
-    render(<ForgotPassword />);
-    
+    renderForgotPassword();
+
     const loginLink = screen.getByText(/back to login/i);
     expect(loginLink).toHaveAttribute('href', '/login');
   });

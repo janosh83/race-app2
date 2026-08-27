@@ -124,7 +124,7 @@ describe('ActiveRace Component', () => {
       });
 
       expect(screen.getByText('No active race selected.')).toBeInTheDocument();
-      expect(screen.getByText('Multiple races are currently active — please choose one from the list below.')).toBeInTheDocument();
+      expect(screen.getByText('Multiple races are currently active - please choose one from the list below.')).toBeInTheDocument();
     });
   });
 

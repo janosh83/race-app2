@@ -39,7 +39,6 @@ describe('Tasks Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.useFakeTimers();
 
     // Mock TimeContext
     vi.spyOn(TimeContext, 'useTime').mockReturnValue({
@@ -54,7 +53,6 @@ describe('Tasks Component', () => {
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -81,6 +79,7 @@ describe('Tasks Component', () => {
     });
 
     test('checks token periodically every 30 seconds', () => {
+      vi.useFakeTimers();
       localStorage.setItem('accessToken', 'test-token');
       isTokenExpired.mockReturnValue(false);
       raceApi.getTasksStatus.mockResolvedValue([]);
@@ -101,7 +100,7 @@ describe('Tasks Component', () => {
       render(<Tasks />);
 
       await waitFor(() => {
-        expect(raceApi.getTasksStatus).toHaveBeenCalledWith(1, 10);
+        expect(raceApi.getTasksStatus).toHaveBeenCalledWith(1, 10, undefined);
       });
     });
 
@@ -159,7 +158,7 @@ describe('Tasks Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Completed')).toBeInTheDocument();
-        expect(screen.getByText('Pending')).toBeInTheDocument();
+        expect(screen.getByText('Not completed')).toBeInTheDocument();
       });
     });
 

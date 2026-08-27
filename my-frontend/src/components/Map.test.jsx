@@ -22,6 +22,7 @@ vi.mock('leaflet', () => {
     remove: vi.fn(),
     eachLayer: vi.fn(),
     removeLayer: vi.fn(),
+    removeControl: vi.fn(),
   };
 
   const mockAddTo = vi.fn(() => mockMap);

@@ -10,9 +10,9 @@ import RaceLayout from './RaceLayout';
 // Mock dependencies
 vi.mock('../../utils/api');
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
+const mockNavigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useNavigate: () => mockNavigate,
   Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight})</div>,
 }));

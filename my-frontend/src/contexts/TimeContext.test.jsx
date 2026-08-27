@@ -12,7 +12,7 @@ vi.mock('../utils/api');
 // Helper component to test the context
 function TestComponent() {
   const { activeRace, setActiveRace, timeInfo, signedRaces, setSignedRaces, refreshSignedRaces } = useTime();
-  
+
   return (
     <div>
       <div data-testid="active-race">{activeRace ? JSON.stringify(activeRace) : 'null'}</div>
@@ -30,11 +30,9 @@ describe('TimeContext', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -330,6 +328,7 @@ describe('TimeContext', () => {
 
   describe('time state updates', () => {
     test('recalculates time state every 15 seconds', () => {
+      vi.useFakeTimers();
       const now = Date.now();
       const race = {
         race_id: 1,
@@ -365,7 +364,7 @@ describe('TimeContext', () => {
         { race_id: 1, name: 'Race 1' },
         { race_id: 2, name: 'Race 2' },
       ];
-      
+
       apiFetch.mockResolvedValue({ signed_races: mockRaces });
 
       render(
@@ -375,7 +374,7 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       act(() => {
         button.click();
       });
@@ -389,7 +388,7 @@ describe('TimeContext', () => {
     test('updates activeRace if it exists in refreshed data', async () => {
       const oldRaceData = { race_id: 1, name: 'Old Name', team_id: 10 };
       const newRaceData = { race_id: 1, name: 'Updated Name', team_id: 10 };
-      
+
       localStorage.setItem('activeRace', JSON.stringify(oldRaceData));
       apiFetch.mockResolvedValue({ signed_races: [newRaceData] });
 
@@ -400,7 +399,7 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       act(() => {
         button.click();
       });
@@ -420,7 +419,7 @@ describe('TimeContext', () => {
       );
 
       const button = screen.getByText('Refresh Races');
-      
+
       await act(async () => {
         button.click();
       });
@@ -432,7 +431,7 @@ describe('TimeContext', () => {
     test('refreshes on window focus', async () => {
       const storedRaces = [{ race_id: 1 }];
       localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
-      
+
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
@@ -453,7 +452,7 @@ describe('TimeContext', () => {
     test('refreshes when tab becomes visible', async () => {
       const storedRaces = [{ race_id: 1 }];
       localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
-      
+
       apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
 
       render(
@@ -495,7 +494,7 @@ describe('formatDate utility', () => {
   test('formats timestamp as locale string', () => {
     const timestamp = new Date('2026-01-15T12:00:00Z').getTime();
     const result = formatDate(timestamp);
-    
+
     expect(result).toContain('2026');
     expect(result).not.toBe('—');
   });
@@ -503,7 +502,7 @@ describe('formatDate utility', () => {
   test('formats ISO string as locale string', () => {
     const isoString = '2026-01-15T12:00:00Z';
     const result = formatDate(isoString);
-    
+
     expect(result).toContain('2026');
     expect(result).not.toBe('—');
   });

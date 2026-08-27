@@ -1,17 +1,18 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 import { authApi } from '../services/authApi';
+import { TimeProvider } from '../contexts/TimeContext';
 
 import ResetPassword from './ResetPassword';
 
 // Mock dependencies
 vi.mock('../services/authApi');
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
+const mockNavigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useNavigate: () => mockNavigate,
 }));
 
@@ -19,9 +20,11 @@ vi.mock('react-router-dom', () => ({
 const renderWithRouter = (initialEntry = '/reset-password?token=valid-token') => {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path="/reset-password" element={<ResetPassword />} />
-      </Routes>
+      <TimeProvider>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPassword />} />
+        </Routes>
+      </TimeProvider>
     </MemoryRouter>
   );
 };
@@ -30,11 +33,9 @@ describe('ResetPassword Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
   });
 
@@ -202,6 +203,7 @@ describe('ResetPassword Component', () => {
     });
 
     test('navigates to login after successful reset', async () => {
+      vi.useFakeTimers();
       renderWithRouter('/reset-password?token=valid-token');
       authApi.resetPassword.mockResolvedValue({ msg: 'Success' });
 
@@ -213,11 +215,14 @@ describe('ResetPassword Component', () => {
       fireEvent.change(confirmPasswordInput, { target: { value: 'newPassword123' } });
       fireEvent.click(submitButton);
 
-      await waitFor(() => {
-        expect(screen.getByText('Success')).toBeInTheDocument();
+      await act(async () => {
+        await Promise.resolve();
       });
+      expect(screen.getByText('Success')).toBeInTheDocument();
 
-      vi.advanceTimersByTime(2000);
+      await act(async () => {
+        vi.advanceTimersByTime(2000);
+      });
 
       expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
@@ -382,8 +387,6 @@ describe('ResetPassword Component', () => {
         expect(screen.getByText('First success')).toBeInTheDocument();
       });
 
-      // Clear timer before second submission
-      vi.runOnlyPendingTimers();
       mockNavigate.mockClear();
 
       // Second submission with validation error
