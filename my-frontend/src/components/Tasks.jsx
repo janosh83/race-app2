@@ -9,6 +9,7 @@ import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
 import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -301,7 +302,7 @@ function Tasks({ topOffset = 56 }) {
                         {task.completed ? t('tasks.completed') : t('tasks.notCompleted')}
                       </span>
                     </div>
-                    {task.description && <p className="card-text text-muted small">{task.description}</p>}
+                    {task.description && <SafeDescription html={task.description} className="card-text text-muted small" />}
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <span className="badge bg-primary">{t('tasks.points', { count: task.numOfPoints })}</span>
                       {task.completed && task.image_filename && (
@@ -332,9 +333,7 @@ function Tasks({ topOffset = 56 }) {
             </div>
 
             {selectedTask.description && (
-              <div className="mb-3">
-                <p>{selectedTask.description}</p>
-              </div>
+              <SafeDescription html={selectedTask.description} className="mb-3" />
             )}
 
             <div className="mb-3">

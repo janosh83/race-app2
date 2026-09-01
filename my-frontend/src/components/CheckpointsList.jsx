@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
 import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -433,9 +434,7 @@ function CheckpointsList({ topOffset = 56 }) {
             </div>
 
             {selectedCheckpoint.description && (
-              <div className="mb-3">
-                <p>{selectedCheckpoint.description}</p>
-              </div>
+              <SafeDescription html={selectedCheckpoint.description} className="mb-3" />
             )}
 
             {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (

@@ -13,6 +13,7 @@ import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
 import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -731,7 +732,9 @@ function Map({ topOffset = 56 }) {
 
             <div className="mb-3">
               <div><strong>{t('map.descriptionLabel')}:</strong></div>
-              <p className="mb-2">{selectedMapPoint.description?.trim() || t('map.noDescription')}</p>
+              {selectedMapPoint.description?.trim()
+                ? <SafeDescription html={selectedMapPoint.description} className="mb-2" />
+                : <p className="mb-2">{t('map.noDescription')}</p>}
               <div className="d-flex flex-wrap align-items-center gap-2">
                 <div>
                   <strong>{t('map.coordinatesLabel')}:</strong>{' '}
