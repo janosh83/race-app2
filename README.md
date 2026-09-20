@@ -39,6 +39,10 @@ DATABASE_URL=sqlite:///app.db
 # Comma-separated list of allowed frontend origins
 CORS_ORIGINS=http://localhost:5173
 
+# JWT refresh-cookie settings for local HTTP development
+JWT_COOKIE_SECURE=false
+JWT_COOKIE_SAMESITE=Lax
+
 # Local SMTP sink (recommended for local testing)
 MAIL_SERVER=localhost
 MAIL_PORT=1025
@@ -83,6 +87,19 @@ LOG_REQUESTS=true
 # Default is 5242880 (5 MB)
 MAX_CONTENT_LENGTH=5242880
 ```
+
+### 3.2 Production JWT cookie settings
+
+When the frontend and backend use separate HTTPS domains, configure the backend environment as follows:
+
+```env
+FLASK_CONFIG=app.config.ProductionConfig
+CORS_ORIGINS=https://your-frontend.example.com
+JWT_COOKIE_SECURE=true
+JWT_COOKIE_SAMESITE=None
+```
+
+`JWT_COOKIE_SAMESITE=None` is required for the browser to send the HTTP-only refresh cookie with cross-site requests, and it requires `JWT_COOKIE_SECURE=true` and HTTPS. Set `CORS_ORIGINS` to the exact frontend origin without a trailing slash. Keep `Lax` and `false` for local HTTP development.
 
 Run database migrations:
 
