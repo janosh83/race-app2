@@ -47,7 +47,7 @@ class Config:
     JWT_TOKEN_LOCATION = ['headers', 'cookies']
     JWT_COOKIE_SECURE = os.environ.get('JWT_COOKIE_SECURE', 'false').lower() == 'true'
     JWT_COOKIE_HTTPONLY = True
-    JWT_COOKIE_SAMESITE = os.environ.get('JWT_COOKIE_SAMESITE', CONFIG_DEFAULTS['JWT_COOKIE_SAMESITE'])
+    JWT_COOKIE_SAMESITE = os.environ.get('JWT_COOKIE_SAMESITE', 'Lax')
     JWT_COOKIE_PATH = '/'
     JWT_REFRESH_COOKIE_PATH = '/'
     JWT_COOKIE_CSRF_PROTECT = False
