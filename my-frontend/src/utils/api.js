@@ -194,7 +194,9 @@ export async function fetchRaw(path, init = {}) {
       credentials: 'include',
     });
 
-    if ((res.status === 401 || res.status === 403) && attempt === 0) {
+    // Only 401 means the session is invalid. 403 is a permission/business-rule
+    // denial (e.g. logging outside the race window) and is returned to the caller.
+    if (res.status === 401 && attempt === 0) {
       try {
         await refreshAccessToken();
         continue;
@@ -204,7 +206,7 @@ export async function fetchRaw(path, init = {}) {
       }
     }
 
-    if (!res.ok && (res.status === 401 || res.status === 403)) {
+    if (res.status === 401) {
       logoutAndRedirect();
       throw new Error('Unauthorized');
     }
@@ -217,14 +219,11 @@ export async function fetchRaw(path, init = {}) {
 }
 
 /* ---------- high-level fetch (returns parsed payload) ---------- */
-async function handleResponse(res, { noRedirectOnAuthFailure = false } = {}) {
+async function handleResponse(res) {
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const payload = isJson ? await res.json().catch(() => null) : null;
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      if (!noRedirectOnAuthFailure) {
-        // The caller decides whether to retry before forcing logout.
-      }
+    if (res.status === 401) {
       const err = new Error('Unauthorized');
       err.status = res.status;
       err.payload = payload;
@@ -294,28 +293,30 @@ export async function apiFetch(path, opts = {}) {
   try {
     const firstRes = await request();
 
-    if ((firstRes.status === 401 || firstRes.status === 403) && !noAuth) {
+    // Only 401 triggers refresh/logout; 403 falls through to handleResponse
+    // so the caller gets the backend's message (see fetchRaw).
+    if (firstRes.status === 401 && !noAuth) {
       try {
         await refreshAccessToken();
         const retryRes = await request();
-        if (retryRes.status === 401 || retryRes.status === 403) {
+        if (retryRes.status === 401) {
           if (!noRedirectOnAuthFailure) logoutAndRedirect();
           throw new Error('Unauthorized');
         }
-        return await handleResponse(retryRes, { noRedirectOnAuthFailure });
+        return await handleResponse(retryRes);
       } catch (refreshErr) {
-        if (!noRedirectOnAuthFailure && refreshErr && (refreshErr.status === 401 || refreshErr.status === 403)) {
+        if (!noRedirectOnAuthFailure && refreshErr?.status === 401) {
           logoutAndRedirect();
         }
         throw refreshErr;
       }
     }
 
-    return await handleResponse(firstRes, { noRedirectOnAuthFailure });
+    return await handleResponse(firstRes);
   } catch (err) {
     const status = err?.status || 'UNKNOWN';
     logger.apiError(method, path, status, err?.message || String(err));
-    if (!noRedirectOnAuthFailure && (err?.status === 401 || err?.status === 403)) {
+    if (!noRedirectOnAuthFailure && err?.status === 401) {
       logoutAndRedirect();
     }
     throw err;

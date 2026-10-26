@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { apiFetch, parseJwt, isTokenExpired, logoutAndRedirect } from './api';
+import { apiFetch, fetchRaw, parseJwt, isTokenExpired, logoutAndRedirect } from './api';
 
 describe('API Utilities', () => {
   describe('parseJwt', () => {
@@ -118,6 +118,49 @@ describe('API Utilities', () => {
       expect(requestUrls.filter((url) => url.includes('/auth/refresh/')).length).toBe(1);
       expect(requestUrls.filter((url) => url.includes('/api/test')).length).toBeGreaterThanOrEqual(2);
       expect(localStorage.getItem('accessToken')).toBe(freshToken);
+    });
+
+    test('returns 403 to the caller without refreshing or logging out', async () => {
+      const token = localStorage.getItem('accessToken');
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({ message: 'Logging for this race is not allowed at this time.' }),
+      });
+
+      await expect(apiFetch('/api/race/1/checkpoints/log/', { method: 'POST', body: {} })).rejects.toMatchObject({
+        status: 403,
+        message: 'Logging for this race is not allowed at this time.',
+      });
+
+      const requestUrls = global.fetch.mock.calls.map(([url]) => String(url));
+      expect(requestUrls.filter((url) => url.includes('/auth/refresh/')).length).toBe(0);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem('accessToken')).toBe(token);
+    });
+  });
+
+  describe('fetchRaw', () => {
+    beforeEach(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      global.fetch = vi.fn();
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      localStorage.setItem('accessToken', `header.${btoa(JSON.stringify({ exp: futureExp }))}.signature`);
+    });
+
+    test('returns a 403 response without refreshing, retrying or logging out', async () => {
+      const token = localStorage.getItem('accessToken');
+      const forbidden = { ok: false, status: 403, headers: new Headers() };
+      global.fetch.mockResolvedValue(forbidden);
+
+      const res = await fetchRaw('/api/race/1/checkpoints/log/', { method: 'POST', body: new FormData() });
+
+      expect(res).toBe(forbidden);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem('accessToken')).toBe(token);
     });
   });
 
