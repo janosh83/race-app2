@@ -86,6 +86,51 @@ describe('Login Component', () => {
     });
   });
 
+  const submitLogin = () => {
+    fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByLabelText(/password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /login/i }));
+  };
+
+  test('auto-selects the only running race and goes straight to its map', async () => {
+    const hour = 60 * 60 * 1000;
+    const running = {
+      race_id: 5,
+      race_name: 'Running Race',
+      start_showing_checkpoints: new Date(Date.now() - hour).toISOString(),
+      end_showing_checkpoints: new Date(Date.now() + hour).toISOString(),
+    };
+    const upcoming = {
+      race_id: 6,
+      race_name: 'Upcoming Race',
+      start_showing_checkpoints: new Date(Date.now() + 24 * hour).toISOString(),
+      end_showing_checkpoints: new Date(Date.now() + 48 * hour).toISOString(),
+    };
+    authApi.login.mockResolvedValue({ access_token: 'token', user: { id: 1 }, signed_races: [running, upcoming] });
+
+    render(<MockLogin />);
+    submitLogin();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/race/5/map', { replace: true });
+    });
+    expect(JSON.parse(localStorage.getItem('activeRace')).race_id).toBe(5);
+    expect(JSON.parse(localStorage.getItem('signedRaces'))).toHaveLength(2);
+  });
+
+  test('drops a race selected in an earlier session when nothing is running', async () => {
+    localStorage.setItem('activeRace', JSON.stringify({ race_id: 99, race_name: 'Old Session Race' }));
+    authApi.login.mockResolvedValue({ access_token: 'token', user: { id: 1 }, signed_races: [{ race_id: 99 }] });
+
+    render(<MockLogin />);
+    submitLogin();
+
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/race', { replace: true });
+    });
+    expect(localStorage.getItem('activeRace')).toBeNull();
+  });
+
   test('displays error message on login failure', async () => {
     authApi.login.mockRejectedValue(new Error('Invalid credentials'));
     

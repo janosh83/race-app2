@@ -1,4 +1,4 @@
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import React from 'react';
 
 import { apiFetch } from '../utils/api';
@@ -11,7 +11,7 @@ vi.mock('../utils/api');
 
 // Helper component to test the context
 function TestComponent() {
-  const { activeRace, setActiveRace, timeInfo, signedRaces, setSignedRaces, refreshSignedRaces } = useTime();
+  const { activeRace, setActiveRace, timeInfo, signedRaces, setSignedRaces, syncSignedRaces, refreshSignedRaces } = useTime();
 
   return (
     <div>
@@ -22,6 +22,7 @@ function TestComponent() {
       <button onClick={() => setActiveRace(null)}>Clear Active Race</button>
       <button onClick={() => setSignedRaces([{ race_id: 1 }, { race_id: 2 }])}>Set Signed Races</button>
       <button onClick={refreshSignedRaces}>Refresh Races</button>
+      <button onClick={() => syncSignedRaces(window.__syncRaces || [], window.__syncOptions)}>Sync Races</button>
     </div>
   );
 }
@@ -358,121 +359,204 @@ describe('TimeContext', () => {
     });
   });
 
-  describe('refreshSignedRaces', () => {
-    test('fetches signed races from API', async () => {
-      const mockRaces = [
-        { race_id: 1, name: 'Race 1' },
-        { race_id: 2, name: 'Race 2' },
-      ];
-
-      apiFetch.mockResolvedValue({ signed_races: mockRaces });
-
-      render(
-        <TimeProvider>
-          <TestComponent />
-        </TimeProvider>
-      );
-
-      const button = screen.getByText('Refresh Races');
-
-      act(() => {
-        button.click();
-      });
-
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalledWith('/api/user/signed-races/');
-        expect(screen.getByTestId('signed-races')).toHaveTextContent(JSON.stringify(mockRaces));
-      });
+  describe('signed races sync', () => {
+    const HOUR = 60 * 60 * 1000;
+    // A race whose checkpoint-showing window contains "now".
+    const runningRace = (id, extra = {}) => ({
+      race_id: id,
+      name: `Running ${id}`,
+      start_showing_checkpoints: new Date(Date.now() - HOUR).toISOString(),
+      end_showing_checkpoints: new Date(Date.now() + HOUR).toISOString(),
+      ...extra,
+    });
+    const futureRace = (id) => ({
+      race_id: id,
+      name: `Future ${id}`,
+      start_showing_checkpoints: new Date(Date.now() + 24 * HOUR).toISOString(),
+      end_showing_checkpoints: new Date(Date.now() + 48 * HOUR).toISOString(),
     });
 
-    test('updates activeRace if it exists in refreshed data', async () => {
-      const oldRaceData = { race_id: 1, name: 'Old Name', team_id: 10 };
-      const newRaceData = { race_id: 1, name: 'Updated Name', team_id: 10 };
+    const renderProvider = (isLoggedIn = true) => render(
+      <TimeProvider isLoggedIn={isLoggedIn}>
+        <TestComponent />
+      </TimeProvider>
+    );
+    const activeRaceText = () => screen.getByTestId('active-race').textContent;
 
-      localStorage.setItem('activeRace', JSON.stringify(oldRaceData));
-      apiFetch.mockResolvedValue({ signed_races: [newRaceData] });
+    beforeEach(() => {
+      vi.useFakeTimers();
+      delete window.__syncRaces;
+      delete window.__syncOptions;
+    });
 
-      render(
-        <TimeProvider>
-          <TestComponent />
-        </TimeProvider>
-      );
+    test('fetches signed races as soon as the user is logged in', async () => {
+      const races = [{ race_id: 1, name: 'Race 1' }, { race_id: 2, name: 'Race 2' }];
+      apiFetch.mockResolvedValue({ signed_races: races });
 
-      const button = screen.getByText('Refresh Races');
+      renderProvider();
+      await act(async () => {});
 
-      act(() => {
-        button.click();
-      });
+      expect(apiFetch).toHaveBeenCalledWith('/api/user/signed-races/');
+      expect(screen.getByTestId('signed-races')).toHaveTextContent(JSON.stringify(races));
+    });
 
-      await waitFor(() => {
-        expect(screen.getByTestId('active-race')).toHaveTextContent('Updated Name');
-      });
+    test('polls even when the user has no signed races yet', async () => {
+      apiFetch.mockResolvedValue({ signed_races: [] });
+      renderProvider();
+      await act(async () => {});
+      expect(apiFetch).toHaveBeenCalledTimes(1);
+
+      // An admin registers the team in the meantime.
+      apiFetch.mockResolvedValue({ signed_races: [futureRace(7)] });
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+
+      expect(apiFetch).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('signed-races')).toHaveTextContent('Future 7');
+    });
+
+    test('does not fetch while auth is still being checked', async () => {
+      renderProvider(null);
+      await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+      expect(apiFetch).not.toHaveBeenCalled();
+    });
+
+    test('replaces the selected race with its refreshed copy', async () => {
+      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1, name: 'Old Name', team_id: 10 }));
+      apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1, name: 'Updated Name', team_id: 10 }] });
+
+      renderProvider();
+      await act(async () => {});
+
+      expect(activeRaceText()).toContain('Updated Name');
+    });
+
+    test('clears the selected race when the registration was removed', async () => {
+      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1, name: 'Removed Race' }));
+      apiFetch.mockResolvedValue({ signed_races: [futureRace(2)] });
+
+      renderProvider();
+      await act(async () => {});
+
+      expect(activeRaceText()).toBe('null');
+      expect(localStorage.getItem('activeRace')).toBeNull();
+    });
+
+    test('auto-selects the only race in its time window', async () => {
+      apiFetch.mockResolvedValue({ signed_races: [runningRace(3), futureRace(4)] });
+
+      renderProvider();
+      await act(async () => {});
+
+      expect(activeRaceText()).toContain('Running 3');
+      expect(JSON.parse(localStorage.getItem('activeRace')).race_id).toBe(3);
+    });
+
+    test('does not auto-select when several races are in their time window', async () => {
+      apiFetch.mockResolvedValue({ signed_races: [runningRace(3), runningRace(5)] });
+
+      renderProvider();
+      await act(async () => {});
+
+      expect(activeRaceText()).toBe('null');
+    });
+
+    test('keeps a race the user picked even if another race is running', async () => {
+      localStorage.setItem('activeRace', JSON.stringify(futureRace(4)));
+      apiFetch.mockResolvedValue({ signed_races: [runningRace(3), futureRace(4)] });
+
+      renderProvider();
+      await act(async () => {});
+
+      expect(activeRaceText()).toContain('Future 4');
     });
 
     test('handles API errors gracefully', async () => {
       apiFetch.mockRejectedValue(new Error('Network error'));
 
-      render(
-        <TimeProvider>
-          <TestComponent />
-        </TimeProvider>
-      );
+      renderProvider();
+      await act(async () => {});
 
-      const button = screen.getByText('Refresh Races');
-
-      await act(async () => {
-        button.click();
-      });
-
-      // Should not crash and state should remain unchanged
       expect(screen.getByTestId('signed-races')).toHaveTextContent('[]');
     });
 
-    test('refreshes on window focus', async () => {
-      const storedRaces = [{ race_id: 1 }];
-      localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
+    test('refreshes on window focus once the list is stale', async () => {
+      apiFetch.mockResolvedValue({ signed_races: [] });
+      renderProvider();
+      await act(async () => {});
+      expect(apiFetch).toHaveBeenCalledTimes(1);
 
-      apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
+      await act(async () => { window.dispatchEvent(new Event('focus')); });
+      expect(apiFetch).toHaveBeenCalledTimes(1); // just refreshed
 
-      render(
-        <TimeProvider>
-          <TestComponent />
-        </TimeProvider>
-      );
+      await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+      await act(async () => { window.dispatchEvent(new Event('focus')); });
+      expect(apiFetch).toHaveBeenCalledTimes(2);
+    });
 
+    test('refreshes once when focus and visibilitychange fire together', async () => {
+      apiFetch.mockResolvedValue({ signed_races: [] });
+      renderProvider();
+      await act(async () => {});
+      await act(async () => { await vi.advanceTimersByTimeAsync(6_000); });
+
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
       await act(async () => {
+        document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('focus'));
       });
 
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalled();
-      });
+      expect(apiFetch).toHaveBeenCalledTimes(2);
     });
 
-    test('refreshes when tab becomes visible', async () => {
-      const storedRaces = [{ race_id: 1 }];
-      localStorage.setItem('signedRaces', JSON.stringify(storedRaces));
+    test('clears races and selection and stops polling on logout', async () => {
+      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1, name: 'Race 1' }));
+      apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1, name: 'Race 1' }] });
 
-      apiFetch.mockResolvedValue({ signed_races: [{ race_id: 1 }] });
+      const { rerender } = renderProvider(true);
+      await act(async () => {});
+      expect(activeRaceText()).toContain('Race 1');
 
-      render(
-        <TimeProvider>
+      rerender(
+        <TimeProvider isLoggedIn={false}>
           <TestComponent />
         </TimeProvider>
       );
 
-      Object.defineProperty(document, 'visibilityState', {
-        writable: true,
-        value: 'visible',
-      });
+      expect(activeRaceText()).toBe('null');
+      expect(screen.getByTestId('signed-races')).toHaveTextContent('[]');
+      expect(localStorage.getItem('activeRace')).toBeNull();
+      expect(localStorage.getItem('signedRaces')).toBe('[]');
 
-      await act(async () => {
-        document.dispatchEvent(new Event('visibilitychange'));
-      });
+      const callsAtLogout = apiFetch.mock.calls.length;
+      await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+      expect(apiFetch).toHaveBeenCalledTimes(callsAtLogout);
+    });
 
-      await waitFor(() => {
-        expect(apiFetch).toHaveBeenCalled();
-      });
+    test('ignores a refresh response that arrives after logout', async () => {
+      let resolveFetch;
+      apiFetch.mockReturnValue(new Promise((resolve) => { resolveFetch = resolve; }));
+
+      const { rerender } = renderProvider(true);
+      rerender(
+        <TimeProvider isLoggedIn={false}>
+          <TestComponent />
+        </TimeProvider>
+      );
+      await act(async () => { resolveFetch({ signed_races: [runningRace(9)] }); });
+
+      expect(screen.getByTestId('signed-races')).toHaveTextContent('[]');
+      expect(activeRaceText()).toBe('null');
+    });
+
+    test('syncSignedRaces with resetSelection drops the previous selection', async () => {
+      localStorage.setItem('activeRace', JSON.stringify(futureRace(4)));
+      renderProvider(null);
+
+      window.__syncRaces = [futureRace(4), runningRace(3)];
+      window.__syncOptions = { resetSelection: true };
+      await act(async () => { screen.getByText('Sync Races').click(); });
+
+      expect(activeRaceText()).toContain('Running 3');
     });
   });
 

@@ -70,7 +70,8 @@ describe('ActiveRace Component', () => {
   });
 
   describe('Auto-selection behavior', () => {
-    test('auto-selects race when only one candidate exists', () => {
+    // Auto-selection lives in TimeContext.syncSignedRaces; the page only renders it.
+    test('does not select a race itself when exactly one candidate exists', () => {
       const singleCandidate = {
         race_id: 1,
         name: 'Only Race',
@@ -86,7 +87,7 @@ describe('ActiveRace Component', () => {
         signedRaces: [singleCandidate],
       });
 
-      expect(mockSetActiveRace).toHaveBeenCalledWith(singleCandidate);
+      expect(mockSetActiveRace).not.toHaveBeenCalled();
     });
 
     test('does not auto-select when active race already exists', () => {

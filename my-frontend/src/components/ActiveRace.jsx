@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -50,13 +50,6 @@ function ActiveRace() {
     ...getPhasePresentation(t, timeInfo?.state || 'UNKNOWN'),
   };
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? activeRace?.raceId;
-
-  useEffect(() => {
-    if (!activeRace && candidates.length === 1) {
-      logger.info('RACE', 'Auto-selecting single candidate race', { race: candidates[0].name || candidates[0].race_id });
-      setActiveRace(candidates[0]);
-    }
-  }, [activeRace, candidates, setActiveRace]);
 
 
   const handleSelect = (race) => {

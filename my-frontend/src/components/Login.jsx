@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
-import { selectActiveRace } from '../utils/activeRaceUtils';
 import { logger } from '../utils/logger';
 
 import LanguageSwitcher from './LanguageSwitcher';
@@ -14,7 +13,7 @@ function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const { setActiveRace, setSignedRaces } = useTime();
+    const { syncSignedRaces } = useTime();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
@@ -28,8 +27,6 @@ function Login() {
                 localStorage.setItem('accessToken', data.access_token);
                 localStorage.removeItem('refreshToken');
                 localStorage.setItem('user', JSON.stringify(data.user));
-                localStorage.setItem('signedRaces', JSON.stringify(data.signed_races));
-                setSignedRaces(data.signed_races || []);
 
                 // Set language from user's preferred_language if available
                 if (data.user?.preferred_language) {
@@ -37,33 +34,18 @@ function Login() {
                     logger.info('SETTINGS', 'Language set from user preference', { language: data.user.preferred_language });
                 }
 
-                // choose active race (if exactly one candidate)
-                const { activeRaceId } = selectActiveRace(data.signed_races || []);
+                // Fresh selection for this login: auto-selects the race only if
+                // exactly one is currently in its time window.
+                const activeRace = syncSignedRaces(data.signed_races || [], { resetSelection: true });
+                const activeRaceId = activeRace ? (activeRace.race_id ?? activeRace.id ?? activeRace.raceId) : null;
 
-                if (activeRaceId) {
-                    // find the full signed_race object to persist (may contain team_id)
-                    const candidate = (data.signed_races || []).find(r => (r.race_id ?? r.id ?? r.raceId) === activeRaceId) || null;
-                    if (candidate) {
-                        logger.info('RACE', 'Auto-selecting race', { race: candidate.race_name || candidate.name || candidate.race_id });
-                        setActiveRace(candidate);
-                    }
-                    else {
-                        logger.warn('RACE', 'Could not find candidate race in signed_races', { activeRaceId });
-                        setActiveRace({ race_id: activeRaceId });
-                    }
-
+                // Notify app about auth change
+                window.dispatchEvent(new Event('auth-update'));
+                if (activeRaceId !== null && activeRaceId !== undefined) {
                     logger.info('NAVIGATION', `Navigating to /race/${activeRaceId}/map after login`);
-                    // Notify app about auth change and go directly to map (one race auto-selected)
-                    window.dispatchEvent(new Event('auth-update'));
                     navigate(`/race/${activeRaceId}/map`, { replace: true });
-
                 } else {
-                    logger.info('RACE', 'Multiple race candidates available, user must select');
-                    // no single candidate — clear any previous active race
-                    setActiveRace(null);
-
-                    // Notify app about auth change and go to race selection page
-                    window.dispatchEvent(new Event('auth-update'));
+                    logger.info('RACE', 'No single race in its time window, user must select');
                     navigate('/race', { replace: true });
                 }
             } else {

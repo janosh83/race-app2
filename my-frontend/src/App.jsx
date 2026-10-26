@@ -101,7 +101,7 @@ function App() {
   }
 
   return (
-    <TimeProvider>
+    <TimeProvider isLoggedIn={isLoggedIn}>
       <Router>
         <Routes>
           {/* Auth routes - accessible when NOT logged in, redirect to /race if logged in */}
