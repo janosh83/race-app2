@@ -1,7 +1,8 @@
 import pytest
 from datetime import datetime, timedelta
 from app import db
-from app.models import User, Race, Team, RaceCategory, Registration
+from flask_jwt_extended import create_refresh_token, decode_token
+from app.models import User, RefreshSession, Race, Team, RaceCategory, Registration
 from app.services.email_service import EmailService
 
 
@@ -69,35 +70,100 @@ def test_auth_login_normalizes_email_case(test_client, test_app):
         assert user.email == "mixedcase@example.com"
 
 
+def _refresh_cookie_value(response):
+    cookie = next((c for c in response.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert cookie is not None
+    return cookie.split(";", 1)[0].split("=", 1)[1]
+
+
 def test_auth_refresh_success(test_client):
-    test_client.post("/auth/register/", json={"name": "refresh", "email": "refresh@example.com", "password": "test"})
-    login = test_client.post("/auth/login/", json={"email": "refresh@example.com", "password": "test"})
-    assert login.status_code == 200
+    old_refresh_token = _login_refresh_token(test_client, "refresh@example.com")
 
-    refresh_cookie = next((c for c in login.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
-    assert refresh_cookie is not None
-    old_refresh_token = refresh_cookie.split(";", 1)[0].split("=", 1)[1]
-
-    response = test_client.post("/auth/refresh/", headers={"Cookie": f"refresh_token_cookie={old_refresh_token}"})
+    response = _post_with_refresh_cookie(test_client, "/auth/refresh/", old_refresh_token)
     assert response.status_code == 200
     assert "access_token" in response.json
-
-    refreshed_cookie = next((c for c in response.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
-    assert refreshed_cookie is not None
-    new_refresh_token = refreshed_cookie.split(";", 1)[0].split("=", 1)[1]
+    new_refresh_token = _refresh_cookie_value(response)
     assert new_refresh_token != old_refresh_token
 
-    replay_client = test_client.application.test_client()
-    replay_client.set_cookie(key="refresh_token_cookie", value=old_refresh_token, domain="localhost")
-    replay_response = replay_client.post("/auth/refresh/")
+    renewed_response = _post_with_refresh_cookie(test_client, "/auth/refresh/", new_refresh_token)
+    assert renewed_response.status_code == 200
+    assert "access_token" in renewed_response.json
+
+    # old_refresh_token is now two rotations behind: outside the grace window.
+    replay_response = _post_with_refresh_cookie(test_client, "/auth/refresh/", old_refresh_token)
     assert replay_response.status_code == 401
     assert replay_response.json["msg"] == "Invalid refresh token"
 
-    renewed_client = test_client.application.test_client()
-    renewed_client.set_cookie(key="refresh_token_cookie", value=new_refresh_token, domain="localhost")
-    renewed_response = renewed_client.post("/auth/refresh/")
-    assert renewed_response.status_code == 200
-    assert "access_token" in renewed_response.json
+
+def test_auth_refresh_concurrent_refresh_with_previous_token_succeeds(test_client, test_app):
+    """Two tabs sending the same cookie: the second request must not log the user out."""
+    token = _login_refresh_token(test_client, "concurrent@example.com")
+
+    first = _post_with_refresh_cookie(test_client, "/auth/refresh/", token)
+    second = _post_with_refresh_cookie(test_client, "/auth/refresh/", token)
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    # The late request gets the session's current token, not a further rotation.
+    with test_app.app_context():
+        first_claims = decode_token(_refresh_cookie_value(first))
+        second_claims = decode_token(_refresh_cookie_value(second))
+    assert second_claims["sid"] == first_claims["sid"]
+    assert second_claims["refresh_jti"] == first_claims["refresh_jti"]
+
+    followup = _post_with_refresh_cookie(test_client, "/auth/refresh/", _refresh_cookie_value(second))
+    assert followup.status_code == 200
+
+
+def test_auth_refresh_previous_token_rejected_after_grace_period(test_client, test_app):
+    token = _login_refresh_token(test_client, "grace@example.com")
+    assert _post_with_refresh_cookie(test_client, "/auth/refresh/", token).status_code == 200
+
+    with test_app.app_context():
+        user = User.query.filter_by(email="grace@example.com").first()
+        refresh_session = RefreshSession.query.filter_by(user_id=user.id).one()
+        refresh_session.rotated_at = datetime.now() - test_app.config["JWT_REFRESH_GRACE_PERIOD"] - timedelta(seconds=1)
+        db.session.commit()
+
+    replay = _post_with_refresh_cookie(test_client, "/auth/refresh/", token)
+    assert replay.status_code == 401
+    assert replay.json["msg"] == "Invalid refresh token"
+
+
+def test_auth_login_on_second_device_keeps_first_session(test_client):
+    first_device = _login_refresh_token(test_client, "devices@example.com")
+    second_device = _login_refresh_token(test_client, "devices@example.com")
+
+    assert _post_with_refresh_cookie(test_client, "/auth/refresh/", first_device).status_code == 200
+    assert _post_with_refresh_cookie(test_client, "/auth/refresh/", second_device).status_code == 200
+
+
+def test_auth_refresh_token_without_session_id_is_rejected(test_client, test_app):
+    test_client.post("/auth/register/", json={"name": "legacy", "email": "legacy@example.com", "password": "test"})
+    with test_app.app_context():
+        user = User.query.filter_by(email="legacy@example.com").first()
+        legacy_token = create_refresh_token(identity=str(user.id), additional_claims={"refresh_jti": "legacy"})
+
+    response = _post_with_refresh_cookie(test_client, "/auth/refresh/", legacy_token)
+    assert response.status_code == 401
+    assert response.json["msg"] == "Invalid refresh token"
+
+
+def test_auth_login_prunes_expired_sessions(test_client, test_app):
+    _login_refresh_token(test_client, "prune@example.com")
+    with test_app.app_context():
+        user = User.query.filter_by(email="prune@example.com").first()
+        stale = RefreshSession.query.filter_by(user_id=user.id).one()
+        stale.rotated_at = datetime.now() - test_app.config["JWT_REFRESH_TOKEN_EXPIRES"] - timedelta(minutes=1)
+        stale_id = stale.id
+        db.session.commit()
+
+    _login_refresh_token(test_client, "prune@example.com")
+    with test_app.app_context():
+        user = User.query.filter_by(email="prune@example.com").first()
+        session_ids = [s.id for s in RefreshSession.query.filter_by(user_id=user.id).all()]
+    assert len(session_ids) == 1
+    assert stale_id not in session_ids
 
 
 def test_auth_refresh_deleted_user_returns_401(test_client, test_app):

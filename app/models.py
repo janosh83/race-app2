@@ -235,8 +235,8 @@ class User(db.Model):
     preferred_language = db.Column(db.String(5), nullable=True)
     reset_token = db.Column(db.String(100), nullable=True, unique=True)
     reset_token_expiry = db.Column(db.DateTime, nullable=True)
-    refresh_token_jti = db.Column(db.String(64), nullable=True, unique=True)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')
+    refresh_sessions = db.relationship('RefreshSession', backref='user', cascade="all, delete-orphan", lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -251,3 +251,15 @@ class User(db.Model):
     def clear_reset_token(self):
         self.reset_token = None
         self.reset_token_expiry = None
+
+class RefreshSession(db.Model):
+    """One logged-in browser/device. The refresh token carries the session id
+    ("sid") and the JTI of its current rotation ("refresh_jti"). The previous
+    JTI stays valid for a short grace period so a refresh whose response was
+    lost, or two tabs refreshing at once, doesn't log the user out."""
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    current_jti = db.Column(db.String(64), nullable=False)
+    previous_jti = db.Column(db.String(64), nullable=True)
+    rotated_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)

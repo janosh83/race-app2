@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { apiFetch, fetchRaw, parseJwt, isTokenExpired, logoutAndRedirect } from './api';
+import { apiFetch, fetchRaw, parseJwt, isTokenExpired, logoutAndRedirect, refreshAccessToken } from './api';
 
 describe('API Utilities', () => {
   describe('parseJwt', () => {
@@ -139,6 +139,85 @@ describe('API Utilities', () => {
       expect(requestUrls.filter((url) => url.includes('/auth/refresh/')).length).toBe(0);
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(localStorage.getItem('accessToken')).toBe(token);
+    });
+  });
+
+  describe('refreshAccessToken cross-tab lock', () => {
+    const makeToken = (expOffsetSeconds) =>
+      `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expOffsetSeconds }))}.signature`;
+    const refreshResponse = (accessToken) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ access_token: accessToken }),
+    });
+
+    beforeEach(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      global.fetch = vi.fn();
+    });
+
+    afterEach(() => {
+      delete navigator.locks;
+    });
+
+    test('refreshes under a named Web Lock', async () => {
+      const request = vi.fn((_name, callback) => callback());
+      Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true });
+      localStorage.setItem('accessToken', makeToken(30));
+      const fresh = makeToken(1800);
+      global.fetch.mockResolvedValue(refreshResponse(fresh));
+
+      await expect(refreshAccessToken()).resolves.toBe(fresh);
+
+      expect(request).toHaveBeenCalledWith('race-app-token-refresh', expect.any(Function));
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem('accessToken')).toBe(fresh);
+    });
+
+    test('reuses a token another tab refreshed while waiting for the lock', async () => {
+      const refreshedByOtherTab = makeToken(1800);
+      const request = vi.fn((_name, callback) => {
+        // Simulate the other tab finishing its refresh before we get the lock.
+        localStorage.setItem('accessToken', refreshedByOtherTab);
+        return callback();
+      });
+      Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true });
+      localStorage.setItem('accessToken', makeToken(30));
+
+      await expect(refreshAccessToken()).resolves.toBe(refreshedByOtherTab);
+      expect(global.fetch).not.toHaveBeenCalled();
+
+      // The in-flight promise must be cleared so a later refresh hits the server.
+      const later = makeToken(3600);
+      localStorage.setItem('accessToken', makeToken(30));
+      Object.defineProperty(navigator, 'locks', { value: { request: (_n, cb) => cb() }, configurable: true });
+      global.fetch.mockResolvedValue(refreshResponse(later));
+      await expect(refreshAccessToken()).resolves.toBe(later);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    test('refreshes again when the token in storage is unchanged', async () => {
+      const request = vi.fn((_name, callback) => callback());
+      Object.defineProperty(navigator, 'locks', { value: { request }, configurable: true });
+      localStorage.setItem('accessToken', makeToken(1800)); // e.g. rejected by the server despite not being expired
+      const fresh = makeToken(3600);
+      global.fetch.mockResolvedValue(refreshResponse(fresh));
+
+      await expect(refreshAccessToken()).resolves.toBe(fresh);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    test('falls back to an unlocked refresh without Web Locks support', async () => {
+      localStorage.setItem('accessToken', makeToken(30));
+      const fresh = makeToken(1800);
+      global.fetch.mockResolvedValue(refreshResponse(fresh));
+
+      const [a, b] = await Promise.all([refreshAccessToken(), refreshAccessToken()]);
+
+      expect(a).toBe(fresh);
+      expect(b).toBe(fresh);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
     });
   });
 

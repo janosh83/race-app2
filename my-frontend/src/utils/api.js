@@ -141,14 +141,35 @@ export function logoutAndRedirect(_loginPath = '/login') {
 /* ---------- token refresh ---------- */
 let refreshPromise = null;
 
+// Tabs share the refresh cookie and the access token in localStorage, so they
+// tend to refresh at the same moment. Serialize refreshes across tabs with a
+// Web Lock; a tab that waited re-checks localStorage and reuses a token another
+// tab obtained meanwhile instead of rotating the refresh token again. Without
+// Web Locks support the backend's grace period still covers concurrent refreshes.
+const REFRESH_LOCK_NAME = 'race-app-token-refresh';
+
+function withRefreshLock(callback) {
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return navigator.locks.request(REFRESH_LOCK_NAME, callback);
+  }
+  return callback();
+}
+
 export async function refreshAccessToken() {
   // If already refreshing, return the existing promise
   if (refreshPromise) return refreshPromise;
 
   logger.info('TOKEN', 'Starting token refresh');
+  const tokenBeforeRefresh = localStorage.getItem('accessToken');
 
-  refreshPromise = (async () => {
+  refreshPromise = withRefreshLock(async () => {
     try {
+      const currentToken = localStorage.getItem('accessToken');
+      if (currentToken && currentToken !== tokenBeforeRefresh && !isTokenExpired(currentToken, 120)) {
+        logger.info('TOKEN', 'Using token refreshed by another tab');
+        return currentToken;
+      }
+
       const res = await fetch(`${BASE}/auth/refresh/`, {
         method: 'POST',
         credentials: 'include',
@@ -175,10 +196,12 @@ export async function refreshAccessToken() {
       logger.error('TOKEN', 'Token refresh error', err.message);
       logoutAndRedirect();
       throw err;
-    } finally {
-      refreshPromise = null;
     }
-  })();
+  }).finally(() => {
+    // Reset outside the callback: it may finish synchronously (early return
+    // without Web Locks), before refreshPromise has even been assigned.
+    refreshPromise = null;
+  });
 
   return refreshPromise;
 }

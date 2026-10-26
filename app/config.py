@@ -44,6 +44,11 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(
         days=int(os.environ.get('JWT_REFRESH_TOKEN_EXPIRES_DAYS', '30'))
     )
+    # After rotation the previous refresh token stays usable this long, so
+    # concurrent refreshes or a lost refresh response don't log the user out.
+    JWT_REFRESH_GRACE_PERIOD = timedelta(
+        seconds=int(os.environ.get('JWT_REFRESH_GRACE_SECONDS', '60'))
+    )
     JWT_TOKEN_LOCATION = ['headers', 'cookies']
     JWT_COOKIE_SECURE = os.environ.get('JWT_COOKIE_SECURE', 'false').lower() == 'true'
     JWT_COOKIE_HTTPONLY = True

@@ -8,7 +8,7 @@ from flask_jwt_extended.exceptions import JWTExtendedException
 from jwt.exceptions import PyJWTError
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
-from app.models import User, Registration, Team, Race, RaceCategory, team_members
+from app.models import User, RefreshSession, Registration, Team, Race, RaceCategory, team_members
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
@@ -23,6 +23,14 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def _create_session_refresh_token(user_id, refresh_session):
+    return create_refresh_token(
+        identity=str(user_id),
+        additional_claims={"sid": refresh_session.id, "refresh_jti": refresh_session.current_jti},
+    )
+
 
 # tested by test_auth.py -> test_auth_login
 @auth_bp.route('/register/', methods=['POST'])
@@ -278,16 +286,23 @@ def login():
         logger.error("Failed login attempt for email: %s", normalized_email or 'unknown')
         return jsonify({"msg": "Invalid credentials"}), 401
 
-    refresh_jti = str(uuid.uuid4())
     if user.is_administrator:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": True})
     else:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
 
-    # Issue refresh token with longer lifetime and a unique JTI so old refresh tokens can be invalidated.
-    refresh_token = create_refresh_token(identity=str(user.id), additional_claims={"refresh_jti": refresh_jti})
-    user.refresh_token_jti = refresh_jti
+    # Each login starts its own refresh session, so logging in on one device
+    # doesn't invalidate the others. Sessions unused for longer than the refresh
+    # token lifetime can no longer be refreshed and are pruned here.
+    now = datetime.now()
+    RefreshSession.query.filter(
+        RefreshSession.user_id == user.id,
+        RefreshSession.rotated_at < now - current_app.config['JWT_REFRESH_TOKEN_EXPIRES'],
+    ).delete(synchronize_session=False)
+    refresh_session = RefreshSession(id=str(uuid.uuid4()), user_id=user.id, current_jti=str(uuid.uuid4()), rotated_at=now)
+    db.session.add(refresh_session)
     db.session.commit()
+    refresh_token = _create_session_refresh_token(user.id, refresh_session)
 
     logger.info("User logged in: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
 
@@ -425,11 +440,12 @@ def logout():
     # or invalid cookie must not block logout: cookies are cleared regardless.
     try:
         verify_jwt_in_request(refresh=True, locations=['cookies'])
-        user = User.query.filter_by(id=int(get_jwt_identity())).first()
-        # Only revoke if the cookie belongs to the current session, so a stale
-        # cookie can't end a newer session started elsewhere.
-        if user is not None and user.refresh_token_jti == get_jwt().get("refresh_jti"):
-            user.refresh_token_jti = None
+        claims = get_jwt()
+        refresh_session = RefreshSession.query.filter_by(id=claims.get("sid"), user_id=int(get_jwt_identity())).first()
+        # Only the cookie's own session is ended; other devices stay logged in.
+        # A cookie older than the previous rotation can't end the session.
+        if refresh_session is not None and claims.get("refresh_jti") in (refresh_session.current_jti, refresh_session.previous_jti):
+            db.session.delete(refresh_session)
             db.session.commit()
     except (JWTExtendedException, PyJWTError, TypeError, ValueError):
         pass
@@ -478,16 +494,29 @@ def refresh():
 
     refresh_claims = get_jwt()
     refresh_jti = refresh_claims.get("refresh_jti")
-    if not refresh_jti or user.refresh_token_jti != refresh_jti:
-        logger.warning("Refresh denied for user %s: refresh token JTI mismatch or missing", user_id)
+    refresh_session = RefreshSession.query.filter_by(id=refresh_claims.get("sid"), user_id=user.id).first()
+    if not refresh_jti or refresh_session is None:
+        logger.warning("Refresh denied for user %s: refresh session missing or revoked", user_id)
+        return jsonify({"msg": "Invalid refresh token"}), 401
+
+    now = datetime.now()
+    if refresh_jti == refresh_session.current_jti:
+        refresh_session.previous_jti = refresh_session.current_jti
+        refresh_session.current_jti = str(uuid.uuid4())
+        refresh_session.rotated_at = now
+        db.session.commit()
+    elif (refresh_jti == refresh_session.previous_jti
+          and now - refresh_session.rotated_at <= current_app.config['JWT_REFRESH_GRACE_PERIOD']):
+        # A concurrent refresh already rotated this session (or its response
+        # was lost). Don't rotate again; hand out the current token instead.
+        logger.info("Refresh for user %s used previous token within grace period", user_id)
+    else:
+        logger.warning("Refresh denied for user %s: refresh token JTI mismatch", user_id)
         return jsonify({"msg": "Invalid refresh token"}), 401
 
     is_admin = bool(user.is_administrator)
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
-    new_refresh_jti = str(uuid.uuid4())
-    new_refresh = create_refresh_token(identity=str(user_id), additional_claims={"refresh_jti": new_refresh_jti})
-    user.refresh_token_jti = new_refresh_jti
-    db.session.commit()
+    new_refresh = _create_session_refresh_token(user.id, refresh_session)
 
     logger.info("Access token refreshed for user %s (ID: %s)", user.email, user.id)
     response = jsonify({"access_token": new_access})
