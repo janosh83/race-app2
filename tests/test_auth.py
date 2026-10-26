@@ -120,6 +120,55 @@ def test_auth_refresh_deleted_user_returns_401(test_client, test_app):
     assert response.json["msg"] == "User not found"
 
 
+def _login_refresh_token(test_client, email):
+    test_client.post("/auth/register/", json={"name": email, "email": email, "password": "test"})
+    login = test_client.post("/auth/login/", json={"email": email, "password": "test"})
+    assert login.status_code == 200
+    refresh_cookie = next((c for c in login.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert refresh_cookie is not None
+    return refresh_cookie.split(";", 1)[0].split("=", 1)[1]
+
+
+def _post_with_refresh_cookie(test_client, path, refresh_token):
+    # Fresh client per request so cookies set/cleared by earlier responses don't leak in.
+    client = test_client.application.test_client()
+    client.set_cookie(key="refresh_token_cookie", value=refresh_token, domain="localhost")
+    return client.post(path)
+
+
+def test_auth_logout_revokes_refresh_token_and_clears_cookie(test_client):
+    refresh_token = _login_refresh_token(test_client, "logout1@example.com")
+
+    response = _post_with_refresh_cookie(test_client, "/auth/logout/", refresh_token)
+    assert response.status_code == 200
+    cleared = next((c for c in response.headers.getlist("Set-Cookie") if c.startswith("refresh_token_cookie=")), None)
+    assert cleared is not None
+    assert cleared.startswith("refresh_token_cookie=;")
+
+    replay = _post_with_refresh_cookie(test_client, "/auth/refresh/", refresh_token)
+    assert replay.status_code == 401
+    assert replay.json["msg"] == "Invalid refresh token"
+
+
+def test_auth_logout_with_stale_refresh_token_keeps_current_session(test_client):
+    stale_token = _login_refresh_token(test_client, "logout2@example.com")
+    current_token = _login_refresh_token(test_client, "logout2@example.com")
+
+    response = _post_with_refresh_cookie(test_client, "/auth/logout/", stale_token)
+    assert response.status_code == 200
+
+    refreshed = _post_with_refresh_cookie(test_client, "/auth/refresh/", current_token)
+    assert refreshed.status_code == 200
+
+
+@pytest.mark.parametrize("cookie_header", [None, "refresh_token_cookie=not-a-jwt"])
+def test_auth_logout_without_valid_refresh_cookie_still_succeeds(test_client, cookie_header):
+    headers = {"Cookie": cookie_header} if cookie_header else {}
+    response = test_client.post("/auth/logout/", headers=headers)
+    assert response.status_code == 200
+    assert any(c.startswith("refresh_token_cookie=;") for c in response.headers.getlist("Set-Cookie"))
+
+
 def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_app):
     """Login payload should include only payment-confirmed signed races."""
     with test_app.app_context():

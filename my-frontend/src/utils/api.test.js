@@ -174,6 +174,7 @@ describe('API Utilities', () => {
       localStorage.setItem('activeRace', '{"id":1}');
       localStorage.setItem('activeSection', 'map');
       sessionStorage.clear();
+      global.fetch = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 
       delete window.location;
       window.location = {
@@ -216,6 +217,34 @@ describe('API Utilities', () => {
       logoutAndRedirect();
       expect(window.location.pathname).toBe('/login');
       expect(localStorage.getItem('accessToken')).toBeNull();
+    });
+
+    test('revokes the server session so the refresh cookie is cleared', () => {
+      logoutAndRedirect();
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      const [url, init] = global.fetch.mock.calls[0];
+      expect(String(url)).toContain('/auth/logout/');
+      expect(init).toMatchObject({ method: 'POST', credentials: 'include', keepalive: true });
+    });
+
+    test('revokes the server session even when already on an auth screen', () => {
+      window.location = {
+        href: 'http://localhost/login',
+        pathname: '/login',
+      };
+      logoutAndRedirect();
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(String(global.fetch.mock.calls[0][0])).toContain('/auth/logout/');
+    });
+
+    test('still clears local state when the server logout request fails', () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('offline'));
+      logoutAndRedirect();
+
+      expect(localStorage.getItem('accessToken')).toBeNull();
+      expect(window.location.href).toBe('/');
     });
 
     test('clears stale redirect locks so a new logout can proceed', () => {

@@ -3,7 +3,9 @@ import logging
 import uuid
 from flask import current_app
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt, set_refresh_cookies, unset_jwt_cookies
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt, set_refresh_cookies, unset_jwt_cookies, verify_jwt_in_request
+from flask_jwt_extended.exceptions import JWTExtendedException
+from jwt.exceptions import PyJWTError
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from app.models import User, Registration, Team, Race, RaceCategory, team_members
@@ -417,18 +419,20 @@ def admin():
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
 @auth_bp.route('/logout/', methods=['POST'])
-@jwt_required(optional=True)
 def logout():
-    current_user_id = get_jwt_identity()
-    if current_user_id is not None:
-        try:
-            user_id_int = int(current_user_id)
-            user = User.query.filter_by(id=user_id_int).first()
-            if user is not None:
-                user.refresh_token_jti = None
-                db.session.commit()
-        except (TypeError, ValueError):
-            pass
+    # Revoke the session identified by the refresh cookie rather than the access
+    # token, which is often already expired when the frontend logs out. A missing
+    # or invalid cookie must not block logout: cookies are cleared regardless.
+    try:
+        verify_jwt_in_request(refresh=True, locations=['cookies'])
+        user = User.query.filter_by(id=int(get_jwt_identity())).first()
+        # Only revoke if the cookie belongs to the current session, so a stale
+        # cookie can't end a newer session started elsewhere.
+        if user is not None and user.refresh_token_jti == get_jwt().get("refresh_jti"):
+            user.refresh_token_jti = None
+            db.session.commit()
+    except (JWTExtendedException, PyJWTError, TypeError, ValueError):
+        pass
 
     response = jsonify({"msg": "Logged out"})
     unset_jwt_cookies(response)

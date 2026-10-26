@@ -29,6 +29,23 @@ export function isTokenExpired(token, marginSeconds = 10) {
   return Date.now() > (expMs - marginSeconds * 1000);
 }
 
+// Revoke the refresh token server-side and clear its HttpOnly cookie. Without
+// this the cookie stays valid and any pending refresh silently logs the user
+// back in. keepalive lets the request finish even though we navigate away
+// right after; failures are ignored because local logout must always proceed.
+function revokeServerSession() {
+  try {
+    fetch(`${BASE}/auth/logout/`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+      headers: { 'Accept': 'application/json' },
+    }).catch(() => undefined);
+  } catch {
+    void 0;
+  }
+}
+
 export function logoutAndRedirect(_loginPath = '/login') {
   const safeAuthPaths = new Set(['/login', '/forgot-password', '/reset-password']);
   const finalTarget = '/';
@@ -49,6 +66,7 @@ export function logoutAndRedirect(_loginPath = '/login') {
   try {
     if (safeAuthPaths.has(currentPath)) {
       logger.info('AUTH', 'Skipping logout redirect because user is already on an auth screen', { currentPath, targetPath: finalTarget });
+      revokeServerSession();
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
@@ -93,6 +111,7 @@ export function logoutAndRedirect(_loginPath = '/login') {
   }
 
   logger.info('AUTH', 'Logging out and redirecting to login', { targetPath: finalTarget });
+  revokeServerSession();
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
