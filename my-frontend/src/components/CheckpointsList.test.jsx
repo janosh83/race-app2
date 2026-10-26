@@ -3,7 +3,7 @@ import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
+import { logoutAndRedirect } from '../utils/api';
 
 import CheckpointsList from './CheckpointsList';
 
@@ -52,7 +52,6 @@ describe('CheckpointsList Component', () => {
     });
 
     vi.spyOn(TimeContext, 'formatDate').mockImplementation((date) => date || 'N/A');
-    isTokenExpired.mockReturnValue(false);
     vi.stubEnv('VITE_API_URL', 'http://test-api.com');
     global.navigator.geolocation = mockGeolocation;
   });
@@ -76,39 +75,6 @@ describe('CheckpointsList Component', () => {
     await waitFor(() => expect(screen.getByText(checkpoint.title)).toBeInTheDocument());
     fireEvent.click(screen.getByText(checkpoint.title));
   };
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderList();
-
-      expect(isTokenExpired).toHaveBeenCalledWith('valid-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-
-      renderList();
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      vi.useFakeTimers();
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderList();
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
-  });
 
   describe('Checkpoint fetching and status', () => {
     test('fetches checkpoints for the active race and team', async () => {

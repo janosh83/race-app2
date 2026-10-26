@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate } from 'react-router-dom';
 
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
 import LanguageSwitcher from '../LanguageSwitcher';
 
 function AdminLayout() {
@@ -17,20 +16,6 @@ function AdminLayout() {
     } catch {
       return null;
     }
-  }, []);
-
-  // Check token expiry
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
   }, []);
 
   // Redirect non-admins

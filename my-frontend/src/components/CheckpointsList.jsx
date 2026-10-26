@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import './CheckpointsList.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
@@ -37,17 +36,6 @@ function CheckpointsList({ topOffset = 56 }) {
     if (checkpoint?.points !== null && checkpoint?.points !== undefined) return checkpoint.points;
     return 0;
   };
-
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const [checkpoints, setCheckpoints] = useState([]);

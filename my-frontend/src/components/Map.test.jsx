@@ -4,7 +4,6 @@ import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import Map from './Map';
 
@@ -128,42 +127,6 @@ describe('Map Component', () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
-  });
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('Checkpoint fetching', () => {

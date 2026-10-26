@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 
 import App from './App';
-import { isTokenExpired } from './utils/api';
+import { isTokenExpired, logoutAndRedirect, refreshAccessToken } from './utils/api';
 
 // Mock the isTokenExpired utility
 vi.mock('./utils/api', () => ({
@@ -114,6 +114,57 @@ describe('App Component - Routing', () => {
       window.history.pushState({}, 'Race', '/race');
       render(<App />);
       expect(await screen.findByText('Login Component')).toBeInTheDocument();
+    });
+  });
+
+  describe('Proactive token refresh', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      isTokenExpired.mockReset();
+      refreshAccessToken.mockRejectedValue(new Error('refresh failed'));
+    });
+
+    test('refreshes instead of logging out when the token is about to expire', async () => {
+      localStorage.setItem('accessToken', 'nearly-expired-token');
+      // Still valid for the auth check, but within the 120s refresh margin.
+      isTokenExpired.mockImplementation((_token, margin) => margin === 120);
+      refreshAccessToken.mockResolvedValue('fresh-token');
+
+      window.history.pushState({}, 'Race', '/race');
+      render(<App />);
+      expect(screen.getByText('RaceLayout Component')).toBeInTheDocument();
+      expect(refreshAccessToken).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(refreshAccessToken).toHaveBeenCalledTimes(1);
+      expect(logoutAndRedirect).not.toHaveBeenCalled();
+      expect(screen.getByText('RaceLayout Component')).toBeInTheDocument();
+    });
+
+    test('does not refresh when the token is not close to expiry', async () => {
+      localStorage.setItem('accessToken', 'valid-token');
+      isTokenExpired.mockReturnValue(false);
+
+      window.history.pushState({}, 'Race', '/race');
+      render(<App />);
+      await vi.advanceTimersByTimeAsync(90_000);
+
+      expect(refreshAccessToken).not.toHaveBeenCalled();
+    });
+
+    test('does not refresh when there is no token', async () => {
+      isTokenExpired.mockReturnValue(true);
+
+      window.history.pushState({}, 'Login', '/login');
+      render(<App />);
+      await vi.advanceTimersByTimeAsync(90_000);
+
+      expect(refreshAccessToken).not.toHaveBeenCalled();
     });
   });
 

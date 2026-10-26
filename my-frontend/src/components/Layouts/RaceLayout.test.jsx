@@ -3,7 +3,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import * as TimeContext from '../../contexts/TimeContext';
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { logoutAndRedirect } from '../../utils/api';
 
 import RaceLayout from './RaceLayout';
 
@@ -50,7 +50,6 @@ describe('RaceLayout Component', () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.useFakeTimers();
-    isTokenExpired.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -321,57 +320,6 @@ describe('RaceLayout Component', () => {
 
       // Navbar should close (checked before reload is called)
       expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
-    });
-  });
-
-  describe('Token expiry checking', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      renderWithProviders();
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-    });
-
-    test('logs out on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-
-      renderWithProviders();
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('does not logout when token is valid', () => {
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithProviders();
-
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithProviders();
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(3);
-    });
-
-    test('does nothing when no token exists', () => {
-      localStorage.removeItem('accessToken');
-
-      renderWithProviders();
-
-      expect(isTokenExpired).not.toHaveBeenCalled();
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
     });
   });
 

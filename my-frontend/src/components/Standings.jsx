@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 const normalizeComparableId = (value) => (
   value === null || value === undefined ? null : String(value)
@@ -64,17 +63,6 @@ function Standings() {
 
     return result;
   }, [results]);
-
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
 
   useEffect(() => {
     const fetchResults = async () => {

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate } from 'react-router-dom';
 
 import { useTime } from '../../contexts/TimeContext';
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { logoutAndRedirect } from '../../utils/api';
 import { logger } from '../../utils/logger';
 import LanguageSwitcher from '../LanguageSwitcher';
 
@@ -47,22 +47,6 @@ function RaceLayout() {
     const t = setTimeout(measureNav, 300);
     return () => clearTimeout(t);
   }, [navOpen, measureNav]);
-
-  // Check token expiry
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logger.warn('TOKEN', 'Token expiry detected, logging out');
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    logger.info('COMPONENT', 'Token expiry check started', { intervalMs: 30000 });
-    return () => clearInterval(id);
-  }, []);
 
   const handleLogout = () => {
     logger.info('AUTH', 'Logout initiated from RaceLayout');

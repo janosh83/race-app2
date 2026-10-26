@@ -3,7 +3,6 @@ import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import Tasks from './Tasks';
 
@@ -54,43 +53,6 @@ describe('Tasks Component', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      vi.useFakeTimers();
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('Tasks fetching', () => {

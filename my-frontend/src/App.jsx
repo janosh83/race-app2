@@ -63,6 +63,16 @@ function App() {
       setIsLoggedIn(loggedIn);
     };
 
+    // Refresh the access token shortly before it expires so an idle tab (one
+    // making no API calls) stays logged in. This is the only token watcher:
+    // refreshAccessToken() logs out only if the refresh cookie is rejected.
+    const keepTokenFresh = () => {
+      const token = localStorage.getItem('accessToken');
+      if (token && isTokenExpired(token, 120)) {
+        refreshAccessToken().catch(() => undefined);
+      }
+    };
+
     // Run immediately on mount
     syncAuth();
 
@@ -70,11 +80,13 @@ function App() {
     window.addEventListener('auth-update', syncAuth);
     window.addEventListener('storage', syncAuth);
     window.addEventListener('focus', syncAuth);
+    const keepFreshId = setInterval(keepTokenFresh, 30_000);
 
     return () => {
       window.removeEventListener('auth-update', syncAuth);
       window.removeEventListener('storage', syncAuth);
       window.removeEventListener('focus', syncAuth);
+      clearInterval(keepFreshId);
     };
   }, []);
 

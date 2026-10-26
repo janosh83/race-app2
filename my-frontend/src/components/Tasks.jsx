@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import './Tasks.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
@@ -28,18 +27,6 @@ const getTaskUploadErrorMessage = (t, err) => {
 
 function Tasks({ topOffset = 56 }) {
   const { t } = useTranslation();
-  // token expiry watcher
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);

@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
 import { findCandidates } from '../utils/activeRaceUtils';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { logger } from '../utils/logger';
 
 import LanguageFlagsDisplay from './LanguageFlagsDisplay';
@@ -24,21 +23,6 @@ const getPhasePresentation = (t, phaseState) => ({
 
 function ActiveRace() {
   const { t } = useTranslation();
-  // token expiry watcher (redirect to login when token expires)
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logger.warn('TOKEN', 'Token expiry detected in ActiveRace');
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const { activeRace, setActiveRace, signedRaces, timeInfo } = useTime();
   const candidates = useMemo(() => findCandidates(signedRaces || []), [signedRaces]);
 

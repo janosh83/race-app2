@@ -4,7 +4,6 @@ import { MemoryRouter } from 'react-router-dom';
 
 import * as TimeContext from '../contexts/TimeContext';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import ActiveRace from './ActiveRace';
 
@@ -20,7 +19,6 @@ describe('ActiveRace Component', () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.useFakeTimers();
-    isTokenExpired.mockReturnValue(false);
     activeRaceUtils.findCandidates.mockReturnValue([]);
   });
 
@@ -39,63 +37,6 @@ describe('ActiveRace Component', () => {
       </TimeContext.TimeProvider>
     );
   };
-
-  describe('Token expiry checking', () => {
-    test('checks token on mount and redirects if expired', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).toHaveBeenCalledWith('expired-token', 5);
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('does not redirect if token is valid', () => {
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
-
-    test('does nothing if no token exists', () => {
-      localStorage.removeItem('accessToken');
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).not.toHaveBeenCalled();
-    });
-  });
 
   describe('Rendering with no active race', () => {
     test('displays warning when no active race and no candidates', () => {

@@ -6,7 +6,6 @@ import 'leaflet/dist/leaflet.css';
 import './Map.css';
 import { useTime, formatDate } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
@@ -125,21 +124,6 @@ function Map({ topOffset = 56 }) {
   };
 
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight);
-  // token expiry watcher (redirect to login when token expires)
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logger.warn('TOKEN', 'Token expiry detected in Map');
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
