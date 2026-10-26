@@ -9,10 +9,11 @@ Tests the user endpoints:
 - GET /api/user/signed-races/ - Get races the current user is signed to
 """
 
+import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import Race, Team, User, RaceCategory, Registration
+from app.models import Race, Team, User, RaceCategory, Registration, RefreshSession
 from datetime import datetime, timedelta
 
 
@@ -515,6 +516,29 @@ def test_update_user_password(test_client, add_test_data, admin_auth_headers):
         "password": "newpassword456"
     })
     assert login_response.status_code == 200
+
+
+def _add_refresh_session(user_id):
+    db.session.add(RefreshSession(id=str(uuid.uuid4()), user_id=user_id, current_jti=str(uuid.uuid4()), rotated_at=datetime.now()))
+    db.session.commit()
+
+
+def test_update_user_password_revokes_refresh_sessions(test_client, add_test_data, admin_auth_headers):
+    """Changing the password logs the user out on every device."""
+    _add_refresh_session(1)
+    _add_refresh_session(1)
+
+    response = test_client.put("/api/user/1/", json={"password": "newpassword456"}, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert RefreshSession.query.filter_by(user_id=1).count() == 0
+
+
+def test_update_user_without_password_keeps_refresh_sessions(test_client, add_test_data, admin_auth_headers):
+    _add_refresh_session(1)
+
+    response = test_client.put("/api/user/1/", json={"name": "Renamed"}, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert RefreshSession.query.filter_by(user_id=1).count() == 1
 
 
 def test_update_user_admin_flag(test_client, add_test_data, admin_auth_headers):

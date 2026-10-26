@@ -476,3 +476,23 @@ def test_reset_password_success(test_client):
     assert user.reset_token_expiry is None
     assert user.check_password("newpass")
 
+
+def test_reset_password_revokes_existing_sessions(test_client):
+    """A refresh cookie obtained with the old password must stop working."""
+    refresh_token = _login_refresh_token(test_client, "revoke@example.com")
+
+    user = User.query.filter_by(email="revoke@example.com").first()
+    user.reset_token = "revoke-token"
+    user.reset_token_expiry = datetime.now() + timedelta(hours=1)
+    db.session.commit()
+
+    resp = test_client.post("/auth/reset-password/", json={"token": "revoke-token", "new_password": "newpass"})
+    assert resp.status_code == 200
+
+    refreshed = _post_with_refresh_cookie(test_client, "/auth/refresh/", refresh_token)
+    assert refreshed.status_code == 401
+    assert refreshed.json["msg"] == "Invalid refresh token"
+
+    login = test_client.post("/auth/login/", json={"email": "revoke@example.com", "password": "newpass"})
+    assert login.status_code == 200
+

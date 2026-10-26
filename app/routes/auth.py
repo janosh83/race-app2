@@ -661,9 +661,11 @@ def reset_password():
         logger.warning("Password reset attempt with expired token for user: %s", user.email)
         return jsonify({"msg": "Token has expired"}), 400
 
-    # Reset password
+    # Reset password and end all existing sessions: whoever knew the old
+    # password may still hold a valid refresh cookie.
     user.set_password(new_password)
     user.clear_reset_token()
+    user.revoke_refresh_sessions()
     db.session.commit()
 
     logger.info("Password successfully reset for user: %s (ID: %s)", user.email, user.id)

@@ -257,6 +257,7 @@ def update_user(user_id):
 
     if 'password' in data and data['password']:
         user.set_password(data['password'])
+        user.revoke_refresh_sessions()
         updated_fields.append('password')
 
     if 'is_administrator' in data:

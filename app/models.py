@@ -252,6 +252,10 @@ class User(db.Model):
         self.reset_token = None
         self.reset_token_expiry = None
 
+    def revoke_refresh_sessions(self):
+        """Log the user out everywhere, e.g. after a password change."""
+        self.refresh_sessions.clear()  # delete-orphan cascade deletes the rows
+
 class RefreshSession(db.Model):
     """One logged-in browser/device. The refresh token carries the session id
     ("sid") and the JTI of its current rotation ("refresh_jti"). The previous
