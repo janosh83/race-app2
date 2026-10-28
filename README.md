@@ -526,6 +526,24 @@ cd my-frontend
 npm test
 ```
 
+End-to-end tests (Playwright: real browser, frontend and backend together):
+
+```bash
+cd my-frontend
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+`npm run test:e2e` starts its own backend (`scripts/e2e_server.py`, port 5055, with a fresh
+SQLite database in `.e2e/` seeded with test users and races) and Vite (port 5175), so your
+dev servers and `instance/app.db` are not touched. The tests live in `my-frontend/e2e/`.
+Useful options: `npx playwright test --ui` (interactive), `--headed` (watch the browser),
+`npx playwright show-trace <trace.zip>` (inspect a failure). Set `E2E_PYTHON` if your Python
+executable isn't `python` (e.g. a virtualenv path).
+
+All three suites run on GitHub Actions for pushes to `master`/`develop` and for pull
+requests (`.github/workflows/tests.yml`).
+
 Frontend static analysis:
 
 ```bash
