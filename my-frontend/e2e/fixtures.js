@@ -8,6 +8,10 @@ export const PASSWORD = 'e2e-password';
 export const RUNNING_A = 'Running Race A';
 export const RUNNING_B = 'Running Race B';
 export const FUTURE = 'Future Race';
+export const NOT_STARTED = 'Not Started Race';
+export const PREVIEW = 'Preview Race';
+export const LOGGING_CLOSED = 'Logging Closed Race';
+export const FINISHED = 'Finished Race';
 export const userEmail = (key) => `${key}@e2e.test`;
 
 // A real JPEG, so it passes the backend's image validation.
@@ -58,4 +62,15 @@ export async function expireAccessToken(page) {
 
 export async function storedAccessToken(page) {
   return page.evaluate(() => localStorage.getItem('accessToken'));
+}
+
+// Calls the backend directly as the logged-in user, bypassing the UI (e.g. to
+// check that the server enforces what the UI only hides).
+export async function apiAsUser(page, method, path, data) {
+  const token = await storedAccessToken(page);
+  return page.request.fetch(`${BACKEND_URL}${path}`, {
+    method,
+    data,
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
