@@ -994,3 +994,14 @@ def test_log_task_from_other_race_not_found(test_client, test_app, add_second_ra
     results = test_client.get("/api/race/1/results/", headers=_auth_headers(test_client, "example1@example.com"))
     team1 = next(r for r in results.json if r["team"] == "Team1")
     assert team1["points_for_tasks"] == 0
+
+
+@pytest.mark.parametrize("path", [
+    "/api/race/1/visits/1/",
+    "/api/race/1/task-completions/1/",
+])
+def test_team_history_of_other_team_forbidden(test_client, add_test_data, path):
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.get(path, headers=headers_other)
+    assert denied.status_code == 403
+    assert denied.json["message"] == "You are not a member of this team."
