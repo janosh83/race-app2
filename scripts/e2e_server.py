@@ -12,7 +12,7 @@ with my-frontend/e2e/fixtures.js.
 import os
 import shutil
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +22,7 @@ from flask_migrate import upgrade  # noqa: E402
 
 from app import create_app, db  # noqa: E402
 from app.config import DevelopmentConfig  # noqa: E402
+from app.utils import utc_now  # noqa: E402
 from app.models import (  # noqa: E402
     Checkpoint, CheckpointLog, Race, RaceCategory, Registration, Task, TaskLog, Team, User,
 )
@@ -41,6 +42,9 @@ NOT_STARTED = 'Not Started Race'   # before showing
 PREVIEW = 'Preview Race'           # shown, logging not open yet
 LOGGING_CLOSED = 'Logging Closed Race'  # logging ended, still shown
 FINISHED = 'Finished Race'         # showing ended
+# Boundaries minutes away, to catch time-zone mix-ups (an hour or two off).
+JUST_OPENED = 'Just Opened Race'   # showing and logging opened 30 min ago
+OPENS_SOON = 'Opens Soon Race'     # showing and logging open in 30 min
 
 # user key -> races the user's team is registered (and paid) for
 USERS = {
@@ -55,6 +59,8 @@ USERS = {
     'preview': [PREVIEW],
     'closed': [LOGGING_CLOSED],
     'finished': [FINISHED],
+    'justopened': [JUST_OPENED],
+    'openssoon': [OPENS_SOON],
 }
 # Users whose team already visited 'North Gate' and completed 'Phase Task'
 # while logging was open (seeded directly, the API would refuse it now).
@@ -74,8 +80,7 @@ class E2EConfig(DevelopmentConfig):
 
 def _race(name, show, log=None):
     # Windows are (start, end) pairs; logging defaults to the showing window.
-    # Every boundary is at least a day away from now: the API sends naive
-    # datetimes as GMT, so a day absorbs any local offset.
+    # Times are naive UTC, like everything the API stores.
     log = log or show
     return Race(
         name=name,
@@ -88,12 +93,15 @@ def _race(name, show, log=None):
 
 
 def seed():
-    now = datetime.now()
+    now = utc_now()
     category = RaceCategory(name='Open')
     db.session.add(category)
     db.session.flush()  # Registration needs category.id
     def days(n):
         return now + timedelta(days=n)
+
+    def minutes(n):
+        return now + timedelta(minutes=n)
 
     races = {
         RUNNING_A: _race(RUNNING_A, (days(-1), days(1))),
@@ -103,6 +111,8 @@ def seed():
         PREVIEW: _race(PREVIEW, (days(-1), days(3)), (days(2), days(3))),
         LOGGING_CLOSED: _race(LOGGING_CLOSED, (days(-3), days(2)), (days(-3), days(-1))),
         FINISHED: _race(FINISHED, (days(-4), days(-2)), (days(-4), days(-3))),
+        JUST_OPENED: _race(JUST_OPENED, (minutes(-30), days(1))),
+        OPENS_SOON: _race(OPENS_SOON, (minutes(30), days(1))),
     }
     for race in races.values():
         race.categories.append(category)
@@ -116,7 +126,7 @@ def seed():
         Task(title='Team Photo', description='Take a photo of the whole team.', numOfPoints=2),
         Task(title='Sing a Song', description='Sing the race anthem.', numOfPoints=1),
     ])
-    for name in (NOT_STARTED, PREVIEW, LOGGING_CLOSED, FINISHED):
+    for name in (NOT_STARTED, PREVIEW, LOGGING_CLOSED, FINISHED, JUST_OPENED, OPENS_SOON):
         races[name].checkpoints.extend([
             Checkpoint(title='North Gate', latitude=49.21, longitude=16.60, numOfPoints=3),
             Checkpoint(title='South Gate', latitude=49.18, longitude=16.61, numOfPoints=1),

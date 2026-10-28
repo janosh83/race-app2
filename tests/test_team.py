@@ -4,15 +4,16 @@ import types
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
+from app.utils import utc_now
 from app.models import Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app.services.stripe_service import get_checkout_receipt_url, get_checkout_session_payment_state
 
 @pytest.fixture
 def add_test_data(test_app):
     # Vložení testovacích dat
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
@@ -1010,7 +1011,7 @@ def test_retry_failed_registration_emails_endpoint(test_client, add_test_data, a
                 status='failed',
                 attempt_count=1,
                 error_message='smtp timeout',
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
@@ -1053,7 +1054,7 @@ def test_get_registration_email_logs_endpoint(test_client, add_test_data, admin_
                 status='failed',
                 attempt_count=1,
                 error_message='smtp timeout',
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
@@ -1101,8 +1102,8 @@ def test_get_registration_email_logs_endpoint_filters_by_team_and_date(test_clie
                 template_type='registration_confirmation',
                 status='failed',
                 attempt_count=1,
-                created_at=datetime.now(),
-                last_attempted_at=datetime.now(),
+                created_at=utc_now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.add(
@@ -1113,13 +1114,13 @@ def test_get_registration_email_logs_endpoint_filters_by_team_and_date(test_clie
                 template_type='registration_confirmation',
                 status='failed',
                 attempt_count=1,
-                created_at=datetime.now(),
-                last_attempted_at=datetime.now(),
+                created_at=utc_now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
 
-    today = datetime.now().date().isoformat()
+    today = utc_now().date().isoformat()
     response = test_client.get(
         f"/api/team/race/1/email-logs/?status=failed&team_id=1&date_from={today}&date_to={today}",
         headers=admin_auth_headers,
@@ -1149,7 +1150,7 @@ def test_retry_single_registration_email_log_endpoint(test_client, add_test_data
             status='failed',
             attempt_count=1,
             error_message='smtp timeout',
-            last_attempted_at=datetime.now(),
+            last_attempted_at=utc_now(),
         )
         db.session.add(failed_log)
         db.session.commit()

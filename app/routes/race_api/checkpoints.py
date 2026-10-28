@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language, allowed_file, validate_uploaded_image
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now
 from app.routes.admin import admin_required
 from app.routes.race_api.access import race_content_denied
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
@@ -523,7 +523,7 @@ def log_visit(race_id):
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     # allow logging only when inside logging period or if admin
     if not(race.start_logging_at < now and now < race.end_logging_at) and not is_administrator:
         logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
@@ -779,7 +779,7 @@ def unlog_visit(race_id):
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     if not (race.start_logging_at < now < race.end_logging_at) and not is_administrator:
         logger.error("Unlog attempt outside logging period for race %s by user %s", race_id, user.id)
         return jsonify({"message": "Logging for this race is not allowed at this time."}), 403

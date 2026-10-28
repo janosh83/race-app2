@@ -1,9 +1,10 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import create_app, db
+from app.utils import utc_now
 from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RegistrationEmailLog, RaceCategory, RaceCategoryTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 @pytest.fixture
 def test_app():
@@ -22,7 +23,7 @@ def test_client(test_app):
 def add_test_data(test_app):
     # insert test data
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
@@ -126,7 +127,7 @@ def test_create_race(test_client, add_test_data):
     """Test endpoint POST /api/race """
     access_token = _admin_token(test_client, email="test@example.com", password="test")
 
-    now = datetime.now()
+    now = utc_now()
     some_time_later = now + timedelta(minutes=10)
     # create the race
     response = test_client.post("/api/race/", json={
@@ -183,7 +184,7 @@ def test_create_race_requires_admin(test_client):
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "pass"})
     access_token = response.json["access_token"]
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(hours=1)
 
     # try to create race as non-admin
@@ -218,7 +219,7 @@ def test_update_race(test_client, add_test_data):
     assert response.json["description"] == "New description"
 
     # update multiple fields
-    now = datetime.now()
+    now = utc_now()
     new_time = now + timedelta(days=1)
     response = test_client.put("/api/race/1/", json={
         "name": "Final Name",
@@ -257,7 +258,7 @@ def test_update_race(test_client, add_test_data):
 def test_create_race_rejects_incomplete_marker_coordinates(test_client, add_test_data):
     access_token = _admin_token(test_client, email="marker@example.com", password="test")
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(minutes=10)
     response = test_client.post("/api/race/", json={
         "name": "Broken Marker Race",
@@ -314,7 +315,7 @@ def test_delete_race_success(test_client):
     """Test deleting a race without any dependencies."""
     access_token = _admin_token(test_client)
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(hours=1)
 
     response = test_client.post("/api/race/", json={
@@ -379,7 +380,7 @@ def test_delete_race_with_tasks(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Tasks",
@@ -410,7 +411,7 @@ def test_delete_race_with_registrations(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Registrations",
@@ -447,7 +448,7 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Logs",
@@ -489,7 +490,7 @@ def test_delete_race_with_task_logs(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Task Logs",
@@ -1180,7 +1181,7 @@ def test_brevo_webhook_updates_email_log_status(test_client, add_test_data, test
                 provider_message_id='brevo-message-1',
                 status='sent',
                 attempt_count=1,
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         test_app.config['BREVO_WEBHOOK_SECRET'] = 'brevo-secret'
@@ -1194,7 +1195,7 @@ def test_brevo_webhook_updates_email_log_status(test_client, add_test_data, test
             'event': 'delivered',
             'email': 'brevo-user@example.com',
             'message-id': 'brevo-message-1',
-            'date': datetime.now().isoformat(),
+            'date': utc_now().isoformat(),
         },
         headers={'X-Brevo-Webhook-Secret': 'brevo-secret'},
     )
@@ -1243,7 +1244,7 @@ def test_get_registration_payment_status_by_slug(test_client, add_test_data, tes
             team_id=team.id,
             race_category_id=category.id,
             payment_confirmed=True,
-            payment_confirmed_at=datetime.now(),
+            payment_confirmed_at=utc_now(),
         )
         db.session.add(registration)
         db.session.commit()

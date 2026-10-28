@@ -13,6 +13,7 @@ import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
+from app.utils import utc_now
 from app.models import Race, Team, User, RaceCategory, Registration, RefreshSession
 from datetime import datetime, timedelta
 
@@ -21,7 +22,7 @@ from datetime import datetime, timedelta
 def add_test_data(test_app):
     """Create test data including users, teams, races, and registrations."""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
 
@@ -519,7 +520,7 @@ def test_update_user_password(test_client, add_test_data, admin_auth_headers):
 
 
 def _add_refresh_session(user_id):
-    db.session.add(RefreshSession(id=str(uuid.uuid4()), user_id=user_id, current_jti=str(uuid.uuid4()), rotated_at=datetime.now()))
+    db.session.add(RefreshSession(id=str(uuid.uuid4()), user_id=user_id, current_jti=str(uuid.uuid4()), rotated_at=utc_now()))
     db.session.commit()
 
 

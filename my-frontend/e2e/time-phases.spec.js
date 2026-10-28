@@ -3,17 +3,21 @@ import {
   apiAsUser,
   expect,
   FINISHED,
+  JUST_OPENED,
   LOGGING_CLOSED,
   login,
   MAP_URL,
   NOT_STARTED,
+  OPENS_SOON,
   PREVIEW,
   test,
 } from './fixtures';
 
 // One seeded race per time phase (scripts/e2e_server.py), each with checkpoints
-// 'North Gate' and 'South Gate' and task 'Phase Task'. Every window boundary is
-// days away, so these tests check what each phase allows, not exact timing.
+// 'North Gate' and 'South Gate' and task 'Phase Task'. Most window boundaries
+// are days away, so those tests check what each phase allows; the last two
+// races start 30 minutes from now, which a time-zone mix-up (browser vs.
+// server vs. stored times, an hour or more apart) would get wrong.
 
 const nav = (page, name) => page.getByRole('button', { name, exact: true }).click();
 const checkpointCard = (page, title) => page.locator('.checkpoint-list-card', { hasText: title });
@@ -193,4 +197,31 @@ test('after showing: only the results are available', async ({ page, request }) 
   await nav(page, 'Standings');
   const ownRow = page.getByRole('row', { name: /Team finished/ });
   await expect(ownRow.getByRole('cell').last()).toHaveText('5');
+});
+
+test('opened 30 minutes ago: logging is open in the browser and on the server', async ({ page }) => {
+  await openRace(page, 'justopened', JUST_OPENED, { autoSelected: true });
+
+  await nav(page, 'Checkpoints');
+  await expect(page.getByText('Logging open')).toBeVisible();
+  const card = checkpointCard(page, 'South Gate');
+  await card.click();
+  await page.getByRole('button', { name: 'Log Visit' }).click();
+  await expect(page.getByText('Visit logged successfully')).toBeVisible();
+  await expect(card).not.toContainText('Not visited');
+
+  // Clean up so the test can be repeated against the same database.
+  await card.click();
+  await page.getByRole('button', { name: 'Delete Visit' }).click();
+  await expect(card).toContainText('Not visited');
+});
+
+test('opens in 30 minutes: not shown yet in the browser or by the server', async ({ page, request }) => {
+  const contentRequests = recordContentRequests(page);
+  await openRace(page, 'openssoon', OPENS_SOON, { autoSelected: false });
+
+  await expectCheckpointsHidden(page, { badge: /^Coming /, message: /Checkpoints will be shown at/ });
+  expect(contentRequests).toEqual([]);
+  await expectContentRefused(page);
+  await expectLoggingRefused(page, request);
 });

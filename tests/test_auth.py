@@ -1,6 +1,7 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app import db
+from app.utils import utc_now
 from flask_jwt_extended import create_refresh_token, decode_token
 from app.models import User, RefreshSession, Race, Team, RaceCategory, Registration
 from app.services.email_service import EmailService
@@ -122,7 +123,7 @@ def test_auth_refresh_previous_token_rejected_after_grace_period(test_client, te
     with test_app.app_context():
         user = User.query.filter_by(email="grace@example.com").first()
         refresh_session = RefreshSession.query.filter_by(user_id=user.id).one()
-        refresh_session.rotated_at = datetime.now() - test_app.config["JWT_REFRESH_GRACE_PERIOD"] - timedelta(seconds=1)
+        refresh_session.rotated_at = utc_now() - test_app.config["JWT_REFRESH_GRACE_PERIOD"] - timedelta(seconds=1)
         db.session.commit()
 
     replay = _post_with_refresh_cookie(test_client, "/auth/refresh/", token)
@@ -154,7 +155,7 @@ def test_auth_login_prunes_expired_sessions(test_client, test_app):
     with test_app.app_context():
         user = User.query.filter_by(email="prune@example.com").first()
         stale = RefreshSession.query.filter_by(user_id=user.id).one()
-        stale.rotated_at = datetime.now() - test_app.config["JWT_REFRESH_TOKEN_EXPIRES"] - timedelta(minutes=1)
+        stale.rotated_at = utc_now() - test_app.config["JWT_REFRESH_TOKEN_EXPIRES"] - timedelta(minutes=1)
         stale_id = stale.id
         db.session.commit()
 
@@ -238,7 +239,7 @@ def test_auth_logout_without_valid_refresh_cookie_still_succeeds(test_client, co
 def test_auth_login_signed_races_excludes_unpaid_registration(test_client, test_app):
     """Login payload should include only payment-confirmed signed races."""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=2)
 
         race_paid = Race(
@@ -440,7 +441,7 @@ def test_reset_password_expired_token(test_client):
 
     user = User.query.filter_by(email="e@example.com").first()
     user.reset_token = "expired-token"
-    user.reset_token_expiry = datetime.now() - timedelta(hours=1)
+    user.reset_token_expiry = utc_now() - timedelta(hours=1)
     db.session.commit()
 
     # try to reset using expired token
@@ -462,7 +463,7 @@ def test_reset_password_success(test_client):
     # set valid token
     user = User.query.filter_by(email="s@example.com").first()
     user.reset_token = "valid-token"
-    user.reset_token_expiry = datetime.now() + timedelta(hours=1)
+    user.reset_token_expiry = utc_now() + timedelta(hours=1)
     db.session.commit()
 
     # reset password
@@ -483,7 +484,7 @@ def test_reset_password_revokes_existing_sessions(test_client):
 
     user = User.query.filter_by(email="revoke@example.com").first()
     user.reset_token = "revoke-token"
-    user.reset_token_expiry = datetime.now() + timedelta(hours=1)
+    user.reset_token_expiry = utc_now() + timedelta(hours=1)
     db.session.commit()
 
     resp = test_client.post("/auth/reset-password/", json={"token": "revoke-token", "new_password": "newpass"})

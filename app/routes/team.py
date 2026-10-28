@@ -23,6 +23,7 @@ from app.schemas import (
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.utils import (
+    utc_now,
   registration_mode as _registration_mode,
   resolve_language as _resolve_language,
   resolve_race_category_name as _resolve_race_category_name,
@@ -63,7 +64,7 @@ def _retry_single_registration_email_log(failed_log, race):
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
     try:
         reset_token = generate_reset_token()
-        member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+        member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
         email_language = _resolve_language(race, member)
         send_result = EmailService.send_registration_confirmation_email(
             user_email=member.email,
@@ -908,7 +909,7 @@ def send_registration_emails(race_id):
             try:
                 # Generate password reset token for user
                 reset_token = generate_reset_token()
-                member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+                member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
                 email_language = _resolve_language(race, member)
 
                 send_result = EmailService.send_registration_confirmation_email(

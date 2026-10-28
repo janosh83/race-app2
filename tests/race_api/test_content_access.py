@@ -3,11 +3,12 @@
 Admins always; other users only with a paid registration for the race and
 only while checkpoints are shown (start_showing <= now <= end_showing).
 """
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app import create_app, db
+from app.utils import utc_now
 from app.models import Checkpoint, Race, RaceCategory, Registration, Task, Team, User
 
 PASSWORD = "password"
@@ -51,7 +52,7 @@ def test_client(test_app):
 def ids(test_app):
     """Seed one race per phase. Team 'member' is registered (paid) for all of
     them, team 'unpaid' has unpaid registrations, team 'outsider' none."""
-    now = datetime.now()
+    now = utc_now()
     category = RaceCategory(name="Open")
     db.session.add(category)
     db.session.flush()

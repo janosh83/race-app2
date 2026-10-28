@@ -9,7 +9,7 @@ from app.models import Race, Registration, RegistrationPaymentAttempt, Team
 from app.routes.admin import admin_required
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_session_payment_state
-from app.utils import registration_mode as _registration_mode
+from app.utils import registration_mode as _registration_mode, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -409,7 +409,7 @@ def mark_registration_payment(race_id, team_id):
             status='confirmed',
             amount_cents=_resolve_payment_amount_cents(race, payment_type),
             currency=(race.registration_currency or current_app.config.get('STRIPE_CURRENCY', 'czk')).lower(),
-            confirmed_at=datetime.now(),
+            confirmed_at=utc_now(),
           )
         )
     else:
@@ -561,7 +561,7 @@ def reconcile_registration_payment(race_id, team_id):
     if payment_status == 'paid':
         selected_attempt.status = 'confirmed'
         if selected_attempt.confirmed_at is None:
-            selected_attempt.confirmed_at = datetime.now()
+            selected_attempt.confirmed_at = utc_now()
     elif checkout_status == 'expired' or (checkout_status == 'complete' and payment_status != 'paid'):
         selected_attempt.status = 'failed'
         selected_attempt.confirmed_at = None

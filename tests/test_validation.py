@@ -8,8 +8,9 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from app import db
+from app.utils import utc_now
 from app.models import User, Race, RaceCategory, Team, Checkpoint, Task
 
 
@@ -38,7 +39,7 @@ def admin_token(test_client, test_app):
 def test_race(test_app):
     """Create a test race"""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         race = Race(
             name="Test Race",
             description="Test Description",

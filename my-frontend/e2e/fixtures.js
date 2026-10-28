@@ -12,6 +12,8 @@ export const NOT_STARTED = 'Not Started Race';
 export const PREVIEW = 'Preview Race';
 export const LOGGING_CLOSED = 'Logging Closed Race';
 export const FINISHED = 'Finished Race';
+export const JUST_OPENED = 'Just Opened Race';
+export const OPENS_SOON = 'Opens Soon Race';
 export const userEmail = (key) => `${key}@e2e.test`;
 export const ADMIN_EMAIL = 'admin@e2e.test';
 

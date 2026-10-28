@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
 import uuid
 from flask import current_app
@@ -12,7 +12,7 @@ from app.models import User, RefreshSession, Registration, Team, Race, RaceCateg
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
-from app.utils import normalize_email
+from app.utils import normalize_email, utc_now
 from app.schemas import (
   AuthLoginSchema,
   AuthRegisterSchema,
@@ -294,7 +294,7 @@ def login():
     # Each login starts its own refresh session, so logging in on one device
     # doesn't invalidate the others. Sessions unused for longer than the refresh
     # token lifetime can no longer be refreshed and are pruned here.
-    now = datetime.now()
+    now = utc_now()
     RefreshSession.query.filter(
         RefreshSession.user_id == user.id,
         RefreshSession.rotated_at < now - current_app.config['JWT_REFRESH_TOKEN_EXPIRES'],
@@ -499,7 +499,7 @@ def refresh():
         logger.warning("Refresh denied for user %s: refresh session missing or revoked", user_id)
         return jsonify({"msg": "Invalid refresh token"}), 401
 
-    now = datetime.now()
+    now = utc_now()
     if refresh_jti == refresh_session.current_jti:
         refresh_session.previous_jti = refresh_session.current_jti
         refresh_session.current_jti = str(uuid.uuid4())
@@ -578,7 +578,7 @@ def request_password_reset():
     if user:
         # Generate reset token
         reset_token = generate_reset_token()
-        expiry = datetime.now() + timedelta(hours=1)
+        expiry = utc_now() + timedelta(hours=1)
 
         # Save token to user
         user.set_reset_token(reset_token, expiry)
@@ -655,7 +655,7 @@ def reset_password():
         return jsonify({"msg": "Invalid or expired token"}), 400
 
     # Check if token is expired
-    if datetime.now() > user.reset_token_expiry:
+    if utc_now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
         logger.warning("Password reset attempt with expired token for user: %s", user.email)

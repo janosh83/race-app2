@@ -1,13 +1,14 @@
 import pytest
 from app import db
+from app.utils import utc_now
 from app.models import Race, Task, TaskLog, User, Team, Registration, RaceCategory, TaskTranslation
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 @pytest.fixture
 def add_test_data(test_app):
     # Insert test data
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         

@@ -1,9 +1,9 @@
 import logging
-from datetime import datetime
 
 from flask import jsonify
 
 from app.models import Registration
+from app.utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def race_content_denied(race, user):
         logger.warning("User %s requested content of race %s without a registration", user.id, race.id)
         return jsonify({"message": "You are not registered for this race."}), 403
 
-    now = datetime.now()
+    now = utc_now()
     if not (race.start_showing_checkpoints_at <= now <= race.end_showing_checkpoints_at):
         logger.warning("User %s requested content of race %s outside the showing window", user.id, race.id)
         return jsonify({"message": "Checkpoints and tasks for this race are not shown at this time."}), 403

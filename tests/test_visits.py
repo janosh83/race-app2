@@ -1,8 +1,9 @@
 import pytest
 import io
 from app import create_app, db
+from app.utils import utc_now
 from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, TaskLog, Image
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 @pytest.fixture
 def test_app():
@@ -20,7 +21,7 @@ def test_client(test_app):
 @pytest.fixture
 def add_test_data(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
@@ -77,7 +78,7 @@ def add_test_data(test_app):
 @pytest.fixture
 def add_test_data_early_logginmg(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         in_5min = now + timedelta(minutes=5)
         in_15min = now + timedelta(minutes=15)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
@@ -107,7 +108,7 @@ def add_test_data_early_logginmg(test_app):
 @pytest.fixture
 def add_test_data_late_logginmg(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         before_5min = now - timedelta(minutes=5)
         before_15min = now - timedelta(minutes=15)
 
@@ -898,7 +899,7 @@ def add_second_race(test_app, add_test_data):
     """Race 2 with its own checkpoint (id 4) and task (id 4); team 4 (example6)
     is registered only for race 2."""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         race2 = Race(name="Podzimní jízda", description="Second race",
                      start_showing_checkpoints_at=now - timedelta(minutes=10),
                      end_showing_checkpoints_at=now + timedelta(minutes=10),

@@ -46,8 +46,28 @@ def validate_uploaded_image(file_storage) -> tuple[bool, str | None]:
 
     return True, None
 
+def utc_now() -> datetime:
+    """The current time as naive UTC, the form every datetime is stored in.
+
+    Use this instead of datetime.now(), which is the server's local time and
+    would shift race windows by the server's UTC offset.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def to_naive_utc(dt: datetime) -> datetime:
+    """Convert an aware datetime to naive UTC; naive input is taken as UTC."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def parse_datetime(s: str) -> datetime:
-    """Parse common datetime string formats into a timezone-aware UTC datetime."""
+    """Parse common datetime string formats into a naive UTC datetime.
+
+    Strings with an offset (the admin form sends toISOString(), i.e. "Z") are
+    converted to UTC; strings without one are taken as UTC.
+    """
     if s is None:
         raise ValueError("empty string")
 
@@ -56,11 +76,7 @@ def parse_datetime(s: str) -> datetime:
         s = s[:-1] + "+00:00"
     try:
         # accepts "YYYY-MM-DDTHH:MM:SS" and with timezone offset
-        dt = datetime.fromisoformat(s)
-        # make tz-aware UTC if naive
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return to_naive_utc(datetime.fromisoformat(s))
     except ValueError:
         pass
 
@@ -73,17 +89,13 @@ def parse_datetime(s: str) -> datetime:
     ]
     for fmt in formats:
         try:
-            dt = datetime.strptime(s, fmt)
-            return dt.replace(tzinfo=timezone.utc)
+            return datetime.strptime(s, fmt)
         except ValueError:
             continue
 
     # fallback: use dateutil if available (more flexible)
     try:
-        dt = parser.parse(s)
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return to_naive_utc(parser.parse(s))
     except (parser.ParserError, TypeError, OverflowError, ValueError) as exc:
         raise ValueError(f"unrecognized datetime format: {s}") from exc
 

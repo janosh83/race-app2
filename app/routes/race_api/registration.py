@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 from marshmallow import ValidationError
@@ -14,6 +14,7 @@ from app.services.stripe_service import construct_stripe_event
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_receipt_url
 from app.utils import (
+    utc_now,
     registration_mode as _registration_mode,
     resolve_language as _resolve_language,
     resolve_race_category_name as _resolve_race_category_name,
@@ -618,7 +619,7 @@ def stripe_registration_webhook():
         return jsonify({'message': 'Payment already confirmed.'}), 200
 
     payment_attempt.status = 'confirmed'
-    payment_attempt.confirmed_at = datetime.now()
+    payment_attempt.confirmed_at = utc_now()
 
     was_paid_before = bool(registration.payment_confirmed)
     if payment_attempt.payment_type in ('team', 'driver'):
@@ -644,7 +645,7 @@ def stripe_registration_webhook():
 
         for member in team.members:
             reset_token = generate_reset_token()
-            member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+            member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
             email_language = _resolve_language(race, member)
             try:
                 send_result = EmailService.send_registration_confirmation_email(
