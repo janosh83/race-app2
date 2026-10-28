@@ -440,6 +440,9 @@ def log_task_completion(race_id):
     image_id = None
     saved_image_path = None
     if is_administrator or is_signed_to_race:
+        # Before saving any upload: the task must belong to this race.
+        Task.query.filter_by(id=data['task_id'], race_id=race_id).first_or_404()
+
         if file:
             max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
             if max_content_length and request.content_length and request.content_length > max_content_length:

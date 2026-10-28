@@ -553,6 +553,9 @@ def log_visit(race_id):
         user_longitude = data.get('user_longitude')
 
     if is_administrator or is_signed_to_race:
+        # Before saving any upload: the checkpoint must belong to this race.
+        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+
         if file:
             max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
             if max_content_length and request.content_length and request.content_length > max_content_length:
@@ -606,9 +609,6 @@ def log_visit(race_id):
                         os.remove(saved_image_path)
                     except OSError as cleanup_err:
                         logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
-
-        # Get checkpoint details for location validation
-        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
 
         # Calculate distance if image coordinates are available
         if image_latitude is not None and image_longitude is not None:

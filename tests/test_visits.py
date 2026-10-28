@@ -891,3 +891,106 @@ def test_get_tasks_with_status_unauthorized_user_forbidden(test_client, add_test
     headers_other = {"Authorization": f"Bearer {response.json['access_token']}"}
     denied = test_client.get("/api/race/1/tasks/1/status/", headers=headers_other)
     assert denied.status_code == 403
+
+
+@pytest.fixture
+def add_second_race(test_app, add_test_data):
+    """Race 2 with its own checkpoint (id 4) and task (id 4); team 4 (example6)
+    is registered only for race 2."""
+    with test_app.app_context():
+        now = datetime.now()
+        race2 = Race(name="Podzimní jízda", description="Second race",
+                     start_showing_checkpoints_at=now - timedelta(minutes=10),
+                     end_showing_checkpoints_at=now + timedelta(minutes=10),
+                     start_logging_at=now - timedelta(minutes=10),
+                     end_logging_at=now + timedelta(minutes=10))
+        user6 = User(name="User6", email="example6@example.com")
+        user6.set_password("password")
+        team4 = Team(name="Team4", members=[user6])
+        db.session.add_all([race2, team4])
+        db.session.flush()
+        db.session.add_all([
+            Checkpoint(title="Other race checkpoint", latitude=49.0, longitude=16.0, numOfPoints=5, race_id=race2.id),
+            Task(title="Other race task", description="d", numOfPoints=5, race_id=race2.id),
+            Registration(race_id=race2.id, team_id=team4.id, race_category_id=1, payment_confirmed=True),
+        ])
+        db.session.commit()
+
+
+def _auth_headers(test_client, email):
+    response = test_client.post("/auth/login/", json={"email": email, "password": "password"})
+    return {"Authorization": f"Bearer {response.json['access_token']}"}
+
+
+def test_log_visit_for_other_team_forbidden(test_client, test_app, add_test_data):
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_other)
+    assert denied.status_code == 403
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+
+
+def test_unlog_visit_of_other_team_forbidden(test_client, test_app, add_test_data):
+    headers_member = _auth_headers(test_client, "example2@example.com")  # team 1
+    created = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_member)
+    assert created.status_code == 201
+
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.delete("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_other)
+    assert denied.status_code == 403
+    with test_app.app_context():
+        assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first() is not None
+
+
+@pytest.mark.parametrize("path, payload", [
+    ("/api/race/1/checkpoints/log/", {"checkpoint_id": 1, "team_id": 4}),
+    ("/api/race/1/tasks/log/", {"task_id": 1, "team_id": 4}),
+])
+def test_log_in_race_team_is_not_registered_for(test_client, test_app, add_second_race, path, payload):
+    headers = _auth_headers(test_client, "example6@example.com")  # team 4, race 2 only
+    denied = test_client.post(path, json=payload, headers=headers)
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+        assert TaskLog.query.count() == 0
+
+
+@pytest.mark.parametrize("email", ["example2@example.com", "example1@example.com"])  # member, admin
+def test_log_visit_checkpoint_from_other_race_not_found(test_client, test_app, add_second_race, tmp_path, email):
+    test_app.config["IMAGE_UPLOAD_FOLDER"] = str(tmp_path)
+    headers = _auth_headers(test_client, email)
+    with open("tests/test_image.jpg", "rb") as img:
+        denied = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 4, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+        assert Image.query.count() == 0
+    assert list(tmp_path.iterdir()) == []  # the upload was not kept
+
+
+@pytest.mark.parametrize("email", ["example2@example.com", "example1@example.com"])  # member, admin
+def test_log_task_from_other_race_not_found(test_client, test_app, add_second_race, tmp_path, email):
+    test_app.config["IMAGE_UPLOAD_FOLDER"] = str(tmp_path)
+    headers = _auth_headers(test_client, email)
+    with open("tests/test_image.jpg", "rb") as img:
+        denied = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data={"image": img, "task_id": 4, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert TaskLog.query.count() == 0
+        assert Image.query.count() == 0
+    assert list(tmp_path.iterdir()) == []
+
+    # ...so the other race's task can't add to team 1's score in race 1.
+    results = test_client.get("/api/race/1/results/", headers=_auth_headers(test_client, "example1@example.com"))
+    team1 = next(r for r in results.json if r["team"] == "Team1")
+    assert team1["points_for_tasks"] == 0
