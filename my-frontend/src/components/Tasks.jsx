@@ -383,7 +383,11 @@ function Tasks({ topOffset = 56 }) {
             </div>
 
             {!loggingAllowed && (
-              <div className="alert alert-warning">{t('tasks.loggingClosed')}</div>
+              <div className="alert alert-warning">
+                {timeInfo.state === 'SHOW_ONLY'
+                  ? t('tasks.loggingNotOpen', { time: formatDate(timeInfo.startLogging) })
+                  : t('tasks.loggingClosed')}
+              </div>
             )}
 
             <div className="d-flex gap-2">

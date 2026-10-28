@@ -284,7 +284,7 @@ describe('Tasks Component', () => {
     test('shows warning message when logging is closed', async () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
-        timeInfo: { state: 'SHOW_ONLY' },
+        timeInfo: { state: 'POST_LOG_SHOW', endLogging: '2026-11-01 18:00' },
       });
       raceApi.getTasksStatus.mockResolvedValue(mockTasks);
 
@@ -298,6 +298,20 @@ describe('Tasks Component', () => {
       fireEvent.click(taskCard);
 
       expect(screen.getByText('Logging window is closed. You can only view tasks.')).toBeInTheDocument();
+    });
+
+    test('says when logging opens before it has opened', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'SHOW_ONLY', startLogging: '2026-11-01 10:00' },
+      });
+      raceApi.getTasksStatus.mockResolvedValue(mockTasks);
+
+      render(<Tasks />);
+      fireEvent.click((await screen.findByText('Task 1')).closest('.card'));
+
+      expect(screen.getByText('Logging opens at 2026-11-01 10:00. Until then you can only view tasks.')).toBeInTheDocument();
+      expect(screen.queryByText(/Logging window is closed/)).not.toBeInTheDocument();
     });
   });
 

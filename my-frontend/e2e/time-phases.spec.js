@@ -90,7 +90,6 @@ async function expectContentRefused(page) {
   }
 }
 
-// The map only has its status badge; the list explains when/why.
 // While content is hidden the app must not even request it (the API would
 // refuse with 403 and the page would show a load error).
 function recordContentRequests(page) {
@@ -105,6 +104,7 @@ async function expectCheckpointsHidden(page, { badge, message }) {
   await nav(page, 'Map');
   await expect(page.getByText(badge)).toBeVisible();
   await expect(mapMarkers(page)).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText(message);
 
   await nav(page, 'Checkpoints');
   await expect(page.getByText(message)).toBeVisible();
@@ -118,7 +118,10 @@ async function expectTasksHidden(page, message) {
 }
 
 // Checkpoints and tasks are visible, but nothing can be logged or deleted.
+// `visited`: the team logged North Gate and the task while logging was open,
+// i.e. this is the race whose logging has ended (otherwise it hasn't opened).
 async function expectReadOnly(page, { visited }) {
+  const whyReadOnly = visited ? /^Logging ended at / : /^Logging opens at /;
   await nav(page, 'Map');
   await expect(mapMarkers(page)).toHaveCount(2);
 
@@ -131,6 +134,8 @@ async function expectReadOnly(page, { visited }) {
     await expect(page.locator('input[type="file"]')).toHaveCount(0);
     if (visited && title === 'North Gate') {
       await expect(page.getByText('Visit logged (read-only mode)')).toBeVisible();
+    } else {
+      await expect(page.getByText(whyReadOnly)).toBeVisible();
     }
     await page.getByRole('button', { name: /Close$/ }).click();
   }
@@ -145,6 +150,8 @@ async function expectReadOnly(page, { visited }) {
   await card.click();
   const button = visited ? 'Delete completion' : 'Mark as completed';
   await expect(page.getByRole('button', { name: button })).toBeDisabled();
+  await expect(page.getByText(visited ? 'Logging window is closed. You can only view tasks.' : whyReadOnly))
+    .toBeVisible();
   await page.getByRole('button', { name: /Close$/ }).click();
 }
 

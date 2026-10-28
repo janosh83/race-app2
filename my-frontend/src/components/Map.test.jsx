@@ -406,6 +406,34 @@ describe('Map Component', () => {
   });
 
   describe('Time states', () => {
+    test.each([
+      ['BEFORE_SHOW', { startShow: '2026-11-01 10:00' }, 'Checkpoints will be shown at 2026-11-01 10:00'],
+      ['AFTER_SHOW', { endShow: '2026-11-02 18:00' }, 'Showing of checkpoints ended at 2026-11-02 18:00'],
+    ])('explains on the map why it is empty in %s', (state, times, message) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state, ...times },
+      });
+
+      render(<Map />);
+
+      const notice = screen.getByRole('status');
+      expect(notice).toHaveTextContent('Checkpoints are not shown at this time.');
+      expect(notice).toHaveTextContent(message);
+    });
+
+    test.each(['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'])('shows no hidden-map notice in %s', (state) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state },
+      });
+      raceApi.getCheckpointsStatus.mockResolvedValue([]);
+
+      render(<Map />);
+
+      expect(screen.queryByText('Checkpoints are not shown at this time.')).not.toBeInTheDocument();
+    });
+
     test('allows checkpoints to show in SHOW_ONLY state', () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },

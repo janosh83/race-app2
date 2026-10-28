@@ -491,7 +491,7 @@ function CheckpointsList({ topOffset = 56 }) {
                 </div>
               </>
             ) : (
-              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, selectedCheckpoint)}</div>
+              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, selectedCheckpoint, timeInfo)}</div>
             )}
           </div>
         </div>

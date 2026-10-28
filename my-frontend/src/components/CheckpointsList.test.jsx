@@ -151,7 +151,7 @@ describe('CheckpointsList Component', () => {
     expect(screen.getByText('Navigate')).toBeInTheDocument();
     expect(screen.getByText('Copy')).toBeInTheDocument();
     expect(screen.getByText('Visit logged (read-only mode)')).toBeInTheDocument();
-    expect(screen.queryByText('Logging is not open yet')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Logging (opens|ended) at/)).not.toBeInTheDocument();
     expect(logoutAndRedirect).not.toHaveBeenCalled();
   });
 

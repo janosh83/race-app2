@@ -42,6 +42,29 @@
   gap: 12px;
 }
 
+/* Centered so it doesn't collide with the status badge (top right) or the
+   map controls; clicks pass through to the map. */
+.map-hidden-notice {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1400;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  background-color: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  pointer-events: none;
+}
+
+.map-hidden-notice-time {
+  margin-top: 4px;
+  font-weight: 600;
+}
+
 .map-checkpoint-error-text {
   color: #dc3545;
   font-weight: 500;

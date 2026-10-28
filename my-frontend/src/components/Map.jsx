@@ -709,6 +709,18 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
+      {/* Hidden phases: say why the map is empty and when that changes */}
+      {!showCheckpoints && (timeInfo.state === 'BEFORE_SHOW' || timeInfo.state === 'AFTER_SHOW') && (
+        <div className="map-hidden-notice" role="status">
+          <div>{t('map.checkpointsNotShown')}</div>
+          <div className="map-hidden-notice-time">
+            {timeInfo.state === 'BEFORE_SHOW'
+              ? t('map.checkpointsShowAt', { time: formatDate(timeInfo.startShow) })
+              : t('map.checkpointsEndedAt', { time: formatDate(timeInfo.endShow) })}
+          </div>
+        </div>
+      )}
+
       <StatusBadge
         topOffset={topOffset}
         isShown={showCheckpoints}
@@ -856,7 +868,7 @@ function Map({ topOffset = 56 }) {
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
-                    {getCheckpointReadOnlyMessage(t, selectedCheckpoint)}
+                    {getCheckpointReadOnlyMessage(t, selectedCheckpoint, timeInfo)}
                   </div>
                 )}
               </div>
