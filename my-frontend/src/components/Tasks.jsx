@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './Tasks.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
@@ -40,10 +40,20 @@ function Tasks({ topOffset = 56 }) {
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showTasks = isContentShown(timeInfo);
 
   // Fetch tasks with status
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses tasks outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showTasks) {
+      setTasks([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchTasks = () => {
       logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -52,11 +62,18 @@ function Tasks({ topOffset = 56 }) {
       raceApi
         .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Tasks loaded', { count: data?.length || 0 });
           setTasks(data);
           setTaskError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchTasks, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch tasks', err.message);
           setTaskError(true);
           setToast({
@@ -68,10 +85,13 @@ function Tasks({ topOffset = 56 }) {
     };
 
     fetchTasks();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showTasks, t]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];

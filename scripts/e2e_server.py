@@ -59,6 +59,8 @@ USERS = {
 # Users whose team already visited 'North Gate' and completed 'Phase Task'
 # while logging was open (seeded directly, the API would refuse it now).
 PRE_LOGGED = {'closed': LOGGING_CLOSED, 'finished': FINISHED}
+# Admin without a team, for tests that look things up behind the UI.
+ADMIN_EMAIL = 'admin@e2e.test'
 
 
 class E2EConfig(DevelopmentConfig):
@@ -144,6 +146,9 @@ def seed():
                 CheckpointLog(checkpoint_id=checkpoint.id, team_id=team.id, race_id=race.id),
                 TaskLog(task_id=race.tasks[0].id, team_id=team.id, race_id=race.id),
             ])
+    admin = User(name='E2E admin', email=ADMIN_EMAIL, preferred_language='en', is_administrator=True)
+    admin.set_password(PASSWORD)
+    db.session.add(admin)
     db.session.commit()
 
 

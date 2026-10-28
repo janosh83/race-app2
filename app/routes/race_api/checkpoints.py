@@ -13,6 +13,7 @@ from app import db
 from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
 from app.utils import resolve_language, allowed_file, validate_uploaded_image
 from app.routes.admin import admin_required
+from app.routes.race_api.access import race_content_denied
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 from app.utils import extract_image_coordinates, calculate_distance
 
@@ -98,6 +99,9 @@ def get_checkpoints(race_id):
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -386,14 +390,9 @@ def get_checkpoint(race_id, checkpoint_id):
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
-    if not user.is_administrator:
-        team_ids = [team.id for team in user.teams or []]
-        if not team_ids or not Registration.query.filter(
-            Registration.race_id == race_id,
-            Registration.team_id.in_(team_ids),
-            Registration.payment_confirmed.is_(True),
-        ).first():
-            return jsonify({"message": "You are not registered for this race."}), 403
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -946,6 +945,9 @@ def get_checkpoints_with_status(race_id, team_id):
 
     # Get all checkpoints for the race
     race = Race.query.filter_by(id=race_id).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(

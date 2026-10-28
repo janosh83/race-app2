@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
@@ -86,6 +86,52 @@ describe('Tasks Component', () => {
       render(<Tasks />);
 
       expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+    });
+
+    test.each(['BEFORE_SHOW', 'AFTER_SHOW'])('does not fetch tasks in %s (the API refuses them)', (state) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state },
+      });
+
+      render(<Tasks />);
+
+      expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+    });
+
+    test('fetches tasks when showing starts', async () => {
+      raceApi.getTasksStatus.mockResolvedValue(mockTasks);
+      const useTime = vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'BEFORE_SHOW' },
+      });
+
+      const { rerender } = render(<Tasks />);
+      expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+
+      useTime.mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'SHOW_ONLY' },
+      });
+      rerender(<Tasks />);
+
+      expect(await screen.findByText('Task 1')).toBeInTheDocument();
+      expect(raceApi.getTasksStatus).toHaveBeenCalledTimes(1);
+    });
+
+    test('retries quietly when the server does not show tasks yet', async () => {
+      vi.useFakeTimers();
+      raceApi.getTasksStatus
+        .mockRejectedValueOnce(Object.assign(new Error('not shown'), { status: 403 }))
+        .mockResolvedValue(mockTasks);
+
+      render(<Tasks />);
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(screen.queryByText(/Failed to load tasks/)).not.toBeInTheDocument();
+
+      await act(() => vi.advanceTimersByTimeAsync(TimeContext.SHOW_START_RETRY_MS));
+      expect(raceApi.getTasksStatus).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
     });
   });
 

@@ -13,6 +13,7 @@ export const PREVIEW = 'Preview Race';
 export const LOGGING_CLOSED = 'Logging Closed Race';
 export const FINISHED = 'Finished Race';
 export const userEmail = (key) => `${key}@e2e.test`;
+export const ADMIN_EMAIL = 'admin@e2e.test';
 
 // A real JPEG, so it passes the backend's image validation.
 export const TEST_PHOTO = path.resolve(__dirname, '../../tests/test_image.jpg');
@@ -62,6 +63,16 @@ export async function expireAccessToken(page) {
 
 export async function storedAccessToken(page) {
   return page.evaluate(() => localStorage.getItem('accessToken'));
+}
+
+// Calls the backend as the seeded admin, using Playwright's standalone
+// `request` fixture so the browser's session cookies are untouched.
+export async function apiAsAdmin(request, method, path) {
+  const login = await request.post(`${BACKEND_URL}/auth/login/`, {
+    data: { email: ADMIN_EMAIL, password: PASSWORD },
+  });
+  const { access_token: token } = await login.json();
+  return request.fetch(`${BACKEND_URL}${path}`, { method, headers: { Authorization: `Bearer ${token}` } });
 }
 
 // Calls the backend directly as the logged-in user, bypassing the UI (e.g. to

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './CheckpointsList.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
@@ -51,6 +51,7 @@ function CheckpointsList({ topOffset = 56 }) {
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showCheckpoints = isContentShown(timeInfo);
 
   useEffect(() => {
     if (!navigator.geolocation) return undefined;
@@ -80,7 +81,16 @@ function CheckpointsList({ topOffset = 56 }) {
   }, []);
 
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses checkpoints outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showCheckpoints) {
+      setCheckpoints([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchCheckpoints = () => {
       logger.info('RACE', 'Fetching checkpoints for list', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -89,11 +99,18 @@ function CheckpointsList({ topOffset = 56 }) {
       raceApi
         .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Checkpoints loaded for list', { count: data?.length || 0 });
           setCheckpoints(data);
           setCheckpointError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchCheckpoints, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch checkpoints for list', err.message);
           setCheckpointError(true);
           setToast({
@@ -105,10 +122,13 @@ function CheckpointsList({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showCheckpoints, t]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];

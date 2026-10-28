@@ -14,6 +14,7 @@ from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTrans
 from app.schemas import TaskCreateSchema, TaskLogSchema
 from app.utils import resolve_language, allowed_file, validate_uploaded_image
 from app.routes.admin import admin_required
+from app.routes.race_api.access import race_content_denied
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ def get_tasks(race_id):
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -316,6 +320,9 @@ def get_task(race_id, task_id):
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
     user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -734,6 +741,9 @@ def get_tasks_with_status(race_id, team_id):
         return jsonify({"msg": "Unauthorized"}), 403
 
     race = Race.query.filter_by(id=race_id).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(

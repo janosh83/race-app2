@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import 'leaflet/dist/leaflet.css';
 import './Map.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
@@ -180,10 +180,20 @@ function Map({ topOffset = 56 }) {
   // Get active race and team from TimeContext
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showCheckpoints = isContentShown(timeInfo);
 
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses checkpoints outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showCheckpoints) {
+      setCheckpoints([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchCheckpoints = () => {
       logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -192,11 +202,18 @@ function Map({ topOffset = 56 }) {
       raceApi
         .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Checkpoints loaded for map', { count: data?.length || 0 });
           setCheckpoints(data);
           setCheckpointError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchCheckpoints, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch checkpoints', err.message);
           setCheckpointError(true);
           setToast({
@@ -208,7 +225,11 @@ function Map({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showCheckpoints, t]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -392,7 +413,6 @@ function Map({ topOffset = 56 }) {
   }, [mapHeight]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   // Update checkpoint markers efficiently by diffing changes
   useEffect(() => {

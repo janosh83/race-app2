@@ -1,4 +1,5 @@
 import {
+  apiAsAdmin,
   apiAsUser,
   expect,
   FINISHED,
@@ -33,11 +34,14 @@ async function openRace(page, userKey, raceName, { autoSelected }) {
   await expect(page.getByRole('button', { name: raceName })).toBeVisible();
 }
 
-async function raceIds(page) {
-  const race = await page.evaluate(() => JSON.parse(localStorage.getItem('activeRace')));
+const activeRace = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('activeRace')));
+
+// Looked up as admin: users can't read checkpoints while they're hidden.
+async function raceIds(page, request) {
+  const race = await activeRace(page);
   const raceId = race.race_id ?? race.id;
-  const checkpoints = await (await apiAsUser(page, 'GET', `/api/race/${raceId}/checkpoints/`)).json();
-  const tasks = await (await apiAsUser(page, 'GET', `/api/race/${raceId}/tasks/`)).json();
+  const checkpoints = await (await apiAsAdmin(request, 'GET', `/api/race/${raceId}/checkpoints/`)).json();
+  const tasks = await (await apiAsAdmin(request, 'GET', `/api/race/${raceId}/tasks/`)).json();
   const idOf = (items, title) => items.find((item) => item.title === title).id;
   return {
     raceId,
@@ -50,8 +54,8 @@ async function raceIds(page) {
 
 // The UI only hides the logging controls; the server must refuse on its own.
 // Unvisited: logging is refused. Visited: deleting the visit is refused.
-async function expectLoggingRefused(page, { visited = false } = {}) {
-  const ids = await raceIds(page);
+async function expectLoggingRefused(page, request, { visited = false } = {}) {
+  const ids = await raceIds(page, request);
   const base = `/api/race/${ids.raceId}`;
   const method = visited ? 'DELETE' : 'POST';
   const attempts = [
@@ -65,7 +69,34 @@ async function expectLoggingRefused(page, { visited = false } = {}) {
   }
 }
 
+// Hidden checkpoints and tasks must not be readable through the API either
+// (e.g. checkpoint coordinates before the race starts).
+async function expectContentRefused(page) {
+  const race = await activeRace(page);
+  const raceId = race.race_id ?? race.id;
+  for (const path of [
+    `/api/race/${raceId}/checkpoints/`,
+    `/api/race/${raceId}/checkpoints/${race.team_id}/status/`,
+    `/api/race/${raceId}/tasks/`,
+    `/api/race/${raceId}/tasks/${race.team_id}/status/`,
+  ]) {
+    const response = await apiAsUser(page, 'GET', path);
+    expect(response.status(), path).toBe(403);
+    expect((await response.json()).message).toBe('Checkpoints and tasks for this race are not shown at this time.');
+  }
+}
+
 // The map only has its status badge; the list explains when/why.
+// While content is hidden the app must not even request it (the API would
+// refuse with 403 and the page would show a load error).
+function recordContentRequests(page) {
+  const urls = [];
+  page.on('request', (request) => {
+    if (/\/api\/race\/\d+\/(checkpoints|tasks)\/\d+\/status\//.test(request.url())) urls.push(request.url());
+  });
+  return urls;
+}
+
 async function expectCheckpointsHidden(page, { badge, message }) {
   await nav(page, 'Map');
   await expect(page.getByText(badge)).toBeVisible();
@@ -113,28 +144,31 @@ async function expectReadOnly(page, { visited }) {
   await page.getByRole('button', { name: /Close$/ }).click();
 }
 
-test('before showing: only the start time is shown', async ({ page }) => {
+test('before showing: only the start time is shown', async ({ page, request }) => {
+  const contentRequests = recordContentRequests(page);
   await openRace(page, 'before', NOT_STARTED, { autoSelected: false });
   await expect(page.getByText('Before checkpoints are shown')).toBeVisible();
 
   await expectCheckpointsHidden(page, { badge: /^Coming /, message: /Checkpoints will be shown at/ });
   await expectTasksHidden(page, /Tasks will be shown at/);
-  await expectLoggingRefused(page);
+  expect(contentRequests).toEqual([]);
+  await expectContentRefused(page);
+  await expectLoggingRefused(page, request);
 });
 
-test('before logging: checkpoints and tasks are visible but read-only', async ({ page }) => {
+test('before logging: checkpoints and tasks are visible but read-only', async ({ page, request }) => {
   await openRace(page, 'preview', PREVIEW, { autoSelected: true });
 
   await expectReadOnly(page, { visited: false });
-  await expectLoggingRefused(page);
+  await expectLoggingRefused(page, request);
 });
 
-test('after logging: visits stay visible but nothing can be logged or deleted', async ({ page }) => {
+test('after logging: visits stay visible but nothing can be logged or deleted', async ({ page, request }) => {
   await openRace(page, 'closed', LOGGING_CLOSED, { autoSelected: true });
 
   await expectReadOnly(page, { visited: true });
-  await expectLoggingRefused(page);
-  await expectLoggingRefused(page, { visited: true });
+  await expectLoggingRefused(page, request);
+  await expectLoggingRefused(page, request, { visited: true });
 
   // The refused deletes changed nothing.
   await page.reload();
@@ -144,13 +178,16 @@ test('after logging: visits stay visible but nothing can be logged or deleted', 
   await expect(taskCard(page, 'Phase Task')).not.toContainText('Not completed');
 });
 
-test('after showing: only the results are available', async ({ page }) => {
+test('after showing: only the results are available', async ({ page, request }) => {
+  const contentRequests = recordContentRequests(page);
   await openRace(page, 'finished', FINISHED, { autoSelected: false });
   await expect(page.getByText('Checkpoint display finished')).toBeVisible();
 
   await expectCheckpointsHidden(page, { badge: 'Checkpoints hidden', message: /Showing of checkpoints ended at/ });
   await expectTasksHidden(page, /Showing of tasks ended at/);
-  await expectLoggingRefused(page, { visited: true });
+  expect(contentRequests).toEqual([]);
+  await expectContentRefused(page);
+  await expectLoggingRefused(page, request, { visited: true });
 
   // North Gate (3) + Phase Task (2), logged while the race was running.
   await nav(page, 'Standings');

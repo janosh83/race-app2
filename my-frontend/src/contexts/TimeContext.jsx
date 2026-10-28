@@ -41,6 +41,16 @@ export function timeStateForRace(nowMs, race) {
   return { state: 'AFTER_SHOW', startShow, startLogging, endLogging, endShow };
 }
 
+// Checkpoints and tasks are visible (and served by the API) in these phases.
+export function isContentShown(timeInfo) {
+  return ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo?.state);
+}
+
+// When showing starts our clock may be slightly ahead of the server's, so a
+// 403 right then is retried quietly before it's reported as an error.
+export const SHOW_START_RETRIES = 6;
+export const SHOW_START_RETRY_MS = 10_000;
+
 export function formatDate(ts) {
   if (!ts) return '—';
   const d = new Date(ts);
