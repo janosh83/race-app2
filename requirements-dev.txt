@@ -1,6 +1,6 @@
 -r requirements.txt
 
-aiosmtpd
-pytest
-pytest-mock
-pytest-cov
+aiosmtpd==1.4.6
+pytest==9.2.0
+pytest-mock==3.17.0
+pytest-cov==7.1.0
