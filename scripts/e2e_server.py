@@ -2,7 +2,7 @@
 Backend for the Playwright end-to-end tests (my-frontend/e2e).
 
 Recreates a throwaway SQLite database from the migrations, seeds a fixed set
-of users and races, and serves the API. Started automatically by
+of users and races, and serves the API. Uploaded photos go to .e2e/images. Started automatically by
 `npm run test:e2e`; it only ever touches .e2e/e2e.db.
 
 Each E2E scenario logs in as its own user (see USERS), so tests don't
@@ -10,6 +10,7 @@ interfere with each other and need no reset between them. Keep USERS in sync
 with my-frontend/e2e/fixtures.js.
 """
 import os
+import shutil
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -21,10 +22,11 @@ from flask_migrate import upgrade  # noqa: E402
 
 from app import create_app, db  # noqa: E402
 from app.config import DevelopmentConfig  # noqa: E402
-from app.models import Checkpoint, Race, RaceCategory, Registration, Team, User  # noqa: E402
+from app.models import Checkpoint, Race, RaceCategory, Registration, Task, Team, User  # noqa: E402
 
 E2E_DIR = REPO_ROOT / '.e2e'
 DB_PATH = E2E_DIR / 'e2e.db'
+IMAGES_DIR = E2E_DIR / 'images'
 PORT = int(os.environ.get('E2E_BACKEND_PORT', '5055'))
 FRONTEND_ORIGIN = os.environ.get('E2E_FRONTEND_ORIGIN', 'http://127.0.0.1:5175')
 PASSWORD = 'e2e-password'
@@ -38,6 +40,7 @@ USERS = {
     'solo': [RUNNING_A, FUTURE],      # exactly one running race -> auto-selected
     'multi': [RUNNING_A, RUNNING_B],  # two running races -> must choose
     'checkpoint': [RUNNING_A],
+    'task': [RUNNING_A],
     'expiry': [RUNNING_A],
     'tabs': [RUNNING_A],
     'devices': [RUNNING_A],
@@ -48,6 +51,7 @@ class E2EConfig(DevelopmentConfig):
     DEBUG = False
     SQLALCHEMY_DATABASE_URI = f"sqlite:///{DB_PATH.as_posix()}"
     CORS_ORIGINS = [FRONTEND_ORIGIN]
+    IMAGE_UPLOAD_FOLDER = str(IMAGES_DIR)
     FRONTEND_URL = FRONTEND_ORIGIN
     MAIL_SUPPRESS_SEND = True
 
@@ -83,6 +87,10 @@ def seed():
         Checkpoint(title='Old Mill', latitude=49.1951, longitude=16.6068, numOfPoints=2),
         Checkpoint(title='Lookout Tower', latitude=49.2002, longitude=16.6101, numOfPoints=1),
     ])
+    races[RUNNING_A].tasks.extend([
+        Task(title='Team Photo', description='Take a photo of the whole team.', numOfPoints=2),
+        Task(title='Sing a Song', description='Sing the race anthem.', numOfPoints=1),
+    ])
 
     for key, race_names in USERS.items():
         user = User(name=f'E2E {key}', email=f'{key}@e2e.test', preferred_language='en')
@@ -105,6 +113,8 @@ def main():
     E2E_DIR.mkdir(exist_ok=True)
     if DB_PATH.exists():
         DB_PATH.unlink()
+    shutil.rmtree(IMAGES_DIR, ignore_errors=True)
+    IMAGES_DIR.mkdir()
 
     app = create_app(E2EConfig)
     with app.app_context():

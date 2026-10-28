@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import { test as base, expect } from '@playwright/test';
 
 // Seeded by ../../scripts/e2e_server.py (keep USERS there in sync).
@@ -7,6 +9,15 @@ export const RUNNING_A = 'Running Race A';
 export const RUNNING_B = 'Running Race B';
 export const FUTURE = 'Future Race';
 export const userEmail = (key) => `${key}@e2e.test`;
+
+// A real JPEG, so it passes the backend's image validation.
+export const TEST_PHOTO = path.resolve(__dirname, '../../tests/test_image.jpg');
+
+// The <img> is shown and its file was actually served by the backend.
+export async function expectImageLoaded(img) {
+  await expect(img).toBeVisible();
+  await expect.poll(() => img.evaluate((el) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+}
 
 // Only the app's own servers are reachable: map tiles, marker icons etc. are
 // blocked so tests don't depend on the internet.
