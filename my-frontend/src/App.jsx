@@ -13,7 +13,7 @@ import PublicRegistrationPage from './components/Pages/PublicRegistrationPage';
 import StandingsPage from './components/Pages/StandingsPage';
 import TasksPage from './components/Pages/TasksPage';
 import ResetPassword from './components/ResetPassword';
-import { TimeProvider } from './contexts/TimeContext';
+import { TimeProvider, useTime } from './contexts/TimeContext';
 import { isTokenExpired, refreshAccessToken } from './utils/api';
 import { logger } from './utils/logger';
 
@@ -25,6 +25,17 @@ const LogOnce = ({ message, data, children }) => {
   }, []);
   return children;
 };
+
+// Where a logged-in user lands from /login (right after logging in, or when
+// opening /login while logged in): the selected race's map, e.g. a race that
+// was auto-selected at login, otherwise race selection. This is the only
+// post-login redirect, so nothing competes with it.
+function PostLoginRedirect() {
+  const { activeRace } = useTime();
+  const raceId = activeRace?.race_id ?? activeRace?.id ?? activeRace?.raceId;
+  const target = raceId !== null && raceId !== undefined ? `/race/${raceId}/map` : '/race';
+  return <Navigate to={target} replace />;
+}
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(null); // null = checking, true/false = determined
@@ -50,9 +61,14 @@ function App() {
           logger.info('ROUTING', 'Auth check complete after silent refresh', { isLoggedIn: true });
           setIsLoggedIn(true);
           return;
-        } catch {
-          logger.info('ROUTING', 'Silent refresh failed, treating as logged out');
-          setIsLoggedIn(false);
+        } catch (err) {
+          // Only a rejected refresh cookie means logged out (refreshAccessToken
+          // has then already cleared the session). A network error or an
+          // aborted request leaves the session intact; the next request,
+          // focus or keep-fresh tick retries the refresh.
+          const loggedIn = !err?.sessionInvalid;
+          logger.info('ROUTING', 'Silent refresh failed', { sessionInvalid: !!err?.sessionInvalid });
+          setIsLoggedIn(loggedIn);
           return;
         }
       }
@@ -107,7 +123,7 @@ function App() {
           {/* Auth routes - accessible when NOT logged in, redirect to /race if logged in */}
           <Route path="/login" element={
             isLoggedIn ? (
-              <Navigate to="/race" replace />
+              <PostLoginRedirect />
             ) : (
               <LogOnce message="User accessing login route" data={{ isLoggedIn }}>
                 <Login />

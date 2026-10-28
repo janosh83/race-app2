@@ -5,11 +5,14 @@ import App from './App';
 import { isTokenExpired, logoutAndRedirect, refreshAccessToken } from './utils/api';
 
 // Mock the isTokenExpired utility
+// A refresh the backend rejected (revoked/expired refresh cookie).
+const sessionRejected = vi.hoisted(() => () => Object.assign(new Error('Token refresh failed'), { status: 401, sessionInvalid: true }));
+
 vi.mock('./utils/api', () => ({
   isTokenExpired: vi.fn(),
   parseJwt: vi.fn(),
   logoutAndRedirect: vi.fn(),
-  refreshAccessToken: vi.fn().mockRejectedValue(new Error('refresh failed')),
+  refreshAccessToken: vi.fn().mockRejectedValue(sessionRejected()),
 }));
 
 // Mock child components to simplify testing
@@ -79,6 +82,19 @@ describe('App Component - Routing', () => {
       expect(screen.getByText('RaceLayout Component')).toBeInTheDocument();
     });
 
+    test('redirects /login to the selected race map when a race is selected', () => {
+      localStorage.setItem('activeRace', JSON.stringify({ race_id: 7, name: 'Selected Race' }));
+      window.history.pushState({}, 'Login', '/login');
+      render(<App />);
+      expect(window.location.pathname).toBe('/race/7/map');
+    });
+
+    test('redirects /login to race selection when no race is selected', () => {
+      window.history.pushState({}, 'Login', '/login');
+      render(<App />);
+      expect(window.location.pathname).toBe('/race');
+    });
+
     test('renders RaceLayout at /race route', () => {
       window.history.pushState({}, 'Race', '/race');
       render(<App />);
@@ -115,6 +131,14 @@ describe('App Component - Routing', () => {
       render(<App />);
       expect(await screen.findByText('Login Component')).toBeInTheDocument();
     });
+
+    test('stays logged in when the refresh fails for a non-auth reason', async () => {
+      // e.g. the request was aborted by a reload or the network dropped
+      refreshAccessToken.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      window.history.pushState({}, 'Race', '/race');
+      render(<App />);
+      expect(await screen.findByText('RaceLayout Component')).toBeInTheDocument();
+    });
   });
 
   describe('Proactive token refresh', () => {
@@ -125,7 +149,7 @@ describe('App Component - Routing', () => {
     afterEach(() => {
       vi.useRealTimers();
       isTokenExpired.mockReset();
-      refreshAccessToken.mockRejectedValue(new Error('refresh failed'));
+      refreshAccessToken.mockRejectedValue(sessionRejected());
     });
 
     test('refreshes instead of logging out when the token is about to expire', async () => {

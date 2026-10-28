@@ -142,6 +142,60 @@ describe('API Utilities', () => {
     });
   });
 
+  describe('refreshAccessToken failures', () => {
+    const logoutCalls = () => global.fetch.mock.calls.filter(([url]) => String(url).includes('/auth/logout/'));
+
+    beforeEach(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      localStorage.setItem('accessToken', 'header.e30.sig');
+      global.fetch = vi.fn();
+      delete window.location;
+      window.location = { href: 'http://localhost/race', pathname: '/race' };
+    });
+
+    test.each([401, 422])('logs out when the backend rejects the refresh cookie (%i)', async (status) => {
+      global.fetch.mockImplementation((url) => Promise.resolve(
+        String(url).includes('/auth/refresh/') ? { ok: false, status } : { ok: true, status: 200 }
+      ));
+
+      await expect(refreshAccessToken()).rejects.toMatchObject({ status, sessionInvalid: true });
+
+      expect(logoutCalls()).toHaveLength(1);
+      expect(localStorage.getItem('accessToken')).toBeNull();
+    });
+
+    test('keeps the session on a server error', async () => {
+      global.fetch.mockResolvedValue({ ok: false, status: 503 });
+
+      await expect(refreshAccessToken()).rejects.toMatchObject({ status: 503, sessionInvalid: false });
+
+      expect(logoutCalls()).toHaveLength(0);
+      expect(localStorage.getItem('accessToken')).toBe('header.e30.sig');
+    });
+
+    test('keeps the session when the request fails or is aborted (e.g. tab reload)', async () => {
+      global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(refreshAccessToken()).rejects.toThrow('Failed to fetch');
+
+      expect(logoutCalls()).toHaveLength(0);
+      expect(localStorage.getItem('accessToken')).toBe('header.e30.sig');
+    });
+
+    test('fetchRaw passes a network failure during refresh to the caller without logging out', async () => {
+      const expired = `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) - 60 }))}.signature`;
+      localStorage.setItem('accessToken', expired);
+      global.fetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      await expect(fetchRaw('/api/race/1/checkpoints/log/', { method: 'POST', body: new FormData() }))
+        .rejects.toThrow('Failed to fetch');
+
+      expect(logoutCalls()).toHaveLength(0);
+      expect(localStorage.getItem('accessToken')).toBe(expired);
+    });
+  });
+
   describe('refreshAccessToken cross-tab lock', () => {
     const makeToken = (expOffsetSeconds) =>
       `header.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + expOffsetSeconds }))}.signature`;

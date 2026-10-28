@@ -148,6 +148,12 @@ let refreshPromise = null;
 // Web Locks support the backend's grace period still covers concurrent refreshes.
 const REFRESH_LOCK_NAME = 'race-app-token-refresh';
 
+// The backend rejects a missing/revoked/expired refresh cookie with 401 and a
+// malformed one with 422 (Flask-JWT-Extended).
+function isRefreshRejection(status) {
+  return status === 401 || status === 422;
+}
+
 function withRefreshLock(callback) {
   if (typeof navigator !== 'undefined' && navigator.locks?.request) {
     return navigator.locks.request(REFRESH_LOCK_NAME, callback);
@@ -180,8 +186,13 @@ export async function refreshAccessToken() {
 
       if (!res.ok) {
         logger.error('TOKEN', 'Token refresh failed', { status: res.status });
-        logoutAndRedirect();
-        throw new Error('Token refresh failed');
+        const err = new Error('Token refresh failed');
+        err.status = res.status;
+        err.sessionInvalid = isRefreshRejection(res.status);
+        // Only a rejected refresh cookie ends the session. A 5xx is the
+        // server's problem; the next refresh attempt may well succeed.
+        if (err.sessionInvalid) logoutAndRedirect();
+        throw err;
       }
 
       const data = await res.json();
@@ -193,8 +204,10 @@ export async function refreshAccessToken() {
       logger.success('TOKEN', 'Token refreshed successfully');
       return data.access_token;
     } catch (err) {
+      // Network errors and aborted requests (e.g. the tab reloads or closes
+      // mid-refresh, or the phone briefly loses signal) don't mean the session
+      // is gone, so they must not log the user out on every tab.
       logger.error('TOKEN', 'Token refresh error', err.message);
-      logoutAndRedirect();
       throw err;
     }
   }).finally(() => {
@@ -215,12 +228,9 @@ export async function fetchRaw(path, init = {}) {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let token = localStorage.getItem('accessToken');
     if (token && isTokenExpired(token, 120)) {
-      try {
-        token = await refreshAccessToken();
-      } catch {
-        logoutAndRedirect();
-        throw new Error('Unauthorized');
-      }
+      // On a rejected refresh cookie refreshAccessToken() has already logged
+      // out; any other failure (e.g. network) is just passed to the caller.
+      token = await refreshAccessToken();
     }
 
     const headers = new Headers(init.headers || {});
@@ -239,13 +249,8 @@ export async function fetchRaw(path, init = {}) {
     // Only 401 means the session is invalid. 403 is a permission/business-rule
     // denial (e.g. logging outside the race window) and is returned to the caller.
     if (res.status === 401 && attempt === 0) {
-      try {
-        await refreshAccessToken();
-        continue;
-      } catch {
-        logoutAndRedirect();
-        throw new Error('Unauthorized');
-      }
+      await refreshAccessToken(); // logs out itself if the session is invalid
+      continue;
     }
 
     if (res.status === 401) {

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 
 import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
@@ -14,7 +13,6 @@ function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const { syncSignedRaces } = useTime();
-    const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -36,18 +34,12 @@ function Login() {
 
                 // Fresh selection for this login: auto-selects the race only if
                 // exactly one is currently in its time window.
-                const activeRace = syncSignedRaces(data.signed_races || [], { resetSelection: true });
-                const activeRaceId = activeRace ? (activeRace.race_id ?? activeRace.id ?? activeRace.raceId) : null;
+                syncSignedRaces(data.signed_races || [], { resetSelection: true });
 
-                // Notify app about auth change
+                // Notify app about auth change. App's /login route then redirects
+                // (PostLoginRedirect): to the selected race's map, or to race
+                // selection. Navigating here as well would race with that redirect.
                 window.dispatchEvent(new Event('auth-update'));
-                if (activeRaceId !== null && activeRaceId !== undefined) {
-                    logger.info('NAVIGATION', `Navigating to /race/${activeRaceId}/map after login`);
-                    navigate(`/race/${activeRaceId}/map`, { replace: true });
-                } else {
-                    logger.info('RACE', 'No single race in its time window, user must select');
-                    navigate('/race', { replace: true });
-                }
             } else {
                 logger.error('AUTH', 'Login failed', data.msg || 'Unknown error');
                 setError(data.msg || t('auth.login.failed'));

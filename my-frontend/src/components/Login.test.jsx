@@ -34,7 +34,19 @@ describe('Login Component', () => {
     sessionStorage.clear();
     vi.clearAllMocks();
     mockNavigate.mockClear();
+    vi.spyOn(window, 'dispatchEvent');
   });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // App's /login route does the post-login redirect (PostLoginRedirect); Login
+  // only announces the login, it must not navigate itself.
+  const expectLoginAnnounced = () => {
+    expect(window.dispatchEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'auth-update' }));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  };
 
   test('renders login form with email and password fields', () => {
     render(<MockLogin />);
@@ -82,7 +94,7 @@ describe('Login Component', () => {
       expect(authApi.login).toHaveBeenCalledWith('test@example.com', 'password123');
       expect(localStorage.getItem('accessToken')).toBe('mock-access-token');
       expect(localStorage.getItem('refreshToken')).toBeNull();
-      expect(mockNavigate).toHaveBeenCalledWith('/race', { replace: true });
+      expectLoginAnnounced();
     });
   });
 
@@ -92,7 +104,7 @@ describe('Login Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /login/i }));
   };
 
-  test('auto-selects the only running race and goes straight to its map', async () => {
+  test('auto-selects the only running race', async () => {
     const hour = 60 * 60 * 1000;
     const running = {
       race_id: 5,
@@ -112,7 +124,7 @@ describe('Login Component', () => {
     submitLogin();
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/race/5/map', { replace: true });
+      expectLoginAnnounced();
     });
     expect(JSON.parse(localStorage.getItem('activeRace')).race_id).toBe(5);
     expect(JSON.parse(localStorage.getItem('signedRaces'))).toHaveLength(2);
@@ -126,7 +138,7 @@ describe('Login Component', () => {
     submitLogin();
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/race', { replace: true });
+      expectLoginAnnounced();
     });
     expect(localStorage.getItem('activeRace')).toBeNull();
   });
