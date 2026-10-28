@@ -23,6 +23,6 @@ test('with several running races the user picks one', async ({ page }) => {
 test('a wrong password shows an error and stays on the login page', async ({ page }) => {
   await login(page, 'solo', 'wrong-password');
 
-  await expect(page.locator('.alert-danger')).toBeVisible();
+  await expect(page.locator('.alert-danger')).toHaveText('Invalid email or password.');
   await expect(page).toHaveURL(/\/login$/);
 });

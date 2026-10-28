@@ -46,7 +46,14 @@ function Login() {
             }
         } catch (err) {
             logger.error('AUTH', 'Login error', err.message);
-            setError(err.message || t('auth.login.failed'));
+            // The API's messages aren't translated: pick ours by status.
+            if (err.status === 401) {
+                setError(t('auth.login.invalidCredentials'));
+            } else if (!err.status) {
+                setError(t('auth.login.networkError')); // fetch itself failed
+            } else {
+                setError(t('auth.login.failed'));
+            }
         }
     };
 

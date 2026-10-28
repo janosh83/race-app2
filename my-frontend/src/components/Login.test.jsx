@@ -143,8 +143,25 @@ describe('Login Component', () => {
     expect(localStorage.getItem('activeRace')).toBeNull();
   });
 
+  // Errors as utils/api.js throws them: a 401 always says 'Unauthorized'.
+  const apiError = (message, status) => Object.assign(new Error(message), { status });
+
+  test.each([
+    ['wrong email or password (401)', apiError('Unauthorized', 401), 'Invalid email or password.'],
+    ['server error', apiError('INTERNAL SERVER ERROR', 500), 'Login failed'],
+    ['unreachable server', new TypeError('Failed to fetch'), "Can't reach the server. Check your connection and try again."],
+  ])('shows a translated message for %s', async (_, error, message) => {
+    authApi.login.mockRejectedValue(error);
+
+    render(<MockLogin />);
+    submitLogin();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(screen.queryByText(/unauthorized|failed to fetch|internal server error/i)).not.toBeInTheDocument();
+  });
+
   test('displays error message on login failure', async () => {
-    authApi.login.mockRejectedValue(new Error('Invalid credentials'));
+    authApi.login.mockRejectedValue(apiError('Unauthorized', 401));
     
     render(<MockLogin />);
     
@@ -158,7 +175,7 @@ describe('Login Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /login/i }));
     
     await waitFor(() => {
-      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+      expect(screen.getByText('Invalid email or password.')).toBeInTheDocument();
     });
   });
 
@@ -184,7 +201,7 @@ describe('Login Component', () => {
   });
 
   test('clears error message on new submission attempt', async () => {
-    authApi.login.mockRejectedValueOnce(new Error('Invalid credentials'));
+    authApi.login.mockRejectedValueOnce(apiError('Unauthorized', 401));
     
     render(<MockLogin />);
     
@@ -198,7 +215,7 @@ describe('Login Component', () => {
     fireEvent.click(submitButton);
     
     await waitFor(() => {
-      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+      expect(screen.getByText('Invalid email or password.')).toBeInTheDocument();
     });
     
     // Second attempt should clear error before API call
@@ -214,7 +231,7 @@ describe('Login Component', () => {
     
     // Error should be cleared during submission
     await waitFor(() => {
-      expect(screen.queryByText(/invalid credentials/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Invalid email or password.')).not.toBeInTheDocument();
     });
   });
 });

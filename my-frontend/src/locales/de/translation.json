@@ -163,7 +163,9 @@
       "passwordPlaceholder": "Passwort",
       "submit": "Anmelden",
       "forgotLink": "Passwort vergessen?",
-      "failed": "Anmeldung fehlgeschlagen"
+      "failed": "Anmeldung fehlgeschlagen",
+      "invalidCredentials": "Ungültige E-Mail-Adresse oder ungültiges Passwort.",
+      "networkError": "Der Server ist nicht erreichbar. Bitte prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
     },
     "forgot": {
       "title": "Passwort vergessen",

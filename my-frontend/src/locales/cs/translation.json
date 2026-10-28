@@ -163,7 +163,9 @@
       "passwordPlaceholder": "Heslo",
       "submit": "Přihlásit se",
       "forgotLink": "Zapomenuté heslo?",
-      "failed": "Přihlášení se nezdařilo"
+      "failed": "Přihlášení se nezdařilo",
+      "invalidCredentials": "Neplatný e-mail nebo heslo.",
+      "networkError": "Nelze se spojit se serverem. Zkontrolujte připojení a zkuste to znovu."
     },
     "forgot": {
       "title": "Zapomenuté heslo",

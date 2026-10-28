@@ -163,7 +163,9 @@
       "passwordPlaceholder": "Password",
       "submit": "Login",
       "forgotLink": "Forgot Password?",
-      "failed": "Login failed"
+      "failed": "Login failed",
+      "invalidCredentials": "Invalid email or password.",
+      "networkError": "Can't reach the server. Check your connection and try again."
     },
     "forgot": {
       "title": "Forgot Password",
