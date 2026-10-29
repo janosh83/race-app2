@@ -15,6 +15,7 @@ import RaceStatistics from './RaceStatistics';
 import RegistrationList from './RegistrationList';
 import Standings from './Standings';
 import TaskList from './TaskList';
+import TeamPathsMap from './TeamPathsMap';
 import VisitsList from './VisitsList';
 
 
@@ -385,6 +386,14 @@ function AdminDashboard() {
                     </li>
                     <li className="nav-item">
                       <button
+                        className={`nav-link ${activeSubmenu === 'teamPaths' ? 'active' : ''}`}
+                        onClick={() => setActiveSubmenu('teamPaths')}
+                      >
+                        {t('admin.dashboard.tabTeamPaths')}
+                      </button>
+                    </li>
+                    <li className="nav-item">
+                      <button
                         className={`nav-link ${activeSubmenu === 'statistics' ? 'active' : ''}`}
                         onClick={() => setActiveSubmenu('statistics')}
                       >
@@ -449,6 +458,10 @@ function AdminDashboard() {
                         </div>
                       )}
                     </>
+                  )}
+
+                  {activeSubmenu === 'teamPaths' && (
+                    <TeamPathsMap raceId={selected.id} />
                   )}
 
                   {activeSubmenu === 'statistics' && (

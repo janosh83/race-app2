@@ -41,6 +41,7 @@ export const adminApi = {
   retryRegistrationEmailLog: (raceId, logId) => apiFetch(`/api/team/race/${raceId}/email-logs/${logId}/retry/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
   getRaceStatistics: (raceId) => apiFetch(`/api/race/${raceId}/statistics/`),
+  getRaceTeamPaths: (raceId) => apiFetch(`/api/race/${raceId}/team-paths/`),
 
   // User management (admin)
   getUsers: (params = {}) => {

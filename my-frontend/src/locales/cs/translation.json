@@ -297,6 +297,7 @@
       "tabRegistrationsCategories": "Registrace a kategorie",
       "tabTeams": "Týmy",
       "tabVisitsResults": "Návštěvy a výsledky",
+      "tabTeamPaths": "Trasy týmů",
       "tabStatistics": "Statistiky",
       "visitsTeam": "Návštěvy — tým #{{id}}",
       "selectRacePrompt": "Vyberte závod nebo klikněte na \"Nový závod\""
@@ -317,6 +318,21 @@
       "leastVisitedCheckpoints": "Nejméně navštěvované checkpointy (s alespoň jednou návštěvou)",
       "leastCompletedTasks": "Nejméně plněné úkoly (s alespoň jedním splněním)",
       "noTopData": "Zatím nejsou data"
+    },
+    "teamPaths": {
+      "title": "Trasy týmů",
+      "loading": "Načítám trasy týmů...",
+      "errorLoad": "Nepodařilo se načíst trasy týmů",
+      "refresh": "Obnovit",
+      "showAll": "Zobrazit vše",
+      "hideAll": "Skrýt vše",
+      "noTeams": "Žádné registrované týmy",
+      "noCheckpoints": "Závod zatím nemá žádné checkpointy",
+      "disqualified": "DSQ",
+      "visitedCount": "Navštívené checkpointy",
+      "checkpointTooltip": "{{title}} — návštěvy: {{count}}",
+      "startTooltip": "Začátek trasy: {{team}}",
+      "hint": "Čáry spojují checkpointy v pořadí, v jakém je tým navštívil. Tečka označuje první návštěvu, přerušovaná čára diskvalifikovaný tým. Najetím na tým v seznamu jej zvýrazníte, kliknutím na čáru zobrazíte pořadí návštěv."
     },
     "raceList": {
       "title": "Závody",

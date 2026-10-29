@@ -297,6 +297,7 @@
       "tabRegistrationsCategories": "Registrierungen & Kategorien",
       "tabTeams": "Teams",
       "tabVisitsResults": "Besuche & Ergebnisse",
+      "tabTeamPaths": "Team-Routen",
       "tabStatistics": "Statistiken",
       "visitsTeam": "Besuche — Team #{{id}}",
       "selectRacePrompt": "Waehlen Sie ein Rennen oder klicken Sie auf \"Neues Rennen\""
@@ -317,6 +318,21 @@
       "leastVisitedCheckpoints": "Am wenigsten besuchte Checkpoints (mit mindestens einem Besuch)",
       "leastCompletedTasks": "Am wenigsten erledigte Aufgaben (mit mindestens einer Erfuellung)",
       "noTopData": "Noch keine Daten"
+    },
+    "teamPaths": {
+      "title": "Team-Routen",
+      "loading": "Team-Routen werden geladen...",
+      "errorLoad": "Team-Routen konnten nicht geladen werden",
+      "refresh": "Aktualisieren",
+      "showAll": "Alle anzeigen",
+      "hideAll": "Alle ausblenden",
+      "noTeams": "Keine registrierten Teams",
+      "noCheckpoints": "Dieses Rennen hat noch keine Checkpoints",
+      "disqualified": "DSQ",
+      "visitedCount": "Besuchte Checkpoints",
+      "checkpointTooltip": "{{title}} — Besuche: {{count}}",
+      "startTooltip": "Start der Route: {{team}}",
+      "hint": "Linien verbinden die Checkpoints in der Reihenfolge, in der das Team sie besucht hat. Ein Punkt markiert den ersten Besuch, eine gestrichelte Linie ein disqualifiziertes Team. Fahren Sie über ein Team in der Liste, um es hervorzuheben; klicken Sie auf eine Linie für die Besuchsreihenfolge."
     },
     "raceList": {
       "title": "Rennen",

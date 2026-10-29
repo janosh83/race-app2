@@ -297,6 +297,7 @@
       "tabRegistrationsCategories": "Registrations & Categories",
       "tabTeams": "Teams",
       "tabVisitsResults": "Visits & Results",
+      "tabTeamPaths": "Team paths",
       "tabStatistics": "Statistics",
       "visitsTeam": "Visits — team #{{id}}",
       "selectRacePrompt": "Select a race or click \"New race\" to create one"
@@ -317,6 +318,21 @@
       "leastVisitedCheckpoints": "Least visited checkpoints (with at least one visit)",
       "leastCompletedTasks": "Least completed tasks (with at least one completion)",
       "noTopData": "No data yet"
+    },
+    "teamPaths": {
+      "title": "Team paths",
+      "loading": "Loading team paths...",
+      "errorLoad": "Failed to load team paths",
+      "refresh": "Refresh",
+      "showAll": "Show all",
+      "hideAll": "Hide all",
+      "noTeams": "No registered teams",
+      "noCheckpoints": "This race has no checkpoints yet",
+      "disqualified": "DSQ",
+      "visitedCount": "Visited checkpoints",
+      "checkpointTooltip": "{{title}} — visits: {{count}}",
+      "startTooltip": "Start of path: {{team}}",
+      "hint": "Lines connect checkpoints in the order each team visited them. A dot marks the first visit, a dashed line marks a disqualified team. Hover a team in the list to highlight it, click a line for the visit order."
     },
     "raceList": {
       "title": "Races",
