@@ -186,7 +186,37 @@ If needed:
 - Use `VITE_API_URL=http://127.0.0.1:5000`, or
 - Run Flask on a different port and update `VITE_API_URL` accordingly.
 
-Quick CORS preflight check:
+### 3.6 CORS configuration
+
+The frontend and backend run on different origins (e.g. `http://localhost:5173` and `http://localhost:5000`), so the browser only lets the frontend call the API when the backend answers with CORS headers. CORS is configured in `create_app()` in `app/__init__.py` using Flask-CORS.
+
+**Allowed origins** come from the `CORS_ORIGINS` environment variable (root `.env`):
+
+```env
+# single origin
+CORS_ORIGINS=http://localhost:5173
+# several origins, comma-separated
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+- If `CORS_ORIGINS` is not set, it defaults to `http://localhost:5173` (the Vite dev server).
+- Each value must exactly match the browser's origin: protocol, host and port, without a path or trailing slash. `http://localhost:5173` and `http://127.0.0.1:5173` are different origins.
+- The first origin in the list is also used as `FRONTEND_URL`, the base URL for links in emails (e.g. password reset) and for Stripe checkout return URLs, so put the main frontend URL first.
+- In production, set it to the deployed frontend URL (e.g. `https://your-frontend.onrender.com`). The backend logs a `config_safety_check` warning if `ProductionConfig` still allows `localhost`/`127.0.0.1`.
+
+**What the backend allows** for those origins:
+
+| Setting | Value |
+| --- | --- |
+| Paths | `/api/*`, `/auth/*`, `/static/images/*` |
+| Methods | `GET`, `HEAD`, `POST`, `OPTIONS`, `PUT`, `PATCH`, `DELETE` |
+| Request headers | `Authorization`, `Content-Type`, `X-Requested-With`, `Accept` |
+| Exposed response headers | `Content-Type`, `Authorization` |
+| Credentials | Allowed (`supports_credentials=True`), needed for the HTTP-only refresh-token cookie |
+
+Requests from an origin that is not listed still reach the server, but the response has no `Access-Control-Allow-Origin` header, so the browser blocks the frontend from reading it. If the frontend and backend are on different sites in production, also set the cookie options from [3.2 Production JWT cookie settings](#32-production-jwt-cookie-settings).
+
+**Quick preflight check.** An allowed origin gets `Access-Control-Allow-Origin: <origin>` back; an origin that is not allowed gets no CORS headers:
 
 ```bash
 curl -i -X OPTIONS 'http://127.0.0.1:5000/api/race/' \
@@ -554,7 +584,7 @@ npm run lint:fix
 
 ## 8) Troubleshooting
 
-- **CORS issues:** verify `CORS_ORIGINS` exactly matches frontend origin (including protocol and domain).
+- **CORS issues:** verify `CORS_ORIGINS` exactly matches the frontend origin (protocol, host and port, no trailing slash) and restart the backend after changing it. See [3.6 CORS configuration](#36-cors-configuration).
 - **Auth redirect loops:** verify `VITE_API_URL` points to the correct backend URL.
 - **Emails not sending:** verify SMTP credentials, sender identity, and backend logs.
 - **Map not loading:** verify `VITE_MAPY_API_KEY` is present and valid.
