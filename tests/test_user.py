@@ -151,6 +151,32 @@ def test_get_signed_races_success(test_client, add_test_data):
         assert "end_logging" in race
 
 
+def test_get_signed_races_includes_team_name_and_members(test_client, add_test_data):
+    """Each signed race carries its team's name and members (names only)."""
+    response = test_client.post("/auth/login/", json={"email": "user1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    signed_races = test_client.get("/api/user/signed-races/", headers=headers).json["signed_races"]
+    by_race = {race["race_id"]: race for race in signed_races}
+
+    assert by_race[1]["team_name"] == "Team Alpha"
+    assert by_race[1]["team_members"] == [{"id": 1, "name": "User One"}]
+    assert by_race[2]["team_name"] == "Team Beta"
+    assert by_race[2]["team_members"] == [{"id": 1, "name": "User One"}, {"id": 2, "name": "User Two"}]
+    # No e-mail addresses of teammates.
+    assert all(set(member) == {"id", "name"} for race in signed_races for member in race["team_members"])
+
+
+def test_login_signed_races_include_team(test_client, add_test_data):
+    """Login returns the same signed-races shape, team included."""
+    response = test_client.post("/auth/login/", json={"email": "user2@example.com", "password": "password"})
+    by_race = {race["race_id"]: race for race in response.json["signed_races"]}
+
+    assert by_race[1]["team_name"] == "Team Gamma"
+    assert by_race[1]["race_category"] == "Cars"
+    assert [m["name"] for m in by_race[2]["team_members"]] == ["User One", "User Two"]
+
+
 def test_get_signed_races_specific_details(test_client, add_test_data):
     """Test that returned race details match expected values."""
     # Login as user1

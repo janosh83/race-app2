@@ -122,6 +122,27 @@ describe('RaceLayout Component', () => {
       });
     });
 
+    test('shows the logged-in user with team and category of the selected race', () => {
+      renderWithProviders(
+        { race_id: 5, name: 'Test Race', team_name: 'Rychlé šípy', race_category: 'Rodiny' },
+        [],
+        { id: 1, name: 'Jan Novák' },
+      );
+
+      const account = screen.getByTestId('account-menu');
+      expect(account).toHaveTextContent('JN');
+      expect(account).toHaveTextContent('Jan Novák');
+      expect(account).toHaveTextContent('Rychlé šípy · Rodiny');
+      expect(screen.getByTestId('account-chip')).toHaveAttribute('title', 'Jan Novák · Rychlé šípy · Rodiny');
+    });
+
+    test('shows the user without a team line when no race is selected', () => {
+      renderWithProviders(null, [], { id: 1, name: 'Jan Novák' });
+
+      expect(screen.getByTestId('account-menu')).toHaveTextContent('Jan Novák');
+      expect(screen.getByTestId('account-chip')).toHaveAttribute('title', 'Jan Novák');
+    });
+
     test('renders outlet for child routes', () => {
       renderWithProviders();
 

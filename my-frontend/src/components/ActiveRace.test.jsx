@@ -158,6 +158,54 @@ describe('ActiveRace Component', () => {
       expect(screen.getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '/race/1/tasks');
     });
 
+    test('shows the team, category and members with the user first', () => {
+      localStorage.setItem('user', JSON.stringify({ id: 2, name: 'Eva Nováková' }));
+      const activeRace = {
+        race_id: 1,
+        name: 'Current Race',
+        team_name: 'Rychlé šípy',
+        race_category: 'Rodiny',
+        team_members: [{ id: 1, name: 'Jan Novák' }, { id: 2, name: 'Eva Nováková' }],
+      };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+      });
+
+      expect(screen.getByText('Your team')).toBeInTheDocument();
+      expect(screen.getByText('Rychlé šípy')).toBeInTheDocument();
+      expect(screen.getByText('Rodiny')).toBeInTheDocument();
+      const members = within(screen.getByRole('list', { name: 'Team members' })).getAllByRole('listitem');
+      expect(members.map(li => li.textContent)).toEqual(['Eva Nováková (you)', 'Jan Novák']);
+    });
+
+    test('shows no team section when the race has no team data', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+      });
+
+      expect(screen.queryByText('Your team')).not.toBeInTheDocument();
+    });
+
+    test('shows team and category on other races', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+      const otherRace = { race_id: 2, name: 'Other Race', team_name: 'Old Team', race_category: 'Sport' };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace, otherRace],
+      });
+
+      expect(screen.getByText('Old Team · Sport')).toBeInTheDocument();
+    });
+
     test('handles alternative property names for race data', () => {
       const activeRace = { id: 3, name: 'Race With ID' };
       activeRaceUtils.findCandidates.mockReturnValue([]);

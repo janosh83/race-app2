@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
 import { findCandidates } from '../utils/activeRaceUtils';
+import { readStoredUser } from '../utils/currentUser';
 import { logger } from '../utils/logger';
 import { getPhasePresentation } from '../utils/racePhase';
 
@@ -34,6 +35,34 @@ const timeWindows = (t, race) => [
   },
 ];
 
+// The user's team in a race: name, category and members (the user first).
+function TeamCard({ race, userId }) {
+  const { t } = useTranslation();
+  const members = [...(race.team_members || [])].sort((a, b) => (b.id === userId) - (a.id === userId));
+  if (!race.team_name && !race.race_category && members.length === 0) return null;
+  return (
+    <div className="active-race-team mb-3">
+      <div className="text-muted small mb-1">{t('activeRace.yourTeam')}</div>
+      <div className="d-flex align-items-center flex-wrap gap-2">
+        {race.team_name && <span className="active-race-strong">{race.team_name}</span>}
+        {race.race_category && (
+          <span className="badge rounded-pill bg-primary-subtle text-primary-emphasis">{race.race_category}</span>
+        )}
+      </div>
+      {members.length > 0 && (
+        <ul className="active-race-team-members list-unstyled mb-0 mt-2" aria-label={t('activeRace.teamMembers')}>
+          {members.map(member => (
+            <li key={member.id}>
+              {member.name}
+              {member.id === userId && <span className="text-muted"> ({t('activeRace.you')})</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // "My races": the selected race on top, then the other signed races grouped
 // as running now (to switch between races held at the same time), upcoming
 // and past (opened read-only: map, checkpoints and final results).
@@ -42,6 +71,7 @@ function ActiveRace() {
   const navigate = useNavigate();
   const { activeRace, setActiveRace, signedRaces, timeInfo } = useTime();
   const races = useMemo(() => signedRaces || [], [signedRaces]);
+  const userId = useMemo(() => readStoredUser()?.id, []);
   const candidates = useMemo(() => findCandidates(races), [races]);
 
   const normalizeName = (race) => race.name || race.race_name || t('activeRace.unnamedRace');
@@ -93,6 +123,8 @@ function ActiveRace() {
             <h3 className="h4 card-title">{normalizeName(activeRace)}</h3>
             <p className="card-text">{normalizeDescription(activeRace)}</p>
             <p className="small text-muted">{t('activeRace.selectedRaceScopeNote')}</p>
+
+            <TeamCard race={activeRace} userId={userId} />
 
             {activeRace.supported_languages && activeRace.supported_languages.length > 0 && (
               <div className="mb-3">
@@ -167,6 +199,11 @@ function ActiveRace() {
                   <div className="d-flex flex-column flex-lg-row justify-content-between gap-3">
                     <div className="flex-grow-1">
                       <strong>{normalizeName(r)}</strong>
+                      {(r.team_name || r.race_category) && (
+                        <div className="small mb-1">
+                          {[r.team_name, r.race_category].filter(Boolean).join(' · ')}
+                        </div>
+                      )}
                       <div className="text-muted small mb-2">{normalizeDescription(r)}</div>
                       <div className="d-flex flex-wrap gap-2">
                         {timeWindows(t, r).map((constraint) => (

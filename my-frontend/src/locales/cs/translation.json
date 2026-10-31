@@ -55,7 +55,10 @@
     "groupRunning": "Právě běží",
     "groupUpcoming": "Nadcházející",
     "groupPast": "Minulé závody",
-    "open": "Otevřít"
+    "open": "Otevřít",
+    "yourTeam": "Váš tým",
+    "teamMembers": "Členové týmu",
+    "you": "vy"
   },
   "statusBadge": {
     "comingAt": "Dostupné {{time}}",
@@ -182,7 +185,8 @@
     "category": "Kategorie",
     "pointsCheckpoints": "Body za checkpointy",
     "pointsTasks": "Body za úkoly",
-    "pointsTotal": "Celkem bodů"
+    "pointsTotal": "Celkem bodů",
+    "yourTeam": "Váš tým"
   },
   "auth": {
     "login": {

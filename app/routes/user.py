@@ -4,11 +4,12 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
-from app.models import Registration, Team, Race, RaceCategory, User, team_members
+from app.models import User
 from app.routes.admin import admin_required
 from app import db
 from app.schemas import PaginationQuerySchema, UserCreateSchema, UserUpdateSchema
-from app.utils import normalize_email
+from app.services.signed_races import signed_races_for_user
+from app.utils import current_user_id, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -361,6 +362,19 @@ def get_signed_races():
                       team_id:
                         type: integer
                         description: The ID of the user's team
+                      team_name:
+                        type: string
+                        description: The name of the user's team
+                      team_members:
+                        type: array
+                        description: Members of the team (id and name)
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            name:
+                              type: string
                       race_name:
                         type: string
                         description: The name of the race
@@ -389,56 +403,4 @@ def get_signed_races():
       401:
         description: Missing or invalid authentication token
     """
-    current_user_id = str(get_jwt_identity())
-
-    races_by_user = (
-        db.session.query(Registration,
-            Race.id.label("race_id"),
-            Team.id.label("team_id"),
-            Race.name.label("race_name"),
-            Race.description.label("race_description"),
-            RaceCategory.name.label("race_category"),
-            Race.finish_description.label("finish_description"),
-            Race.finish_latitude.label("finish_latitude"),
-            Race.finish_longitude.label("finish_longitude"),
-            Race.bivak_1_name.label("bivak_1_name"),
-            Race.bivak_1_latitude.label("bivak_1_latitude"),
-            Race.bivak_1_longitude.label("bivak_1_longitude"),
-            Race.bivak_2_name.label("bivak_2_name"),
-            Race.bivak_2_latitude.label("bivak_2_latitude"),
-            Race.bivak_2_longitude.label("bivak_2_longitude"),
-            Race.start_showing_checkpoints_at,
-            Race.end_showing_checkpoints_at,
-            Race.start_logging_at,
-            Race.end_logging_at)
-        .join(Race, Registration.race_id == Race.id)
-        .join(Team, Registration.team_id == Team.id)
-        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
-        .join(team_members, team_members.c.team_id == Team.id)
-        .filter(team_members.c.user_id == int(current_user_id))
-        .filter(Registration.payment_confirmed.is_(True))
-        .all()
-    )
-
-    registered_races = [{
-        "race_id": race.race_id,
-        "team_id": race.team_id,
-        "race_name": race.race_name,
-        "race_category": race.race_category,
-        "race_description": race.race_description,
-        "finish_description": race.finish_description,
-        "finish_latitude": race.finish_latitude,
-        "finish_longitude": race.finish_longitude,
-        "bivak_1_name": race.bivak_1_name,
-        "bivak_1_latitude": race.bivak_1_latitude,
-        "bivak_1_longitude": race.bivak_1_longitude,
-        "bivak_2_name": race.bivak_2_name,
-        "bivak_2_latitude": race.bivak_2_latitude,
-        "bivak_2_longitude": race.bivak_2_longitude,
-        "start_showing_checkpoints": race.start_showing_checkpoints_at,
-        "end_showing_checkpoints": race.end_showing_checkpoints_at,
-        "start_logging": race.start_logging_at,
-        "end_logging": race.end_logging_at
-    } for race in races_by_user]
-
-    return jsonify({"signed_races": registered_races}), 200
+    return jsonify({"signed_races": signed_races_for_user(current_user_id())}), 200

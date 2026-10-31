@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import './Standings.css';
+
 import { raceApi } from '../services/raceApi';
 
 const normalizeComparableId = (value) => (
@@ -125,11 +127,16 @@ function Standings() {
               {rankedResults.map((result, index) => (
                 <tr
                   key={index}
-                  className={isOwnTeam(result) ? 'table-warning' : ''}
-                  style={isOwnTeam(result) ? { boxShadow: 'inset 4px 0 0 #fd7e14' } : undefined}
+                  className={isOwnTeam(result) ? 'standings-own-team' : ''}
+                  aria-current={isOwnTeam(result) ? 'true' : undefined}
                 >
                   <td style={{ fontWeight: 600 }}>{result.positionLabel}</td>
-                  <td>{result.team}</td>
+                  <td>
+                    {result.team}
+                    {isOwnTeam(result) && (
+                      <span className="badge rounded-pill bg-primary ms-2">{t('results.yourTeam')}</span>
+                    )}
+                  </td>
                   <td>{result.category}</td>
                   <td className="d-none d-md-table-cell">{renderPointsCell(result, result.points_for_checkpoints)}</td>
                   <td className="d-none d-md-table-cell">{renderPointsCell(result, result.points_for_tasks)}</td>

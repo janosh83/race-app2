@@ -54,7 +54,10 @@
     "groupRunning": "Running now",
     "groupUpcoming": "Upcoming",
     "groupPast": "Past races",
-    "open": "Open"
+    "open": "Open",
+    "yourTeam": "Your team",
+    "teamMembers": "Team members",
+    "you": "you"
   },
   "statusBadge": {
     "comingAt": "Coming {{time}}",
@@ -181,7 +184,8 @@
     "category": "Category",
     "pointsCheckpoints": "Points for Checkpoints",
     "pointsTasks": "Points for Tasks",
-    "pointsTotal": "Total Points"
+    "pointsTotal": "Total Points",
+    "yourTeam": "Your team"
   },
   "auth": {
     "login": {

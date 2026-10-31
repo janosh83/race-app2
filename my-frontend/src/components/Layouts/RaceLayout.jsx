@@ -5,6 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useTime } from '../../contexts/TimeContext';
 import { findCandidates } from '../../utils/activeRaceUtils';
 import { logoutAndRedirect } from '../../utils/api';
+import { initialsOf, readStoredUser } from '../../utils/currentUser';
 import { logger } from '../../utils/logger';
 import LanguageSwitcher from '../LanguageSwitcher';
 
@@ -63,13 +64,9 @@ function RaceLayout() {
   const runningCount = React.useMemo(() => findCandidates(signedRaces || []).length, [signedRaces]);
   const showRunningNotice = runningCount >= 2 && location.pathname !== '/race';
 
-  const user = React.useMemo(() => {
-    try {
-      return JSON.parse(localStorage.getItem('user') || 'null');
-    } catch {
-      return null;
-    }
-  }, []);
+  const user = React.useMemo(() => readStoredUser(), []);
+  // Team and category belong to the selected race (they can differ per race).
+  const teamLine = [activeRace?.team_name, activeRace?.race_category].filter(Boolean).join(' · ');
 
   // Measure navbar height for map offset
   const measureNav = useCallback(() => {
@@ -144,6 +141,16 @@ function RaceLayout() {
             <span className="navbar-toggler-icon"></span>
           </button>
           <div id="mainNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
+            {user?.name && (
+              // Phones: who is logged in, on top of the menu.
+              <div className="race-navbar-account d-lg-none" data-testid="account-menu">
+                <span className="race-navbar-avatar" aria-hidden="true">{initialsOf(user.name)}</span>
+                <div className="race-navbar-account-text">
+                  <div className="race-navbar-account-name">{user.name}</div>
+                  {teamLine && <div className="race-navbar-account-team">{teamLine}</div>}
+                </div>
+              </div>
+            )}
             <ul className="navbar-nav me-auto mb-2 mb-lg-0">
               <li className="nav-item">
                 <button
@@ -178,6 +185,19 @@ function RaceLayout() {
               {user && user.is_administrator && (
                 <li className="nav-item">
                   <button className="nav-link btn btn-link" onClick={() => navigateTo('/admin')}>{t('nav.admin')}</button>
+                </li>
+              )}
+              {user?.name && (
+                // Wide screens: a compact chip; the team is in the tooltip.
+                <li className="nav-item d-none d-lg-flex align-items-center me-1">
+                  <span
+                    className="race-navbar-account race-navbar-account-compact"
+                    title={teamLine ? `${user.name} · ${teamLine}` : user.name}
+                    data-testid="account-chip"
+                  >
+                    <span className="race-navbar-avatar" aria-hidden="true">{initialsOf(user.name)}</span>
+                    <span className="race-navbar-account-name">{user.name}</span>
+                  </span>
                 </li>
               )}
               <li className="nav-item">

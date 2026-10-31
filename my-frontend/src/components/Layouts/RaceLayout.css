@@ -108,3 +108,81 @@
     max-width: 40%;
   }
 }
+
+/* Logged-in user: on top of the phone menu, a compact chip on wide screens. */
+.race-navbar-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #fff;
+}
+
+.race-navbar-account:not(.race-navbar-account-compact) {
+  padding: 8px 0 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.race-navbar-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--brand-accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.race-navbar-account-text {
+  min-width: 0;
+}
+
+.race-navbar-account-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-account-team {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-account-compact {
+  gap: 7px;
+  font-size: 0.9rem;
+  max-width: 220px;
+}
+
+.race-navbar-account-compact .race-navbar-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+}
+
+.race-navbar .nav-link {
+  white-space: nowrap;
+}
+
+/* Narrow desktops (992-1199px): initials only (name in the tooltip) and
+   flags without codes, so the bar stays on one line. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .race-navbar-switcher {
+    max-width: 30%;
+  }
+
+  .race-navbar-account-compact .race-navbar-account-name,
+  .race-navbar .language-switcher-code {
+    display: none;
+  }
+}

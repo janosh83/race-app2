@@ -173,8 +173,10 @@ describe('Standings Component', () => {
       const ownRow = screen.getByRole('row', { name: /My Team/i });
       const otherRow = screen.getByRole('row', { name: /Other Team/i });
 
-      expect(ownRow).toHaveClass('table-warning');
-      expect(otherRow).not.toHaveClass('table-warning');
+      expect(ownRow).toHaveClass('standings-own-team');
+      expect(otherRow).not.toHaveClass('standings-own-team');
+      expect(within(ownRow).getByText('Your team')).toBeInTheDocument();
+      expect(within(otherRow).queryByText('Your team')).not.toBeInTheDocument();
 
       expect(within(ownRow).getByText('50')).toBeInTheDocument();
       expect(within(ownRow).getByText('30')).toBeInTheDocument();

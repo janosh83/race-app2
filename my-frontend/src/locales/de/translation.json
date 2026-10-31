@@ -54,7 +54,10 @@
     "groupRunning": "Laeuft gerade",
     "groupUpcoming": "Demnaechst",
     "groupPast": "Vergangene Rennen",
-    "open": "Oeffnen"
+    "open": "Oeffnen",
+    "yourTeam": "Ihr Team",
+    "teamMembers": "Teammitglieder",
+    "you": "Sie"
   },
   "statusBadge": {
     "comingAt": "Verfugbar {{time}}",
@@ -181,7 +184,8 @@
     "category": "Kategorie",
     "pointsCheckpoints": "Punkte fuer Checkpoints",
     "pointsTasks": "Punkte fuer Aufgaben",
-    "pointsTotal": "Gesamtpunkte"
+    "pointsTotal": "Gesamtpunkte",
+    "yourTeam": "Ihr Team"
   },
   "auth": {
     "login": {
