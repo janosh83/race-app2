@@ -3,8 +3,16 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import { assessVisitPosition } from '../../utils/visitPosition';
 
 const apiUrl = import.meta.env.VITE_API_URL || '';
+
+const formatMeters = (km) => (km === null || km === undefined ? '—' : `${(km * 1000).toFixed(0)} m`);
+
+const WARNING_STYLES = {
+  missing: { backgroundColor: '#fff3cd', color: '#856404' },
+  far: { backgroundColor: '#f8d7da', color: '#721c24' },
+};
 
 function formatDate(iso) {
   if (!iso) return '—';
@@ -90,59 +98,14 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
   if (loading) return <div>{t('admin.visits.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
 
-  // Determine if a warning indicator should be shown for distance validation
-  const getDistanceWarning = (visit) => {
-    const imageDistance = visit.image_distance_km;
-    const userDistance = visit.user_distance_km;
-    const THRESHOLD_KM = 0.2; // 200 meters
-
-    // Both positions not available
-    if (imageDistance === null && imageDistance === undefined &&
-        userDistance === null && userDistance === undefined) {
-      return {
-        show: true,
-        reason: t('admin.visits.noPositionData'),
-        className: 'bg-secondary'
-      };
+  const getPositionWarning = (assessment) => {
+    if (assessment.status === 'missing') return t('admin.visits.noPositionData');
+    if (assessment.status === 'far') {
+      return t(assessment.source === 'image' ? 'admin.visits.farPhoto' : 'admin.visits.farDevice', {
+        meters: (assessment.distanceKm * 1000).toFixed(0),
+      });
     }
-
-    // Only one distance available and it's > 200m
-    if ((imageDistance !== null && imageDistance !== undefined) &&
-        (userDistance === null || userDistance === undefined)) {
-      if (imageDistance > THRESHOLD_KM) {
-        return {
-          show: true,
-          reason: t('admin.visits.distanceImage', { meters: (imageDistance * 1000).toFixed(0) }),
-          className: 'bg-warning'
-        };
-      }
-    }
-
-    if ((userDistance !== null && userDistance !== undefined) &&
-        (imageDistance === null || imageDistance === undefined)) {
-      if (userDistance > THRESHOLD_KM) {
-        return {
-          show: true,
-          reason: t('admin.visits.distanceUserValue', { meters: (userDistance * 1000).toFixed(0) }),
-          className: 'bg-warning'
-        };
-      }
-    }
-
-    // Both available and lower of two is > 200m
-    if ((imageDistance !== null && imageDistance !== undefined) &&
-        (userDistance !== null && userDistance !== undefined)) {
-      const minDistance = Math.min(imageDistance, userDistance);
-      if (minDistance > THRESHOLD_KM) {
-        return {
-          show: true,
-          reason: t('admin.visits.distanceMin', { meters: (minDistance * 1000).toFixed(0) }),
-          className: 'bg-danger'
-        };
-      }
-    }
-
-    return { show: false };
+    return null;
   };
 
   const allItems = [
@@ -234,9 +197,8 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
           {allItems.map(item => {
-            const warning = item.type === 'visit' ? getDistanceWarning(item) : null;
-            const imageDistance = item.type === 'visit' ? item.image_distance_km : null;
-            const userDistance = item.type === 'visit' ? item.user_distance_km : null;
+            const assessment = item.type === 'visit' ? assessVisitPosition(item) : null;
+            const warning = assessment ? getPositionWarning(assessment) : null;
             const imageUrl = item.image_filename
               ? `${apiUrl}/static/images/${item.image_filename}`
               : null;
@@ -339,45 +301,45 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
                   </div>
 
                   {/* Distance Info for Checkpoints */}
-                  {item.type === 'visit' && (
+                  {assessment && (
                     <div style={{
                       marginBottom: '12px',
                       padding: '10px',
-                      backgroundColor: warning?.show ? '#fff3cd' : '#f8f9fa',
+                      backgroundColor: warning ? WARNING_STYLES[assessment.status].backgroundColor : '#f8f9fa',
                       borderRadius: '4px',
                       fontSize: '13px'
                     }}>
-                      <div style={{ marginBottom: '4px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>{t('admin.visits.distanceCheckpoint')}</span>
-                          <span style={{ fontWeight: '600' }}>
-                            {imageDistance !== null && imageDistance !== undefined
-                              ? `${(imageDistance * 1000).toFixed(0)}m`
-                              : '—'}
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>{t('admin.visits.distanceUser')}</span>
-                          <span style={{ fontWeight: '600' }}>
-                            {userDistance !== null && userDistance !== undefined
-                              ? `${(userDistance * 1000).toFixed(0)}m`
-                              : '—'}
-                          </span>
-                        </div>
-                      </div>
-                      {warning && warning.show && (
-                        <div style={{
-                          marginTop: '8px',
-                          padding: '6px 8px',
-                          backgroundColor: warning.className.includes('danger') ? '#f8d7da' :
-                                          warning.className.includes('warning') ? '#fff3cd' : '#e2e3e5',
-                          borderRadius: '4px',
-                          color: warning.className.includes('danger') ? '#721c24' :
-                                warning.className.includes('warning') ? '#856404' : '#383d41',
-                          fontSize: '11px',
-                          fontWeight: '500'
-                        }}>
-                          ⚠️ {warning.reason}
+                      {[
+                        { source: 'image', label: t('admin.visits.distancePhoto'), km: item.image_distance_km },
+                        { source: 'user', label: t('admin.visits.distanceDevice'), km: item.user_distance_km },
+                      ].map(row => {
+                        const used = assessment.source === row.source;
+                        return (
+                          <div
+                            key={row.source}
+                            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: used ? undefined : '#6c757d' }}
+                          >
+                            <span>
+                              {row.label}
+                              {used && <span className="badge bg-dark ms-2">{t('admin.visits.usedForCheck')}</span>}
+                            </span>
+                            <span style={{ fontWeight: used ? '600' : '400' }}>{formatMeters(row.km)}</span>
+                          </div>
+                        );
+                      })}
+                      {warning && (
+                        <div
+                          role="alert"
+                          style={{
+                            marginTop: '8px',
+                            padding: '6px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            ...WARNING_STYLES[assessment.status],
+                          }}
+                        >
+                          ⚠️ {warning}
                         </div>
                       )}
                     </div>
