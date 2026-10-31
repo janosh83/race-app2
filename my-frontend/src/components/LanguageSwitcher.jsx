@@ -1,34 +1,30 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import csFlag from '../assets/flags/cs.svg';
-import deFlag from '../assets/flags/de.svg';
-import enFlag from '../assets/flags/en.svg';
+import { LANGUAGE_FLAGS, LANGUAGE_LABELS, SUPPORTED_LANGUAGES } from '../config/languages';
 import { useTime } from '../contexts/TimeContext';
 import { userApi } from '../services/userApi';
 import { logger } from '../utils/logger';
 
-const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'EN', flag: enFlag },
-  { value: 'cs', label: 'CS', flag: csFlag },
-  { value: 'de', label: 'DE', flag: deFlag }
-];
+import './LanguageSwitcher.css';
 
-export default function LanguageSwitcher({ className = '' }) {
+// Three languages fit side by side, so every language is one tap away
+// (no dropdown). variant="dark" is for the black top bars.
+export default function LanguageSwitcher({ className = '', variant = 'light' }) {
   const { i18n, t } = useTranslation();
   const { setSelectedLanguage } = useTime();
   const current = (i18n.resolvedLanguage || i18n.language || 'en').split('-')[0];
 
-  const handleChange = async (event) => {
-    const next = event.target.value;
-    
+  const handleChange = async (next) => {
+    if (next === current) return;
+
     // Update frontend UI language
     i18n.changeLanguage(next);
-    
+
     // Update API language parameter
     setSelectedLanguage(next);
     logger.info('LANG', 'Language changed', { language: next });
-    
+
     // Try to persist to backend if user is logged in
     try {
       const userStr = localStorage.getItem('user');
@@ -46,32 +42,30 @@ export default function LanguageSwitcher({ className = '' }) {
     }
   };
 
-  const currentFlag = LANGUAGE_OPTIONS.find(option => option.value === current)?.flag || enFlag;
-
   return (
-    <div className={className}>
-      <label htmlFor="language-switcher" className="visually-hidden">
-        {t('nav.language')}
-      </label>
-      <select
-        id="language-switcher"
-        className="form-select form-select-sm"
-        value={current}
-        onChange={handleChange}
-        style={{
-          backgroundImage: `url(${currentFlag})`,
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: '8px center',
-          backgroundSize: '18px 12px',
-          paddingLeft: '32px'
-        }}
-      >
-        {LANGUAGE_OPTIONS.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+    <div
+      role="group"
+      aria-label={t('nav.language')}
+      className={`language-switcher language-switcher-${variant} ${className}`}
+    >
+      {SUPPORTED_LANGUAGES.map((lang) => {
+        const active = lang === current;
+        return (
+          <button
+            key={lang}
+            type="button"
+            lang={lang}
+            className={`language-switcher-option ${active ? 'is-active' : ''}`}
+            aria-pressed={active}
+            aria-label={LANGUAGE_LABELS[lang]}
+            title={LANGUAGE_LABELS[lang]}
+            onClick={() => handleChange(lang)}
+          >
+            <img src={LANGUAGE_FLAGS[lang]} alt="" className="language-switcher-flag" />
+            <span className="language-switcher-code" aria-hidden="true">{lang.toUpperCase()}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

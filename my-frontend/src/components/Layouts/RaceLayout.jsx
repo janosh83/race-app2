@@ -172,8 +172,8 @@ function RaceLayout() {
               )}
             </ul>
             <ul className="navbar-nav ms-auto">
-              <li className="nav-item d-flex align-items-center me-2">
-                <LanguageSwitcher />
+              <li className="nav-item d-flex align-items-center me-lg-2 py-1 py-lg-0">
+                <LanguageSwitcher variant="dark" />
               </li>
               {user && user.is_administrator && (
                 <li className="nav-item">

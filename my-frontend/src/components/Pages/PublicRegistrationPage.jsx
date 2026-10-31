@@ -328,9 +328,7 @@ function PublicRegistrationPage() {
               <h1 className="h3 mb-2">{race.name}</h1>
               <p className="text-muted">{race.description || t('publicRegistration.noDescription')}</p>
             </div>
-            <div style={{ minWidth: '92px' }}>
-              <LanguageSwitcher />
-            </div>
+            <LanguageSwitcher />
           </div>
 
           <hr />
