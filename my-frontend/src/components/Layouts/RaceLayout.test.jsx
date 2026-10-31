@@ -69,6 +69,14 @@ describe('RaceLayout Component', () => {
       expect(screen.getByText('Race App')).toBeInTheDocument();
     });
 
+    test('shows the logo next to the brand', () => {
+      renderWithProviders();
+
+      const logo = screen.getByText('Race App').querySelector('img');
+      expect(logo).toHaveAttribute('src', '/logo192.png');
+      expect(logo).toHaveAttribute('alt', '');
+    });
+
     test('renders outlet for child routes', () => {
       renderWithProviders();
 
@@ -428,7 +436,7 @@ describe('RaceLayout Component', () => {
       renderWithProviders();
 
       const navbar = screen.getByRole('navigation');
-      expect(navbar).toHaveClass('navbar', 'navbar-expand-lg', 'navbar-dark', 'bg-primary');
+      expect(navbar).toHaveClass('navbar', 'navbar-expand-lg', 'navbar-dark', 'race-navbar');
     });
 
     test('applies correct positioning and z-index', () => {

@@ -103,9 +103,12 @@ function RaceLayout() {
 
   return (
     <>
-      <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark bg-primary race-navbar" style={{ position: 'relative', zIndex: 1040 }}>
+      <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark race-navbar" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
-          <span className="navbar-brand">{t('nav.brand')}</span>
+          <span className="navbar-brand race-navbar-brand">
+            <img src="/logo192.png" alt="" width="32" height="32" className="race-navbar-logo" />
+            {t('nav.brand')}
+          </span>
           <button
             className="navbar-toggler"
             type="button"
