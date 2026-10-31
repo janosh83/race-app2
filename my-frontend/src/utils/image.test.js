@@ -2,17 +2,13 @@ import piexif from 'piexifjs';
 
 import { resizeImageWithExif } from './image';
 
-vi.mock('piexifjs', () => {
+vi.mock('piexifjs', async (importOriginal) => {
+  const actual = (await importOriginal()).default;
   const passthrough = vi.fn((_, dataUrl) => dataUrl);
   const dump = vi.fn(() => '');
   const load = vi.fn(() => ({}));
-  return {
-    __esModule: true,
-    default: { insert: passthrough, dump, load },
-    insert: passthrough,
-    dump,
-    load,
-  };
+  const mocked = { ...actual, insert: passthrough, dump, load };
+  return { __esModule: true, default: mocked, ...mocked };
 });
 
 const tinyPngDataUrl =

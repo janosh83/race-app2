@@ -178,6 +178,31 @@ def test_log_visit(test_client, add_test_data):
     assert response.status_code == 403
 
 
+def test_log_visit_stores_gps_from_photo_exif(test_client, test_app, add_test_data, tmp_path):
+    from app.models import CheckpointLog
+    from tests.test_image_exif import dms, gps_tags, write_jpeg
+
+    test_app.config['IMAGE_UPLOAD_FOLDER'] = str(tmp_path / 'uploads')
+    # Checkpoint 3 is at 50.5 N, 15.0 E; the photo was taken right there.
+    photo = write_jpeg(tmp_path / 'photo.jpg', gps_tags(dms(50, 30), 'N', dms(15), 'E'), orientation=6)
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    with open(photo, "rb") as img:
+        response = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": (img, "photo.jpg"), "checkpoint_id": 3, "team_id": 1},
+            content_type='multipart/form-data',
+        )
+
+    assert response.status_code == 201
+    with test_app.app_context():
+        log = CheckpointLog.query.filter_by(checkpoint_id=3, team_id=1).one()
+        assert (round(log.image_latitude, 6), round(log.image_longitude, 6)) == (50.5, 15.0)
+        assert log.image_distance_km is not None and log.image_distance_km < 0.01
+
+
 def test_log_visit_duplicate_returns_conflict(test_client, add_test_data):
     response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
     headers = {"Authorization": f"Bearer {response.json['access_token']}"}

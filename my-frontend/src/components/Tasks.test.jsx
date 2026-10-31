@@ -10,11 +10,16 @@ import Tasks from './Tasks';
 // Mock dependencies
 vi.mock('../services/raceApi');
 vi.mock('../utils/api');
-vi.mock('piexifjs', () => ({
-  load: vi.fn(() => ({})),
-  dump: vi.fn(() => ''),
-  insert: vi.fn((exif, dataUrl) => dataUrl),
-}));
+vi.mock('piexifjs', async (importOriginal) => {
+  const actual = (await importOriginal()).default;
+  const mocked = {
+    ...actual,
+    load: vi.fn(() => ({})),
+    dump: vi.fn(() => ''),
+    insert: vi.fn((exif, dataUrl) => dataUrl),
+  };
+  return { __esModule: true, default: mocked, ...mocked };
+});
 
 describe('Tasks Component', () => {
   const mockTasks = [

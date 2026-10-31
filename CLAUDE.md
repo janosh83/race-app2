@@ -105,7 +105,7 @@ my-frontend/src/
   utils/
     api.js            # Base fetch wrapper, token refresh logic
     logger.js         # Debug logger (controlled by VITE_DEBUG_MODE)
-    image.js          # Image resize/EXIF strip before upload
+    image.js          # Image resize before upload, keeping the original EXIF
     checkpointStatus.js
     navigation.js
     activeRaceUtils.js
@@ -118,7 +118,7 @@ my-frontend/src/
 - All API calls go through `utils/api.js`, which handles token injection and silent refresh on 401
 - i18n via `i18next`; language is detected from browser and stored in user profile
 - Maps use Leaflet with Mapy.com tiles (requires `VITE_MAPY_API_KEY`)
-- Image uploads strip EXIF data client-side (`piexifjs`) before sending to backend
+- Photos are resized client-side before upload; the original EXIF (camera info, GPS) is copied into the resized JPEG with `piexifjs`, with Orientation reset to 1 because the canvas already applies it. The backend reads photo GPS into `CheckpointLog.image_latitude/longitude`
 - HTML in checkpoint/task descriptions is sanitized with DOMPurify before rendering
 
 ## Environment variables

@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
 from dateutil import parser
-from PIL import Image, UnidentifiedImageError
+from PIL import ExifTags, Image, UnidentifiedImageError
 from app.constants import DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
@@ -111,59 +111,61 @@ def extract_image_coordinates(image_path: str) -> tuple:
         Tuple of (latitude, longitude) or (None, None) if not available
     """
     try:
-        image = Image.open(image_path)
-        exif_data = image.getexif()
-
-        if not exif_data:
-            logger.debug("No EXIF data found in image: %s", image_path)
-            return None, None
-
-        # GPS IFD tags
-        gps_ifd_tag = 34853
-        if gps_ifd_tag not in exif_data:
-            logger.debug("No GPS data in EXIF for image: %s", image_path)
-            return None, None
-
-        gps_data = exif_data[gps_ifd_tag]
-
-        # GPS tags: North/South (1) and East/West (3)
-        lat_tag = 2  # North latitude
-        lon_tag = 4  # East longitude
-        lat_ref_tag = 1  # North/South reference
-        lon_ref_tag = 3  # East/West reference
-
-        if lat_tag in gps_data and lon_tag in gps_data:
-            lat = _convert_to_degrees(gps_data[lat_tag])
-            lon = _convert_to_degrees(gps_data[lon_tag])
-
-            # Apply reference (negative for South/West)
-            if gps_data.get(lat_ref_tag) == 'S':
-                lat = -lat
-            if gps_data.get(lon_ref_tag) == 'W':
-                lon = -lon
-
-            logger.info("Extracted GPS coordinates from image: (%s, %s)", lat, lon)
-            return lat, lon
-
-        logger.debug("Incomplete GPS data in image: %s", image_path)
+        with Image.open(image_path) as image:
+            # The GPSInfo tag in the main EXIF directory only holds the offset of
+            # the GPS directory; get_ifd() reads the directory itself.
+            gps_data = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
+    except (OSError, SyntaxError, ValueError) as err:
+        logger.warning("Failed to read EXIF from image %s: %s", image_path, err)
         return None, None
 
-    except (OSError, AttributeError, TypeError, ValueError, KeyError) as err:
-        logger.warning("Failed to extract coordinates from image %s: %s", image_path, err)
+    if not gps_data:
+        logger.debug("No GPS data in EXIF for image: %s", image_path)
         return None, None
 
+    lat = _convert_to_degrees(gps_data.get(ExifTags.GPS.GPSLatitude))
+    lon = _convert_to_degrees(gps_data.get(ExifTags.GPS.GPSLongitude))
+    if lat is None or lon is None:
+        logger.debug("Incomplete or invalid GPS data in image: %s", image_path)
+        return None, None
 
-def _convert_to_degrees(value) -> float:
+    # Apply reference (negative for South/West)
+    if _gps_ref(gps_data.get(ExifTags.GPS.GPSLatitudeRef)) == 'S':
+        lat = -lat
+    if _gps_ref(gps_data.get(ExifTags.GPS.GPSLongitudeRef)) == 'W':
+        lon = -lon
+
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        logger.warning("Out-of-range GPS coordinates in image %s: (%s, %s)", image_path, lat, lon)
+        return None, None
+
+    logger.info("Extracted GPS coordinates from image: (%s, %s)", lat, lon)
+    return lat, lon
+
+
+def _gps_ref(value) -> str:
+    if isinstance(value, bytes):
+        value = value.decode('ascii', errors='ignore')
+    return str(value or '').strip().upper()
+
+
+def _convert_to_degrees(value) -> float | None:
     """
     Convert GPS coordinates from EXIF format to decimal degrees.
     EXIF GPS coordinates are in (degrees, minutes, seconds) format.
+    Returns None for missing or invalid values (e.g. 0/0 rationals written by
+    cameras without a GPS fix), so they are never stored as a real position.
     """
+    if value is None:
+        return None
     try:
-        d, m, s = value
-        return float(d) + (float(m) / 60.0) + (float(s) / 3600.0)
+        d, m, s = (float(part) for part in value)
     except (TypeError, ValueError, ZeroDivisionError) as e:
         logger.warning("Failed to convert GPS value %s to degrees: %s", value, e)
-        return 0.0
+        return None
+    if any(part != part for part in (d, m, s)):  # NaN from a 0/0 rational
+        return None
+    return d + (m / 60.0) + (s / 3600.0)
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
