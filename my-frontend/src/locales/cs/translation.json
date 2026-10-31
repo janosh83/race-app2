@@ -743,7 +743,13 @@
       "disqualified": "Diskvalifikován",
       "reinstate": "Vrátit",
       "disqualify": "Diskvalifikovat",
-      "uncategorized": "Bez kategorie"
+      "uncategorized": "Bez kategorie",
+      "disqualifiedNote": "Diskvalifikované týmy nemají pořadí. Diskvalifikovat nebo vrátit tým lze v detailu jeho registrace.",
+      "openRegistrations": "Otevřít Registrace",
+      "positionShort": "#",
+      "pointsCheckpointsShort": "Checkp.",
+      "pointsTasksShort": "Úkoly",
+      "totalPointsShort": "Celkem"
     },
     "teamCreation": {
       "title": "Vytvořit tým",

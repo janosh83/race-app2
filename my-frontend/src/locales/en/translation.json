@@ -743,7 +743,13 @@
       "disqualified": "Disqualified",
       "reinstate": "Reinstate",
       "disqualify": "Disqualify",
-      "uncategorized": "Uncategorized"
+      "uncategorized": "Uncategorized",
+      "disqualifiedNote": "Disqualified teams get no place. Disqualify or reinstate a team in its registration details.",
+      "openRegistrations": "Open Registrations",
+      "positionShort": "#",
+      "pointsCheckpointsShort": "Checkp.",
+      "pointsTasksShort": "Tasks",
+      "totalPointsShort": "Total"
     },
     "teamCreation": {
       "title": "Create team",

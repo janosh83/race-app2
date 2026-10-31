@@ -255,6 +255,7 @@ function AdminDashboard() {
                 raceId={selected.id}
                 refreshVersion={standingsRefreshVersion}
                 onTeamClick={(teamId) => updateParams({ team: teamId })}
+                onOpenRegistrations={() => updateParams({ section: 'registrations', team: null })}
                 onLoaded={(rows) => setTeamNames(Object.fromEntries(rows.map(row => [String(row.teamId), row.teamName])))}
               />
               {visitingTeam && (

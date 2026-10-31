@@ -743,7 +743,13 @@
       "disqualified": "Disqualifiziert",
       "reinstate": "Wiederzulassen",
       "disqualify": "Disqualifizieren",
-      "uncategorized": "Ohne Kategorie"
+      "uncategorized": "Ohne Kategorie",
+      "disqualifiedNote": "Disqualifizierte Teams erhalten keinen Platz. Disqualifizieren oder Wiederaufnehmen in den Registrierungsdetails des Teams.",
+      "openRegistrations": "Registrierungen oeffnen",
+      "positionShort": "#",
+      "pointsCheckpointsShort": "Checkp.",
+      "pointsTasksShort": "Aufg.",
+      "totalPointsShort": "Gesamt"
     },
     "teamCreation": {
       "title": "Team erstellen",

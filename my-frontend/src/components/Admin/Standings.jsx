@@ -31,7 +31,9 @@ function normalizeResults(payload) {
   return [];
 }
 
-export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersion = 0 }) {
+// Disqualifying is done per registration (Registrations tab); here a
+// disqualified team only gets a badge and no place.
+export default function Standings({ raceId, onTeamClick, onLoaded, onOpenRegistrations, refreshVersion = 0 }) {
   const { t } = useTranslation();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,18 +70,6 @@ export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersio
     // onLoaded is a notification only; a new callback identity must not reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, refreshVersion, t]);
-
-  const handleToggleDisqualification = async (teamId, current) => {
-    if (!raceId || !teamId) return;
-    try {
-      await adminApi.setDisqualification(raceId, teamId, !current);
-      const refreshed = await adminApi.getResults(raceId);
-      setStandings(normalizeResults(refreshed));
-    } catch (err) {
-      logger.error('ADMIN', 'Failed to toggle disqualification', err);
-      setError(err?.message || t('admin.standings.errorToggleDisqualification'));
-    }
-  };
 
   const handleTeamKeyDown = (event, teamId) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -155,20 +145,28 @@ export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersio
     };
   }).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
-  // On phones (e.g. reading results out at the finish) the per-section
-  // points are hidden; the table scrolls inside its box, not the page.
+  // Full heading from 768px up, a short one on phones.
+  const heading = (full, short) => (
+    <>
+      <span className="d-none d-md-inline">{t(full)}</span>
+      <span className="d-md-none">{t(short)}</span>
+    </>
+  );
+
+  // Phones (e.g. reading results out at the finish): short headings and the
+  // category under the team name, so the total stays on screen. The table
+  // scrolls inside its box, not the page.
   const renderTable = (rows, showCategory = true) => (
     <div className="table-responsive">
       <table className="table table-sm align-middle">
         <thead>
           <tr>
-            <th className="text-nowrap">{t('admin.standings.position')}</th>
+            <th className="text-nowrap">{heading('admin.standings.position', 'admin.standings.positionShort')}</th>
             <th>{t('admin.standings.team')}</th>
-            {showCategory && <th>{t('admin.standings.category')}</th>}
-            <th className="text-end d-none d-md-table-cell">{t('admin.standings.pointsCheckpoints')}</th>
-            <th className="text-end d-none d-md-table-cell">{t('admin.standings.pointsTasks')}</th>
-            <th className="text-end">{t('admin.standings.totalPoints')}</th>
-            <th>{t('admin.standings.disqualification')}</th>
+            {showCategory && <th className="d-none d-sm-table-cell">{t('admin.standings.category')}</th>}
+            <th className="text-end">{heading('admin.standings.pointsCheckpoints', 'admin.standings.pointsCheckpointsShort')}</th>
+            <th className="text-end">{heading('admin.standings.pointsTasks', 'admin.standings.pointsTasksShort')}</th>
+            <th className="text-end">{heading('admin.standings.totalPoints', 'admin.standings.totalPointsShort')}</th>
           </tr>
         </thead>
         <tbody>
@@ -190,25 +188,17 @@ export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersio
                 ) : (
                   row.teamName
                 )}
+                {row.disqualified && (
+                  <span className="badge bg-danger-subtle text-danger-emphasis ms-2">{t('admin.standings.disqualified')}</span>
+                )}
+                {showCategory && row.category && (
+                  <div className="small text-muted d-sm-none" aria-hidden="true">{row.category}</div>
+                )}
               </td>
-              {showCategory && <td>{row.category}</td>}
-              <td className="text-end d-none d-md-table-cell">{row.pointsForCheckpoints}</td>
-              <td className="text-end d-none d-md-table-cell">{row.pointsForTasks}</td>
+              {showCategory && <td className="d-none d-sm-table-cell">{row.category}</td>}
+              <td className="text-end">{row.pointsForCheckpoints}</td>
+              <td className="text-end">{row.pointsForTasks}</td>
               <td className="text-end"><strong>{row.totalPoints}</strong></td>
-              <td>
-                <div className="d-flex align-items-center flex-wrap gap-2">
-                  <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                    {row.disqualified ? t('admin.standings.disqualified') : t('admin.standings.eligible')}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-warning"
-                    onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
-                  >
-                    {row.disqualified ? t('admin.standings.reinstate') : t('admin.standings.disqualify')}
-                  </button>
-                </div>
-              </td>
             </tr>
           ))}
         </tbody>
@@ -253,6 +243,16 @@ export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersio
                 </div>
               ))}
             </>
+          )}
+          {standings.some(row => row.disqualified) && (
+            <p className="small text-muted mb-0">
+              {t('admin.standings.disqualifiedNote')}{' '}
+              {onOpenRegistrations && (
+                <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={onOpenRegistrations}>
+                  {t('admin.standings.openRegistrations')}
+                </button>
+              )}
+            </p>
           )}
         </>
       )}

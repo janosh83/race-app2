@@ -22,6 +22,8 @@ vi.mock('./CheckpointList', () => ({ default: () => <div>checkpoint list</div> }
 vi.mock('./TaskList', () => ({ default: () => <div>task list</div> }));
 vi.mock('./TeamPathsMap', () => ({ default: () => <div>team paths</div> }));
 vi.mock('./RaceStatistics', () => ({ default: () => <div>statistics</div> }));
+vi.mock('./RegistrationList', () => ({ default: () => <div>registration list</div> }));
+vi.mock('./CategoryForm', () => ({ default: () => <div>category form</div> }));
 
 const HOUR = 3_600_000;
 const iso = (offsetHours) => new Date(Date.now() + offsetHours * HOUR).toISOString();
@@ -113,6 +115,35 @@ describe('AdminDashboard', () => {
 
     expect(await screen.findByRole('button', { name: /Future Race/ })).toBeInTheDocument();
     expect(screen.getByTestId('location')).toBeEmptyDOMElement();
+  });
+
+  test('results show points and mark disqualified teams without disqualify buttons', async () => {
+    adminApi.getResults.mockResolvedValue([
+      { team_id: 7, team: 'Rockets', category: 'Cars', points_for_checkpoints: 10, points_for_tasks: 2, total_points: 12 },
+      { team_id: 8, team: 'Cheaters', category: 'Cars', points_for_checkpoints: 30, points_for_tasks: 5, total_points: 35, disqualified: true },
+    ]);
+    renderAt('?race=1&section=results');
+
+    const cheaters = (await screen.findByText('Cheaters')).closest('tr');
+    expect(within(cheaters).getByText('Disqualified')).toBeInTheDocument();
+    expect(within(cheaters).getByText('—')).toBeInTheDocument();
+    expect(within(cheaters).getByText('30')).toBeInTheDocument();
+    expect(within(cheaters).getByText('5')).toBeInTheDocument();
+    const rockets = screen.getByText('Rockets').closest('tr');
+    expect(within(rockets).getByText('1.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Disqualify|Reinstate/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Registrations' }));
+
+    expect(screen.getByText('registration list')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1&section=registrations');
+  });
+
+  test('no disqualification note when nobody is disqualified', async () => {
+    renderAt('?race=1&section=results');
+
+    await screen.findByText('Rockets');
+    expect(screen.queryByText(/Disqualified teams get no place/)).not.toBeInTheDocument();
   });
 
   test('says so when the race in the URL does not exist', async () => {
