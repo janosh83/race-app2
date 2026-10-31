@@ -205,7 +205,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
             <div className="input-group">
               <input className="form-control" placeholder={t('admin.categoryForm.categoryName')} value={newName} onChange={e => setNewName(e.target.value)} />
               <button className="btn btn-primary" onClick={() => createAndAssign(false)}>{t('admin.categoryForm.create')}</button>
-              <button className="btn btn-success" onClick={() => createAndAssign(true)}>{t('admin.categoryForm.createAssign')}</button>
+              <button className="btn btn-primary" onClick={() => createAndAssign(true)}>{t('admin.categoryForm.createAssign')}</button>
             </div>
           </div>
         </div>

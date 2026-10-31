@@ -194,7 +194,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                     {missingLanguages.map(lang => (
                       <button
                         key={lang}
-                        className="btn btn-sm btn-outline-success"
+                        className="btn btn-sm btn-outline-primary"
                         onClick={() => handleCreate(lang)}
                       >
                         + {LANGUAGE_LABELS[lang]}

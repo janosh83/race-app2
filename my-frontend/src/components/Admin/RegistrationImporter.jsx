@@ -241,7 +241,7 @@ export default function RegistrationImporter({
           />
           <button
             type="button"
-            className="btn btn-success"
+            className="btn btn-primary"
             disabled={importing || importRows.length === 0}
             onClick={runImport}
           >

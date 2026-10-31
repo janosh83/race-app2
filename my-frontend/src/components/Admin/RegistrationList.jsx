@@ -590,7 +590,7 @@ export default function RegistrationList({ raceId, race }) {
             <div className="d-flex flex-wrap gap-1">
               <button
                 type="button"
-                className="btn btn-sm btn-success"
+                className="btn btn-sm btn-primary"
                 onClick={() => handleSaveRegistrationEdit(item)}
                 disabled={savingEditRegistrationTeamId === item.teamId}
               >
@@ -690,7 +690,7 @@ export default function RegistrationList({ raceId, race }) {
               <div className="d-grid gap-2">
               <button
                 type="button"
-                className="btn btn-sm btn-success w-100"
+                className="btn btn-sm btn-primary w-100"
                 onClick={() => handleSaveMembersEdit(item)}
                 disabled={savingMembersTeamId === item.teamId}
               >
@@ -939,7 +939,7 @@ export default function RegistrationList({ raceId, race }) {
             </div>
             <button
               type="button"
-              className="btn btn-success"
+              className="btn btn-primary"
               disabled={savingRegistration || !selectedTeamId || !selectedCategoryId}
               onClick={handleRegister}
             >
