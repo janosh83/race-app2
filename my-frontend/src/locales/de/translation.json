@@ -10,7 +10,8 @@
     "admin": "Admin",
     "logout": "Abmelden",
     "backToRace": "Zuruck zum Rennen",
-    "language": "Sprache"
+    "language": "Sprache",
+    "raceSections": "Rennbereiche"
   },
   "activeRace": {
     "selectTitle": "Aktives Rennen auswahlen",
@@ -95,7 +96,9 @@
     "unknownError": "Unbekannter Fehler",
     "favouritesOnly": "Nur Favoriten ({{count}})",
     "favouritesOnlyHelp": "Nur die Lieblings-Checkpoints Ihres Teams anzeigen",
-    "noFavourites": "Ihr Team hat noch keine Lieblings-Checkpoints. Öffnen Sie einen Checkpoint und tippen Sie auf den Stern."
+    "noFavourites": "Ihr Team hat noch keine Lieblings-Checkpoints. Öffnen Sie einen Checkpoint und tippen Sie auf den Stern.",
+    "takePhoto": "Foto aufnehmen",
+    "chooseFromGallery": "Aus Galerie waehlen"
   },
   "tasks": {
     "title": "Aufgaben",

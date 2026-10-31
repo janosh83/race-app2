@@ -127,7 +127,7 @@ const getMapUploadErrorMessage = (t, err) => {
   return t('map.visitLogFailed', { message: err?.message || t('map.unknownError') });
 };
 
-function Map({ topOffset = 56 }) {
+function Map({ topOffset = 56, bottomOffset = 0 }) {
   const { t } = useTranslation();
   const getViewportHeight = () => {
     if (typeof window === 'undefined') return 0;
@@ -157,7 +157,7 @@ function Map({ topOffset = 56 }) {
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
   const apiUrl = import.meta.env.VITE_API_URL;
-  const mapHeight = Math.max(0, viewportHeight - topOffset);
+  const mapHeight = Math.max(0, viewportHeight - topOffset - bottomOffset);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -903,7 +903,7 @@ function Map({ topOffset = 56 }) {
                         </div>
                       )}
                     </div>
-                    <div className="d-grid gap-2">
+                    <div className="overlay-action-bar">
                       <button
                         className="btn btn-primary btn-lg"
                         onClick={handleLogVisit}
@@ -914,7 +914,7 @@ function Map({ topOffset = 56 }) {
                   </>
                 )}
                 {loggingAllowed && selectedCheckpoint.visited && (
-                  <div className="d-grid gap-2">
+                  <div className="overlay-action-bar">
                     <button
                       className="btn btn-danger btn-lg"
                       onClick={handleDeleteVisit}

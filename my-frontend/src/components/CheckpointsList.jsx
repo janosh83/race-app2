@@ -514,8 +514,8 @@ function CheckpointsList({ topOffset = 56 }) {
                   <div className="form-text">{t('checkpointsList.imageHelp')}</div>
                 </div>
 
-                <div className="d-flex gap-2">
-                  <button className="btn btn-primary" onClick={handleLogVisit}>
+                <div className="overlay-action-bar">
+                  <button className="btn btn-primary btn-lg" onClick={handleLogVisit}>
                     {shownCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
                   </button>
                   {shownCheckpoint.visited && (

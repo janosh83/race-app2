@@ -11,3 +11,31 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Primary action of a checkpoint/task overlay (log visit, mark completed):
+   pinned to the bottom of the scrolling overlay so it stays in reach of the
+   thumb. The negative bottom margin cancels the overlay's 20px padding. */
+.overlay-action-bar {
+  position: sticky;
+  bottom: -20px;
+  margin: 16px calc(-20px - var(--bs-gutter-x, 1.5rem) * 0.5) -20px;
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1;
+}
+
+@media (min-width: 992px) {
+  .overlay-action-bar {
+    position: static;
+    margin: 0;
+    padding: 0;
+    border-top: 0;
+    box-shadow: none;
+    flex-direction: row;
+  }
+}

@@ -20,3 +20,14 @@
 .file-picker-button-filename {
   word-break: break-all;
 }
+
+/* Touch screens: big, full-width buttons that are easy to hit on the move. */
+.file-picker-button-touch {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.file-picker-button-touch .file-picker-button-filename {
+  text-align: center;
+}

@@ -181,11 +181,11 @@ function ActiveRace() {
                       ))}
                     </div>
                   </div>
-                  <div className="text-lg-end d-flex flex-lg-column align-items-start align-items-lg-end gap-2">
+                  <div className="text-lg-end d-flex flex-wrap flex-lg-column flex-lg-nowrap align-items-center align-items-lg-end gap-2">
                     <span className={`badge rounded-pill px-3 py-2 ${otherRacePhase.toneClass}`}>
                       {otherRacePhase.value}
                     </span>
-                    {isCandidate && <span className="badge bg-info mb-2">{t('activeRace.currentlyShowing')}</span>}
+                    {isCandidate && <span className="badge bg-info">{t('activeRace.currentlyShowing')}</span>}
                     <button className="btn btn-sm btn-outline-primary" onClick={() => handleSelect(r)}>
                       {t('activeRace.select')}
                     </button>

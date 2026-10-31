@@ -55,7 +55,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--race-tabbar-height, 0px);
   background-color: #fff;
   z-index: 2000;
   overflow-y: auto;
@@ -79,7 +79,7 @@
 .tasks-scroll-top {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  bottom: calc(18px + var(--race-tabbar-height, 0px));
   width: 44px;
   height: 44px;
   border: none;

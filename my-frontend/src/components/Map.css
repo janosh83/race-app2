@@ -125,7 +125,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--race-tabbar-height, 0px);
   background-color: #fff;
   z-index: 2000;
   overflow-y: auto;

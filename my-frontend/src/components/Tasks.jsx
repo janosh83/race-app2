@@ -390,9 +390,9 @@ function Tasks({ topOffset = 56 }) {
               </div>
             )}
 
-            <div className="d-flex gap-2">
+            <div className="overlay-action-bar">
               <button
-                className="btn btn-primary"
+                className="btn btn-primary btn-lg"
                 onClick={handleLogTask}
                 disabled={!loggingAllowed}
               >

@@ -1,0 +1,50 @@
+/* Bottom tab bar for phones: one tap between the race sections, in reach of
+   the thumb. Hidden from 992px up (d-lg-none), where the top navbar shows the
+   same links. */
+.race-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2100; /* above the checkpoint/task overlays (2000) */
+  display: flex;
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.race-tabbar-item {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: #6c757d;
+  font-size: 0.75rem;
+  padding: 6px 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.race-tabbar-item.is-active {
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+.race-tabbar-item:focus-visible {
+  outline: 2px solid #0d6efd;
+  outline-offset: -4px;
+}
+
+.race-tabbar-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

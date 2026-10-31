@@ -10,7 +10,8 @@
     "admin": "Admin",
     "logout": "Logout",
     "backToRace": "Back to Race",
-    "language": "Language"
+    "language": "Language",
+    "raceSections": "Race sections"
   },
   "activeRace": {
     "selectTitle": "Select Active Race",
@@ -95,7 +96,9 @@
     "unknownError": "Unknown error",
     "favouritesOnly": "Favourites only ({{count}})",
     "favouritesOnlyHelp": "Show only your team's favourite checkpoints",
-    "noFavourites": "Your team has no favourite checkpoints yet. Open a checkpoint and tap the star to add one."
+    "noFavourites": "Your team has no favourite checkpoints yet. Open a checkpoint and tap the star to add one.",
+    "takePhoto": "Take photo",
+    "chooseFromGallery": "Choose from gallery"
   },
   "tasks": {
     "title": "Tasks",

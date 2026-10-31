@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -14,11 +14,16 @@ const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => ({
   ...(await vi.importActual('react-router-dom')),
   useNavigate: () => mockNavigate,
-  Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight})</div>,
+  Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight}, tabbarHeight: {context?.tabbarHeight})</div>,
 }));
 
+// The race section links exist twice: in the top navbar (wide screens) and in
+// the bottom tab bar (phones). jsdom applies no CSS, so both are rendered.
+const topNav = () => document.querySelector('nav.navbar');
+const tabBar = () => screen.getByRole('navigation', { name: 'Race sections' });
+
 // Helper function to render component with router and context
-const renderWithProviders = (activeRace = null, signedRaces = [], user = null) => {
+const renderWithProviders = (activeRace = null, signedRaces = [], user = null, path = '/race') => {
   if (user) {
     localStorage.setItem('user', JSON.stringify(user));
   } else {
@@ -37,7 +42,7 @@ const renderWithProviders = (activeRace = null, signedRaces = [], user = null) =
   vi.spyOn(TimeContext, 'useTime').mockReturnValue(mockTimeContext);
 
   return render(
-    <MemoryRouter initialEntries={['/race']}>
+    <MemoryRouter initialEntries={[path]}>
       <TimeContext.TimeProvider>
         <RaceLayout />
       </TimeContext.TimeProvider>
@@ -88,13 +93,13 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      expect(screen.getByRole('button', { name: 'Standings' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Standings' })).toBeInTheDocument();
     });
 
     test('hides Standings navigation link when no activeRace', () => {
       renderWithProviders(null);
 
-      expect(screen.queryByRole('button', { name: 'Standings' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Standings' })).not.toBeInTheDocument();
     });
 
     test('renders Logout button', () => {
@@ -109,24 +114,24 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      expect(screen.getByRole('button', { name: 'Map' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Checkpoints' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Map' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Checkpoints' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
     });
 
     test('hides Map, Checkpoints and Tasks links when no activeRace', () => {
       renderWithProviders(null);
 
-      expect(screen.queryByRole('button', { name: 'Map' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Checkpoints' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Map' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Checkpoints' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
     });
 
     test('uses race_id property for Map navigation', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const mapButton = screen.getByRole('button', { name: 'Map' });
+      const mapButton = within(topNav()).getByRole('button', { name: 'Map' });
       fireEvent.click(mapButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/map');
@@ -136,7 +141,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const mapButton = screen.getByRole('button', { name: 'Map' });
+      const mapButton = within(topNav()).getByRole('button', { name: 'Map' });
       fireEvent.click(mapButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/map');
@@ -146,7 +151,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const tasksButton = screen.getByRole('button', { name: 'Tasks' });
+      const tasksButton = within(topNav()).getByRole('button', { name: 'Tasks' });
       fireEvent.click(tasksButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/tasks');
@@ -156,7 +161,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      const checkpointsButton = within(topNav()).getByRole('button', { name: 'Checkpoints' });
       fireEvent.click(checkpointsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/checkpoints');
@@ -166,7 +171,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      const checkpointsButton = within(topNav()).getByRole('button', { name: 'Checkpoints' });
       fireEvent.click(checkpointsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/checkpoints');
@@ -176,7 +181,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const tasksButton = screen.getByRole('button', { name: 'Tasks' });
+      const tasksButton = within(topNav()).getByRole('button', { name: 'Tasks' });
       fireEvent.click(tasksButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/tasks');
@@ -197,7 +202,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const standingsButton = screen.getByRole('button', { name: 'Standings' });
+      const standingsButton = within(topNav()).getByRole('button', { name: 'Standings' });
       fireEvent.click(standingsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/standings');
@@ -441,6 +446,42 @@ describe('RaceLayout Component', () => {
       const container = document.querySelector('.container.mt-4');
       expect(container).toBeInTheDocument();
       expect(container).toContainElement(screen.getByTestId('outlet'));
+    });
+  });
+
+  describe('Bottom tab bar', () => {
+    test('is not rendered without an active race', () => {
+      renderWithProviders(null);
+
+      expect(screen.queryByRole('navigation', { name: 'Race sections' })).not.toBeInTheDocument();
+    });
+
+    test('shows the four race sections', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      const buttons = within(tabBar()).getAllByRole('button');
+      expect(buttons.map((b) => b.textContent)).toEqual(['Map', 'Checkpoints', 'Tasks', 'Standings']);
+    });
+
+    test('navigates to the tapped section', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      fireEvent.click(within(tabBar()).getByRole('button', { name: 'Tasks' }));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/race/5/tasks');
+    });
+
+    test('marks the current section', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' }, [], null, '/race/5/checkpoints');
+
+      expect(within(tabBar()).getByRole('button', { name: 'Checkpoints' })).toHaveAttribute('aria-current', 'page');
+      expect(within(tabBar()).getByRole('button', { name: 'Map' })).not.toHaveAttribute('aria-current');
+    });
+
+    test('passes its height to the Outlet context', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      expect(screen.getByTestId('outlet')).toHaveTextContent('tabbarHeight: 0');
     });
   });
 });

@@ -10,7 +10,8 @@
     "admin": "Admin",
     "logout": "Odhlásit se",
     "backToRace": "Zpět na závod",
-    "language": "Jazyk"
+    "language": "Jazyk",
+    "raceSections": "Sekce závodu"
   },
   "activeRace": {
     "selectTitle": "Vybraný závod",
@@ -95,7 +96,9 @@
     "unknownError": "Neznámá chyba",
     "favouritesOnly": "Jen oblíbené ({{count}})",
     "favouritesOnlyHelp": "Zobrazit jen oblíbené checkpointy vašeho týmu",
-    "noFavourites": "Váš tým zatím nemá žádné oblíbené checkpointy. Otevřete checkpoint a klepněte na hvězdičku."
+    "noFavourites": "Váš tým zatím nemá žádné oblíbené checkpointy. Otevřete checkpoint a klepněte na hvězdičku.",
+    "takePhoto": "Vyfotit",
+    "chooseFromGallery": "Vybrat z galerie"
   },
   "tasks": {
     "title": "Úkoly",
