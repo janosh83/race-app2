@@ -152,6 +152,7 @@ class Checkpoint(db.Model):
     numOfPoints = db.Column(db.Integer, default=1)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
     translations = db.relationship('CheckpointTranslation', backref='checkpoint', cascade="all, delete-orphan", lazy=True)
+    favourites = db.relationship('FavouriteCheckpoint', backref='checkpoint', cascade="all, delete-orphan", lazy=True)
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -204,6 +205,17 @@ class CheckpointLog(db.Model):
         db.Index('ix_checkpoint_log_race_team', 'race_id', 'team_id'),
     )
 
+class FavouriteCheckpoint(db.Model):
+    """A checkpoint a team marked as favourite while planning the race."""
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id', ondelete='CASCADE'), nullable=False)
+    checkpoint_id = db.Column(db.Integer, db.ForeignKey('checkpoint.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'checkpoint_id', name='uq_favourite_checkpoint_team'),
+    )
+
 class TaskLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
@@ -244,6 +256,7 @@ class Team(db.Model):
     name = db.Column(db.String(100), nullable=False)
     members = db.relationship('User', secondary=team_members, back_populates='teams')
     registrations = db.relationship('Registration', backref='team', cascade="all, delete-orphan", lazy=True)
+    favourite_checkpoints = db.relationship('FavouriteCheckpoint', cascade="all, delete-orphan", lazy=True)
     positions = db.relationship('TeamPosition', cascade="all, delete-orphan", lazy=True)
 
 class User(db.Model):

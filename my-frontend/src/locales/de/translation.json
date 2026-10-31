@@ -317,7 +317,11 @@
       "topCompletedTasks": "Top erledigte Aufgaben",
       "leastVisitedCheckpoints": "Am wenigsten besuchte Checkpoints (mit mindestens einem Besuch)",
       "leastCompletedTasks": "Am wenigsten erledigte Aufgaben (mit mindestens einer Erfuellung)",
-      "noTopData": "Noch keine Daten"
+      "noTopData": "Noch keine Daten",
+      "favourites": "Favorisierte Checkpoints",
+      "favouritesCount": "Favoriten-Markierungen",
+      "teamsWithFavourites": "Teams mit Favoriten",
+      "topFavouriteCheckpoints": "Beliebteste Checkpoints"
     },
     "teamPaths": {
       "title": "Team-Routen",
@@ -834,5 +838,10 @@
       "fieldTitle": "Titel",
       "fieldDescription": "Beschreibung"
     }
+  },
+  "favourites": {
+    "add": "Zu Team-Favoriten hinzufügen",
+    "remove": "Aus Team-Favoriten entfernen",
+    "saveFailed": "Favorit konnte nicht gespeichert werden: {{message}}"
   }
 }

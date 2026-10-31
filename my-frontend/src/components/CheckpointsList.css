@@ -52,6 +52,11 @@
   border-radius: 10px;
 }
 
+.checkpoint-list-card-favourite {
+  border-color: #f0ad00;
+  box-shadow: inset 4px 0 0 #f0ad00;
+}
+
 .checkpoint-list-card-title {
   line-height: 1.2;
 }

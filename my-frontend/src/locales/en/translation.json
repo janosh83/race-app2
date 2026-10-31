@@ -317,7 +317,11 @@
       "topCompletedTasks": "Top completed tasks",
       "leastVisitedCheckpoints": "Least visited checkpoints (with at least one visit)",
       "leastCompletedTasks": "Least completed tasks (with at least one completion)",
-      "noTopData": "No data yet"
+      "noTopData": "No data yet",
+      "favourites": "Favourite checkpoints",
+      "favouritesCount": "Favourite marks",
+      "teamsWithFavourites": "Teams with favourites",
+      "topFavouriteCheckpoints": "Most favourite checkpoints"
     },
     "teamPaths": {
       "title": "Team paths",
@@ -834,5 +838,10 @@
       "fieldTitle": "Title",
       "fieldDescription": "Description"
     }
+  },
+  "favourites": {
+    "add": "Add to team favourites",
+    "remove": "Remove from team favourites",
+    "saveFailed": "Failed to save favourite: {{message}}"
   }
 }

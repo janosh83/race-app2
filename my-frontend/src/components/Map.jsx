@@ -11,12 +11,22 @@ import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
+import FavouriteButton from './FavouriteButton';
 import FilePickerButton from './FilePickerButton';
 import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 const checkpointShadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
+const MARKER_ICON_BASE = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img';
+
+// Visited checkpoints are done, so they stay green even when favourite;
+// favourites still to visit stand out in gold.
+export const getCheckpointIconUrl = (checkpoint) => {
+  if (checkpoint.visited) return `${MARKER_ICON_BASE}/marker-icon-green.png`;
+  if (checkpoint.is_favourite) return `${MARKER_ICON_BASE}/marker-icon-gold.png`;
+  return `${MARKER_ICON_BASE}/marker-icon-blue.png`;
+};
 
 const createMapIcon = (iconUrl, {
   iconSize = [25, 41],
@@ -446,20 +456,16 @@ function Map({ topOffset = 56 }) {
     // Add or update markers for current checkpoints
     checkpoints.forEach(cp => {
       if (markersRef.current[cp.id]) {
-        // Marker exists - just update its icon if visited status changed
+        // Marker exists - just update its icon if visited/favourite status changed
         const currentIcon = markersRef.current[cp.id].options.icon;
-        const iconUrl = cp.visited
-          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
-          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+        const iconUrl = getCheckpointIconUrl(cp);
         const newIcon = currentIcon.options.iconUrl !== iconUrl
           ? createMapIcon(iconUrl)
           : currentIcon;
         markersRef.current[cp.id].setIcon(newIcon);
       } else {
         // New marker - create it
-        const iconUrl = cp.visited
-          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
-          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+        const iconUrl = getCheckpointIconUrl(cp);
 
         const marker = L.marker([cp.latitude, cp.longitude], {
           title: cp.title,
@@ -633,6 +639,14 @@ function Map({ topOffset = 56 }) {
       });
   };
 
+  const handleFavouriteError = (err) => {
+    setToast({
+      message: t('favourites.saveFailed', { message: err?.message || t('map.unknownError') }),
+      type: 'error',
+      duration: 5000,
+    });
+  };
+
   const handleCloseOverlay = () => {
     setSelectedCheckpoint(null);
     setSelectedRaceMarker(null);
@@ -737,7 +751,18 @@ function Map({ topOffset = 56 }) {
         >
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedMapPoint.title}</h3>
+              <div className="d-flex align-items-center gap-1">
+                {isCheckpointSelected && showCheckpoints && (
+                  <FavouriteButton
+                    raceId={activeRaceId}
+                    checkpoint={selectedCheckpoint}
+                    setCheckpoints={setCheckpoints}
+                    onError={handleFavouriteError}
+                    size="lg"
+                  />
+                )}
+                <h3 className="mb-0">{selectedMapPoint.title}</h3>
+              </div>
               <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={handleCloseOverlay}

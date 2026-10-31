@@ -5,7 +5,7 @@ import React from 'react';
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
 
-import Map from './Map';
+import Map, { getCheckpointIconUrl } from './Map';
 
 
 // Mock CSS imports
@@ -501,5 +501,13 @@ describe('Map Component', () => {
       const badge = screen.getByText('Logging open').closest('div');
       expect(badge).toHaveStyle({ top: '108px' }); // 100 + 8
     });
+  });
+});
+
+describe('getCheckpointIconUrl', () => {
+  test('shows favourites in gold until they are visited', () => {
+    expect(getCheckpointIconUrl({ visited: false, is_favourite: false })).toMatch(/marker-icon-blue\.png$/);
+    expect(getCheckpointIconUrl({ visited: false, is_favourite: true })).toMatch(/marker-icon-gold\.png$/);
+    expect(getCheckpointIconUrl({ visited: true, is_favourite: true })).toMatch(/marker-icon-green\.png$/);
   });
 });

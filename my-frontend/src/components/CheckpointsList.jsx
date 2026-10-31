@@ -9,6 +9,7 @@ import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
 
+import FavouriteButton from './FavouriteButton';
 import FilePickerButton from './FilePickerButton';
 import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
@@ -250,6 +251,14 @@ function CheckpointsList({ topOffset = 56 }) {
       });
   };
 
+  const handleFavouriteError = (err) => {
+    setToast({
+      message: t('favourites.saveFailed', { message: err?.message || t('map.unknownError') }),
+      type: 'error',
+      duration: 5000,
+    });
+  };
+
   const handleCloseOverlay = () => {
     setSelectedCheckpoint(null);
     setSelectedImage(null);
@@ -296,7 +305,14 @@ function CheckpointsList({ topOffset = 56 }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const sortedCheckpoints = [...checkpoints].sort((a, b) => Number(b.visited) - Number(a.visited));
+  const sortedCheckpoints = [...checkpoints].sort(
+    (a, b) => Number(b.visited) - Number(a.visited) || Number(Boolean(b.is_favourite)) - Number(Boolean(a.is_favourite)),
+  );
+  // The overlay shows the selected checkpoint from the list, so favourite
+  // changes made in the overlay are reflected right away.
+  const shownCheckpoint = selectedCheckpoint
+    ? checkpoints.find(cp => cp.id === selectedCheckpoint.id) ?? selectedCheckpoint
+    : null;
 
   return (
     <>
@@ -358,14 +374,22 @@ function CheckpointsList({ topOffset = 56 }) {
             {sortedCheckpoints.map((checkpoint) => (
               <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
                 <div
-                  className="card h-100 checkpoint-list-card"
+                  className={`card h-100 checkpoint-list-card ${checkpoint.is_favourite ? 'checkpoint-list-card-favourite' : ''}`}
                   onClick={() => setSelectedCheckpoint(checkpoint)}
                 >
                   <div className="card-body p-2">
                     <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
-                      <h6 className="card-title mb-0 checkpoint-list-card-title">
-                        {checkpoint.title}
-                      </h6>
+                      <div className="d-flex align-items-start">
+                        <FavouriteButton
+                          raceId={activeRaceId}
+                          checkpoint={checkpoint}
+                          setCheckpoints={setCheckpoints}
+                          onError={handleFavouriteError}
+                        />
+                        <h6 className="card-title mb-0 checkpoint-list-card-title">
+                          {checkpoint.title}
+                        </h6>
+                      </div>
                       <span className={`badge ${checkpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
                         {checkpoint.visited ? t('map.visited') : t('map.notVisited')}
                       </span>
@@ -386,39 +410,50 @@ function CheckpointsList({ topOffset = 56 }) {
         )}
       </div>
 
-      {selectedCheckpoint && (
+      {shownCheckpoint && (
         <div
           className="checkpoint-list-overlay"
           style={{ top: topOffset }}
         >
           <div className="container">
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedCheckpoint.title}</h3>
+              <div className="d-flex align-items-center gap-1">
+                {showCheckpoints && (
+                  <FavouriteButton
+                    raceId={activeRaceId}
+                    checkpoint={shownCheckpoint}
+                    setCheckpoints={setCheckpoints}
+                    onError={handleFavouriteError}
+                    size="lg"
+                  />
+                )}
+                <h3 className="mb-0">{shownCheckpoint.title}</h3>
+              </div>
               <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
                 ✕ {t('map.close')}
               </button>
             </div>
 
             <div className="mb-3">
-              <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
+              <span className={`badge ${shownCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
+                {shownCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
               </span>
-              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(selectedCheckpoint) })}</span>
+              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(shownCheckpoint) })}</span>
             </div>
 
             <div className="mb-3 text-muted small">
               <div className="d-flex flex-wrap align-items-center gap-2">
                 <div>
                   <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
-                  {selectedCheckpoint.latitude}, {selectedCheckpoint.longitude}
+                  {shownCheckpoint.latitude}, {shownCheckpoint.longitude}
                 </div>
                 {selectedCheckpointNavigationTarget && (
                   <button
                     className="btn btn-sm btn-outline-primary"
                     onClick={() => openNavigationTarget({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
-                      title: selectedCheckpoint.title,
+                      latitude: shownCheckpoint.latitude,
+                      longitude: shownCheckpoint.longitude,
+                      title: shownCheckpoint.title,
                     })}
                   >
                     {t('map.navigate')}
@@ -428,8 +463,8 @@ function CheckpointsList({ topOffset = 56 }) {
                   <button
                     className="btn btn-sm btn-outline-secondary"
                     onClick={() => handleCopyCoordinates({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
+                      latitude: shownCheckpoint.latitude,
+                      longitude: shownCheckpoint.longitude,
                     })}
                   >
                     {t('map.copyCoordinates')}
@@ -437,20 +472,20 @@ function CheckpointsList({ topOffset = 56 }) {
                 )}
               </div>
               <div>
-                <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(selectedCheckpoint)}
+                <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(shownCheckpoint)}
               </div>
             </div>
 
-            {selectedCheckpoint.description && (
-              <SafeDescription html={selectedCheckpoint.description} className="mb-3" />
+            {shownCheckpoint.description && (
+              <SafeDescription html={shownCheckpoint.description} className="mb-3" />
             )}
 
-            {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
+            {shownCheckpoint.visited && shownCheckpoint.image_filename && (
               <div className="mb-3">
                 <label className="form-label">{t('map.visitPhotoLabel')}</label>
                 <div>
                   <img
-                    src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
+                    src={`${apiUrl}/static/images/${shownCheckpoint.image_filename}`}
                     alt={t('map.visitPhotoAlt')}
                     className="checkpoint-list-visit-photo"
                   />
@@ -481,9 +516,9 @@ function CheckpointsList({ topOffset = 56 }) {
 
                 <div className="d-flex gap-2">
                   <button className="btn btn-primary" onClick={handleLogVisit}>
-                    {selectedCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
+                    {shownCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
                   </button>
-                  {selectedCheckpoint.visited && (
+                  {shownCheckpoint.visited && (
                     <button className="btn btn-outline-danger" onClick={handleDeleteVisit}>
                       {t('map.deleteVisit')}
                     </button>
@@ -491,7 +526,7 @@ function CheckpointsList({ topOffset = 56 }) {
                 </div>
               </>
             ) : (
-              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, selectedCheckpoint, timeInfo)}</div>
+              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, shownCheckpoint, timeInfo)}</div>
             )}
           </div>
         </div>

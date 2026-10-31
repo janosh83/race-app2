@@ -199,6 +199,17 @@ export const raceApi = {
     });
   },
 
+  // Mark (true) or unmark (false) a checkpoint as a favourite of the user's team
+  setCheckpointFavourite: (raceId, checkpointId, isFavourite) => {
+    logger.info('RACE', 'Setting checkpoint favourite', { raceId, checkpointId, isFavourite });
+    return apiFetch(`/api/race/${raceId}/checkpoints/${checkpointId}/favourite/`, {
+      method: isFavourite ? 'PUT' : 'DELETE',
+    }).catch(err => {
+      logger.error('RACE', 'Failed to set checkpoint favourite', err.message);
+      throw err;
+    });
+  },
+
   // Log a task completion with optional image (multipart/form-data)
   logTaskWithImage: async (raceId, formData) => {
     logger.info('RACE', 'Logging task with image', { raceId });

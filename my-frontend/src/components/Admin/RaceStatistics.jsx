@@ -16,6 +16,9 @@ const EMPTY_STATS = {
   top_completed_tasks: [],
   least_visited_checkpoints: [],
   least_completed_tasks: [],
+  favourites_count: 0,
+  teams_with_favourites_count: 0,
+  top_favourite_checkpoints: [],
 };
 
 function StatCard({ label, value, colClass = 'col-12 col-md-4' }) {
@@ -65,6 +68,9 @@ export default function RaceStatistics({ raceId }) {
           top_completed_tasks: Array.isArray(payload?.top_completed_tasks) ? payload.top_completed_tasks : [],
           least_visited_checkpoints: Array.isArray(payload?.least_visited_checkpoints) ? payload.least_visited_checkpoints : [],
           least_completed_tasks: Array.isArray(payload?.least_completed_tasks) ? payload.least_completed_tasks : [],
+          favourites_count: Number(payload?.favourites_count || 0),
+          teams_with_favourites_count: Number(payload?.teams_with_favourites_count || 0),
+          top_favourite_checkpoints: Array.isArray(payload?.top_favourite_checkpoints) ? payload.top_favourite_checkpoints : [],
         });
       } catch (err) {
         logger.error('ADMIN', 'Failed to load race statistics', err);
@@ -193,6 +199,40 @@ export default function RaceStatistics({ raceId }) {
                         <div className="d-flex justify-content-between gap-2">
                           <span>{item.title}</span>
                           <span className="badge bg-secondary">{item.completions_count}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="row g-3 mt-2">
+          <div className="col-12 col-lg-6">
+            <div className="card h-100">
+              <div className="card-body">
+                <h6 className="card-title mb-3">{t('admin.statistics.favourites')}</h6>
+                <div className="d-flex justify-content-between py-2 border-bottom">
+                  <span className="text-muted">{t('admin.statistics.favouritesCount')}</span>
+                  <strong>{stats.favourites_count}</strong>
+                </div>
+                <div className="d-flex justify-content-between py-2 border-bottom mb-3">
+                  <span className="text-muted">{t('admin.statistics.teamsWithFavourites')}</span>
+                  <strong>{stats.teams_with_favourites_count}</strong>
+                </div>
+
+                <h6 className="card-title mb-3">{t('admin.statistics.topFavouriteCheckpoints')}</h6>
+                {stats.top_favourite_checkpoints.length === 0 ? (
+                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
+                ) : (
+                  <ol className="mb-0 ps-3">
+                    {stats.top_favourite_checkpoints.map((item) => (
+                      <li key={`fav-cp-${item.checkpoint_id}`} className="mb-2">
+                        <div className="d-flex justify-content-between gap-2">
+                          <span>{item.title}</span>
+                          <span className="badge bg-warning text-dark">★ {item.favourites_count}</span>
                         </div>
                       </li>
                     ))}

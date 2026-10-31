@@ -317,7 +317,11 @@
       "topCompletedTasks": "Nejčastěji splněné úkoly",
       "leastVisitedCheckpoints": "Nejméně navštěvované checkpointy (s alespoň jednou návštěvou)",
       "leastCompletedTasks": "Nejméně plněné úkoly (s alespoň jedním splněním)",
-      "noTopData": "Zatím nejsou data"
+      "noTopData": "Zatím nejsou data",
+      "favourites": "Oblíbené checkpointy",
+      "favouritesCount": "Označení jako oblíbené",
+      "teamsWithFavourites": "Týmy s oblíbenými body",
+      "topFavouriteCheckpoints": "Nejoblíbenější checkpointy"
     },
     "teamPaths": {
       "title": "Trasy týmů",
@@ -834,5 +838,10 @@
       "fieldTitle": "Titulek",
       "fieldDescription": "Popis"
     }
+  },
+  "favourites": {
+    "add": "Přidat do oblíbených týmu",
+    "remove": "Odebrat z oblíbených týmu",
+    "saveFailed": "Oblíbený bod se nepodařilo uložit: {{message}}"
   }
 }

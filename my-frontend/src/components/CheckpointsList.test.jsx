@@ -301,4 +301,44 @@ describe('CheckpointsList Component', () => {
       expect(screen.getByText('Read-only').closest('div')).toHaveStyle({ top: '108px' });
     });
   });
+
+  describe('Favourite checkpoints', () => {
+    const checkpoints = [
+      { id: 1, title: 'Plain CP', visited: false, is_favourite: false, numOfPoints: 1 },
+      { id: 2, title: 'Loved CP', visited: false, is_favourite: true, numOfPoints: 1 },
+    ];
+
+    test('lists favourites before other unvisited checkpoints', async () => {
+      raceApi.getCheckpointsStatus.mockResolvedValueOnce(checkpoints);
+      renderList();
+
+      await waitFor(() => expect(screen.getByText('Plain CP')).toBeInTheDocument());
+      const titles = screen.getAllByRole('heading', { level: 6 }).map((el) => el.textContent);
+      expect(titles).toEqual(['Loved CP', 'Plain CP']);
+      expect(screen.getByRole('button', { name: 'Remove from team favourites' })).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    test('toggling the star saves the favourite without opening the checkpoint', async () => {
+      raceApi.getCheckpointsStatus.mockResolvedValueOnce(checkpoints);
+      raceApi.setCheckpointFavourite.mockResolvedValue({ is_favourite: true });
+      renderList();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Add to team favourites' }));
+
+      expect(raceApi.setCheckpointFavourite).toHaveBeenCalledWith(1, 1, true);
+      await waitFor(() => expect(screen.getAllByRole('button', { name: 'Remove from team favourites' })).toHaveLength(2));
+      expect(screen.queryByText('Close', { exact: false })).not.toBeInTheDocument();
+    });
+
+    test('rolls back and reports an error when saving fails', async () => {
+      raceApi.getCheckpointsStatus.mockResolvedValueOnce(checkpoints);
+      raceApi.setCheckpointFavourite.mockRejectedValue(new Error('boom'));
+      renderList();
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Add to team favourites' }));
+
+      expect(await screen.findByText('Failed to save favourite: boom')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add to team favourites' })).toBeInTheDocument();
+    });
+  });
 });

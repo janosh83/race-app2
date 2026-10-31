@@ -96,7 +96,8 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
             "latitude": 50.0755381, 
             "longitude": 14.4378005, 
             "description": "Hlavní město České republiky", 
-            "numOfPoints": 1
+            "numOfPoints": 1,
+            "is_favourite": False
         },
         {
             "id": 2, 
@@ -104,7 +105,8 @@ def test_get_race_checkpoints(test_client, add_test_data, admin_auth_headers):
             "latitude": 49.1950602, 
             "longitude": 16.6068371, 
             "description": "Město na jihu Moravy", 
-            "numOfPoints": 1
+            "numOfPoints": 1,
+            "is_favourite": False
         }
     ]
 
