@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 
-import { LANGUAGE_LABELS } from '../../config/languages';
+import { timeStateForRace } from '../../contexts/TimeContext';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
-import { formatMoney } from '../../utils/money';
-import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
+import { getPhasePresentation } from '../../utils/racePhase';
 
+import './AdminDashboard.css';
 import CategoryForm from './CategoryForm';
 import CheckpointList from './CheckpointList';
 import PaymentAttemptsSummary from './PaymentAttemptsSummary';
 import RaceForm from './RaceForm';
 import RaceList from './RaceList';
+import RaceOverview from './RaceOverview';
 import RaceStatistics from './RaceStatistics';
 import RegistrationList from './RegistrationList';
 import Standings from './Standings';
@@ -19,48 +21,57 @@ import TaskList from './TaskList';
 import TeamPathsMap from './TeamPathsMap';
 import VisitsList from './VisitsList';
 
+// Sections of an opened race, in tab order, with their URL value and label.
+export const RACE_SECTIONS = [
+  { key: 'overview', label: 'admin.dashboard.tabOverview' },
+  { key: 'checkpoints', label: 'admin.dashboard.tabCheckpointsTasks' },
+  { key: 'registrations', label: 'admin.dashboard.tabRegistrationsCategories' },
+  { key: 'payments', label: 'admin.dashboard.tabPaymentAttemptsSummary' },
+  { key: 'results', label: 'admin.dashboard.tabVisitsResults' },
+  { key: 'paths', label: 'admin.dashboard.tabTeamPaths' },
+  { key: 'statistics', label: 'admin.dashboard.tabStatistics' },
+];
+const SECTION_KEYS = RACE_SECTIONS.map(s => s.key);
 
-function formatIso(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
-}
-
-function formatCoordinates(latitude, longitude) {
-  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) return '—';
-  return `${latitude}, ${longitude}`;
-}
-
+// The opened race, its section and the team whose visits are shown live in
+// the URL (?race=1&section=results&team=5), so reload, Back and shared links
+// keep the place, e.g. while reviewing photos at the finish.
 function AdminDashboard() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [races, setRaces] = useState([]);
-  const [selected, setSelected] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [, setCategories] = useState([]);
   const [translations, setTranslations] = useState([]);
-  const [viewingTranslationLang, setViewingTranslationLang] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ui state: creating new race or editing existing
+  // ui state: creating new race or editing the opened one
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
-  const [visitingTeam, setVisitingTeam] = useState(null);
   const [standingsRefreshVersion, setStandingsRefreshVersion] = useState(0);
+  const [teamNames, setTeamNames] = useState({});
   const teamVisitsDetailsRef = useRef(null);
 
-  // submenu state for selected race
-  const [activeSubmenu, setActiveSubmenu] = useState('checkpoints');
+  const selectedId = searchParams.get('race');
+  const selected = selectedId ? races.find(r => String(r.id) === selectedId) ?? null : null;
+  const sectionParam = searchParams.get('section');
+  const activeSection = SECTION_KEYS.includes(sectionParam) ? sectionParam : 'overview';
+  const visitingTeam = searchParams.get('team');
+
+  const updateParams = (changes) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(changes).forEach(([key, value]) => {
+      if (value === null || value === undefined) next.delete(key);
+      else next.set(key, String(value));
+    });
+    setSearchParams(next);
+  };
 
   useEffect(() => {
-    if (activeSubmenu !== 'progress' || !visitingTeam || !teamVisitsDetailsRef.current) return;
-    teamVisitsDetailsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [activeSubmenu, visitingTeam]);
+    if (activeSection !== 'results' || !visitingTeam || !teamVisitsDetailsRef.current) return;
+    teamVisitsDetailsRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [activeSection, visitingTeam]);
 
   useEffect(() => {
     let mounted = true;
@@ -80,409 +91,205 @@ function AdminDashboard() {
     return () => { mounted = false; };
   }, [t]);
 
+  const selectedRaceId = selected?.id ?? null;
   useEffect(() => {
-    if (selected) {
-      const fetchCheckpoints = async () => {
-        try {
-          const data = await adminApi.getCheckpointsByRaceID(selected.id);
-          setCheckpoints(Array.isArray(data) ? data : (data?.data || []));
-        } catch (e) {
-          logger.error('ADMIN', 'Failed to load checkpoints', e);
-          setCheckpoints([]);
-        }
-      };
-      const fetchCategories = async () => {
-        try {
-          const data = await adminApi.listCategories();
-          setCategories(Array.isArray(data) ? data : (data?.data || []));
-        } catch (e) {
-          logger.error('ADMIN', 'Failed to load categories', e);
-          setCategories([]);
-        }
-      };
-      const fetchTranslations = async () => {
-        try {
-          const data = await adminApi.getRaceTranslations(selected.id);
-          setTranslations(Array.isArray(data) ? data : (data?.data || []));
-        } catch (e) {
-          logger.error('ADMIN', 'Failed to load translations', e);
-          setTranslations([]);
-        }
-      };
-      fetchCheckpoints();
-      fetchCategories();
-      fetchTranslations();
-      const fetchTasks = async () => {
-        try {
-          const data = await adminApi.getTasksByRaceID(selected.id);
-          setTasks(Array.isArray(data) ? data : (data?.data || []));
-        } catch (e) {
-          logger.error('ADMIN', 'Failed to load tasks', e);
-          setTasks([]);
-        }
-      };
-      fetchTasks();
-    } else {
+    if (selectedRaceId === null) {
       setCheckpoints([]);
-      setCategories([]);
       setTasks([]);
       setTranslations([]);
+      return;
     }
-  }, [selected]);
+    const load = async (request, setter, label) => {
+      try {
+        const data = await request();
+        setter(Array.isArray(data) ? data : (data?.data || []));
+      } catch (e) {
+        logger.error('ADMIN', `Failed to load ${label}`, e);
+        setter([]);
+      }
+    };
+    load(() => adminApi.getCheckpointsByRaceID(selectedRaceId), setCheckpoints, 'checkpoints');
+    load(() => adminApi.getTasksByRaceID(selectedRaceId), setTasks, 'tasks');
+    load(() => adminApi.getRaceTranslations(selectedRaceId), setTranslations, 'translations');
+  }, [selectedRaceId]);
 
   const handleNewClick = () => {
-    setSelected(null);
+    updateParams({ race: null, section: null, team: null });
     setEditingRace(null);
     setCreatingNew(true);
   };
 
   const handleManage = (race) => {
-    setSelected(race);
     setCreatingNew(false);
     setEditingRace(null);
-    setViewingTranslationLang(null);
-    setActiveSubmenu('checkpoints'); // reset to first tab
+    updateParams({ race: race.id, section: null, team: null });
+  };
+
+  const handleBackToRaces = () => {
+    setCreatingNew(false);
+    setEditingRace(null);
+    updateParams({ race: null, section: null, team: null });
   };
 
   const handleSavedRace = (race, wasNew = true) => {
-    // race: saved race object from server
     setRaces(prev => {
       if (wasNew) return [race, ...prev];
       return prev.map(r => (r.id === race.id ? race : r));
     });
-    setSelected(race);
     setCreatingNew(false);
     setEditingRace(null);
+    updateParams({ race: race.id, section: wasNew ? null : sectionParam, team: null });
   };
 
-  const handleEdit = () => {
-    if (!selected) return;
-    setEditingRace(selected);
-    setCreatingNew(false);
-  };
+  const backLink = (
+    <button type="button" className="btn btn-link px-0 mb-1 admin-back-link" onClick={handleBackToRaces}>
+      ‹ {t('admin.dashboard.backToRaces')}
+    </button>
+  );
+
+  if (creatingNew) {
+    return (
+      <div className="admin-dashboard">
+        {backLink}
+        <RaceForm
+          race={null}
+          onSaved={(r) => handleSavedRace(r, true)}
+          onCancel={() => setCreatingNew(false)}
+        />
+      </div>
+    );
+  }
+
+  if (!selected) {
+    return (
+      <div className="admin-dashboard">
+        {loading && <div>{t('admin.dashboard.loadingRaces')}</div>}
+        {error && <div className="alert alert-danger">{error}</div>}
+        {!loading && selectedId && !error && (
+          <div className="alert alert-warning">{t('admin.dashboard.raceNotFound')}</div>
+        )}
+        <RaceList races={races} onSelect={handleManage} onNew={handleNewClick} />
+      </div>
+    );
+  }
+
+  const phase = getPhasePresentation(t, timeStateForRace(Date.now(), selected).state);
 
   return (
-    <div className="container mt-4">
-      <h2>{t('admin.dashboard.title')}</h2>
-
-      {loading && <div>{t('admin.dashboard.loadingRaces')}</div>}
-      {error && <div className="alert alert-danger">{error}</div>}
-
-      <div className="row">
-        <div className="col-md-4">
-          <RaceList races={races} onSelect={handleManage} />
-          <div className="mt-2 d-grid">
-            <button className="btn btn-success" onClick={handleNewClick}>{t('admin.dashboard.newRace')}</button>
-          </div>
+    <div className="admin-dashboard">
+      {backLink}
+      <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div className="d-flex align-items-center flex-wrap gap-2">
+          <h2 className="h4 mb-0">{selected.name || selected.title || `#${selected.id}`}</h2>
+          <span className={`badge rounded-pill ${phase.toneClass}`}>{phase.value}</span>
         </div>
+        {!editingRace && (
+          <button className="btn btn-sm btn-outline-primary" onClick={() => setEditingRace(selected)}>
+            {t('admin.dashboard.editRace')}
+          </button>
+        )}
+      </div>
 
-        <div className="col-md-8">
-          {/* show form when creating or editing */}
-          {(creatingNew || editingRace) ? (
-            <RaceForm
-              race={editingRace}
-              onSaved={(r) => handleSavedRace(r, !editingRace)}
-              onCancel={() => { setCreatingNew(false); setEditingRace(null); }}
-            />
-          ) : (
+      {editingRace ? (
+        <RaceForm
+          race={editingRace}
+          onSaved={(r) => handleSavedRace(r, false)}
+          onCancel={() => setEditingRace(null)}
+        />
+      ) : (
+        <>
+          <ul className="nav nav-tabs mb-3 admin-section-tabs">
+            {RACE_SECTIONS.map(({ key, label }) => (
+              <li className="nav-item" key={key}>
+                <button
+                  type="button"
+                  className={`nav-link ${activeSection === key ? 'active' : ''}`}
+                  aria-current={activeSection === key ? 'page' : undefined}
+                  onClick={() => updateParams({ section: key === 'overview' ? null : key, team: null })}
+                >
+                  {t(label)}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {activeSection === 'overview' && (
+            <RaceOverview race={selected} translations={translations} />
+          )}
+
+          {activeSection === 'checkpoints' && (
             <>
-              {selected ? (
-                <>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h4>{t('admin.dashboard.manage', {
-                      name: viewingTranslationLang
-                      ? (translations.find(t => t.language === viewingTranslationLang)?.name || selected.name || selected.title || `#${selected.id}`)
-                      : (selected.name || selected.title || `#${selected.id}`)
-                    })}</h4>
-                    <div>
-                      <button className="btn btn-sm btn-outline-primary me-2" onClick={handleEdit}>{t('admin.dashboard.editRace')}</button>
-                      <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelected(null); }}>{t('admin.dashboard.close')}</button>
+              <CheckpointList
+                checkpoints={checkpoints}
+                raceId={selected.id}
+                supportedLanguages={selected.supported_languages || []}
+                onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
+                onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
+                onUpdate={(id, updatedData) => setCheckpoints(prev => prev.map(cp => cp.id === id ? { ...cp, ...updatedData } : cp))}
+              />
+              <TaskList
+                tasks={tasks}
+                raceId={selected.id}
+                supportedLanguages={selected.supported_languages || []}
+                onRemove={(id) => setTasks(prev => prev.filter(task => task.id !== id))}
+                onImported={(items) => setTasks(prev => [...items, ...prev])}
+                onUpdate={(id, updatedData) => setTasks(prev => prev.map(task => task.id === id ? { ...task, ...updatedData } : task))}
+              />
+            </>
+          )}
+
+          {activeSection === 'registrations' && (
+            <>
+              <RegistrationList raceId={selected.id} race={selected} />
+              <CategoryForm raceId={selected.id} supportedLanguages={selected.supported_languages || []} />
+            </>
+          )}
+
+          {activeSection === 'payments' && (
+            <PaymentAttemptsSummary raceId={selected.id} />
+          )}
+
+          {activeSection === 'results' && (
+            <>
+              <Standings
+                raceId={selected.id}
+                refreshVersion={standingsRefreshVersion}
+                onTeamClick={(teamId) => updateParams({ team: teamId })}
+                onLoaded={(rows) => setTeamNames(Object.fromEntries(rows.map(row => [String(row.teamId), row.teamName])))}
+              />
+              {visitingTeam && (
+                <div className="card mt-3" ref={teamVisitsDetailsRef}>
+                  <div className="card-body">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <h5 className="mb-0">
+                        {teamNames[visitingTeam]
+                          ? t('admin.dashboard.visitsTeamName', { name: teamNames[visitingTeam] })
+                          : t('admin.dashboard.visitsTeam', { id: visitingTeam })}
+                      </h5>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={() => updateParams({ team: null })}>{t('admin.dashboard.close')}</button>
                     </div>
-                  </div>
-
-                  {/* Description and time constraints */}
-                  <div className="card mb-3">
-                    <div className="card-body">
-                      {(() => {
-                        const translated = translations.find(t => t.language === viewingTranslationLang);
-                        const greeting = viewingTranslationLang
-                          ? (translated?.race_greeting ?? selected.race_greeting)
-                          : selected.race_greeting;
-                        return (
-                          <>
-                            {greeting ? (
-                              <p className="mb-2 fst-italic">{greeting}</p>
-                            ) : (
-                              <p className="mb-2 text-muted">{t('admin.dashboard.noRaceGreeting')}</p>
-                            )}
-                          </>
-                        );
-                      })()}
-
-                      {(() => {
-                        const desc = viewingTranslationLang
-                          ? (translations.find(t => t.language === viewingTranslationLang)?.description || selected.description)
-                          : selected.description;
-                        return desc ? (
-                          <p className="mb-2">{desc}</p>
-                        ) : (
-                          <p className="mb-2 text-muted">{t('admin.dashboard.noDescription')}</p>
-                        );
-                      })()}
-
-                      <div className="small text-muted">
-                        <div>
-                          <strong>{t('admin.dashboard.showingCheckpoints')}:</strong>{' '}
-                          {formatIso(selected.start_showing_checkpoints_at ?? selected.start_showing_checkpoints ?? selected.start_showing)}
-                          {' — '}
-                          {formatIso(selected.end_showing_checkpoints_at ?? selected.end_showing_checkpoints ?? selected.end_showing)}
-                        </div>
-                        <div>
-                          <strong>{t('admin.dashboard.loggingWindow')}:</strong>{' '}
-                          {formatIso(selected.start_logging_at ?? selected.start_logging)}
-                          {' — '}
-                          {formatIso(selected.end_logging_at ?? selected.end_logging)}
-                        </div>
-                        <div className="mt-2 pt-2 border-top">
-                          <div>
-                            <strong>{t('admin.dashboard.defaultLanguage')}:</strong>{' '}
-                            {selected.default_language ? `${LANGUAGE_LABELS[selected.default_language] || selected.default_language} (${selected.default_language})` : t('admin.dashboard.notSet')}
-                          </div>
-                          <div>
-                            <strong>{t('admin.dashboard.supportedLanguages')}:</strong>{' '}
-                            {selected.supported_languages && selected.supported_languages.length > 0
-                              ? selected.supported_languages.map(lang => `${LANGUAGE_LABELS[lang] || lang} (${lang})`).join(', ')
-                              : t('admin.dashboard.none')}
-                          </div>
-                          <div className="mt-2 pt-2 border-top">
-                            <div>
-                              <strong>{t('admin.dashboard.raceMarkers')}:</strong>
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.finishMarker')}:</strong>{' '}
-                              {selected.finish_description ? `${selected.finish_description} — ` : ''}
-                              {formatCoordinates(selected.finish_latitude, selected.finish_longitude)}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.bivak1Marker')}:</strong>{' '}
-                              {selected.bivak_1_name ? `${selected.bivak_1_name} — ` : ''}
-                              {formatCoordinates(selected.bivak_1_latitude, selected.bivak_1_longitude)}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.bivak2Marker')}:</strong>{' '}
-                              {selected.bivak_2_name ? `${selected.bivak_2_name} — ` : ''}
-                              {formatCoordinates(selected.bivak_2_latitude, selected.bivak_2_longitude)}
-                            </div>
-                          </div>
-                          <div className="mt-2 pt-2 border-top">
-                            <div>
-                              <strong>{t('admin.dashboard.registrationSettings')}:</strong>
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationEnabled')}:</strong>{' '}
-                              {selected.registration_enabled ? t('admin.dashboard.yes') : t('admin.dashboard.no')}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationSlug')}:</strong>{' '}
-                              {selected.registration_slug ? (
-                                <a
-                                  href={`${window.location.origin}/register/${encodeURIComponent(selected.registration_slug)}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {selected.registration_slug}
-                                </a>
-                              ) : t('admin.dashboard.notSet')}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.teamSizeRange')}:</strong>{' '}
-                              {selected.min_team_size ?? 1} — {selected.max_team_size ?? 2}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationModes')}:</strong>{' '}
-                              {[
-                                selected.allow_team_registration ? t('admin.dashboard.modeTeam') : null,
-                                selected.allow_individual_registration ? t('admin.dashboard.modeIndividual') : null,
-                              ].filter(Boolean).join(', ') || t('admin.dashboard.none')}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationCurrency')}:</strong>{' '}
-                              {(selected.registration_currency || 'eur').toUpperCase()}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationPricingStrategy')}:</strong>{' '}
-                              {selected.registration_pricing_strategy === 'driver_codriver'
-                                ? t('admin.dashboard.registrationPricingStrategyDriverCodriver')
-                                : t('admin.dashboard.registrationPricingStrategyTeamFlat')}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationTeamAmountCents')}:</strong>{' '}
-                              {formatMoney(selected.registration_team_amount_cents ?? 5000, selected.registration_currency || 'eur', i18n.language)}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationIndividualAmountCents')}:</strong>{' '}
-                              {formatMoney(selected.registration_individual_amount_cents ?? 2500, selected.registration_currency || 'eur', i18n.language)}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationDriverAmountCents')}:</strong>{' '}
-                              {formatMoney(selected.registration_driver_amount_cents ?? 2500, selected.registration_currency || 'eur', i18n.language)}
-                            </div>
-                            <div>
-                              <strong>{t('admin.dashboard.registrationCodriverAmountCents')}:</strong>{' '}
-                              {formatMoney(selected.registration_codriver_amount_cents ?? 1500, selected.registration_currency || 'eur', i18n.language)}
-                            </div>
-                          </div>
-                          <div className="mt-2">
-                            <div className="d-flex align-items-center gap-2">
-                              <strong>{t('admin.dashboard.existingTranslations')}:</strong>
-                              {translations && translations.length > 0 ? (
-                                <LanguageFlagsDisplay
-                                  languages={translations.map(t => t.language)}
-                                  selectedLanguage={viewingTranslationLang}
-                                  onClick={(lang) => setViewingTranslationLang(viewingTranslationLang === lang ? null : lang)}
-                                />
-                              ) : (
-                                <span className="text-muted">{t('admin.dashboard.noneYet')}</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Submenu tabs */}
-                  <ul className="nav nav-tabs mb-3">
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'checkpoints' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('checkpoints')}
-                      >
-                        {t('admin.dashboard.tabCheckpointsTasks')}
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'payments' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('payments')}
-                      >
-                        {t('admin.dashboard.tabPaymentAttemptsSummary')}
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'registrations' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('registrations')}
-                      >
-                        {t('admin.dashboard.tabRegistrationsCategories')}
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'progress' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('progress')}
-                      >
-                        {t('admin.dashboard.tabVisitsResults')}
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'teamPaths' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('teamPaths')}
-                      >
-                        {t('admin.dashboard.tabTeamPaths')}
-                      </button>
-                    </li>
-                    <li className="nav-item">
-                      <button
-                        className={`nav-link ${activeSubmenu === 'statistics' ? 'active' : ''}`}
-                        onClick={() => setActiveSubmenu('statistics')}
-                      >
-                        {t('admin.dashboard.tabStatistics')}
-                      </button>
-                    </li>
-                  </ul>
-
-                  {/* Submenu content */}
-                  {activeSubmenu === 'checkpoints' && (
-                    <>
-                    <CheckpointList
-                      checkpoints={checkpoints}
+                    <VisitsList
+                      teamId={visitingTeam}
                       raceId={selected.id}
-                      supportedLanguages={selected.supported_languages || []}
-                      onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
-                      onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
-                      onUpdate={(id, updatedData) => setCheckpoints(prev => prev.map(cp => cp.id === id ? { ...cp, ...updatedData } : cp))}
+                      onDataChanged={() => setStandingsRefreshVersion(prev => prev + 1)}
                     />
-                    <TaskList
-                      tasks={tasks}
-                      raceId={selected.id}
-                      supportedLanguages={selected.supported_languages || []}
-                      onRemove={(id) => setTasks(prev => prev.filter(t => t.id !== id))}
-                      onImported={(items) => setTasks(prev => [...items, ...prev])}
-                      onUpdate={(id, updatedData) => setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedData } : t))}
-                    />
-                  </>)
-                  }
-
-                  {activeSubmenu === 'payments' && (
-                    <PaymentAttemptsSummary raceId={selected.id} />
-                  )}
-
-                  {activeSubmenu === 'registrations' && (
-                    <>
-                      <RegistrationList raceId={selected.id} race={selected} />
-                      <CategoryForm raceId={selected.id} supportedLanguages={selected.supported_languages || []} />
-                    </>
-                  )}
-
-                  {activeSubmenu === 'progress' && (
-                    <>
-                      <Standings
-                        raceId={selected.id}
-                        refreshVersion={standingsRefreshVersion}
-                        onTeamClick={(teamId) => setVisitingTeam(teamId)}
-                      />
-                      {visitingTeam && (
-                        <div className="card mt-3" ref={teamVisitsDetailsRef}>
-                          <div className="card-body">
-                            <div className="d-flex justify-content-between align-items-center mb-2">
-                              <h5 className="mb-0">{t('admin.dashboard.visitsTeam', { id: visitingTeam })}</h5>
-                              <button className="btn btn-sm btn-outline-secondary" onClick={() => setVisitingTeam(null)}>{t('admin.dashboard.close')}</button>
-                            </div>
-                            <VisitsList
-                              teamId={visitingTeam}
-                              raceId={selected.id}
-                              onDataChanged={() => setStandingsRefreshVersion(prev => prev + 1)}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {activeSubmenu === 'teamPaths' && (
-                    <TeamPathsMap raceId={selected.id} />
-                  )}
-
-                  {activeSubmenu === 'statistics' && (
-                    <RaceStatistics raceId={selected.id} />
-                  )}
-                </>
-              ) : (
-                <div className="mt-3 text-muted">{t('admin.dashboard.selectRacePrompt')}</div>
+                  </div>
+                </div>
               )}
             </>
           )}
-        </div>
-      </div>
+
+          {activeSection === 'paths' && (
+            <TeamPathsMap raceId={selected.id} />
+          )}
+
+          {activeSection === 'statistics' && (
+            <RaceStatistics raceId={selected.id} />
+          )}
+        </>
+      )}
     </div>
   );
 }
 
 export default AdminDashboard;
-
-
-
-
-

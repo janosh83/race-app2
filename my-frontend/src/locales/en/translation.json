@@ -307,15 +307,19 @@
       "none": "None",
       "existingTranslations": "Existing translations",
       "noneYet": "None yet",
-      "tabCheckpointsTasks": "Checkpoints & Tasks",
-      "tabPaymentAttemptsSummary": "Payment Attempts Summary",
-      "tabRegistrationsCategories": "Registrations & Categories",
+      "tabCheckpointsTasks": "Checkpoints & tasks",
+      "tabPaymentAttemptsSummary": "Payments",
+      "tabRegistrationsCategories": "Registrations",
       "tabTeams": "Teams",
-      "tabVisitsResults": "Visits & Results",
+      "tabVisitsResults": "Results & visits",
       "tabTeamPaths": "Team paths",
       "tabStatistics": "Statistics",
       "visitsTeam": "Visits — team #{{id}}",
-      "selectRacePrompt": "Select a race or click \"New race\" to create one"
+      "selectRacePrompt": "Select a race or click \"New race\" to create one",
+      "tabOverview": "Overview",
+      "backToRaces": "Races",
+      "raceNotFound": "This race was not found.",
+      "visitsTeamName": "Visits — {{name}}"
     },
     "statistics": {
       "title": "Race statistics",
@@ -852,6 +856,11 @@
       "fieldName": "Name",
       "fieldTitle": "Title",
       "fieldDescription": "Description"
+    },
+    "sections": {
+      "races": "Races",
+      "teams": "Teams",
+      "users": "Users"
     }
   },
   "favourites": {

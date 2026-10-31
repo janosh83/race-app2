@@ -31,7 +31,7 @@ function normalizeResults(payload) {
   return [];
 }
 
-export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
+export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersion = 0 }) {
   const { t } = useTranslation();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,10 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
       try {
         const payload = await adminApi.getResults(raceId);
         const list = normalizeResults(payload);
-        if (mounted) setStandings(list);
+        if (mounted) {
+          setStandings(list);
+          onLoaded?.(list);
+        }
       } catch (err) {
         logger.error('ADMIN', 'Failed to load standings', err);
         if (mounted) setError(err?.message || t('admin.standings.errorLoad'));
@@ -62,6 +65,8 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
     }
 
     return () => { mounted = false; };
+    // onLoaded is a notification only; a new callback identity must not reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, refreshVersion, t]);
 
   const handleToggleDisqualification = async (teamId, current) => {

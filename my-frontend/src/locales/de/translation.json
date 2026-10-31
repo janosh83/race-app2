@@ -308,14 +308,18 @@
       "existingTranslations": "Vorhandene Uebersetzungen",
       "noneYet": "Noch keine",
       "tabCheckpointsTasks": "Checkpoints & Aufgaben",
-      "tabPaymentAttemptsSummary": "Uebersicht Zahlungsversuche",
-      "tabRegistrationsCategories": "Registrierungen & Kategorien",
+      "tabPaymentAttemptsSummary": "Zahlungen",
+      "tabRegistrationsCategories": "Registrierungen",
       "tabTeams": "Teams",
-      "tabVisitsResults": "Besuche & Ergebnisse",
+      "tabVisitsResults": "Ergebnisse & Besuche",
       "tabTeamPaths": "Team-Routen",
       "tabStatistics": "Statistiken",
       "visitsTeam": "Besuche — Team #{{id}}",
-      "selectRacePrompt": "Waehlen Sie ein Rennen oder klicken Sie auf \"Neues Rennen\""
+      "selectRacePrompt": "Waehlen Sie ein Rennen oder klicken Sie auf \"Neues Rennen\"",
+      "tabOverview": "Uebersicht",
+      "backToRaces": "Rennen",
+      "raceNotFound": "Dieses Rennen wurde nicht gefunden.",
+      "visitsTeamName": "Besuche — {{name}}"
     },
     "statistics": {
       "title": "Rennstatistiken",
@@ -852,6 +856,11 @@
       "fieldName": "Name",
       "fieldTitle": "Titel",
       "fieldDescription": "Beschreibung"
+    },
+    "sections": {
+      "races": "Rennen",
+      "teams": "Teams",
+      "users": "Benutzer"
     }
   },
   "favourites": {

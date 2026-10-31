@@ -1,0 +1,21 @@
+/* Section tabs of an opened race: one row that scrolls sideways on narrow
+   screens instead of wrapping into a stack of tabs. */
+.admin-section-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.admin-section-tabs .nav-link {
+  white-space: nowrap;
+}
+
+.admin-back-link {
+  text-decoration: none;
+}
+
+.admin-race-row {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}

@@ -6,19 +6,11 @@ import './ActiveRace.css';
 import { formatDate, timeStateForRace, useTime } from '../contexts/TimeContext';
 import { findCandidates } from '../utils/activeRaceUtils';
 import { logger } from '../utils/logger';
+import { getPhasePresentation } from '../utils/racePhase';
 
 import LanguageFlagsDisplay from './LanguageFlagsDisplay';
 
-const getPhasePresentation = (t, phaseState) => ({
-  value: t(`activeRace.phase.${phaseState || 'UNKNOWN'}`),
-  toneClass: phaseState === 'LOGGING'
-    ? 'bg-success-subtle text-success-emphasis'
-    : phaseState === 'SHOW_ONLY' || phaseState === 'POST_LOG_SHOW'
-      ? 'bg-info-subtle text-info-emphasis'
-      : phaseState === 'BEFORE_SHOW'
-        ? 'bg-warning-subtle text-warning-emphasis'
-        : 'bg-secondary-subtle text-secondary-emphasis',
-});
+
 
 
 function ActiveRace() {

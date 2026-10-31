@@ -308,14 +308,18 @@
       "existingTranslations": "Existující překlady",
       "noneYet": "Zatím žádné",
       "tabCheckpointsTasks": "Checkpointy a úkoly",
-      "tabPaymentAttemptsSummary": "Souhrn pokusů o platbu",
-      "tabRegistrationsCategories": "Registrace a kategorie",
+      "tabPaymentAttemptsSummary": "Platby",
+      "tabRegistrationsCategories": "Registrace",
       "tabTeams": "Týmy",
-      "tabVisitsResults": "Návštěvy a výsledky",
+      "tabVisitsResults": "Výsledky a návštěvy",
       "tabTeamPaths": "Trasy týmů",
       "tabStatistics": "Statistiky",
       "visitsTeam": "Návštěvy — tým #{{id}}",
-      "selectRacePrompt": "Vyberte závod nebo klikněte na \"Nový závod\""
+      "selectRacePrompt": "Vyberte závod nebo klikněte na \"Nový závod\"",
+      "tabOverview": "Přehled",
+      "backToRaces": "Závody",
+      "raceNotFound": "Tento závod nebyl nalezen.",
+      "visitsTeamName": "Návštěvy — {{name}}"
     },
     "statistics": {
       "title": "Statistiky závodu",
@@ -852,6 +856,11 @@
       "fieldName": "Název",
       "fieldTitle": "Titulek",
       "fieldDescription": "Popis"
+    },
+    "sections": {
+      "races": "Závody",
+      "teams": "Týmy",
+      "users": "Uživatelé"
     }
   },
   "favourites": {
