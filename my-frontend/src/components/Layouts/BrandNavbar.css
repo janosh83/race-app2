@@ -1,21 +1,49 @@
-/* Brand top bar: black, like the logo. */
+/* Brand top bar (race view and admin): black like the logo and slim, so the
+   map, lists and tables get the screen. */
 .brand-navbar {
-  background-color: #000;
+  background-color: var(--brand-black);
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .brand-navbar-brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  font-size: 1.05rem;
   font-weight: 600;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 /* The logo's white parts are transparent, so it sits on a white disc to stay
    visible on the black bar. */
 .brand-navbar-logo {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background-color: #fff;
   padding: 1px;
+}
+
+.brand-navbar .navbar-toggler {
+  padding: 2px 8px;
+  font-size: 1rem;
+}
+
+/* Admin: a thin accent line and an "ADMIN" label tell it apart from the
+   race view. */
+.brand-navbar-admin {
+  border-bottom: 3px solid var(--brand-accent);
+}
+
+.brand-navbar-admin-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background-color: var(--brand-accent);
+  color: #fff;
 }

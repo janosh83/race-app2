@@ -27,7 +27,7 @@ function LanguageFlagsDisplay({ languages, onClick, selectedLanguage, flagWidth 
             alignItems: 'center',
             cursor: onClick ? 'pointer' : 'default',
             padding: '2px',
-            border: selectedLanguage === lang ? '2px solid #0d6efd' : '2px solid transparent',
+            border: selectedLanguage === lang ? '2px solid var(--brand-accent)' : '2px solid transparent',
             borderRadius: '4px',
             transition: 'border-color 0.2s'
           }}

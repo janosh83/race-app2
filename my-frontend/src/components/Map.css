@@ -19,7 +19,7 @@
 }
 
 .map-current-location-button:focus-visible {
-  outline: 2px solid #0d6efd;
+  outline: 2px solid var(--brand-accent);
   outline-offset: -2px;
 }
 
@@ -134,7 +134,7 @@
 
 .map-navigation-hint {
   background-color: #f8f9fa;
-  border: 1px solid rgba(13, 110, 253, 0.12);
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.15);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 0.95rem;

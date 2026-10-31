@@ -14,7 +14,7 @@ export default function RaceList({ races, onSelect, onNew }) {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <h2 className="h4 mb-0">{t('admin.raceList.title')}</h2>
         {onNew && (
-          <button className="btn btn-success" onClick={onNew}>{t('admin.dashboard.newRace')}</button>
+          <button className="btn btn-primary" onClick={onNew}>{t('admin.dashboard.newRace')}</button>
         )}
       </div>
       <div className="list-group">

@@ -107,7 +107,7 @@ function RaceLayout() {
       <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark brand-navbar race-navbar" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
           <span className="navbar-brand brand-navbar-brand">
-            <img src="/logo192.png" alt="" width="32" height="32" className="brand-navbar-logo" />
+            <img src="/logo192.png" alt="" width="28" height="28" className="brand-navbar-logo" />
             {t('nav.brand')}
           </span>
           <button
