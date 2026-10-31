@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, Race, Registration, Team
+from app.models import Checkpoint, CheckpointLog, Race, Registration, Team, TeamPosition, User
 from app.routes.admin import admin_required
 
 race_team_paths_bp = Blueprint('race_team_paths', __name__)
@@ -12,7 +12,8 @@ race_team_paths_bp = Blueprint('race_team_paths', __name__)
 def get_race_team_paths(race_id):
     """
     Get the path of every registered team through the race checkpoints (admin only).
-    Visits of each team are ordered chronologically.
+    Visits of each team are ordered chronologically, and so are the GPS positions
+    reported by all team members during the logging window (the team's trail).
     ---
     tags:
       - Races
@@ -71,6 +72,24 @@ def get_race_team_paths(race_id):
                             created_at:
                               type: string
                               format: date-time
+                      positions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            latitude:
+                              type: number
+                            longitude:
+                              type: number
+                            accuracy:
+                              type: number
+                            recorded_at:
+                              type: string
+                              format: date-time
+                            user_id:
+                              type: integer
+                            user_name:
+                              type: string
       404:
         description: Race not found
       403:
@@ -109,6 +128,35 @@ def get_race_team_paths(race_id):
             }
         )
 
+    positions = (
+        db.session.query(
+            TeamPosition.team_id,
+            TeamPosition.latitude,
+            TeamPosition.longitude,
+            TeamPosition.accuracy_m,
+            TeamPosition.recorded_at,
+            TeamPosition.user_id,
+            User.name.label('user_name'),
+        )
+        .join(User, User.id == TeamPosition.user_id)
+        .filter(TeamPosition.race_id == race_id)
+        .order_by(TeamPosition.team_id.asc(), TeamPosition.recorded_at.asc(), TeamPosition.id.asc())
+        .all()
+    )
+
+    positions_by_team = {}
+    for position in positions:
+        positions_by_team.setdefault(position.team_id, []).append(
+            {
+                'latitude': position.latitude,
+                'longitude': position.longitude,
+                'accuracy': position.accuracy_m,
+                'recorded_at': position.recorded_at.isoformat(),
+                'user_id': int(position.user_id),
+                'user_name': position.user_name,
+            }
+        )
+
     return jsonify(
         {
             'race_id': race_id,
@@ -128,6 +176,7 @@ def get_race_team_paths(race_id):
                     'team_name': team_name,
                     'disqualified': bool(disqualified),
                     'visits': visits_by_team.get(team_id, []),
+                    'positions': positions_by_team.get(team_id, []),
                 }
                 for team_id, team_name, disqualified in registrations
             ],

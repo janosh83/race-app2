@@ -1,3 +1,5 @@
+from datetime import timezone
+
 from marshmallow import INCLUDE, Schema, fields, validate, pre_load, validates_schema, ValidationError
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
@@ -85,6 +87,13 @@ class CheckpointLogSchema(Schema):
     user_latitude = fields.Float(load_default=None)
     user_longitude = fields.Float(load_default=None)
     user_distance_km = fields.Float(load_default=None)
+
+
+class TeamPositionSchema(Schema):
+    latitude = fields.Float(required=True, validate=LATITUDE_VALIDATOR)
+    longitude = fields.Float(required=True, validate=LONGITUDE_VALIDATOR)
+    accuracy = fields.Float(load_default=None, validate=validate.Range(min=0))
+    recorded_at = fields.AwareDateTime(load_default=None, default_timezone=timezone.utc)
 
 
 class TaskCreateSchema(Schema):

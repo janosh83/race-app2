@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { selectActiveRace } from '../utils/activeRaceUtils';
 import { apiFetch } from '../utils/api';
 import { logger } from '../utils/logger';
+import { reportPosition } from '../utils/positionReporting';
 
 const TimeContext = createContext(null);
 
@@ -190,6 +191,9 @@ export function TimeProvider({ isLoggedIn = null, children }) {
   const refreshSignedRaces = useCallback(async () => {
     logger.info('CONTEXT', 'Refreshing signed races from server');
     lastSyncRef.current = Date.now(); // also covers the request in flight
+    // Piggyback the live position on the same rhythm; it is a no-op outside
+    // the active race's logging window.
+    reportPosition(activeRaceRef.current);
     try {
       const data = await apiFetch('/api/user/signed-races/');
       // Ignore a response that arrives after logout.

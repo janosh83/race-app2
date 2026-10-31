@@ -332,7 +332,13 @@
       "visitedCount": "Visited checkpoints",
       "checkpointTooltip": "{{title}} — visits: {{count}}",
       "startTooltip": "Start of path: {{team}}",
-      "hint": "Lines connect checkpoints in the order each team visited them. A dot marks the first visit, a dashed line marks a disqualified team. Hover a team in the list to highlight it, click a line for the visit order."
+      "hint": "Lines connect checkpoints in the order each team visited them. A dot marks the first visit, a dashed line marks a disqualified team. Hover a team in the list to highlight it, click a line for the visit order.",
+      "showTrails": "GPS trails",
+      "positionsCount": "GPS positions reported by team members",
+      "trailTooltip": "GPS trail: {{team}}",
+      "positionTooltip": "{{team}} — {{member}}, {{time}} (±{{accuracy}} m)",
+      "lastPositionTooltip": "Last known position of {{team}} — {{member}}, {{time}} (±{{accuracy}} m)",
+      "trailHint": "Dotted lines are GPS trails built from positions sent by all team members while the race logging window is open, merged with checkpoint visits in time order. Positions are only sent while the app is open, so trails have gaps. The large dot is the last known position."
     },
     "raceList": {
       "title": "Races",

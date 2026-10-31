@@ -332,7 +332,13 @@
       "visitedCount": "Navštívené checkpointy",
       "checkpointTooltip": "{{title}} — návštěvy: {{count}}",
       "startTooltip": "Začátek trasy: {{team}}",
-      "hint": "Čáry spojují checkpointy v pořadí, v jakém je tým navštívil. Tečka označuje první návštěvu, přerušovaná čára diskvalifikovaný tým. Najetím na tým v seznamu jej zvýrazníte, kliknutím na čáru zobrazíte pořadí návštěv."
+      "hint": "Čáry spojují checkpointy v pořadí, v jakém je tým navštívil. Tečka označuje první návštěvu, přerušovaná čára diskvalifikovaný tým. Najetím na tým v seznamu jej zvýrazníte, kliknutím na čáru zobrazíte pořadí návštěv.",
+      "showTrails": "GPS stopy",
+      "positionsCount": "GPS polohy odeslané členy týmu",
+      "trailTooltip": "GPS stopa: {{team}}",
+      "positionTooltip": "{{team}} — {{member}}, {{time}} (±{{accuracy}} m)",
+      "lastPositionTooltip": "Poslední známá poloha týmu {{team}} — {{member}}, {{time}} (±{{accuracy}} m)",
+      "trailHint": "Tečkované čáry jsou GPS stopy z poloh, které posílají všichni členové týmu během otevřeného okna pro zápis, spojené s návštěvami checkpointů v časovém pořadí. Polohy se posílají jen při otevřené aplikaci, proto mají stopy mezery. Velká tečka je poslední známá poloha."
     },
     "raceList": {
       "title": "Závody",

@@ -4,7 +4,7 @@ import React from 'react';
 
 import { adminApi } from '../../services/adminApi';
 
-import TeamPathsMap, { buildTeamPaths, getTeamColor } from './TeamPathsMap';
+import TeamPathsMap, { buildTeamPaths, buildTeamTrail, getTeamColor } from './TeamPathsMap';
 
 vi.mock('leaflet/dist/leaflet.css', () => ({ default: {} }));
 
@@ -92,5 +92,51 @@ describe('TeamPathsMap', () => {
     fireEvent.click(screen.getByLabelText('Alpha'));
     await waitFor(() => expect(screen.getByLabelText('Alpha')).not.toBeChecked());
     expect(L.polyline).not.toHaveBeenCalled();
+  });
+
+  it('merges member positions and checkpoint visits into a time-ordered trail', () => {
+    const points = [
+      { latLng: [50.2, 14.2], created_at: '2026-05-01T10:00:00' },
+      { latLng: [50.0, 14.0], created_at: '2026-05-01T10:30:00' },
+    ];
+    const positions = [
+      { latitude: 50.15, longitude: 14.1, recorded_at: '2026-05-01T10:40:00', user_name: 'Anna' },
+      { latitude: 50.1, longitude: 14.1, recorded_at: '2026-05-01T10:15:00', user_name: 'Bob' },
+    ];
+
+    const trail = buildTeamTrail(points, positions);
+
+    expect(trail.map(entry => [entry.kind, entry.latLng])).toEqual([
+      ['visit', [50.2, 14.2]],
+      ['gps', [50.1, 14.1]],
+      ['visit', [50.0, 14.0]],
+      ['gps', [50.15, 14.1]],
+    ]);
+  });
+
+  it('draws GPS trails for teams with positions and lets them be turned off', async () => {
+    adminApi.getRaceTeamPaths.mockResolvedValue({
+      ...payload,
+      teams: [
+        {
+          ...payload.teams[0],
+          positions: [
+            { latitude: 50.1, longitude: 14.1, accuracy: 12, recorded_at: '2026-05-01T10:15:00', user_id: 1, user_name: 'Anna' },
+            { latitude: 50.05, longitude: 14.05, accuracy: 20, recorded_at: '2026-05-01T10:45:00', user_id: 2, user_name: 'Bob' },
+          ],
+        },
+        payload.teams[1],
+      ],
+    });
+    render(<TeamPathsMap raceId={1} />);
+
+    await waitFor(() => expect(L.polyline).toHaveBeenCalledTimes(2));
+    const trailCall = L.polyline.mock.calls.find(([, options]) => options.dashArray === '2 6');
+    expect(trailCall[0]).toEqual([[50.2, 14.2], [50.1, 14.1], [50.0, 14.0], [50.05, 14.05]]);
+
+    L.polyline.mockClear();
+    fireEvent.click(screen.getByLabelText('GPS trails'));
+    await waitFor(() => expect(screen.getByLabelText('GPS trails')).not.toBeChecked());
+    expect(L.polyline.mock.calls.some(([, options]) => options.dashArray === '2 6')).toBe(false);
   });
 });

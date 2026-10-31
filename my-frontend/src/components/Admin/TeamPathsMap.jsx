@@ -17,11 +17,17 @@ export function getTeamColor(index) {
 }
 
 // Backend stores naive UTC timestamps; treat values without a zone as UTC.
-function formatVisitTime(iso) {
-  if (!iso) return '—';
+function parseUtc(iso) {
+  if (!iso) return null;
   const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
   const date = new Date(hasZone ? iso : `${iso}Z`);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatVisitTime(iso) {
+  if (!iso) return '—';
+  const date = parseUtc(iso);
+  return date ? date.toLocaleString() : iso;
 }
 
 function createTextElement(tag, text, className) {
@@ -29,6 +35,24 @@ function createTextElement(tag, text, className) {
   if (className) element.className = className;
   element.textContent = text;
   return element;
+}
+
+// The GPS trail: positions reported by all team members plus the checkpoint
+// visits, in time order, so the line also passes through each checkpoint.
+export function buildTeamTrail(points, positions) {
+  const entries = [
+    ...points.map(point => ({ kind: 'visit', latLng: point.latLng, time: point.created_at, point })),
+    ...(positions || []).map(position => ({
+      kind: 'gps',
+      latLng: [position.latitude, position.longitude],
+      time: position.recorded_at,
+      position,
+    })),
+  ];
+  return entries
+    .map((entry, order) => ({ entry, order, ms: parseUtc(entry.time)?.getTime() ?? Infinity }))
+    .sort((a, b) => a.ms - b.ms || a.order - b.order)
+    .map(({ entry }) => entry);
 }
 
 export function buildTeamPaths(teams, checkpointsById) {
@@ -40,7 +64,8 @@ export function buildTeamPaths(teams, checkpointsById) {
         return { ...visit, checkpoint, latLng: [checkpoint.latitude, checkpoint.longitude] };
       })
       .filter(Boolean);
-    return { ...team, color: getTeamColor(index), points };
+    const positions = team.positions || [];
+    return { ...team, color: getTeamColor(index), points, positions, trail: buildTeamTrail(points, positions) };
   });
 }
 
@@ -51,12 +76,14 @@ export default function TeamPathsMap({ raceId }) {
   const [error, setError] = useState(null);
   const [hiddenTeamIds, setHiddenTeamIds] = useState(() => new Set());
   const [highlightedTeamId, setHighlightedTeamId] = useState(null);
+  const [showTrails, setShowTrails] = useState(true);
   const [reloadVersion, setReloadVersion] = useState(0);
 
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const checkpointLayerRef = useRef(null);
   const pathLayerRef = useRef(null);
+  const trailLayerRef = useRef(null);
   const fittedRaceIdRef = useRef(null);
 
   useEffect(() => {
@@ -119,6 +146,8 @@ export default function TeamPathsMap({ raceId }) {
       attribution: '<a href="https://api.mapy.com/copyright" target="_blank">&copy; Seznam.cz a.s. a další</a>',
     }).addTo(map);
 
+    // Trails go below the checkpoint paths so the visit order stays readable.
+    trailLayerRef.current = L.layerGroup().addTo(map);
     checkpointLayerRef.current = L.layerGroup().addTo(map);
     pathLayerRef.current = L.layerGroup().addTo(map);
     mapInstance.current = map;
@@ -128,6 +157,7 @@ export default function TeamPathsMap({ raceId }) {
       mapInstance.current = null;
       checkpointLayerRef.current = null;
       pathLayerRef.current = null;
+      trailLayerRef.current = null;
     };
   }, []);
 
@@ -207,6 +237,58 @@ export default function TeamPathsMap({ raceId }) {
     });
   }, [teamPaths, hiddenTeamIds, highlightedTeamId, t]);
 
+  // GPS trails: dotted line through member positions and visits, a small dot
+  // per position and a larger one for the most recent position.
+  useEffect(() => {
+    const layer = trailLayerRef.current;
+    if (!layer) return;
+
+    layer.clearLayers();
+    if (!showTrails) return;
+
+    teamPaths
+      .filter(team => !hiddenTeamIds.has(team.team_id) && team.positions.length > 0)
+      .sort((a, b) => (a.team_id === highlightedTeamId) - (b.team_id === highlightedTeamId))
+      .forEach(team => {
+        const isHighlighted = team.team_id === highlightedTeamId;
+        const isDimmed = highlightedTeamId !== null && !isHighlighted;
+        const opacity = isDimmed ? 0.15 : 0.7;
+
+        if (team.trail.length > 1) {
+          L.polyline(team.trail.map(entry => entry.latLng), {
+            color: team.color,
+            weight: isHighlighted ? 4 : 2,
+            opacity,
+            dashArray: '2 6',
+          })
+            .bindTooltip(createTextElement('span', t('admin.teamPaths.trailTooltip', { team: team.team_name })), { sticky: true })
+            .addTo(layer);
+        }
+
+        const gpsEntries = team.trail.filter(entry => entry.kind === 'gps');
+        gpsEntries.forEach((entry, index) => {
+          const isLast = index === gpsEntries.length - 1;
+          const { position } = entry;
+          const tooltip = t(isLast ? 'admin.teamPaths.lastPositionTooltip' : 'admin.teamPaths.positionTooltip', {
+            team: team.team_name,
+            member: position.user_name,
+            time: formatVisitTime(position.recorded_at),
+            accuracy: Number.isFinite(position.accuracy) ? Math.round(position.accuracy) : '?',
+          });
+          L.circleMarker(entry.latLng, {
+            radius: isLast ? 7 : 3,
+            color: isLast ? '#ffffff' : team.color,
+            weight: isLast ? 2 : 1,
+            fillColor: team.color,
+            fillOpacity: isDimmed ? 0.15 : 0.9,
+            opacity: isDimmed ? 0.15 : 1,
+          })
+            .bindTooltip(createTextElement('span', tooltip))
+            .addTo(layer);
+        });
+      });
+  }, [teamPaths, hiddenTeamIds, highlightedTeamId, showTrails, t]);
+
   const toggleTeam = useCallback((teamId) => {
     setHiddenTeamIds(prev => {
       const next = new Set(prev);
@@ -243,12 +325,25 @@ export default function TeamPathsMap({ raceId }) {
           <div className="col-12 col-lg-8">
             <div ref={mapRef} data-testid="team-paths-map" style={{ height: '560px', width: '100%' }} />
             <div className="small text-muted mt-1">{t('admin.teamPaths.hint')}</div>
+            <div className="small text-muted">{t('admin.teamPaths.trailHint')}</div>
           </div>
 
           <div className="col-12 col-lg-4">
-            <div className="d-flex gap-2 mb-2">
+            <div className="d-flex gap-2 mb-2 align-items-center flex-wrap">
               <button className="btn btn-sm btn-outline-primary" onClick={showAll}>{t('admin.teamPaths.showAll')}</button>
               <button className="btn btn-sm btn-outline-primary" onClick={hideAll}>{t('admin.teamPaths.hideAll')}</button>
+              <div className="form-check mb-0 ms-auto">
+                <input
+                  id="team-paths-show-trails"
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={showTrails}
+                  onChange={() => setShowTrails(prev => !prev)}
+                />
+                <label htmlFor="team-paths-show-trails" className="form-check-label small">
+                  {t('admin.teamPaths.showTrails')}
+                </label>
+              </div>
             </div>
 
             {teamPaths.length === 0 ? (
@@ -289,6 +384,9 @@ export default function TeamPathsMap({ raceId }) {
                       {team.disqualified && (
                         <span className="badge bg-danger">{t('admin.teamPaths.disqualified')}</span>
                       )}
+                      <span className="badge bg-info text-dark" title={t('admin.teamPaths.positionsCount')}>
+                        {team.positions.length}
+                      </span>
                       <span className="badge bg-secondary" title={t('admin.teamPaths.visitedCount')}>
                         {team.points.length}
                       </span>
