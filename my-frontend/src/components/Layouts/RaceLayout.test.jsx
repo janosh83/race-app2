@@ -77,6 +77,51 @@ describe('RaceLayout Component', () => {
       expect(logo).toHaveAttribute('alt', '');
     });
 
+    test('shows the selected race name as the race switcher', () => {
+      renderWithProviders({ race_id: 5, name: 'City Challenge' });
+
+      expect(screen.queryByText('Race App')).not.toBeInTheDocument();
+      const switcher = screen.getByRole('button', { name: 'City Challenge – switch race' });
+      expect(switcher).toHaveTextContent('City Challenge');
+      expect(switcher.querySelector('img')).toHaveAttribute('src', '/logo192.png');
+
+      fireEvent.click(switcher);
+      expect(mockNavigate).toHaveBeenCalledWith('/race');
+    });
+
+    describe('races running at the same time', () => {
+      const now = new Date('2026-05-01T12:00:00Z');
+      const running = (id) => ({
+        race_id: id,
+        name: `Race ${id}`,
+        start_showing_checkpoints: '2026-05-01T08:00:00Z',
+        end_showing_checkpoints: '2026-05-01T18:00:00Z',
+      });
+
+      test('shows a notice with a switch link when two races run', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1), running(2)], null, '/race/1/map');
+
+        expect(screen.getByRole('status')).toHaveTextContent('2 races are running now');
+        fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Switch' }));
+        expect(mockNavigate).toHaveBeenCalledWith('/race');
+      });
+
+      test('shows no notice with a single running race', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1)], null, '/race/1/map');
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      });
+
+      test('shows no notice on the race list itself', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1), running(2)], null, '/race');
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      });
+    });
+
     test('renders outlet for child routes', () => {
       renderWithProviders();
 
@@ -91,10 +136,10 @@ describe('RaceLayout Component', () => {
       expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
     });
 
-    test('renders Active Race navigation link', () => {
+    test('renders My races navigation link', () => {
       renderWithProviders();
 
-      expect(screen.getByRole('button', { name: 'Active Race' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'My races' })).toBeInTheDocument();
     });
 
     test('renders Standings navigation link when activeRace exists', () => {
@@ -197,10 +242,10 @@ describe('RaceLayout Component', () => {
   });
 
   describe('Navigation interactions', () => {
-    test('navigates to Active Race on button click', () => {
+    test('navigates to My races on button click', () => {
       renderWithProviders();
 
-      const activeRaceButton = screen.getByRole('button', { name: 'Active Race' });
+      const activeRaceButton = screen.getByRole('button', { name: 'My races' });
       fireEvent.click(activeRaceButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race');
@@ -225,7 +270,7 @@ describe('RaceLayout Component', () => {
       expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
 
       // Navigate
-      const activeRaceButton = screen.getByRole('button', { name: 'Active Race' });
+      const activeRaceButton = screen.getByRole('button', { name: 'My races' });
       fireEvent.click(activeRaceButton);
 
       // Navbar should close

@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 import * as TimeContext from '../contexts/TimeContext';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
@@ -11,6 +11,10 @@ import ActiveRace from './ActiveRace';
 // Mock utilities
 vi.mock('../utils/api');
 vi.mock('../utils/activeRaceUtils');
+
+function LocationProbe() {
+  return <div data-testid="location">{useLocation().pathname}</div>;
+}
 
 describe('ActiveRace Component', () => {
   const mockSetActiveRace = vi.fn();
@@ -33,6 +37,7 @@ describe('ActiveRace Component', () => {
       <TimeContext.TimeProvider>
         <MemoryRouter>
           <ActiveRace />
+          <LocationProbe />
         </MemoryRouter>
       </TimeContext.TimeProvider>
     );
@@ -210,18 +215,54 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('No other races.')).toBeInTheDocument();
     });
 
-    test('shows "Currently showing" badge for candidate races', () => {
+    test('groups other races into running now, upcoming and past', () => {
+      vi.setSystemTime(new Date('2026-05-01T12:00:00Z'));
       const activeRace = { race_id: 1, name: 'Active Race' };
-      const candidateRace = { race_id: 2, name: 'Candidate Race' };
-      activeRaceUtils.findCandidates.mockReturnValue([candidateRace]);
+      const runningRace = { race_id: 2, name: 'Running Race' };
+      const upcomingRace = {
+        race_id: 3,
+        name: 'Upcoming Race',
+        start_showing_checkpoints: '2026-06-01T08:00:00Z',
+        end_showing_checkpoints: '2026-06-01T18:00:00Z',
+      };
+      const pastRace = {
+        race_id: 4,
+        name: 'Past Race',
+        start_showing_checkpoints: '2025-06-01T08:00:00Z',
+        end_showing_checkpoints: '2025-06-01T18:00:00Z',
+      };
+      activeRaceUtils.findCandidates.mockReturnValue([activeRace, runningRace]);
 
       renderWithContext({
-        activeRace: activeRace,
+        activeRace,
         setActiveRace: mockSetActiveRace,
-        signedRaces: [activeRace, candidateRace],
+        signedRaces: [activeRace, runningRace, upcomingRace, pastRace],
       });
 
-      expect(screen.getByText('Currently showing')).toBeInTheDocument();
+      const group = (name) => screen.getByRole('region', { name: new RegExp(name) });
+      expect(within(group('Running now')).getByText('Running Race')).toBeInTheDocument();
+      expect(within(group('Upcoming')).getByText('Upcoming Race')).toBeInTheDocument();
+      expect(within(group('Past races')).getByText('Past Race')).toBeInTheDocument();
+      expect(within(group('Past races')).getByRole('button', { name: 'Open' })).toBeInTheDocument();
+      // The selected race is shown on top, not repeated in a group.
+      expect(within(group('Running now')).queryByText('Active Race')).not.toBeInTheDocument();
+    });
+
+    test('opens the map after selecting a running race', () => {
+      const activeRace = { race_id: 1, name: 'Active Race' };
+      const runningRace = { race_id: 2, name: 'Running Race' };
+      activeRaceUtils.findCandidates.mockReturnValue([activeRace, runningRace]);
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace, runningRace],
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Select' }));
+
+      expect(mockSetActiveRace).toHaveBeenCalledWith(runningRace);
+      expect(screen.getByTestId('location')).toHaveTextContent('/race/2/map');
     });
 
     test('shows time status for non-active races', () => {

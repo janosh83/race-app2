@@ -11,7 +11,14 @@
     "logout": "Odhlásit se",
     "backToRace": "Zpět na závod",
     "language": "Jazyk",
-    "raceSections": "Sekce závodu"
+    "raceSections": "Sekce závodu",
+    "myRaces": "Moje závody",
+    "switchRace": "Přepnout závod",
+    "switchRaceNamed": "{{name}} – přepnout závod",
+    "racesRunning_one": "Právě běží {{count}} závod",
+    "racesRunning_few": "Právě běží {{count}} závody",
+    "racesRunning_other": "Právě běží {{count}} závodů",
+    "switch": "Přepnout"
   },
   "activeRace": {
     "selectTitle": "Vybraný závod",
@@ -42,7 +49,13 @@
     "showingRange": "Zobrazování: {{start}} - {{end}}",
     "loggingRange": "Logování: {{start}} - {{end}}",
     "currentlyShowing": "Právě se zobrazuje",
-    "select": "Vybrat"
+    "select": "Vybrat",
+    "myRaces": "Moje závody",
+    "selectedLabel": "Vybraný závod",
+    "groupRunning": "Právě běží",
+    "groupUpcoming": "Nadcházející",
+    "groupPast": "Minulé závody",
+    "open": "Otevřít"
   },
   "statusBadge": {
     "comingAt": "Dostupné {{time}}",

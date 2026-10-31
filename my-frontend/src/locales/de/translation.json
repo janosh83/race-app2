@@ -11,7 +11,13 @@
     "logout": "Abmelden",
     "backToRace": "Zuruck zum Rennen",
     "language": "Sprache",
-    "raceSections": "Rennbereiche"
+    "raceSections": "Rennbereiche",
+    "myRaces": "Meine Rennen",
+    "switchRace": "Rennen wechseln",
+    "switchRaceNamed": "{{name}} – Rennen wechseln",
+    "racesRunning_one": "{{count}} Rennen laeuft gerade",
+    "racesRunning_other": "{{count}} Rennen laufen gerade",
+    "switch": "Wechseln"
   },
   "activeRace": {
     "selectTitle": "Aktives Rennen auswahlen",
@@ -42,7 +48,13 @@
     "showingRange": "Anzeige: {{start}} - {{end}}",
     "loggingRange": "Protokollierung: {{start}} - {{end}}",
     "currentlyShowing": "Wird gerade angezeigt",
-    "select": "Auswahlen"
+    "select": "Auswahlen",
+    "myRaces": "Meine Rennen",
+    "selectedLabel": "Ausgewaehltes Rennen",
+    "groupRunning": "Laeuft gerade",
+    "groupUpcoming": "Demnaechst",
+    "groupPast": "Vergangene Rennen",
+    "open": "Oeffnen"
   },
   "statusBadge": {
     "comingAt": "Verfugbar {{time}}",

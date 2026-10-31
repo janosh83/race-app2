@@ -49,3 +49,62 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* The selected race's name in the top bar opens My races (race switcher). */
+.race-navbar-switcher {
+  min-width: 0;
+  max-width: calc(100% - 64px);
+  margin-right: auto;
+  color: #fff;
+  text-decoration: none;
+  border: 0;
+}
+
+.race-navbar-switcher:hover,
+.race-navbar-switcher:focus-visible {
+  color: #fff;
+}
+
+.race-navbar-switcher-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-switcher-caret {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-left: -4px;
+}
+
+/* "2 races are running now · Switch": full width under the bar. */
+.race-navbar-notice {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 2px;
+  padding: 3px 12px;
+  font-size: 0.85rem;
+  color: #fff;
+  background-color: var(--brand-accent);
+}
+
+.race-navbar-notice-link {
+  padding: 0;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.race-navbar-notice-link:hover {
+  color: #fff;
+}
+
+@media (min-width: 992px) {
+  .race-navbar-switcher {
+    max-width: 40%;
+  }
+}

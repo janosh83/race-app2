@@ -11,7 +11,13 @@
     "logout": "Logout",
     "backToRace": "Back to Race",
     "language": "Language",
-    "raceSections": "Race sections"
+    "raceSections": "Race sections",
+    "myRaces": "My races",
+    "switchRace": "Switch race",
+    "switchRaceNamed": "{{name}} – switch race",
+    "racesRunning_one": "{{count}} race is running now",
+    "racesRunning_other": "{{count}} races are running now",
+    "switch": "Switch"
   },
   "activeRace": {
     "selectTitle": "Select Active Race",
@@ -42,7 +48,13 @@
     "showingRange": "Showing: {{start}} - {{end}}",
     "loggingRange": "Logging: {{start}} - {{end}}",
     "currentlyShowing": "Currently showing",
-    "select": "Select"
+    "select": "Select",
+    "myRaces": "My races",
+    "selectedLabel": "Selected race",
+    "groupRunning": "Running now",
+    "groupUpcoming": "Upcoming",
+    "groupPast": "Past races",
+    "open": "Open"
   },
   "statusBadge": {
     "comingAt": "Coming {{time}}",
