@@ -92,7 +92,10 @@
     "currentLocationUnavailable": "Aktuální poloha není dostupná",
     "noDescription": "Popis není k dispozici.",
     "imageProcessFailed": "Nepodařilo se zpracovat fotku. Zkuste jinou.",
-    "unknownError": "Neznámá chyba"
+    "unknownError": "Neznámá chyba",
+    "favouritesOnly": "Jen oblíbené ({{count}})",
+    "favouritesOnlyHelp": "Zobrazit jen oblíbené checkpointy vašeho týmu",
+    "noFavourites": "Váš tým zatím nemá žádné oblíbené checkpointy. Otevřete checkpoint a klepněte na hvězdičku."
   },
   "tasks": {
     "title": "Úkoly",

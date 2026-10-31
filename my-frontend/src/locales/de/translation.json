@@ -92,7 +92,10 @@
     "currentLocationUnavailable": "Aktueller Standort ist nicht verfügbar",
     "noDescription": "Keine Beschreibung vorhanden.",
     "imageProcessFailed": "Bild konnte nicht verarbeitet werden. Bitte anderes Foto waehlen.",
-    "unknownError": "Unbekannter Fehler"
+    "unknownError": "Unbekannter Fehler",
+    "favouritesOnly": "Nur Favoriten ({{count}})",
+    "favouritesOnlyHelp": "Nur die Lieblings-Checkpoints Ihres Teams anzeigen",
+    "noFavourites": "Ihr Team hat noch keine Lieblings-Checkpoints. Öffnen Sie einen Checkpoint und tippen Sie auf den Stern."
   },
   "tasks": {
     "title": "Aufgaben",

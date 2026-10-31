@@ -28,6 +28,27 @@
   height: 18px;
 }
 
+/* Next to the Leaflet zoom buttons (top left). */
+.map-favourites-filter {
+  position: fixed;
+  left: 54px;
+  z-index: 1500;
+  background: #ffffff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+  color: #495057;
+  cursor: pointer;
+}
+
+.map-favourites-filter.is-active {
+  background: #fff3cd;
+  border-color: #f0ad00;
+  color: #664d03;
+  font-weight: 600;
+}
+
 .map-checkpoint-error {
   position: fixed;
   left: 50%;

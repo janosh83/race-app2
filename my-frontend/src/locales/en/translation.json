@@ -92,7 +92,10 @@
     "currentLocationUnavailable": "Current location is unavailable",
     "noDescription": "No description provided.",
     "imageProcessFailed": "Failed to process image. Please try another photo.",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "favouritesOnly": "Favourites only ({{count}})",
+    "favouritesOnlyHelp": "Show only your team's favourite checkpoints",
+    "noFavourites": "Your team has no favourite checkpoints yet. Open a checkpoint and tap the star to add one."
   },
   "tasks": {
     "title": "Tasks",

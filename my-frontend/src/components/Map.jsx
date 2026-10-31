@@ -19,6 +19,7 @@ import Toast from './Toast';
 
 const checkpointShadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
 const MARKER_ICON_BASE = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img';
+const FAVOURITES_ONLY_STORAGE_KEY = 'mapFavouritesOnly';
 
 // Visited checkpoints are done, so they stay green even when favourite;
 // favourites still to visit stand out in gold.
@@ -152,6 +153,7 @@ function Map({ topOffset = 56 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
+  const [favouritesOnly, setFavouritesOnly] = useState(() => localStorage.getItem(FAVOURITES_ONLY_STORAGE_KEY) === 'true');
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
   const apiUrl = import.meta.env.VITE_API_URL;
@@ -423,6 +425,14 @@ function Map({ topOffset = 56 }) {
   }, [mapHeight]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
+  const favouriteCount = checkpoints.filter(cp => cp.is_favourite).length;
+
+  const toggleFavouritesOnly = () => {
+    setFavouritesOnly(prev => {
+      localStorage.setItem(FAVOURITES_ONLY_STORAGE_KEY, String(!prev));
+      return !prev;
+    });
+  };
 
   // Update checkpoint markers efficiently by diffing changes
   useEffect(() => {
@@ -438,8 +448,10 @@ function Map({ topOffset = 56 }) {
       return;
     }
 
+    const visibleCheckpoints = favouritesOnly ? checkpoints.filter(cp => cp.is_favourite) : checkpoints;
+
     // Build a set of current checkpoint IDs
-    const currentIds = new Set(checkpoints.map(cp => cp.id));
+    const currentIds = new Set(visibleCheckpoints.map(cp => cp.id));
     const existingIds = new Set(Object.keys(markersRef.current).map(k => parseInt(k, 10)));
 
     // Remove markers for deleted checkpoints
@@ -454,7 +466,7 @@ function Map({ topOffset = 56 }) {
     }
 
     // Add or update markers for current checkpoints
-    checkpoints.forEach(cp => {
+    visibleCheckpoints.forEach(cp => {
       if (markersRef.current[cp.id]) {
         // Marker exists - just update its icon if visited/favourite status changed
         const currentIcon = markersRef.current[cp.id].options.icon;
@@ -480,7 +492,7 @@ function Map({ topOffset = 56 }) {
         markersRef.current[cp.id] = marker;
       }
     });
-  }, [checkpoints, showCheckpoints]);
+  }, [checkpoints, showCheckpoints, favouritesOnly]);
 
   useEffect(() => {
     if (!mapInstance.current) return;
@@ -732,6 +744,26 @@ function Map({ topOffset = 56 }) {
               ? t('map.checkpointsShowAt', { time: formatDate(timeInfo.startShow) })
               : t('map.checkpointsEndedAt', { time: formatDate(timeInfo.endShow) })}
           </div>
+        </div>
+      )}
+
+      {showCheckpoints && checkpoints.length > 0 && (
+        <button
+          type="button"
+          className={`map-favourites-filter ${favouritesOnly ? 'is-active' : ''}`}
+          style={{ top: `${topOffset + 10}px` }}
+          onClick={toggleFavouritesOnly}
+          aria-pressed={favouritesOnly}
+          title={t('map.favouritesOnlyHelp')}
+        >
+          <span aria-hidden="true">{favouritesOnly ? '★' : '☆'}</span>{' '}
+          {t('map.favouritesOnly', { count: favouriteCount })}
+        </button>
+      )}
+
+      {showCheckpoints && favouritesOnly && checkpoints.length > 0 && favouriteCount === 0 && (
+        <div className="map-hidden-notice" role="status">
+          {t('map.noFavourites')}
         </div>
       )}
 

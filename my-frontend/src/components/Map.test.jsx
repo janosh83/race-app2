@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import L from 'leaflet';
 import React from 'react';
 
@@ -43,6 +43,7 @@ vi.mock('leaflet', () => {
     const handlers = {};
     const markerObject = {
       __handlers: handlers,
+      options: _options,
       addTo: vi.fn(() => markerObject),
       bindPopup: vi.fn(),
       on: vi.fn((eventName, handler) => {
@@ -72,7 +73,7 @@ vi.mock('leaflet', () => {
           setLatLng: vi.fn(() => ({})),
         };
       },
-      icon: vi.fn(),
+      icon: vi.fn((options) => ({ options })),
       Control: Control,
       DomUtil: {
         create: vi.fn(() => ({})),
@@ -480,6 +481,66 @@ describe('Map Component', () => {
       render(<Map />);
 
       expect(screen.getByText(/Coming/)).toBeInTheDocument();
+    });
+  });
+
+  describe('Favourites filter', () => {
+    const checkpoints = [
+      { id: 1, title: 'Plain CP', latitude: 50.0, longitude: 14.0, visited: false, is_favourite: false },
+      { id: 2, title: 'Loved CP', latitude: 50.1, longitude: 14.1, visited: false, is_favourite: true },
+    ];
+    const markerTitles = () => L.marker.mock.calls.map(([, options]) => options.title);
+
+    const renderMap = async (data = checkpoints) => {
+      raceApi.getCheckpointsStatus.mockResolvedValue(data);
+      render(<Map />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+    };
+
+    test('shows only favourite markers when enabled and remembers the choice', async () => {
+      await renderMap();
+      expect(markerTitles()).toEqual(['Plain CP', 'Loved CP']);
+
+      const toggle = screen.getByRole('button', { name: /Favourites only \(1\)/ });
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(localStorage.getItem('mapFavouritesOnly')).toBe('true');
+      const plainMarker = L.marker.mock.results[0].value;
+      expect(L.map().removeLayer).toHaveBeenCalledWith(plainMarker);
+      expect(screen.queryByText(/no favourite checkpoints yet/)).not.toBeInTheDocument();
+    });
+
+    test('starts filtered when the choice was stored', async () => {
+      localStorage.setItem('mapFavouritesOnly', 'true');
+
+      await renderMap();
+
+      expect(markerTitles()).toEqual(['Loved CP']);
+    });
+
+    test('explains an empty map when the team has no favourites', async () => {
+      localStorage.setItem('mapFavouritesOnly', 'true');
+
+      await renderMap([checkpoints[0]]);
+
+      expect(markerTitles()).toEqual([]);
+      expect(screen.getByText(/no favourite checkpoints yet/)).toBeInTheDocument();
+    });
+
+    test('is hidden while checkpoints are not shown', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'BEFORE_SHOW' },
+        selectedLanguage: 'en',
+      });
+
+      await renderMap();
+
+      expect(screen.queryByRole('button', { name: /Favourites only/ })).not.toBeInTheDocument();
     });
   });
 
