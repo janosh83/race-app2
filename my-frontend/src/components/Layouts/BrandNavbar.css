@@ -1,0 +1,21 @@
+/* Brand top bar: black, like the logo. */
+.brand-navbar {
+  background-color: #000;
+}
+
+.brand-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+/* The logo's white parts are transparent, so it sits on a white disc to stay
+   visible on the black bar. */
+.brand-navbar-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #fff;
+  padding: 1px;
+}

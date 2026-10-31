@@ -49,28 +49,6 @@
   white-space: nowrap;
 }
 
-/* Brand top bar: black, like the logo. */
-.race-navbar {
-  background-color: #000;
-}
-
-.race-navbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-}
-
-/* The logo's white parts are transparent, so it sits on a white disc to stay
-   visible on the black bar. */
-.race-navbar-logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background-color: #fff;
-  padding: 1px;
-}
-
 /* Phones: the tab bar does the navigating, so the top bar can be slim and
    leave more of the screen to the map and lists. */
 @media (max-width: 991.98px) {
@@ -79,7 +57,7 @@
     padding-bottom: 2px;
   }
 
-  .race-navbar-logo {
+  .race-navbar .brand-navbar-logo {
     width: 28px;
     height: 28px;
   }

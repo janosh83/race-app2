@@ -5,6 +5,8 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { logoutAndRedirect } from '../../utils/api';
 import LanguageSwitcher from '../LanguageSwitcher';
 
+import './BrandNavbar.css';
+
 function AdminLayout() {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -39,9 +41,12 @@ function AdminLayout() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg navbar-dark bg-dark" style={{ position: 'relative', zIndex: 1040 }}>
+      <nav className="navbar navbar-expand-lg navbar-dark brand-navbar" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
-          <span className="navbar-brand">{t('nav.adminBrand')}</span>
+          <span className="navbar-brand brand-navbar-brand">
+            <img src="/logo192.png" alt="" width="32" height="32" className="brand-navbar-logo" />
+            {t('nav.adminBrand')}
+          </span>
           <button
             className="navbar-toggler"
             type="button"

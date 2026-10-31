@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { parseRegistrationImportText } from '../../utils/registrationImport';
+import FilePickerButton from '../FilePickerButton';
 
 export default function RegistrationImporter({
   raceId,
@@ -15,6 +16,7 @@ export default function RegistrationImporter({
 }) {
   const { t } = useTranslation();
   const [importRows, setImportRows] = useState([]);
+  const [importFileName, setImportFileName] = useState('');
   const [importing, setImporting] = useState(false);
   const [importReport, setImportReport] = useState(null);
   const [parseErrors, setParseErrors] = useState([]);
@@ -228,12 +230,14 @@ export default function RegistrationImporter({
         </button>
       </div>
       <div className="mb-2">
-        <div className="input-group">
-          <input
-            type="file"
+        <div className="d-flex flex-wrap align-items-center gap-2">
+          <FilePickerButton
             accept=".csv,.tsv,text/csv,text/tab-separated-values"
-            className="form-control"
-            onChange={(e) => handleImportFile(e.target.files?.[0])}
+            onChange={(e) => {
+              setImportFileName(e.target.files?.[0]?.name || '');
+              handleImportFile(e.target.files?.[0]);
+            }}
+            fileName={importFileName}
           />
           <button
             type="button"

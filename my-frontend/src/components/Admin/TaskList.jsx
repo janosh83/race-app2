@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import FilePickerButton from '../FilePickerButton';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import Toast from '../Toast';
 
@@ -390,13 +391,13 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               </svg>
             </button>
           </div>
-          <input
+          <FilePickerButton
             id="task-file-input"
-            type="file"
             accept=".json"
-            className="form-control mb-2"
             onChange={handleFileChange}
             disabled={importing}
+            fileName={selectedFile?.name}
+            className="mb-2"
           />
           {importError && <div className="alert alert-danger">{importError}</div>}
           <div className="d-flex gap-2">
