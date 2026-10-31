@@ -89,6 +89,7 @@ app/
 - JWT: short-lived access token stored in `localStorage`, long-lived refresh token in HttpOnly cookie
 - `refreshAccessToken()` is called silently on focus/storage events in `App.jsx`
 - Admin routes are gated by `is_administrator` flag on the `User` model
+- The JWT identity is a string: in queries use `app.utils.current_user_id()` (an int), never raw `get_jwt_identity()`. PostgreSQL rejects comparing an integer column with a string (SQLAlchemy 2.1 binds it as VARCHAR); SQLite does not, so `tests/conftest.py` fails any test that does it
 
 ### Frontend structure
 

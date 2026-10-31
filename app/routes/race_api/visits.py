@@ -1,9 +1,10 @@
 import logging
 
 from flask import Blueprint, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 
 from app import db
+from app.utils import current_user_id
 from app.models import Checkpoint, CheckpointLog, Image, Task, TaskLog, User
 from app.routes.admin import admin_required
 
@@ -47,7 +48,7 @@ def get_visits_by_race_and_team(race_id, team_id):
       403:
         description: Forbidden, user is not an admin or member of the team.
     """
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.warning(
             "Unauthorized visit history access for race %s team %s by user %s",
@@ -220,7 +221,7 @@ def get_task_completions_by_race_and_team(race_id, team_id):
       403:
         description: Forbidden, user is not an admin or member of the team.
     """
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.warning(
             "Unauthorized task completion history access for race %s team %s by user %s",

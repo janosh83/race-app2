@@ -2,13 +2,13 @@ import logging
 from datetime import timedelta
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 from marshmallow import ValidationError
 
 from app import db
 from app.models import Race, Registration, TeamPosition, User
 from app.schemas import TeamPositionSchema
-from app.utils import to_naive_utc, utc_now
+from app.utils import to_naive_utc, utc_now, current_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def report_position(race_id):
     except ValidationError as err:
         return jsonify({"errors": err.messages}), 400
 
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
 
     now = utc_now()

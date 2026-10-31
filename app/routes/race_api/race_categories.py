@@ -1,7 +1,6 @@
 import logging
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
-from flask_jwt_extended import get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import load_only
 from app.schemas import RaceCategoryAssignSchema
@@ -14,7 +13,7 @@ from app.models import (
   User,
   race_categories_in_race,
 )
-from app.utils import resolve_language
+from app.utils import resolve_language, current_user_id
 from app.routes.admin import admin_required
 
 logger = logging.getLogger(__name__)
@@ -158,7 +157,7 @@ def get_race_categories(race_id):
         description: Admins only
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.options(load_only(User.preferred_language)).filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.options(load_only(User.preferred_language)).filter_by(id=current_user_id()).first_or_404()
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(

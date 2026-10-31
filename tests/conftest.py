@@ -5,7 +5,42 @@ This module contains fixtures that are automatically available to all test files
 without needing to import them explicitly.
 """
 import pytest
+from sqlalchemy import Integer, String, event
+from sqlalchemy.engine import Engine
+from sqlalchemy.sql import visitors
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter
+
 from app import create_app, db
+
+
+# Tests run on SQLite, which happily compares an integer column with a string.
+# PostgreSQL (production) refuses: SQLAlchemy 2.1 binds a Python str as VARCHAR,
+# giving "operator does not exist: integer = character varying". Fail any test
+# whose queries compare an integer column with a string value, e.g. a raw JWT
+# identity, so this is caught before deploying.
+_string_vs_integer = []
+
+
+@event.listens_for(Engine, "before_execute")
+def _detect_string_compared_with_integer(conn, clauseelement, multiparams, params, execution_options):
+    for element in visitors.iterate(clauseelement):
+        if not isinstance(element, BinaryExpression):
+            continue
+        for column, value in ((element.left, element.right), (element.right, element.left)):
+            if (
+                isinstance(value, BindParameter)
+                and isinstance(value.type, String)
+                and isinstance(getattr(column, "type", None), Integer)
+            ):
+                _string_vs_integer.append(f"{column} compared with string value {value.value!r}")
+
+
+@pytest.fixture(autouse=True)
+def no_string_compared_with_integer():
+    _string_vs_integer.clear()
+    yield
+    found = sorted(set(_string_vs_integer))
+    assert not found, "Integer column compared with a string (fails on PostgreSQL): " + "; ".join(found)
 
 
 @pytest.fixture(scope="function")

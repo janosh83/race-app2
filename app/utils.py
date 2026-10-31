@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from math import radians, sin, cos, sqrt, atan2
 from dateutil import parser
+from flask_jwt_extended import get_jwt_identity
 from PIL import ExifTags, Image, UnidentifiedImageError
 from app.constants import DEFAULT_LANGUAGE
 
@@ -45,6 +46,16 @@ def validate_uploaded_image(file_storage) -> tuple[bool, str | None]:
             pass
 
     return True, None
+
+def current_user_id() -> int:
+    """The logged-in user's id from the JWT.
+
+    The JWT subject is a string; use this instead of get_jwt_identity() in
+    queries, because PostgreSQL rejects comparing an integer column with a
+    string (SQLAlchemy 2.1 binds a Python str as VARCHAR).
+    """
+    return int(get_jwt_identity())
+
 
 def utc_now() -> datetime:
     """The current time as naive UTC, the form every datetime is stored in.

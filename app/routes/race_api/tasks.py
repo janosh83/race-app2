@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy.exc import IntegrityError
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
 from sqlalchemy.orm import selectinload
@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
 from app.schemas import TaskCreateSchema, TaskLogSchema
-from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now, current_user_id
 from app.routes.admin import admin_required
 from app.routes.race_api.access import race_content_denied
 
@@ -84,7 +84,7 @@ def get_tasks(race_id):
                     type: integer
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     denied = race_content_denied(race, user)
     if denied:
         return denied
@@ -319,7 +319,7 @@ def get_task(race_id, task_id):
         description: Task not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     denied = race_content_denied(race, user)
     if denied:
         return denied
@@ -426,7 +426,7 @@ def log_task_completion(race_id):
     except ValidationError as err:
         logger.warning("Task log validation failed for race %s: %s", race_id, err)
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -587,7 +587,7 @@ def unlog_task_completion(race_id):
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -735,7 +735,7 @@ def get_tasks_with_status(race_id, team_id):
           description: Unauthorized (user is not an admin or team member)
       """
 
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.warning("Unauthorized access attempt to team %s tasks by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403

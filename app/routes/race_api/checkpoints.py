@@ -3,7 +3,7 @@ import uuid
 import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app import db
 from app.models import Checkpoint, CheckpointLog, FavouriteCheckpoint, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now, current_user_id
 from app.routes.admin import admin_required
 from app.routes.race_api.access import race_content_denied
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
@@ -126,7 +126,7 @@ def get_checkpoints(race_id):
         description: Race or user not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     denied = race_content_denied(race, user)
     if denied:
         return denied
@@ -420,7 +420,7 @@ def get_checkpoint(race_id, checkpoint_id):
         description: Race, user, or checkpoint not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     denied = race_content_denied(race, user)
     if denied:
         return denied
@@ -550,7 +550,7 @@ def log_visit(race_id):
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -806,7 +806,7 @@ def unlog_visit(race_id):
         logger.error("Checkpoint unlog validation failed for race %s: %s", race_id, err)
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     race = Race.query.filter_by(id=race_id).first_or_404()
@@ -972,7 +972,7 @@ def get_checkpoints_with_status(race_id, team_id):
     """
 
     # Check if the user is authorized to view this team's data
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.error("Unauthorized access attempt to team %s checkpoints by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403
@@ -1094,7 +1094,7 @@ def set_favourite_checkpoint(race_id, checkpoint_id):
         description: Race or checkpoint not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     denied = race_content_denied(race, user)
     if denied:
         return denied
