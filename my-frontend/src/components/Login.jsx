@@ -5,6 +5,7 @@ import { useTime } from '../contexts/TimeContext';
 import { authApi } from '../services/authApi';
 import { logger } from '../utils/logger';
 
+import AuthBrand from './AuthBrand';
 import LanguageSwitcher from './LanguageSwitcher';
 
 function Login() {
@@ -58,7 +59,8 @@ function Login() {
     };
 
     return (
-        <div className="container d-flex align-items-center justify-content-center min-vh-100">
+        <div className="container d-flex flex-column align-items-center justify-content-center min-vh-100 py-4 px-3">
+            <AuthBrand />
             <div className="card p-4 shadow" style={{ maxWidth: '400px', width: '100%' }}>
                 <div className="d-flex justify-content-between align-items-center mb-4">
                     <h2 className="mb-0">{t('auth.login.title')}</h2>
@@ -71,6 +73,7 @@ function Login() {
                             type="email"
                             className="form-control"
                             id="email"
+                            autoComplete="email"
                             placeholder={t('auth.login.emailPlaceholder')}
                             value={email}
                             onChange={e => setEmail(e.target.value)}
@@ -83,6 +86,7 @@ function Login() {
                             type="password"
                             className="form-control"
                             id="password"
+                            autoComplete="current-password"
                             placeholder={t('auth.login.passwordPlaceholder')}
                             value={password}
                             onChange={e => setPassword(e.target.value)}

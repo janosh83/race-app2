@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { authApi } from '../services/authApi';
 
+import AuthBrand from './AuthBrand';
 import LanguageSwitcher from './LanguageSwitcher';
 
 function ForgotPassword() {
@@ -36,9 +37,10 @@ function ForgotPassword() {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container mt-5 px-3">
       <div className="row justify-content-center">
         <div className="col-md-6">
+          <AuthBrand />
           <div className="card">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-4">
@@ -67,6 +69,7 @@ function ForgotPassword() {
                     type="email"
                     className="form-control"
                     id="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required

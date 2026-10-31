@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { authApi } from '../services/authApi';
 
+import AuthBrand from './AuthBrand';
 import LanguageSwitcher from './LanguageSwitcher';
 
 function ResetPassword() {
@@ -54,9 +55,10 @@ function ResetPassword() {
   };
 
   return (
-    <div className="container mt-5">
+    <div className="container mt-5 px-3">
       <div className="row justify-content-center">
         <div className="col-md-6">
+          <AuthBrand />
           <div className="card">
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-4">
@@ -90,6 +92,7 @@ function ResetPassword() {
                       type="password"
                       className="form-control"
                       id="password"
+                      autoComplete="new-password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -106,6 +109,7 @@ function ResetPassword() {
                       type="password"
                       className="form-control"
                       id="confirmPassword"
+                      autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required

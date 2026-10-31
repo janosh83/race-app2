@@ -48,6 +48,20 @@ describe('Login Component', () => {
     expect(mockNavigate).not.toHaveBeenCalled();
   };
 
+  test('shows the logo and app name above the form', () => {
+    render(<MockLogin />);
+
+    const name = screen.getByText('Race App');
+    expect(name.parentElement.querySelector('img')).toHaveAttribute('src', '/logo192.png');
+  });
+
+  test('lets password managers fill in the login', () => {
+    render(<MockLogin />);
+
+    expect(screen.getByLabelText(/email address/i)).toHaveAttribute('autocomplete', 'email');
+    expect(screen.getByLabelText(/password/i)).toHaveAttribute('autocomplete', 'current-password');
+  });
+
   test('renders login form with email and password fields', () => {
     render(<MockLogin />);
     
