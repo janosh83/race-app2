@@ -195,7 +195,7 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
       {allItems.length === 0 ? (
         <div className="text-muted">{t('admin.visits.noItems')}</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))', gap: '16px' }}>
           {allItems.map(item => {
             const assessment = item.type === 'visit' ? assessVisitPosition(item) : null;
             const warning = assessment ? getPositionWarning(assessment) : null;

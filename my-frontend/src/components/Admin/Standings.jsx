@@ -155,66 +155,70 @@ export default function Standings({ raceId, onTeamClick, onLoaded, refreshVersio
     };
   }).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
+  // On phones (e.g. reading results out at the finish) the per-section
+  // points are hidden; the table scrolls inside its box, not the page.
   const renderTable = (rows, showCategory = true) => (
-    <table className="table table-sm">
-      <thead>
-        <tr>
-          <th style={{ width: '90px' }}>{t('admin.standings.position')}</th>
-          <th>{t('admin.standings.team')}</th>
-          {showCategory && <th>{t('admin.standings.category')}</th>}
-          <th className="text-end">{t('admin.standings.pointsCheckpoints')}</th>
-          <th className="text-end">{t('admin.standings.pointsTasks')}</th>
-          <th className="text-end">{t('admin.standings.totalPoints')}</th>
-          <th style={{ width: '150px' }}>{t('admin.standings.disqualification')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, idx) => (
-          <tr key={row.teamId ?? idx}>
-            <td style={{ fontWeight: 600 }}>{row.positionLabel}</td>
-            <td>
-              {onTeamClick ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="text-primary text-decoration-underline"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}
-                  onKeyDown={(event) => handleTeamKeyDown(event, row.teamId || row.raw?.team_id || row.raw?.id)}
-                >
-                  {row.teamName}
-                </span>
-              ) : (
-                row.teamName
-              )}
-            </td>
-            {showCategory && <td>{row.category}</td>}
-            <td className="text-end">{row.pointsForCheckpoints}</td>
-            <td className="text-end">{row.pointsForTasks}</td>
-            <td className="text-end"><strong>{row.totalPoints}</strong></td>
-            <td>
-              <div className="d-flex align-items-center gap-2">
-                <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                  {row.disqualified ? t('admin.standings.disqualified') : t('admin.standings.eligible')}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-warning"
-                  onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
-                >
-                  {row.disqualified ? t('admin.standings.reinstate') : t('admin.standings.disqualify')}
-                </button>
-              </div>
-            </td>
+    <div className="table-responsive">
+      <table className="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th className="text-nowrap">{t('admin.standings.position')}</th>
+            <th>{t('admin.standings.team')}</th>
+            {showCategory && <th>{t('admin.standings.category')}</th>}
+            <th className="text-end d-none d-md-table-cell">{t('admin.standings.pointsCheckpoints')}</th>
+            <th className="text-end d-none d-md-table-cell">{t('admin.standings.pointsTasks')}</th>
+            <th className="text-end">{t('admin.standings.totalPoints')}</th>
+            <th>{t('admin.standings.disqualification')}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr key={row.teamId ?? idx}>
+              <td className="text-nowrap" style={{ fontWeight: 600 }}>{row.positionLabel}</td>
+              <td>
+                {onTeamClick ? (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="text-primary text-decoration-underline"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}
+                    onKeyDown={(event) => handleTeamKeyDown(event, row.teamId || row.raw?.team_id || row.raw?.id)}
+                  >
+                    {row.teamName}
+                  </span>
+                ) : (
+                  row.teamName
+                )}
+              </td>
+              {showCategory && <td>{row.category}</td>}
+              <td className="text-end d-none d-md-table-cell">{row.pointsForCheckpoints}</td>
+              <td className="text-end d-none d-md-table-cell">{row.pointsForTasks}</td>
+              <td className="text-end"><strong>{row.totalPoints}</strong></td>
+              <td>
+                <div className="d-flex align-items-center flex-wrap gap-2">
+                  <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
+                    {row.disqualified ? t('admin.standings.disqualified') : t('admin.standings.eligible')}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-warning"
+                    onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
+                  >
+                    {row.disqualified ? t('admin.standings.reinstate') : t('admin.standings.disqualify')}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h3 className="mb-0">{t('admin.standings.current')}</h3>
         <div className="btn-group" role="group">
           <button
