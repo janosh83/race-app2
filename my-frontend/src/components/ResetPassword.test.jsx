@@ -2,8 +2,8 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import React from 'react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
-import { authApi } from '../services/authApi';
 import { TimeProvider } from '../contexts/TimeContext';
+import { authApi } from '../services/authApi';
 
 import ResetPassword from './ResetPassword';
 

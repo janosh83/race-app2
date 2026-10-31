@@ -62,7 +62,7 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
         const min = pad(d.getMinutes());
         return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
       };
-      const formatCoordinate = (value) => value == null ? '' : String(value);
+      const formatCoordinate = (value) => (value === null || value === undefined ? '' : String(value));
 
       setStartShow(toLocal(race.start_showing_checkpoints_at ?? race.start_showing_checkpoints ?? race.start_showing));
       setEndShow(toLocal(race.end_showing_checkpoints_at ?? race.end_showing_checkpoints ?? race.end_showing));

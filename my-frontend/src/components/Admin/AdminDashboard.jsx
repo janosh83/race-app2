@@ -30,7 +30,7 @@ function formatIso(iso) {
 }
 
 function formatCoordinates(latitude, longitude) {
-  if (latitude == null || longitude == null) return '—';
+  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined) return '—';
   return `${latitude}, ${longitude}`;
 }
 
