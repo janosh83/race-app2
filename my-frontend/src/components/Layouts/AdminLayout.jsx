@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate } from 'react-router-dom';
 
+import { logoutAndRedirect } from '../../utils/api';
 import LanguageSwitcher from '../LanguageSwitcher';
 
 function AdminLayout() {
@@ -25,11 +26,10 @@ function AdminLayout() {
     }
   }, [user, navigate]);
 
+  // Same logout as the race view: also ends the session on the server, so the
+  // refresh cookie can't log the next person on this computer back in.
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('signedRaces');
-    window.location.reload();
+    logoutAndRedirect();
   };
 
   const navigateTo = (path) => {

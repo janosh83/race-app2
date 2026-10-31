@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 
 import { raceApi } from '../../services/raceApi';
 import { logger } from '../../utils/logger';
+import { formatMoney } from '../../utils/money';
 import LanguageSwitcher from '../LanguageSwitcher';
 
 function PublicRegistrationPage() {
@@ -45,17 +46,8 @@ function PublicRegistrationPage() {
     return race.registration_team_amount_cents || 0;
   })();
 
-  const formatPrice = (value) => {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: registrationCurrency,
-        maximumFractionDigits: 0,
-      }).format(value || 0);
-    } catch {
-      return `${value || 0} ${registrationCurrency}`;
-    }
-  };
+  // Prices are stored in cents, the amount Stripe charges.
+  const formatPrice = (cents) => formatMoney(cents || 0, registrationCurrency, i18n.language);
 
   const buildMembers = (count, nextMode) => {
     const safeCount = Math.max(count, 1);

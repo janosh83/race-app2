@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { LANGUAGE_LABELS } from '../../config/languages';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import { formatMoney } from '../../utils/money';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
 import CategoryForm from './CategoryForm';
@@ -35,7 +36,7 @@ function formatCoordinates(latitude, longitude) {
 }
 
 function AdminDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [races, setRaces] = useState([]);
   const [selected, setSelected] = useState(null);
   const [checkpoints, setCheckpoints] = useState([]);
@@ -316,19 +317,19 @@ function AdminDashboard() {
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.registrationTeamAmountCents')}:</strong>{' '}
-                              {selected.registration_team_amount_cents ?? 5000}
+                              {formatMoney(selected.registration_team_amount_cents ?? 5000, selected.registration_currency || 'eur', i18n.language)}
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.registrationIndividualAmountCents')}:</strong>{' '}
-                              {selected.registration_individual_amount_cents ?? 2500}
+                              {formatMoney(selected.registration_individual_amount_cents ?? 2500, selected.registration_currency || 'eur', i18n.language)}
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.registrationDriverAmountCents')}:</strong>{' '}
-                              {selected.registration_driver_amount_cents ?? 2500}
+                              {formatMoney(selected.registration_driver_amount_cents ?? 2500, selected.registration_currency || 'eur', i18n.language)}
                             </div>
                             <div>
                               <strong>{t('admin.dashboard.registrationCodriverAmountCents')}:</strong>{' '}
-                              {selected.registration_codriver_amount_cents ?? 1500}
+                              {formatMoney(selected.registration_codriver_amount_cents ?? 1500, selected.registration_currency || 'eur', i18n.language)}
                             </div>
                           </div>
                           <div className="mt-2">

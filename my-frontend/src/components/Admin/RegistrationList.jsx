@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import { formatMoney } from '../../utils/money';
 
 import RegistrationImporter from './RegistrationImporter';
 
 // Single-page management for registrations, teams, and categories
 export default function RegistrationList({ raceId, race }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [registrations, setRegistrations] = useState([]);
   const [teams, setTeams] = useState([]);
   const [raceCategories, setRaceCategories] = useState([]);
@@ -855,7 +856,7 @@ export default function RegistrationList({ raceId, race }) {
                     <tr key={attempt.id || attempt.stripe_session_id}>
                       <td>{getPaymentTypeLabel(attempt.payment_type || 'team')}</td>
                       <td>{attempt.status || '—'}</td>
-                      <td>{attempt.amount_cents ? `${attempt.amount_cents / 100} ${attempt.currency || ''}` : '—'}</td>
+                      <td>{attempt.amount_cents ? formatMoney(attempt.amount_cents, attempt.currency, i18n.language) : '—'}</td>
                       <td>{attempt.created_at ? new Date(attempt.created_at).toLocaleString() : '—'}</td>
                       <td>{attempt.confirmed_at ? new Date(attempt.confirmed_at).toLocaleString() : '—'}</td>
                       <td className="text-muted">{formatMemberLabel(attempt.assignee)}</td>

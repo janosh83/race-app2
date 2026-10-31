@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import { formatMoney } from '../../utils/money';
 
 function formatDate(value) {
   if (!value) return '—';
@@ -14,7 +15,7 @@ function formatDate(value) {
 }
 
 export default function PaymentAttemptsSummary({ raceId }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [registrations, setRegistrations] = useState([]);
@@ -316,7 +317,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
                         <td>{attempt.status || t('admin.paymentAttemptsSummary.unknownStatus')}</td>
                         <td>
                           {attempt.amount_cents
-                            ? `${attempt.amount_cents / 100} ${(attempt.currency || '').toUpperCase()}`
+                            ? formatMoney(attempt.amount_cents, attempt.currency, i18n.language)
                             : '—'}
                         </td>
                         <td>{formatDate(attempt.created_at)}</td>
