@@ -48,7 +48,13 @@
     "comingAt": "Coming {{time}}",
     "hidden": "{{itemName}} hidden",
     "loggingOpen": "Logging open",
-    "readOnly": "Read-only"
+    "readOnly": "Read-only",
+    "loggingOpenLeft": "Logging open · {{duration}} left",
+    "loggingOpensIn": "Logging opens in {{duration}}",
+    "daysHours": "{{days}} d {{hours}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutes": "{{minutes}} min",
+    "lessThanMinute": "<1 min"
   },
   "map": {
     "checkpoints": "Checkpoints",
@@ -98,7 +104,8 @@
     "favouritesOnlyHelp": "Show only your team's favourite checkpoints",
     "noFavourites": "Your team has no favourite checkpoints yet. Open a checkpoint and tap the star to add one.",
     "takePhoto": "Take photo",
-    "chooseFromGallery": "Choose from gallery"
+    "chooseFromGallery": "Choose from gallery",
+    "navigationHelpToggle": "How do these buttons work?"
   },
   "tasks": {
     "title": "Tasks",
@@ -138,7 +145,8 @@
     "deleteSuccess": "Task completion deleted",
     "deleteFailed": "Failed to delete task: {{message}}",
     "loadedSuccess": "Tasks loaded successfully",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "progress": "{{completed}} of {{total}} completed"
   },
   "checkpointsList": {
     "noneAvailable": "No checkpoints available for this race.",
@@ -147,7 +155,8 @@
     "points": "Points",
     "imageHelp": "Images are resized to max 1000px, EXIF preserved for JPEG.",
     "loggingClosed": "Logging window for checkpoints is closed. You can only view checkpoints.",
-    "deleteSuccess": "Checkpoint visit deleted"
+    "deleteSuccess": "Checkpoint visit deleted",
+    "progress": "{{visited}} of {{total}} visited"
   },
   "results": {
     "title": "Race Results",

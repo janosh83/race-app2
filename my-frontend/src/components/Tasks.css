@@ -104,3 +104,18 @@
   outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
+
+.tasks-card-completed {
+  opacity: 0.6;
+}
+
+.tasks-card-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #adb5bd;
+  pointer-events: none;
+}

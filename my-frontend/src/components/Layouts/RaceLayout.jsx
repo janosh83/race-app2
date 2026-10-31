@@ -103,7 +103,7 @@ function RaceLayout() {
 
   return (
     <>
-      <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark bg-primary" style={{ position: 'relative', zIndex: 1040 }}>
+      <nav ref={navRef} className="navbar navbar-expand-lg navbar-dark bg-primary race-navbar" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
           <span className="navbar-brand">{t('nav.brand')}</span>
           <button

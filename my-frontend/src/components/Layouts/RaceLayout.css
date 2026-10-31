@@ -48,3 +48,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Phones: the tab bar does the navigating, so the top bar can be slim and
+   leave more of the screen to the map and lists. */
+@media (max-width: 991.98px) {
+  .race-navbar {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .race-navbar .navbar-brand {
+    font-size: 1.05rem;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .race-navbar .navbar-toggler {
+    padding: 2px 8px;
+    font-size: 1rem;
+  }
+}

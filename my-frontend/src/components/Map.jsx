@@ -9,8 +9,9 @@ import { raceApi } from '../services/raceApi';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
-import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
+import { copyCoordinatesToClipboard, getNavigationTarget } from '../utils/navigation';
 
+import CoordinateActions from './CoordinateActions';
 import FavouriteButton from './FavouriteButton';
 import FilePickerButton from './FilePickerButton';
 import SafeDescription from './SafeDescription';
@@ -782,7 +783,7 @@ function Map({ topOffset = 56, bottomOffset = 0 }) {
           style={{ top: topOffset }}
         >
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
               <div className="d-flex align-items-center gap-1">
                 {isCheckpointSelected && showCheckpoints && (
                   <FavouriteButton
@@ -796,7 +797,7 @@ function Map({ topOffset = 56, bottomOffset = 0 }) {
                 <h3 className="mb-0">{selectedMapPoint.title}</h3>
               </div>
               <button
-                className="btn btn-sm btn-outline-secondary"
+                className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap"
                 onClick={handleCloseOverlay}
               >
                 ✕ {t('map.close')}
@@ -808,39 +809,15 @@ function Map({ topOffset = 56, bottomOffset = 0 }) {
               {selectedMapPoint.description?.trim()
                 ? <SafeDescription html={selectedMapPoint.description} className="mb-2" />
                 : <p className="mb-2">{t('map.noDescription')}</p>}
-              <div className="d-flex flex-wrap align-items-center gap-2">
-                <div>
-                  <strong>{t('map.coordinatesLabel')}:</strong>{' '}
-                  {formatCoordinateDisplay(selectedMapPoint.latitude)}, {formatCoordinateDisplay(selectedMapPoint.longitude)}
-                </div>
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => openNavigationTarget({
-                      latitude: selectedMapPoint.latitude,
-                      longitude: selectedMapPoint.longitude,
-                      title: selectedMapPoint.title,
-                    })}
-                  >
-                    {t('map.navigate')}
-                  </button>
-                )}
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => handleCopyCoordinates({
-                      latitude: selectedMapPoint.latitude,
-                      longitude: selectedMapPoint.longitude,
-                    })}
-                  >
-                    {t('map.copyCoordinates')}
-                  </button>
-                )}
-              </div>
-              {selectedCheckpointNavigationTarget && (
-                <div
-                  className="mt-3 map-navigation-hint"
-                >
+              <CoordinateActions
+                point={selectedMapPoint}
+                label={t('map.coordinatesLabel')}
+                coordinatesText={`${formatCoordinateDisplay(selectedMapPoint.latitude)}, ${formatCoordinateDisplay(selectedMapPoint.longitude)}`}
+                canNavigate={Boolean(selectedCheckpointNavigationTarget)}
+                onCopy={handleCopyCoordinates}
+              >
+                <details className="coordinate-actions-help">
+                  <summary>{t('map.navigationHelpToggle')}</summary>
                   <div className="map-navigation-hint-row">
                     <strong>{t('map.navigate')}:</strong>{' '}
                     {t('map.navigateHelp')}
@@ -849,8 +826,8 @@ function Map({ topOffset = 56, bottomOffset = 0 }) {
                     <strong>{t('map.copyCoordinates')}:</strong>{' '}
                     {t('map.copyCoordinatesHelp')}
                   </div>
-                </div>
-              )}
+                </details>
+              </CoordinateActions>
             </div>
 
             {isCheckpointSelected && (

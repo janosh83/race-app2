@@ -231,7 +231,9 @@ function Tasks({ topOffset = 56 }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => Number(b.completed) - Number(a.completed));
+  // Tasks still to do first; completed ones sink to the bottom.
+  const sortedTasks = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  const completedCount = tasks.filter(task => task.completed).length;
 
   return (
     <>
@@ -284,6 +286,11 @@ function Tasks({ topOffset = 56 }) {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">{t('tasks.title')}</h3>
         </div>
+        {showTasks && tasks.length > 0 && (
+          <p className="text-muted small mb-2">
+            {t('tasks.progress', { completed: completedCount, total: tasks.length })}
+          </p>
+        )}
 
         {!showTasks && (
           <div className="alert alert-warning">
@@ -301,8 +308,20 @@ function Tasks({ topOffset = 56 }) {
           <div className="row g-3">
             {sortedTasks.map((task) => (
               <div className="col-12 col-md-6 col-lg-4" key={task.id}>
-                <div className="card h-100 tasks-card" onClick={() => setSelectedTask(task)}>
-                  <div className="card-body">
+                <div
+                  className={`card h-100 tasks-card ${task.completed ? 'tasks-card-completed' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTask(task)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      setSelectedTask(task);
+                    }
+                  }}
+                >
+                  <span className="tasks-card-chevron" aria-hidden="true">›</span>
+                  <div className="card-body pe-4">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="card-title mb-0">{task.title}</h5>
                       <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
@@ -332,9 +351,9 @@ function Tasks({ topOffset = 56 }) {
       {selectedTask && (
         <div className="tasks-overlay" style={{ top: topOffset }}>
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedTask.title}</h3>
-              <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <h3 className="mb-0">{selectedTask.title}</h3>
+              <button className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap" onClick={handleCloseOverlay}>
                 ✕ {t('tasks.close')}
               </button>
             </div>

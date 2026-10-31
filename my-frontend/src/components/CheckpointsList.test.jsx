@@ -318,6 +318,29 @@ describe('CheckpointsList Component', () => {
       expect(screen.getByRole('button', { name: 'Remove from team favourites' })).toHaveAttribute('aria-pressed', 'true');
     });
 
+    test('lists visited checkpoints last and shows progress', async () => {
+      raceApi.getCheckpointsStatus.mockResolvedValueOnce([
+        { id: 3, title: 'Done CP', visited: true, is_favourite: true, numOfPoints: 1 },
+        ...checkpoints,
+      ]);
+      renderList();
+
+      await waitFor(() => expect(screen.getByText('Done CP')).toBeInTheDocument());
+      const titles = screen.getAllByRole('heading', { level: 6 }).map((el) => el.textContent);
+      expect(titles).toEqual(['Loved CP', 'Plain CP', 'Done CP']);
+      expect(screen.getByText('1 of 3 visited')).toBeInTheDocument();
+    });
+
+    test('opens a checkpoint from the keyboard', async () => {
+      raceApi.getCheckpointsStatus.mockResolvedValueOnce(checkpoints);
+      renderList();
+
+      const title = await screen.findByText('Plain CP');
+      fireEvent.keyDown(title.closest('.checkpoint-list-card'), { key: 'Enter' });
+
+      expect(await screen.findByRole('heading', { level: 3, name: 'Plain CP' })).toBeInTheDocument();
+    });
+
     test('toggling the star saves the favourite without opening the checkpoint', async () => {
       raceApi.getCheckpointsStatus.mockResolvedValueOnce(checkpoints);
       raceApi.setCheckpointFavourite.mockResolvedValue({ is_favourite: true });

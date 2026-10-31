@@ -48,7 +48,13 @@
     "comingAt": "Verfugbar {{time}}",
     "hidden": "{{itemName}} ausgeblendet",
     "loggingOpen": "Protokollierung offen",
-    "readOnly": "Nur lesen"
+    "readOnly": "Nur lesen",
+    "loggingOpenLeft": "Protokollierung offen · noch {{duration}}",
+    "loggingOpensIn": "Protokollierung oeffnet in {{duration}}",
+    "daysHours": "{{days}} T {{hours}} Std",
+    "hoursMinutes": "{{hours}} Std {{minutes}} Min",
+    "minutes": "{{minutes}} Min",
+    "lessThanMinute": "<1 Min"
   },
   "map": {
     "checkpoints": "Kontrollpunkte",
@@ -98,7 +104,8 @@
     "favouritesOnlyHelp": "Nur die Lieblings-Checkpoints Ihres Teams anzeigen",
     "noFavourites": "Ihr Team hat noch keine Lieblings-Checkpoints. Öffnen Sie einen Checkpoint und tippen Sie auf den Stern.",
     "takePhoto": "Foto aufnehmen",
-    "chooseFromGallery": "Aus Galerie waehlen"
+    "chooseFromGallery": "Aus Galerie waehlen",
+    "navigationHelpToggle": "Wie funktionieren diese Buttons?"
   },
   "tasks": {
     "title": "Aufgaben",
@@ -138,7 +145,8 @@
     "deleteSuccess": "Aufgabenerledigung geloescht",
     "deleteFailed": "Aufgabe konnte nicht geloescht werden: {{message}}",
     "loadedSuccess": "Aufgaben erfolgreich geladen",
-    "unknownError": "Unbekannter Fehler"
+    "unknownError": "Unbekannter Fehler",
+    "progress": "{{completed}} von {{total}} erledigt"
   },
   "checkpointsList": {
     "noneAvailable": "Keine Checkpoints fuer dieses Rennen verfuegbar.",
@@ -147,7 +155,8 @@
     "points": "Punkte",
     "imageHelp": "Bilder werden auf max. 1000 px verkleinert, EXIF bleibt fuer JPEG erhalten.",
     "loggingClosed": "Das Protokollfenster fuer Checkpoints ist geschlossen. Sie koennen Checkpoints nur ansehen.",
-    "deleteSuccess": "Checkpoint-Besuch geloescht"
+    "deleteSuccess": "Checkpoint-Besuch geloescht",
+    "progress": "{{visited}} von {{total}} besucht"
   },
   "results": {
     "title": "Rennergebnisse",

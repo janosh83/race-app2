@@ -114,3 +114,19 @@
   outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
+
+/* Visited checkpoints are done: dimmed so the ones left stand out. */
+.checkpoint-list-card-visited {
+  opacity: 0.6;
+}
+
+.checkpoint-list-card-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #adb5bd;
+  pointer-events: none;
+}

@@ -7,8 +7,9 @@ import { raceApi } from '../services/raceApi';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
-import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
+import { copyCoordinatesToClipboard, getNavigationTarget } from '../utils/navigation';
 
+import CoordinateActions from './CoordinateActions';
 import FavouriteButton from './FavouriteButton';
 import FilePickerButton from './FilePickerButton';
 import SafeDescription from './SafeDescription';
@@ -305,9 +306,12 @@ function CheckpointsList({ topOffset = 56 }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // What's left to do comes first (favourites on top); visited checkpoints
+  // sink to the bottom.
   const sortedCheckpoints = [...checkpoints].sort(
-    (a, b) => Number(b.visited) - Number(a.visited) || Number(Boolean(b.is_favourite)) - Number(Boolean(a.is_favourite)),
+    (a, b) => Number(a.visited) - Number(b.visited) || Number(Boolean(b.is_favourite)) - Number(Boolean(a.is_favourite)),
   );
+  const visitedCount = checkpoints.filter(cp => cp.visited).length;
   // The overlay shows the selected checkpoint from the list, so favourite
   // changes made in the overlay are reflected right away.
   const shownCheckpoint = selectedCheckpoint
@@ -360,6 +364,11 @@ function CheckpointsList({ topOffset = 56 }) {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">{t('map.checkpoints')}</h3>
         </div>
+        {showCheckpoints && checkpoints.length > 0 && (
+          <p className="text-muted small mb-2 checkpoint-list-progress">
+            {t('checkpointsList.progress', { visited: visitedCount, total: checkpoints.length })}
+          </p>
+        )}
 
         {!showCheckpoints && (
           <div className="alert alert-warning">
@@ -374,10 +383,19 @@ function CheckpointsList({ topOffset = 56 }) {
             {sortedCheckpoints.map((checkpoint) => (
               <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
                 <div
-                  className={`card h-100 checkpoint-list-card ${checkpoint.is_favourite ? 'checkpoint-list-card-favourite' : ''}`}
+                  className={`card h-100 checkpoint-list-card ${checkpoint.is_favourite ? 'checkpoint-list-card-favourite' : ''} ${checkpoint.visited ? 'checkpoint-list-card-visited' : ''}`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedCheckpoint(checkpoint)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      setSelectedCheckpoint(checkpoint);
+                    }
+                  }}
                 >
-                  <div className="card-body p-2">
+                  <span className="checkpoint-list-card-chevron" aria-hidden="true">›</span>
+                  <div className="card-body p-2 pe-4">
                     <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
                       <div className="d-flex align-items-start">
                         <FavouriteButton
@@ -416,7 +434,7 @@ function CheckpointsList({ topOffset = 56 }) {
           style={{ top: topOffset }}
         >
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
               <div className="d-flex align-items-center gap-1">
                 {showCheckpoints && (
                   <FavouriteButton
@@ -429,7 +447,7 @@ function CheckpointsList({ topOffset = 56 }) {
                 )}
                 <h3 className="mb-0">{shownCheckpoint.title}</h3>
               </div>
-              <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
+              <button className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap" onClick={handleCloseOverlay}>
                 ✕ {t('map.close')}
               </button>
             </div>
@@ -441,40 +459,13 @@ function CheckpointsList({ topOffset = 56 }) {
               <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(shownCheckpoint) })}</span>
             </div>
 
-            <div className="mb-3 text-muted small">
-              <div className="d-flex flex-wrap align-items-center gap-2">
-                <div>
-                  <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
-                  {shownCheckpoint.latitude}, {shownCheckpoint.longitude}
-                </div>
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => openNavigationTarget({
-                      latitude: shownCheckpoint.latitude,
-                      longitude: shownCheckpoint.longitude,
-                      title: shownCheckpoint.title,
-                    })}
-                  >
-                    {t('map.navigate')}
-                  </button>
-                )}
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => handleCopyCoordinates({
-                      latitude: shownCheckpoint.latitude,
-                      longitude: shownCheckpoint.longitude,
-                    })}
-                  >
-                    {t('map.copyCoordinates')}
-                  </button>
-                )}
-              </div>
-              <div>
-                <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(shownCheckpoint)}
-              </div>
-            </div>
+            <CoordinateActions
+              point={shownCheckpoint}
+              label={t('checkpointsList.coordinates')}
+              coordinatesText={`${shownCheckpoint.latitude}, ${shownCheckpoint.longitude}`}
+              canNavigate={Boolean(selectedCheckpointNavigationTarget)}
+              onCopy={handleCopyCoordinates}
+            />
 
             {shownCheckpoint.description && (
               <SafeDescription html={shownCheckpoint.description} className="mb-3" />
