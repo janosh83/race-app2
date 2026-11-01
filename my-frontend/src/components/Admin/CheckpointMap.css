@@ -40,3 +40,15 @@
     height: min(560px, calc(100vh - 2rem));
   }
 }
+
+/* Race places (finish, bivaks): dark squares, unlike the round checkpoints. */
+.admin-map-place span {
+  display: block;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  background: #212529;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}

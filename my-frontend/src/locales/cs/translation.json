@@ -342,7 +342,18 @@
       "switchTeam": "Přepnout tým",
       "previousTeam": "Předchozí tým",
       "nextTeam": "Další tým",
-      "pickTeamHint": "Kliknutím na tým zobrazíte jeho návštěvy a fotky."
+      "pickTeamHint": "Kliknutím na tým zobrazíte jeho návštěvy a fotky.",
+      "scheduleTitle": "Harmonogram",
+      "registrationTitle": "Registrace",
+      "mapTitle": "Mapa",
+      "publicForm": "Veřejný formulář",
+      "copyLink": "Kopírovat odkaz",
+      "copied": "Zkopírováno",
+      "teamSizeValue": "{{min}}–{{max}} členů",
+      "contentCounts": "Checkpointy: {{checkpoints}} · Úkoly: {{tasks}}",
+      "noRaceMarkers": "Cíl ani bivak nejsou nastavené.",
+      "previewHint": "kliknutím na vlajku zobrazíte texty",
+      "previewingTranslation": "zobrazeno {{language}}, dalším kliknutím originál"
     },
     "statistics": {
       "title": "Statistiky závodu",

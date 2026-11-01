@@ -341,7 +341,18 @@
       "switchTeam": "Switch team",
       "previousTeam": "Previous team",
       "nextTeam": "Next team",
-      "pickTeamHint": "Click a team to review its visits and photos."
+      "pickTeamHint": "Click a team to review its visits and photos.",
+      "scheduleTitle": "Schedule",
+      "registrationTitle": "Registration",
+      "mapTitle": "Map",
+      "publicForm": "Public form",
+      "copyLink": "Copy link",
+      "copied": "Copied",
+      "teamSizeValue": "{{min}}–{{max}} members",
+      "contentCounts": "Checkpoints: {{checkpoints}} · Tasks: {{tasks}}",
+      "noRaceMarkers": "No finish or bivak set.",
+      "previewHint": "click a flag to preview the texts",
+      "previewingTranslation": "showing {{language}}, click again for the original"
     },
     "statistics": {
       "title": "Race statistics",

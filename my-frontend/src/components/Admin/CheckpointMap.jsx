@@ -16,19 +16,27 @@ const pinIcon = L.divIcon?.({
   iconAnchor: [14, 34], // the rotated square's tip, below its centre
 });
 
+const placeIcon = L.divIcon?.({
+  className: 'admin-map-place',
+  html: '<span></span>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
 // The race's checkpoints on a map, for the admin.
 // - `onCheckpointClick(cp)`: clicking a checkpoint dot (overview).
 // - `picked` + `onPick({ latitude, longitude })`: a draggable pin; clicking the
 //   map moves it there (choosing a checkpoint's position).
 // - `excludeId`: the checkpoint being edited, shown as the pin, not as a dot.
+// - `markers`: race places (finish, bivaks) as dark squares with their name.
 export default function CheckpointMap({
-  checkpoints = [], picked = null, onPick = null, onCheckpointClick = null, excludeId = null, className = '',
+  checkpoints = [], markers = [], picked = null, onPick = null, onCheckpointClick = null, excludeId = null, className = '',
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const dotsRef = useRef(null);
   const pinRef = useRef(null);
-  const fittedRef = useRef(false);
+  const fittedCountRef = useRef(null); // number of places the view was last fitted to
   // Latest callbacks for the Leaflet handlers registered once.
   const onPickRef = useRef(onPick);
   const onCheckpointClickRef = useRef(onCheckpointClick);
@@ -59,11 +67,12 @@ export default function CheckpointMap({
       mapRef.current = null;
       dotsRef.current = null;
       pinRef.current = null;
-      fittedRef.current = false;
+      fittedCountRef.current = null;
     };
   }, []);
 
   const others = checkpoints.filter(cp => hasPosition(cp) && (excludeId === null || cp.id !== excludeId));
+  const places = markers.filter(hasPosition);
 
   // Checkpoint dots with their name on hover.
   useEffect(() => {
@@ -82,6 +91,11 @@ export default function CheckpointMap({
       dot.bindTooltip(`${cp.title ?? cp.name ?? ''} · ${cp.numOfPoints ?? 0}`, { direction: 'top', offset: [0, -6] });
       if (!onPick) dot.on('click', () => onCheckpointClickRef.current?.(cp));
       dot.addTo(layer);
+    });
+    places.forEach(place => {
+      L.marker([place.latitude, place.longitude], { icon: placeIcon, keyboard: false })
+        .bindTooltip(place.title, { direction: 'top', offset: [0, -8] })
+        .addTo(layer);
     });
   });
 
@@ -106,20 +120,25 @@ export default function CheckpointMap({
     }
   }, [picked?.latitude, picked?.longitude]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show everything once, when the first data arrives; later the admin's own
-  // pan and zoom stay. A typed position outside the view pans to it.
+  // Fit everything in view when the number of places changes (data arrives
+  // in parts: race markers first, checkpoints later). When choosing a
+  // position, centre on the pin once and then leave pan and zoom to the admin;
+  // a typed position outside the view pans to it.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const points = others.map(cp => [cp.latitude, cp.longitude]);
-    if (hasPosition(picked)) points.push([picked.latitude, picked.longitude]);
-    if (!fittedRef.current && points.length > 0) {
-      fittedRef.current = true;
+    const points = [...others, ...places].map(cp => [cp.latitude, cp.longitude]);
+    const pinned = hasPosition(picked);
+    if (pinned && fittedCountRef.current === null) {
+      fittedCountRef.current = points.length;
+      map.invalidateSize?.();
+      map.setView([picked.latitude, picked.longitude], 15);
+    } else if (!pinned && points.length > 0 && points.length !== fittedCountRef.current) {
+      fittedCountRef.current = points.length;
       map.invalidateSize?.(); // fit to the real size, not the size at mount
-      if (hasPosition(picked)) map.setView([picked.latitude, picked.longitude], 15);
-      else if (points.length === 1) map.setView(points[0], 15);
+      if (points.length === 1) map.setView(points[0], 15);
       else map.fitBounds(points, { padding: [24, 24] });
-    } else if (hasPosition(picked) && map.getBounds && !map.getBounds().contains([picked.latitude, picked.longitude])) {
+    } else if (pinned && map.getBounds && !map.getBounds().contains([picked.latitude, picked.longitude])) {
       map.panTo([picked.latitude, picked.longitude]);
     }
   });

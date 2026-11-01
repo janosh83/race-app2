@@ -243,7 +243,7 @@ function AdminDashboard() {
           </ul>
 
           {activeSection === 'overview' && (
-            <RaceOverview race={selected} translations={translations} />
+            <RaceOverview race={selected} translations={translations} checkpoints={checkpoints} tasks={tasks} />
           )}
 
           {activeSection === 'checkpoints' && (

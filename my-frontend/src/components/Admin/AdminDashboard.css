@@ -111,3 +111,59 @@
   color: var(--bs-link-color);
   cursor: pointer;
 }
+
+/* Race overview cards. */
+.admin-overview-description {
+  white-space: pre-line;
+}
+
+.admin-overview-fields {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-overview-field {
+  display: grid;
+  grid-template-columns: minmax(8rem, 40%) 1fr;
+  gap: 0.75rem;
+}
+
+.admin-overview-field dt {
+  font-weight: 400;
+  color: var(--bs-secondary-color);
+}
+
+.admin-overview-field dd {
+  margin: 0;
+}
+
+/* Phones: label above its value, so dates stay on one line. */
+@media (max-width: 575.98px) {
+  .admin-overview-field {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .admin-overview-field dt {
+    font-size: 0.8125rem;
+  }
+}
+
+.admin-overview-map {
+  flex: 1;
+  min-height: 300px;
+}
+
+.admin-overview-places li + li {
+  margin-top: 0.25rem;
+}
+
+/* Same dark square as the places on the map. */
+.admin-overview-place-icon {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 0.4rem;
+  background: #212529;
+  border-radius: 2px;
+}

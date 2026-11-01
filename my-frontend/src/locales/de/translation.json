@@ -341,7 +341,18 @@
       "switchTeam": "Team wechseln",
       "previousTeam": "Vorheriges Team",
       "nextTeam": "Nächstes Team",
-      "pickTeamHint": "Klicke auf ein Team, um seine Besuche und Fotos zu prüfen."
+      "pickTeamHint": "Klicke auf ein Team, um seine Besuche und Fotos zu prüfen.",
+      "scheduleTitle": "Zeitplan",
+      "registrationTitle": "Anmeldung",
+      "mapTitle": "Karte",
+      "publicForm": "Öffentliches Formular",
+      "copyLink": "Link kopieren",
+      "copied": "Kopiert",
+      "teamSizeValue": "{{min}}–{{max}} Mitglieder",
+      "contentCounts": "Checkpoints: {{checkpoints}} · Aufgaben: {{tasks}}",
+      "noRaceMarkers": "Kein Ziel und kein Biwak festgelegt.",
+      "previewHint": "Flagge anklicken, um die Texte anzusehen",
+      "previewingTranslation": "{{language}} angezeigt, erneut klicken für das Original"
     },
     "statistics": {
       "title": "Rennstatistiken",
