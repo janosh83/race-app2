@@ -39,3 +39,11 @@ code {
     flex-direction: row;
   }
 }
+
+/* Admin: always reserve the scrollbar's space so the page doesn't shift
+   sideways when switching between short and long pages. Only there: the
+   race pages have full-height maps that would show an empty strip. Phones
+   use overlay scrollbars, so this changes nothing on them. */
+html:has(.brand-navbar-admin) {
+  scrollbar-gutter: stable;
+}
