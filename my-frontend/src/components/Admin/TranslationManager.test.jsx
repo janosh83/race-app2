@@ -42,4 +42,29 @@ describe('TranslationManager', () => {
       1, 'cs', expect.objectContaining({ finish_description: 'Hospoda' }),
     ));
   });
+
+  it("does not offer the race's own language as a translation", async () => {
+    render(
+      <TranslationManager entityType="race" entityId={1} entityName="City Race" supportedLanguages={['en', 'cs', 'de']} defaultLanguage="en" />,
+    );
+
+    expect(await screen.findByRole('button', { name: '+ Čeština' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Deutsch' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '+ English' })).not.toBeInTheDocument();
+    expect(screen.getByText(/original texts are in English/)).toBeInTheDocument();
+  });
+
+  it('deletes a translation after confirming in the row', async () => {
+    adminApi.getRaceTranslations.mockResolvedValue([{ language: 'cs', name: 'Městský závod' }]);
+    adminApi.deleteRaceTranslation.mockResolvedValue({});
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    render(<TranslationManager entityType="race" entityId={1} entityName="City Race" supportedLanguages={['en', 'cs']} defaultLanguage="en" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(adminApi.deleteRaceTranslation).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+    await waitFor(() => expect(adminApi.deleteRaceTranslation).toHaveBeenCalledWith(1, 'cs'));
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
 });

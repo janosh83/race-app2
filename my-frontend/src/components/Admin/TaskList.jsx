@@ -108,7 +108,7 @@ function TaskFormModal({ task = null, onSave, onDelete, onCancel, children }) {
   );
 }
 
-export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
+export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [], defaultLanguage = null }) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -347,6 +347,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
               entityName={formFor.title ?? formFor.name}
               fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
               supportedLanguages={supportedLanguages}
+              defaultLanguage={defaultLanguage}
             />
           )}
         </TaskFormModal>

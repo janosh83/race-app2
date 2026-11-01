@@ -4,6 +4,9 @@ import enFlag from '../assets/flags/en.svg';
 
 export const SUPPORTED_LANGUAGES = ['en', 'cs', 'de'];
 
+// The race's language when it doesn't set one (app/constants.py DEFAULT_LANGUAGE).
+export const DEFAULT_LANGUAGE = 'en';
+
 export const LANGUAGE_LABELS = {
   en: 'English',
   cs: 'Čeština',

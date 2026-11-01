@@ -14,13 +14,16 @@ const API_METHODS = {
 };
 
 // `placeholders`: the original text per field, shown in the empty input.
-function TranslationManager({ raceId: _raceId, entityType, entityId, entityName, fields = {}, placeholders = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
+// `defaultLanguage`: the race's language, the one the original texts are
+// written in; it is not offered as a translation.
+function TranslationManager({ raceId: _raceId, entityType, entityId, entityName, fields = {}, placeholders = {}, supportedLanguages = SUPPORTED_LANGUAGES, defaultLanguage = null }) {
   const { t } = useTranslation();
   const [translations, setTranslations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [editingLanguage, setEditingLanguage] = useState(null);
   const [formData, setFormData] = useState({});
+  const [confirmingDelete, setConfirmingDelete] = useState(null); // language
 
   const fetchTranslations = useCallback(async () => {
     setLoading(true);
@@ -80,7 +83,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
   };
 
   const handleDelete = async (language) => {
-    if (!window.confirm(t('admin.translationManager.deleteConfirm', { language: LANGUAGE_LABELS[language] || language }))) return;
+    setConfirmingDelete(null);
     setError(null);
     try {
       const methods = API_METHODS[entityType];
@@ -100,7 +103,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
         description: t('admin.translationManager.fieldDescription')
       };
   const existingLanguages = translations.map(t => t.language);
-  const missingLanguages = supportedLanguages.filter(lang => !existingLanguages.includes(lang));
+  const missingLanguages = supportedLanguages.filter(lang => !existingLanguages.includes(lang) && lang !== defaultLanguage);
 
   if (!entityId) {
     return <div className="text-muted">{t('admin.translationManager.selectItem')}</div>;
@@ -149,8 +152,8 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                   ))}
                 </div>
                 <div className="d-flex gap-2">
-                  <button className="btn btn-sm btn-primary" onClick={handleSave}>{t('admin.translationManager.save')}</button>
-                  <button className="btn btn-sm btn-secondary" onClick={() => { setEditingLanguage(null); setFormData({}); }}>{t('admin.translationManager.cancel')}</button>
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>{t('admin.translationManager.save')}</button>
+                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setEditingLanguage(null); setFormData({}); }}>{t('admin.translationManager.cancel')}</button>
                 </div>
               </div>
             ) : null}
@@ -169,27 +172,38 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                           {trans.name || trans.title || t('admin.translationManager.noNameTitle')}
                         </div>
                       </div>
-                      <div className="d-flex gap-1">
-                        <button
-                          className="btn btn-xs btn-outline-primary"
-                          onClick={() => handleEdit(trans)}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        >
-                          {t('admin.translationManager.edit')}
-                        </button>
-                        <button
-                          className="btn btn-xs btn-outline-danger"
-                          onClick={() => handleDelete(trans.language)}
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                        >
-                          {t('admin.translationManager.delete')}
-                        </button>
-                      </div>
+                      {confirmingDelete === trans.language ? (
+                        <div className="d-flex flex-wrap align-items-center justify-content-end gap-1">
+                          <span className="small text-danger-emphasis me-1">
+                            {t('admin.translationManager.deleteConfirm', { language: LANGUAGE_LABELS[trans.language] || trans.language })}
+                          </span>
+                          <button type="button" className="btn btn-sm btn-outline-secondary py-0" onClick={() => setConfirmingDelete(null)}>
+                            {t('admin.teams.keep')}
+                          </button>
+                          <button type="button" className="btn btn-sm btn-danger py-0" onClick={() => handleDelete(trans.language)}>
+                            {t('admin.teams.deleteYes')}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="d-flex gap-1">
+                          <button type="button" className="btn btn-sm btn-outline-primary py-0" onClick={() => handleEdit(trans)}>
+                            {t('admin.translationManager.edit')}
+                          </button>
+                          <button type="button" className="btn btn-sm btn-outline-danger py-0" onClick={() => setConfirmingDelete(trans.language)}>
+                            {t('admin.translationManager.delete')}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
+              {defaultLanguage && (
+                <p className="small text-muted mb-2">
+                  {t('admin.translationManager.originalLanguage', { language: LANGUAGE_LABELS[defaultLanguage] || defaultLanguage })}
+                </p>
+              )}
               {missingLanguages.length > 0 && (
                 <>
                   <h6 className="mb-2 text-muted small">{t('admin.translationManager.addTitle')}</h6>
@@ -197,6 +211,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                     {missingLanguages.map(lang => (
                       <button
                         key={lang}
+                        type="button"
                         className="btn btn-sm btn-outline-primary"
                         onClick={() => handleCreate(lang)}
                       >

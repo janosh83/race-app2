@@ -929,11 +929,12 @@
       "cancel": "Abbrechen",
       "edit": "Bearbeiten",
       "delete": "Loeschen",
-      "deleteConfirm": "Uebersetzung {{language}} loeschen?",
+      "deleteConfirm": "{{language}} löschen?",
       "noNameTitle": "(kein Name/Titel)",
       "fieldName": "Name",
       "fieldTitle": "Titel",
-      "fieldDescription": "Beschreibung"
+      "fieldDescription": "Beschreibung",
+      "originalLanguage": "Die Originaltexte sind auf {{language}}, der Sprache des Rennens."
     },
     "sections": {
       "races": "Rennen",

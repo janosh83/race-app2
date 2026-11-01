@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, LANGUAGE_LABELS } from '../../config/languages';
 import { adminApi } from '../../services/adminApi';
 import { formatCoordinates, parseCoordinates } from '../../utils/coordinates';
 import { logger } from '../../utils/logger';
@@ -711,6 +711,7 @@ export default function RaceForm({ race = null, checkpoints = [], onSaved = null
             bivak_2_name: race.bivak_2_name,
           }}
           supportedLanguages={supportedLanguages}
+          defaultLanguage={race.default_language || DEFAULT_LANGUAGE}
         />
       </div>
     )}

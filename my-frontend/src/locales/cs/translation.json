@@ -932,11 +932,12 @@
       "cancel": "Zrušit",
       "edit": "Upravit",
       "delete": "Smazat",
-      "deleteConfirm": "Smazat překlad {{language}}?",
+      "deleteConfirm": "Smazat {{language}}?",
       "noNameTitle": "(bez názvu/titulu)",
       "fieldName": "Název",
       "fieldTitle": "Titulek",
-      "fieldDescription": "Popis"
+      "fieldDescription": "Popis",
+      "originalLanguage": "Původní texty jsou v jazyce {{language}}, jazyce závodu."
     },
     "sections": {
       "races": "Závody",

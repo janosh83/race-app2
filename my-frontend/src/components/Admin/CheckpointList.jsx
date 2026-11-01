@@ -26,7 +26,7 @@ const forMap = (cp) => ({
   longitude: toNumber(cp.longitude ?? cp.lng ?? cp.x),
 });
 
-export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
+export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [], defaultLanguage = null }) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -293,6 +293,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
               entityName={formFor.name ?? formFor.title}
               fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
               supportedLanguages={supportedLanguages}
+              defaultLanguage={defaultLanguage}
             />
           )}
         </CheckpointFormModal>

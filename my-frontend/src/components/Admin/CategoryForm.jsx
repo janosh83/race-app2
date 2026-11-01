@@ -7,7 +7,7 @@ import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
 import TranslationManager from './TranslationManager';
 
-export default function CategoryForm({ raceId, supportedLanguages = [] }) {
+export default function CategoryForm({ raceId, supportedLanguages = [], defaultLanguage = null }) {
   const { t } = useTranslation();
   const [allCategories, setAllCategories] = useState([]);
   const [assigned, setAssigned] = useState([]);
@@ -173,6 +173,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
               entityName={cat.name}
               fields={{ name: t('admin.translationManager.fieldName'), description: t('admin.translationManager.fieldDescription') }}
               supportedLanguages={supportedLanguages}
+              defaultLanguage={defaultLanguage}
             />
           </div>
         )}

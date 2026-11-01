@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
+import { DEFAULT_LANGUAGE } from '../../config/languages';
 import { timeStateForRace } from '../../contexts/TimeContext';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
@@ -253,6 +254,7 @@ function AdminDashboard() {
                 checkpoints={checkpoints}
                 raceId={selected.id}
                 supportedLanguages={selected.supported_languages || []}
+                defaultLanguage={selected.default_language || DEFAULT_LANGUAGE}
                 onRemove={(id) => setCheckpoints(prev => prev.filter(cp => cp.id !== id))}
                 onImported={(items) => setCheckpoints(prev => [...items, ...prev])}
                 onUpdate={(id, updatedData) => setCheckpoints(prev => prev.map(cp => cp.id === id ? { ...cp, ...updatedData } : cp))}
@@ -261,6 +263,7 @@ function AdminDashboard() {
                 tasks={tasks}
                 raceId={selected.id}
                 supportedLanguages={selected.supported_languages || []}
+                defaultLanguage={selected.default_language || DEFAULT_LANGUAGE}
                 onRemove={(id) => setTasks(prev => prev.filter(task => task.id !== id))}
                 onImported={(items) => setTasks(prev => [...items, ...prev])}
                 onUpdate={(id, updatedData) => setTasks(prev => prev.map(task => task.id === id ? { ...task, ...updatedData } : task))}
@@ -271,7 +274,11 @@ function AdminDashboard() {
           {activeSection === 'registrations' && (
             <>
               <RegistrationList raceId={selected.id} race={selected} />
-              <CategoryForm raceId={selected.id} supportedLanguages={selected.supported_languages || []} />
+              <CategoryForm
+                raceId={selected.id}
+                supportedLanguages={selected.supported_languages || []}
+                defaultLanguage={selected.default_language || DEFAULT_LANGUAGE}
+              />
             </>
           )}
 

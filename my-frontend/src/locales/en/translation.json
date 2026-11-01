@@ -929,11 +929,12 @@
       "cancel": "Cancel",
       "edit": "Edit",
       "delete": "Delete",
-      "deleteConfirm": "Delete {{language}} translation?",
+      "deleteConfirm": "Delete {{language}}?",
       "noNameTitle": "(no name/title)",
       "fieldName": "Name",
       "fieldTitle": "Title",
-      "fieldDescription": "Description"
+      "fieldDescription": "Description",
+      "originalLanguage": "The original texts are in {{language}}, the race’s language."
     },
     "sections": {
       "races": "Races",
