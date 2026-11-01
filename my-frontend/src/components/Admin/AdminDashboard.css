@@ -165,3 +165,29 @@
   margin-right: 0.4rem;
   vertical-align: -5px;
 }
+
+/* Race form: places separated by a rule, actions stuck to the bottom. */
+.admin-race-place + .admin-race-place {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bs-border-color-translucent);
+}
+
+.admin-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1010; /* above Leaflet panes and controls */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 -0.75rem;
+  padding: 0.75rem;
+  background: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.admin-form-actions-message {
+  min-width: 0;
+}

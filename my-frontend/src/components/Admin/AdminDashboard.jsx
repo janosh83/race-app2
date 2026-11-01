@@ -222,6 +222,7 @@ function AdminDashboard() {
       {editingRace ? (
         <RaceForm
           race={editingRace}
+          checkpoints={checkpoints}
           onSaved={(r) => handleSavedRace(r, false)}
           onCancel={() => setEditingRace(null)}
         />
