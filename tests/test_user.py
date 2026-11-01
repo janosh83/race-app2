@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.utils import utc_now
-from app.models import Race, Team, User, RaceCategory, Registration, RefreshSession
+from app.models import Race, Team, User, RaceCategory, Registration, RegistrationEmailLog, RefreshSession
 from datetime import datetime, timedelta
 
 
@@ -719,6 +719,33 @@ def test_delete_user_success(test_client, add_test_data, admin_auth_headers):
     get_response = test_client.get("/api/user/", headers=admin_auth_headers)
     user_ids = [u["id"] for u in get_response.json]
     assert 1 not in user_ids
+
+
+def test_delete_user_cannot_delete_self(test_client, add_test_data, admin_auth_headers):
+    """An admin can't delete their own account from the admin area."""
+    admin = User.query.filter_by(email="admin@test.com").first()
+
+    response = test_client.delete(f"/api/user/{admin.id}/", headers=admin_auth_headers)
+
+    assert response.status_code == 400
+    assert response.json["code"] == "cannot_delete_self"
+    assert db.session.get(User, admin.id) is not None
+
+
+def test_delete_user_keeps_registration_email_logs(test_client, add_test_data, admin_auth_headers):
+    """Email logs of a deleted user stay, without the user link."""
+    registration = Registration.query.first()
+    log = RegistrationEmailLog(registration_id=registration.id, user_id=2, email_address="u2@example.com",
+                               template_type="registration_confirmation")
+    db.session.add(log)
+    db.session.commit()
+    log_id = log.id
+
+    response = test_client.delete("/api/user/2/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    kept = db.session.get(RegistrationEmailLog, log_id)
+    assert kept is not None and kept.user_id is None and kept.email_address == "u2@example.com"
 
 
 def test_delete_user_not_found(test_client, admin_auth_headers):

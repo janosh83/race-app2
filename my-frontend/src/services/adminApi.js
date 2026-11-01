@@ -48,7 +48,6 @@ export const adminApi = {
     const query = toQueryString(params);
     return apiFetch(`/api/user/${query ? `?${query}` : ''}`);
   },
-  registerAdminUser: (payload) => apiFetch('/auth/register-admin/', { method: 'POST', body: payload }),
   createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
   updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
   deleteUser: (userId) => apiFetch(`/api/user/${userId}/`, { method: 'DELETE' }),

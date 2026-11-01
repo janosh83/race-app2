@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_
-from app.models import User
+from app.models import RegistrationEmailLog, User
 from app.routes.admin import admin_required
 from app import db
 from app.schemas import PaginationQuerySchema, UserCreateSchema, UserUpdateSchema
@@ -316,6 +316,8 @@ def delete_user(user_id):
                 msg:
                   type: string
                   example: User deleted successfully
+      400:
+        description: An admin can't delete their own account (code cannot_delete_self).
       404:
         description: User not found
       401:
@@ -324,8 +326,12 @@ def delete_user(user_id):
         description: Forbidden - admin access required
     """
     user = User.query.filter_by(id=user_id).first_or_404()
+    if user.id == current_user_id():
+        return jsonify({"msg": "You can't delete your own account here.", "code": "cannot_delete_self"}), 400
     user_email = user.email
 
+    # Registration email logs keep the address they were sent to.
+    RegistrationEmailLog.query.filter_by(user_id=user.id).update({"user_id": None})
     db.session.delete(user)
     db.session.commit()
 
