@@ -5,6 +5,7 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import { formatMoney } from '../../utils/money';
 
+import InlineConfirm from './InlineConfirm';
 import RegistrationImporter from './RegistrationImporter';
 
 // Registrations of a race: the list first, filtered by payment, email or
@@ -42,6 +43,8 @@ export default function RegistrationList({ raceId, race }) {
   const [notice, setNotice] = useState(null);
   // Delete asks in the registration's details: { teamId, deleting, error }.
   const [deleteState, setDeleteState] = useState(null);
+  // Sending emails asks first: 'all' or the team id.
+  const [confirmSend, setConfirmSend] = useState(null);
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -138,9 +141,7 @@ export default function RegistrationList({ raceId, race }) {
   };
 
   const handleSendEmails = async () => {
-    if (!window.confirm(t('admin.registrations.confirmSendEmails'))) {
-      return;
-    }
+    setConfirmSend(null);
     setSendingEmails(true);
     setError(null);
     try {
@@ -155,9 +156,7 @@ export default function RegistrationList({ raceId, race }) {
   };
 
   const handleSendEmailForTeam = async (teamId, teamName) => {
-    if (!window.confirm(t('admin.registrations.confirmSendTeamEmail', { team: teamName }))) {
-      return;
-    }
+    setConfirmSend(null);
     setSendingTeamEmailId(teamId);
     setError(null);
     try {
@@ -921,13 +920,25 @@ export default function RegistrationList({ raceId, race }) {
             </button>
             <button
               className="btn btn-sm btn-outline-primary"
-              onClick={() => handleSendEmailForTeam(item.teamId, item.teamName)}
+              type="button"
+              onClick={() => setConfirmSend(item.teamId)}
               title={t('admin.registrations.sendTeamEmailTitle', { team: item.teamName })}
-              disabled={sendingEmails || sendingTeamEmailId === item.teamId || item.emailSent || !item.paymentConfirmed || item.members.length === 0}
+              disabled={sendingEmails || sendingTeamEmailId === item.teamId || confirmSend === item.teamId || item.emailSent || !item.paymentConfirmed || item.members.length === 0}
             >
               {sendingTeamEmailId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.sendTeamEmail')}
             </button>
           </div>
+          {confirmSend === item.teamId && (
+            <InlineConfirm
+              className="mt-2"
+              variant="primary"
+              text={t('admin.registrations.confirmSendTeamEmail', { team: item.teamName })}
+              cancelLabel={t('admin.users.cancel')}
+              confirmLabel={t('admin.registrations.sendConfirmButton')}
+              onCancel={() => setConfirmSend(null)}
+              onConfirm={() => handleSendEmailForTeam(item.teamId, item.teamName)}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -1032,8 +1043,8 @@ export default function RegistrationList({ raceId, race }) {
         <button
           type="button"
           className="btn btn-sm btn-outline-secondary"
-          onClick={handleSendEmails}
-          disabled={sendingEmails || items.length === 0}
+          onClick={() => setConfirmSend('all')}
+          disabled={sendingEmails || confirmSend === 'all' || items.length === 0}
           title={t('admin.registrations.sendEmailsHelp')}
         >
           {sendingEmails ? t('admin.registrations.sending') : t('admin.registrations.sendEmails')}
@@ -1056,6 +1067,17 @@ export default function RegistrationList({ raceId, race }) {
         </div>
       )}
       {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
+      {confirmSend === 'all' && (
+        <InlineConfirm
+          className="mb-3"
+          variant="primary"
+          text={t('admin.registrations.confirmSendEmails')}
+          cancelLabel={t('admin.users.cancel')}
+          confirmLabel={t('admin.registrations.sendConfirmButton')}
+          onCancel={() => setConfirmSend(null)}
+          onConfirm={handleSendEmails}
+        />
+      )}
 
       {panel === 'register' && (
         <section className="card mb-3">

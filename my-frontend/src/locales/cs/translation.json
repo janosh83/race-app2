@@ -727,7 +727,8 @@
       "sendEmailsHelp": "Odešle registrační e-mail zaplaceným týmům, které ho ještě nedostaly.",
       "errorDeleteHasVisits_one": "Tým má v tomto závodě 1 zapsanou návštěvu, proto jeho registraci nelze smazat. Tým raději diskvalifikujte, nebo nejdřív smažte návštěvu v kontrole návštěv.",
       "errorDeleteHasVisits_few": "Tým má v tomto závodě {{count}} zapsané návštěvy, proto jeho registraci nelze smazat. Tým raději diskvalifikujte, nebo nejdřív smažte návštěvy v kontrole návštěv.",
-      "errorDeleteHasVisits_other": "Tým má v tomto závodě {{count}} zapsaných návštěv, proto jeho registraci nelze smazat. Tým raději diskvalifikujte, nebo nejdřív smažte návštěvy v kontrole návštěv."
+      "errorDeleteHasVisits_other": "Tým má v tomto závodě {{count}} zapsaných návštěv, proto jeho registraci nelze smazat. Tým raději diskvalifikujte, nebo nejdřív smažte návštěvy v kontrole návštěv.",
+      "sendConfirmButton": "Odeslat"
     },
     "paymentAttemptsSummary": {
       "title": "Platby",
@@ -909,14 +910,6 @@
       "openPhoto": "Otevřít fotku: {{name}}",
       "previousPhoto": "Předchozí fotka",
       "nextPhoto": "Další fotka"
-    },
-    "checkpointVisits": {
-      "loading": "Načítám návštěvy...",
-      "title": "Návštěvy checkpointu",
-      "delete": "Smazat",
-      "confirmDelete": "Opravdu chcete smazat tuto návštěvu?",
-      "errorLoad": "Nepodařilo se načíst návštěvy",
-      "errorDelete": "Nepodařilo se smazat návštěvu"
     },
     "translationManager": {
       "selectItem": "Vyberte položku pro správu překladů",

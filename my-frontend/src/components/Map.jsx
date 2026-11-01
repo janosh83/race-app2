@@ -542,7 +542,7 @@ function Map({ topOffset = 56, bottomOffset = 0 }) {
       setImagePreview(previewDataUrl);
     } catch (err) {
       logger.error('IMAGE', 'Failed to process image', err?.message || err);
-      alert(t('map.imageProcessFailed'));
+      setToast({ message: t('map.imageProcessFailed'), type: 'error', duration: 5000 });
     }
   };
 

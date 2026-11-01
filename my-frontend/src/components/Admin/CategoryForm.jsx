@@ -5,6 +5,7 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
+import InlineConfirm from './InlineConfirm';
 import TranslationManager from './TranslationManager';
 
 export default function CategoryForm({ raceId, supportedLanguages = [], defaultLanguage = null }) {
@@ -13,6 +14,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [], defaultL
   const [assigned, setAssigned] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmUnassign, setConfirmUnassign] = useState(null); // category id
   const [newName, setNewName] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [categoryTranslations, setCategoryTranslations] = useState({});
@@ -91,7 +93,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [], defaultL
   };
 
   const unassign = async (catId) => {
-    if (!window.confirm(t('admin.categoryForm.unassignConfirm'))) return;
+    setConfirmUnassign(null);
     try {
       await adminApi.removeRaceCategory(raceId, catId);
       await load();
@@ -160,12 +162,22 @@ export default function CategoryForm({ raceId, supportedLanguages = [], defaultL
               </div>
               <div>
                 {assignedToRace ? (
-                  <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(catId)}>{t('admin.categoryForm.unassign')}</button>
+                  <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setConfirmUnassign(catId)} disabled={confirmUnassign === catId}>{t('admin.categoryForm.unassign')}</button>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={() => assign(catId)}>{t('admin.categoryForm.assign')}</button>
                 )}
               </div>
             </div>
+            {confirmUnassign === catId && (
+              <InlineConfirm
+                className="mb-3"
+                text={t('admin.categoryForm.unassignConfirm')}
+                cancelLabel={t('admin.teams.keep')}
+                confirmLabel={t('admin.categoryForm.unassign')}
+                onCancel={() => setConfirmUnassign(null)}
+                onConfirm={() => unassign(catId)}
+              />
+            )}
 
             <TranslationManager
               entityType="category"

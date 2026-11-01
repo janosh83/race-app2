@@ -724,7 +724,8 @@
       "cancel": "Abbrechen",
       "sendEmailsHelp": "Sendet die Anmelde-E-Mail an bezahlte Teams, die sie noch nicht erhalten haben.",
       "errorDeleteHasVisits_one": "Dieses Team hat in diesem Rennen 1 erfassten Besuch, daher kann seine Anmeldung nicht gelöscht werden. Disqualifiziere das Team stattdessen oder lösche zuerst den Besuch in der Besuchsprüfung.",
-      "errorDeleteHasVisits_other": "Dieses Team hat in diesem Rennen {{count}} erfasste Besuche, daher kann seine Anmeldung nicht gelöscht werden. Disqualifiziere das Team stattdessen oder lösche zuerst die Besuche in der Besuchsprüfung."
+      "errorDeleteHasVisits_other": "Dieses Team hat in diesem Rennen {{count}} erfasste Besuche, daher kann seine Anmeldung nicht gelöscht werden. Disqualifiziere das Team stattdessen oder lösche zuerst die Besuche in der Besuchsprüfung.",
+      "sendConfirmButton": "Senden"
     },
     "paymentAttemptsSummary": {
       "title": "Zahlungen",
@@ -906,14 +907,6 @@
       "openPhoto": "Foto öffnen: {{name}}",
       "previousPhoto": "Vorheriges Foto",
       "nextPhoto": "Nächstes Foto"
-    },
-    "checkpointVisits": {
-      "loading": "Besuche werden geladen...",
-      "title": "Besuche des Checkpoints",
-      "delete": "Loeschen",
-      "confirmDelete": "Diesen Besuch wirklich loeschen?",
-      "errorLoad": "Besuche konnten nicht geladen werden",
-      "errorDelete": "Besuch konnte nicht geloescht werden"
     },
     "translationManager": {
       "selectItem": "Waehlen Sie ein Element zur Uebersetzungsverwaltung",

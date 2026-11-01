@@ -724,7 +724,8 @@
       "cancel": "Cancel",
       "sendEmailsHelp": "Send the registration email to paid teams that have not got it yet.",
       "errorDeleteHasVisits_one": "This team has 1 logged visit in this race, so its registration can't be deleted. Disqualify the team instead, or delete the visit in visit review first.",
-      "errorDeleteHasVisits_other": "This team has {{count}} logged visits in this race, so its registration can't be deleted. Disqualify the team instead, or delete the visits in visit review first."
+      "errorDeleteHasVisits_other": "This team has {{count}} logged visits in this race, so its registration can't be deleted. Disqualify the team instead, or delete the visits in visit review first.",
+      "sendConfirmButton": "Send"
     },
     "paymentAttemptsSummary": {
       "title": "Payments",
@@ -906,14 +907,6 @@
       "openPhoto": "Open photo: {{name}}",
       "previousPhoto": "Previous photo",
       "nextPhoto": "Next photo"
-    },
-    "checkpointVisits": {
-      "loading": "Loading visits...",
-      "title": "Visits for Checkpoint",
-      "delete": "Delete",
-      "confirmDelete": "Are you sure you want to delete this visit?",
-      "errorLoad": "Failed to load visits",
-      "errorDelete": "Failed to delete visit"
     },
     "translationManager": {
       "selectItem": "Select an item to manage translations",

@@ -5,6 +5,7 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import { assessVisitPosition } from '../../utils/visitPosition';
 
+import InlineConfirm from './InlineConfirm';
 import './VisitsList.css';
 
 const apiUrl = import.meta.env.VITE_API_URL || '';
@@ -29,6 +30,9 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
   const [taskCompletions, setTaskCompletions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [actionError, setActionError] = useState(null);
+  const [confirmKey, setConfirmKey] = useState(null); // card asking to confirm a delete
+  const [deletingKey, setDeletingKey] = useState(null);
   const [viewerKey, setViewerKey] = useState(null); // key of the item shown in the photo viewer
   const swipeStartX = useRef(null);
 
@@ -58,43 +62,51 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
     return () => { mounted = false; };
   }, [teamId, raceId, t]);
 
+  // Deletes run after the admin confirmed in the card; a failure shows above
+  // the cards and keeps the list.
   const handleDeleteVisit = async (visitId) => {
-    if (window.confirm(t('admin.visits.confirmDeleteVisit'))) {
-      try {
-        const visit = visits.find(item => item.id === visitId);
-        if (!visit) {
-          throw new Error('Visit not found in local state');
-        }
-        await adminApi.deleteVisit(raceId, {
-          checkpoint_id: visit.checkpoint_id,
-          team_id: visit.team_id,
-        });
-        setVisits(visits.filter(visit => visit.id !== visitId));
-        onDataChanged?.();
-      } catch (err) {
-        logger.error('ADMIN', 'Failed to delete visit', err);
-        setError(t('admin.visits.errorDeleteVisit'));
+    setDeletingKey(`visit-${visitId}`);
+    setActionError(null);
+    try {
+      const visit = visits.find(item => item.id === visitId);
+      if (!visit) {
+        throw new Error('Visit not found in local state');
       }
+      await adminApi.deleteVisit(raceId, {
+        checkpoint_id: visit.checkpoint_id,
+        team_id: visit.team_id,
+      });
+      setVisits(prev => prev.filter(item => item.id !== visitId));
+      onDataChanged?.();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to delete visit', err);
+      setActionError(t('admin.visits.errorDeleteVisit'));
+    } finally {
+      setDeletingKey(null);
+      setConfirmKey(null);
     }
   };
 
   const handleDeleteTaskCompletion = async (taskLogId) => {
-    if (window.confirm(t('admin.visits.confirmDeleteTaskCompletion'))) {
-      try {
-        const completion = taskCompletions.find(item => item.id === taskLogId);
-        if (!completion) {
-          throw new Error('Task completion not found in local state');
-        }
-        await adminApi.deleteTaskCompletion(raceId, {
-          task_id: completion.task_id,
-          team_id: completion.team_id,
-        });
-        setTaskCompletions(taskCompletions.filter(task => task.id !== taskLogId));
-        onDataChanged?.();
-      } catch (err) {
-        logger.error('ADMIN', 'Failed to delete task completion', err);
-        setError(t('admin.visits.errorDeleteTaskCompletion'));
+    setDeletingKey(`task-${taskLogId}`);
+    setActionError(null);
+    try {
+      const completion = taskCompletions.find(item => item.id === taskLogId);
+      if (!completion) {
+        throw new Error('Task completion not found in local state');
       }
+      await adminApi.deleteTaskCompletion(raceId, {
+        task_id: completion.task_id,
+        team_id: completion.team_id,
+      });
+      setTaskCompletions(prev => prev.filter(task => task.id !== taskLogId));
+      onDataChanged?.();
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to delete task completion', err);
+      setActionError(t('admin.visits.errorDeleteTaskCompletion'));
+    } finally {
+      setDeletingKey(null);
+      setConfirmKey(null);
     }
   };
 
@@ -168,6 +180,13 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
         )}
       </p>
 
+      {actionError && (
+        <div className="alert alert-danger alert-dismissible py-2" role="alert">
+          {actionError}
+          <button type="button" className="btn-close py-2" aria-label={t('admin.close')} onClick={() => setActionError(null)} />
+        </div>
+      )}
+
       <div className="admin-visits-grid">
         {items.map(item => {
           const { assessment, warning } = item;
@@ -226,13 +245,25 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
                 )}
 
                 <div className="admin-visit-actions">
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => (item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id))}
-                  >
-                    {t('admin.visits.delete')}
-                  </button>
+                  {confirmKey === item.key ? (
+                    <InlineConfirm
+                      className="w-100"
+                      text={item.type === 'visit' ? t('admin.visits.confirmDeleteVisit') : t('admin.visits.confirmDeleteTaskCompletion')}
+                      cancelLabel={t('admin.teams.keep')}
+                      confirmLabel={t('admin.teams.deleteYes')}
+                      busy={deletingKey === item.key}
+                      onCancel={() => setConfirmKey(null)}
+                      onConfirm={() => (item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id))}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => setConfirmKey(item.key)}
+                    >
+                      {t('admin.visits.delete')}
+                    </button>
+                  )}
                 </div>
               </div>
             </article>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 import { adminApi } from '../../services/adminApi';
@@ -9,6 +9,8 @@ vi.mock('../../services/adminApi', () => ({
   adminApi: {
     getVisitsByTeamAndRace: vi.fn(),
     getTaskCompletionsByTeamAndRace: vi.fn(),
+    deleteVisit: vi.fn(),
+    deleteTaskCompletion: vi.fn(),
   },
 }));
 
@@ -101,5 +103,46 @@ describe('VisitsList photos and summary', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('VisitsList deleting', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adminApi.getTaskCompletionsByTeamAndRace.mockResolvedValue([]);
+    adminApi.getVisitsByTeamAndRace.mockResolvedValue([
+      visit(1, 'Old mill', { image_distance_km: 0.01 }),
+      visit(2, 'Bridge', { image_distance_km: 0.02 }),
+    ]);
+  });
+
+  it('deletes a visit after confirming in its card, without a browser pop-up', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    adminApi.deleteVisit.mockResolvedValue({});
+    const onDataChanged = vi.fn();
+    render(<VisitsList teamId={1} raceId={7} onDataChanged={onDataChanged} />);
+
+    const card = cardOf(await screen.findByRole('heading', { name: 'Old mill' }));
+    fireEvent.click(within(card).getByRole('button', { name: 'Delete' }));
+    expect(adminApi.deleteVisit).not.toHaveBeenCalled();
+    fireEvent.click(within(card).getByRole('button', { name: 'Yes, delete' }));
+
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Old mill' })).not.toBeInTheDocument());
+    expect(adminApi.deleteVisit).toHaveBeenCalledWith(7, { checkpoint_id: 1, team_id: 1 });
+    expect(onDataChanged).toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the list when a delete fails', async () => {
+    adminApi.deleteVisit.mockRejectedValue(new Error('down'));
+    render(<VisitsList teamId={1} raceId={7} />);
+
+    const card = cardOf(await screen.findByRole('heading', { name: 'Old mill' }));
+    fireEvent.click(within(card).getByRole('button', { name: 'Delete' }));
+    fireEvent.click(within(card).getByRole('button', { name: 'Yes, delete' }));
+
+    expect(await screen.findByText('Failed to delete visit')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Old mill' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Bridge' })).toBeInTheDocument();
   });
 });

@@ -69,12 +69,15 @@ describe('RegistrationList', () => {
   });
 
   it('reports sent registration emails on the page', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const confirmSpy = vi.spyOn(window, 'confirm');
     adminApi.sendRegistrationEmails.mockResolvedValue({ sent: 2, failed: 0 });
     render(<RegistrationList raceId={2} race={{ id: 2 }} />);
     await table().findByText('Bob & Eva');
 
     fireEvent.click(screen.getByRole('button', { name: 'Send Registration Emails' }));
+    expect(adminApi.sendRegistrationEmails).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    expect(confirmSpy).not.toHaveBeenCalled();
 
     expect(await screen.findByRole('status')).toHaveTextContent(/2/);
   });
