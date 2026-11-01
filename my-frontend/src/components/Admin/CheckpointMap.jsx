@@ -1,7 +1,10 @@
 import L from 'leaflet';
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import 'leaflet/dist/leaflet.css';
+import { isMac, requireModifierToScrollZoom } from '../../utils/mapScrollZoom';
+
 import './CheckpointMap.css';
 
 const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
@@ -36,6 +39,9 @@ const placeIcon = (place) => L.divIcon?.({
 export default function CheckpointMap({
   checkpoints = [], markers = [], picked = null, onPick = null, onCheckpointClick = null, excludeId = null, className = '',
 }) {
+  const { t } = useTranslation();
+  const scrollHintRef = useRef('');
+  scrollHintRef.current = t('admin.mapScrollHint', { key: isMac() ? '⌘' : 'Ctrl' });
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const dotsRef = useRef(null);
@@ -62,10 +68,12 @@ export default function CheckpointMap({
       onPickRef.current?.({ latitude: event.latlng.lat, longitude: event.latlng.lng });
     });
     mapRef.current = map;
+    const stopScrollGuard = requireModifierToScrollZoom(map, scrollHintRef.current);
     // The map may mount inside a dialog that is still being laid out.
     const resize = setTimeout(() => map.invalidateSize?.(), 0);
     return () => {
       clearTimeout(resize);
+      stopScrollGuard();
       map.remove();
       // A new map (React re-mounts in development) starts from scratch.
       mapRef.current = null;

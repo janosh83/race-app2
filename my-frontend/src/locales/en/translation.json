@@ -959,7 +959,8 @@
       "noRaces": "Not registered for any race",
       "racesFailed": "Could not load the races",
       "racesLoading": "Loading races…"
-    }
+    },
+    "mapScrollHint": "Use {{key}} + scroll to zoom the map"
   },
   "favourites": {
     "add": "Add to team favourites",

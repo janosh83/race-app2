@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import 'leaflet/dist/leaflet.css';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
+import { isMac, requireModifierToScrollZoom } from '../../utils/mapScrollZoom';
 
 const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
 const DEFAULT_CENTER = [49.8729317, 14.8981184];
@@ -71,6 +72,8 @@ export function buildTeamPaths(teams, checkpointsById) {
 
 export default function TeamPathsMap({ raceId }) {
   const { t } = useTranslation();
+  const scrollHintRef = useRef('');
+  scrollHintRef.current = t('admin.mapScrollHint', { key: isMac() ? '⌘' : 'Ctrl' });
   const [data, setData] = useState({ checkpoints: [], teams: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -151,8 +154,10 @@ export default function TeamPathsMap({ raceId }) {
     checkpointLayerRef.current = L.layerGroup().addTo(map);
     pathLayerRef.current = L.layerGroup().addTo(map);
     mapInstance.current = map;
+    const stopScrollGuard = requireModifierToScrollZoom(map, scrollHintRef.current);
 
     return () => {
+      stopScrollGuard();
       map.remove();
       mapInstance.current = null;
       checkpointLayerRef.current = null;

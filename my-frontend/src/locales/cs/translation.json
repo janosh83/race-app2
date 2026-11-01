@@ -962,7 +962,8 @@
       "noRaces": "Není registrován do žádného závodu",
       "racesFailed": "Závody se nepodařilo načíst",
       "racesLoading": "Načítám závody…"
-    }
+    },
+    "mapScrollHint": "Mapu přiblížíte kolečkem se stisknutou klávesou {{key}}"
   },
   "favourites": {
     "add": "Přidat do oblíbených týmu",

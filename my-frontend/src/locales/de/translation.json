@@ -959,7 +959,8 @@
       "noRaces": "Für kein Rennen angemeldet",
       "racesFailed": "Rennen konnten nicht geladen werden",
       "racesLoading": "Rennen werden geladen…"
-    }
+    },
+    "mapScrollHint": "Mit {{key}} + Scrollen die Karte zoomen"
   },
   "favourites": {
     "add": "Zu Team-Favoriten hinzufügen",
