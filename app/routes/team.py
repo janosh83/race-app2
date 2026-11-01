@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog
+from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog, CheckpointLog, TaskLog
 from app.routes.admin import admin_required
 from app.schemas import (
   PaginationQuerySchema,
@@ -1499,7 +1499,9 @@ def remove_all_members(team_id):
 @admin_required()
 def delete_team(team_id):
     """
-    Delete a team.
+    Delete a team. Its members stay as users, only the membership goes.
+    A team registered for a race or with logged visits can't be deleted:
+    delete its registrations first.
     ---
     tags:
       - Teams
@@ -1513,14 +1515,28 @@ def delete_team(team_id):
     responses:
       200:
         description: Team deleted successfully
-      400:
-        description: Cannot delete the team, it has members associated with it.
       404:
         description: Team not found
+      409:
+        description: >
+          The team is registered for a race (code team_has_registrations)
+          or has logged visits (code team_has_visits).
     """
     team = Team.query.filter_by(id=team_id).first_or_404()
-    if team.members:
-        return jsonify({"message": "Cannot delete the team, it has members associated with it."}), 400
+    registration_count = Registration.query.filter_by(team_id=team.id).count()
+    if registration_count:
+        return jsonify({
+            "message": "Cannot delete the team, it is registered for a race. Delete its registrations first.",
+            "code": "team_has_registrations",
+            "registrations": registration_count,
+        }), 409
+    if (CheckpointLog.query.filter_by(team_id=team.id).first()
+            or TaskLog.query.filter_by(team_id=team.id).first()):
+        return jsonify({
+            "message": "Cannot delete the team, it has logged visits.",
+            "code": "team_has_visits",
+        }), 409
+    team.members = []
     db.session.delete(team)
     db.session.commit()
     logger.info("Team deleted successfully: %s (ID: %s)", team.name, team.id)

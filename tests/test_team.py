@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
 from app.utils import utc_now
-from app.models import Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
+from app.models import Checkpoint, CheckpointLog, Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
 from datetime import timedelta
 from app.services.stripe_service import get_checkout_receipt_url, get_checkout_session_payment_state
 
@@ -395,17 +395,45 @@ def test_delete_team_success(test_client, add_test_data, admin_auth_headers):
 
 
 def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers):
-    """Test deleting team with members returns 400."""
-    # Add members to team 1
-    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
-    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+    """Deleting a team with members removes the membership, not the users."""
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    user = User.query.filter_by(email="john@example.com").first()
+    response = test_client.post("/api/team/3/members/", json={"user_ids": [user.id]})
     assert response.status_code == 201
 
-    # Try to delete team with members
-    response = test_client.delete("/api/team/1/", headers=admin_auth_headers)
-    assert response.status_code == 400
-    assert "Cannot delete the team" in response.json["message"]
-    assert "has members" in response.json["message"]
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert db.session.get(Team, 3) is None
+    assert db.session.get(User, user.id) is not None
+
+
+def test_delete_team_registered_for_race(test_client, add_test_data, admin_auth_headers):
+    """A team registered for a race can't be deleted."""
+    race = Race.query.first()
+    db.session.add(Registration(race_id=race.id, team_id=3, race_category_id=RaceCategory.query.first().id))
+    db.session.commit()
+
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "team_has_registrations"
+    assert db.session.get(Team, 3) is not None
+
+
+def test_delete_team_with_visits(test_client, add_test_data, admin_auth_headers):
+    """A team with logged visits but no registration can't be deleted."""
+    race = Race.query.first()
+    checkpoint = Checkpoint(title="Bridge", latitude=50.0, longitude=14.0, race_id=race.id)
+    db.session.add(checkpoint)
+    db.session.flush()
+    db.session.add(CheckpointLog(checkpoint_id=checkpoint.id, team_id=3, race_id=race.id))
+    db.session.commit()
+
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "team_has_visits"
 
 
 def test_delete_team_not_found(test_client, add_test_data, admin_auth_headers):

@@ -954,7 +954,14 @@
       "editTitle": "Edit team",
       "noMembers": "No members yet",
       "addMembers": "Add members",
-      "removeMember": "Remove {{name}}"
+      "removeMember": "Remove {{name}}",
+      "delete": "Delete team",
+      "deleteConfirm": "Delete {{name}}? Its members stay as users.",
+      "deleteYes": "Yes, delete",
+      "keep": "Keep",
+      "deleteBlockedRegistrations": "This team is registered for a race. Delete its registrations first (race → Registrations).",
+      "deleteBlockedVisits": "This team has logged visits, so it can't be deleted.",
+      "deleteFailed": "Delete failed: {{message}}"
     }
   },
   "favourites": {

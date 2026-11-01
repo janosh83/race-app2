@@ -955,7 +955,14 @@
       "editTitle": "Upravit tým",
       "noMembers": "Zatím bez členů",
       "addMembers": "Přidat členy",
-      "removeMember": "Odebrat: {{name}}"
+      "removeMember": "Odebrat: {{name}}",
+      "delete": "Smazat tým",
+      "deleteConfirm": "Smazat {{name}}? Členové zůstanou jako uživatelé.",
+      "deleteYes": "Ano, smazat",
+      "keep": "Ponechat",
+      "deleteBlockedRegistrations": "Tým je registrovaný do závodu. Nejdřív smažte jeho registrace (závod → Registrace).",
+      "deleteBlockedVisits": "Tým má zapsané návštěvy, proto ho nelze smazat.",
+      "deleteFailed": "Smazání selhalo: {{message}}"
     }
   },
   "favourites": {

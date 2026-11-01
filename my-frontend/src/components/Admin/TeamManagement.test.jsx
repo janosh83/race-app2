@@ -12,6 +12,7 @@ vi.mock('../../services/adminApi', () => ({
     getTeamMembers: vi.fn(),
     createTeam: vi.fn(),
     updateTeam: vi.fn(),
+    deleteTeam: vi.fn(),
   },
 }));
 
@@ -60,5 +61,34 @@ describe('TeamManagement', () => {
     fireEvent.click(dialog.getByRole('button', { name: 'Save Changes' }));
 
     await waitFor(() => expect(adminApi.updateTeam).toHaveBeenCalledWith(5, { name: 'Bob & Eva', user_ids: [2] }));
+  });
+
+  it('deletes a team after confirming in the dialog', async () => {
+    adminApi.deleteTeam.mockResolvedValue({});
+    render(<TeamManagement />);
+    fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
+
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.click(dialog.getByRole('button', { name: 'Delete team' }));
+    expect(adminApi.deleteTeam).not.toHaveBeenCalled();
+    fireEvent.click(dialog.getByRole('button', { name: 'Yes, delete' }));
+
+    await waitFor(() => expect(adminApi.deleteTeam).toHaveBeenCalledWith(5));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('explains why a registered team cannot be deleted', async () => {
+    const err = new Error('Cannot delete');
+    err.payload = { code: 'team_has_registrations' };
+    adminApi.deleteTeam.mockRejectedValue(err);
+    render(<TeamManagement />);
+    fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
+
+    const dialog = within(screen.getByRole('dialog'));
+    fireEvent.click(dialog.getByRole('button', { name: 'Delete team' }));
+    fireEvent.click(dialog.getByRole('button', { name: 'Yes, delete' }));
+
+    expect(await dialog.findByRole('alert')).toHaveTextContent('registered for a race');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 });

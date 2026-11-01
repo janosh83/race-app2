@@ -10,14 +10,18 @@ const memberLabel = (member) => member.name || member.email || `#${member.id}`;
 
 // Create a team or edit one: its name and members. Members are picked from
 // all users (searchable); the chosen ones show on top and can be removed.
-// `onSave({ name, userIds })` returns a promise; the dialog stays open if it rejects.
-function TeamDialog({ team, members, users, onSave, onCancel }) {
+// `onSave({ name, userIds })` and `onDelete()` return promises; the dialog
+// stays open if they reject, showing the error's `message`. Delete asks to
+// confirm inside the dialog.
+function TeamDialog({ team, members, users, onSave, onDelete, onCancel }) {
   const { t } = useTranslation();
   const isNew = !team;
   const [name, setName] = useState(team?.name || '');
   const [memberIds, setMemberIds] = useState(members.map(member => member.id));
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [dialogError, setDialogError] = useState(null);
 
   const usersById = new Map(users.map(user => [user.id, user]));
   members.forEach(member => { if (!usersById.has(member.id)) usersById.set(member.id, member); });
@@ -34,10 +38,24 @@ function TeamDialog({ team, members, users, onSave, onCancel }) {
     event.preventDefault();
     if (!name.trim()) return;
     setSaving(true);
+    setDialogError(null);
     try {
       await onSave({ name: name.trim(), userIds: memberIds });
-    } catch {
-      // The caller shows the error; keep the dialog and the changes.
+    } catch (err) {
+      setDialogError(err.message); // keep the dialog and the changes
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    setDialogError(null);
+    try {
+      await onDelete();
+    } catch (err) {
+      setDialogError(err.message);
+      setConfirmingDelete(false);
     } finally {
       setSaving(false);
     }
@@ -54,6 +72,7 @@ function TeamDialog({ team, members, users, onSave, onCancel }) {
             <button type="button" className="btn-close" aria-label={t('admin.close')} onClick={onCancel}></button>
           </div>
           <div className="modal-body">
+            {dialogError && <div className="alert alert-danger py-2" role="alert">{dialogError}</div>}
             <div className="mb-3">
               <label className="form-label" htmlFor="team-name">{t('admin.teamCreation.teamName')}</label>
               <input
@@ -120,22 +139,43 @@ function TeamDialog({ team, members, users, onSave, onCancel }) {
               ))}
             </div>
           </div>
-          <div className="modal-footer">
-            <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>{t('admin.users.cancel')}</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || !name.trim()}>
-              {saving
-                ? t('admin.users.saving')
-                : (isNew ? t('admin.teamCreation.create') : t('admin.users.saveChanges'))}
-            </button>
-          </div>
+          {confirmingDelete ? (
+            <div className="modal-footer justify-content-between bg-danger-subtle">
+              <span className="small text-danger-emphasis">
+                {t('admin.teams.deleteConfirm', { name: team.name })}
+              </span>
+              <div className="d-flex gap-2">
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setConfirmingDelete(false)} disabled={saving}>
+                  {t('admin.teams.keep')}
+                </button>
+                <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={saving}>
+                  {t('admin.teams.deleteYes')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="modal-footer">
+              {!isNew && (
+                <button type="button" className="btn btn-outline-danger me-auto" onClick={() => setConfirmingDelete(true)}>
+                  {t('admin.teams.delete')}
+                </button>
+              )}
+              <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>{t('admin.users.cancel')}</button>
+              <button type="submit" className="btn btn-primary" disabled={saving || !name.trim()}>
+                {saving
+                  ? t('admin.users.saving')
+                  : (isNew ? t('admin.teamCreation.create') : t('admin.users.saveChanges'))}
+              </button>
+            </div>
+          )}
         </form>
       </div>
     </div>
   );
 }
 
-// All teams, list first: search, pages of 20, a row opens the team dialog;
-// "+ New team" opens it empty.
+// All teams, list first: search, pages of 20, a row opens the team dialog
+// (edit or delete); "+ New team" opens it empty.
 export default function TeamManagement() {
   const { t } = useTranslation();
   const [teams, setTeams] = useState([]);
@@ -224,11 +264,24 @@ export default function TeamManagement() {
       await load(teamsPage);
     } catch (err) {
       logger.error('ADMIN', 'Failed to save team', err);
-      setError(dialogTeam === 'new'
+      throw new Error(dialogTeam === 'new'
         ? t('admin.teamCreation.errorCreate')
         : t('admin.users.updateFailed', { message: err?.message || t('admin.common.unknownError') }));
-      throw err;
     }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await adminApi.deleteTeam(dialogTeam.id);
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to delete team', err);
+      const code = err?.payload?.code;
+      if (code === 'team_has_registrations') throw new Error(t('admin.teams.deleteBlockedRegistrations'));
+      if (code === 'team_has_visits') throw new Error(t('admin.teams.deleteBlockedVisits'));
+      throw new Error(t('admin.teams.deleteFailed', { message: err?.message || t('admin.common.unknownError') }));
+    }
+    setDialogTeam(null);
+    await load(teamsPage);
   };
 
   return (
@@ -342,6 +395,7 @@ export default function TeamManagement() {
           members={dialogTeam === 'new' ? [] : (teamMembers[dialogTeam.id] || [])}
           users={users}
           onSave={handleSave}
+          onDelete={handleDelete}
           onCancel={() => setDialogTeam(null)}
         />
       )}
