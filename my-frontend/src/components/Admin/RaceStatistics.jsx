@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 
+import StatTile from './StatTile';
+
 const EMPTY_STATS = {
   registered_teams_count: 0,
   checkpoints_count: 0,
@@ -21,15 +23,26 @@ const EMPTY_STATS = {
   top_favourite_checkpoints: [],
 };
 
-function StatCard({ label, value, colClass = 'col-12 col-md-4' }) {
+// A ranked list of items with a count badge each, or "No data yet".
+function RankedList({ title, items, idKey, countKey, badgeClass = 'bg-secondary', badgePrefix = '' }) {
+  const { t } = useTranslation();
   return (
-    <div className={colClass}>
-      <div className="card h-100">
-        <div className="card-body">
-          <div className="text-muted small mb-2">{label}</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.1 }}>{value}</div>
-        </div>
-      </div>
+    <div className="mb-3">
+      <h4 className="h6">{title}</h4>
+      {items.length === 0 ? (
+        <div className="small text-muted">{t('admin.statistics.noTopData')}</div>
+      ) : (
+        <ol className="mb-0 ps-3">
+          {items.map((item) => (
+            <li key={item[idKey]} className="mb-1">
+              <div className="d-flex justify-content-between gap-2">
+                <span>{item.title}</span>
+                <span className={`badge ${badgeClass}`}>{badgePrefix}{item[countKey]}</span>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
@@ -92,155 +105,86 @@ export default function RaceStatistics({ raceId }) {
   if (error) return <div className="alert alert-danger">{error}</div>;
 
   return (
-    <div className="card mb-3">
-      <div className="card-body">
-        <h5 className="card-title mb-3">{t('admin.statistics.title')}</h5>
-        <div className="row g-3">
-          <StatCard
-            label={t('admin.statistics.registeredTeams')}
-            value={stats.registered_teams_count}
-            colClass="col-12 col-md-6 col-lg-4"
-          />
+    <div className="mt-3 mb-3">
+      <h2 className="h4 mb-3">{t('admin.statistics.title')}</h2>
+
+      <div className="row row-cols-2 row-cols-lg-4 g-2 mb-4">
+        <StatTile label={t('admin.statistics.registeredTeams')}>
+          <div className="fs-4 fw-semibold">{stats.registered_teams_count}</div>
+        </StatTile>
+        <StatTile
+          label={t('admin.statistics.visits')}
+          detail={t('admin.statistics.visitsDetail', { visited: stats.checkpoints_with_visits_count, total: stats.checkpoints_count })}
+        >
+          <div className="fs-4 fw-semibold">{stats.visits_count}</div>
+        </StatTile>
+        <StatTile
+          label={t('admin.statistics.taskCompletions')}
+          detail={t('admin.statistics.completionsDetail', { completed: stats.tasks_with_completions_count, total: stats.tasks_count })}
+        >
+          <div className="fs-4 fw-semibold">{stats.task_completions_count}</div>
+        </StatTile>
+        <StatTile
+          label={t('admin.statistics.favouritesCount')}
+          detail={t('admin.statistics.favouritesDetail', { count: stats.teams_with_favourites_count })}
+        >
+          <div className="fs-4 fw-semibold">{stats.favourites_count}</div>
+        </StatTile>
+      </div>
+
+      <div className="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        <div className="col">
+          <section className="card h-100">
+            <div className="card-body">
+              <h3 className="h5 mb-3">{t('admin.statistics.checkpoints')}</h3>
+              <RankedList
+                title={t('admin.statistics.topVisitedCheckpoints')}
+                items={stats.top_visited_checkpoints}
+                idKey="checkpoint_id"
+                countKey="visits_count"
+              />
+              <RankedList
+                title={t('admin.statistics.leastVisitedCheckpoints')}
+                items={stats.least_visited_checkpoints}
+                idKey="checkpoint_id"
+                countKey="visits_count"
+              />
+            </div>
+          </section>
         </div>
-
-        <div className="row g-3 mt-2">
-          <div className="col-12 col-lg-6">
-            <div className="card h-100">
-              <div className="card-body">
-                <h6 className="card-title mb-3">{t('admin.statistics.checkpoints')}</h6>
-                <div className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">{t('admin.statistics.checkpoints')}</span>
-                  <strong>{stats.checkpoints_count}</strong>
-                </div>
-                <div className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">{t('admin.statistics.visits')}</span>
-                  <strong>{stats.visits_count}</strong>
-                </div>
-                <div className="d-flex justify-content-between py-2 border-bottom mb-3">
-                  <span className="text-muted">{t('admin.statistics.checkpointsWithVisits')}</span>
-                  <strong>{stats.checkpoints_with_visits_count}</strong>
-                </div>
-
-                <h6 className="card-title mb-3">{t('admin.statistics.topVisitedCheckpoints')}</h6>
-                {stats.top_visited_checkpoints.length === 0 ? (
-                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
-                ) : (
-                  <ol className="mb-0 ps-3">
-                    {stats.top_visited_checkpoints.map((item) => (
-                      <li key={item.checkpoint_id} className="mb-2">
-                        <div className="d-flex justify-content-between gap-2">
-                          <span>{item.title}</span>
-                          <span className="badge bg-secondary">{item.visits_count}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-
-                <h6 className="card-title mt-4 mb-3">{t('admin.statistics.leastVisitedCheckpoints')}</h6>
-                {stats.least_visited_checkpoints.length === 0 ? (
-                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
-                ) : (
-                  <ol className="mb-0 ps-3">
-                    {stats.least_visited_checkpoints.map((item) => (
-                      <li key={`least-cp-${item.checkpoint_id}`} className="mb-2">
-                        <div className="d-flex justify-content-between gap-2">
-                          <span>{item.title}</span>
-                          <span className="badge bg-secondary">{item.visits_count}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
+        <div className="col">
+          <section className="card h-100">
+            <div className="card-body">
+              <h3 className="h5 mb-3">{t('admin.statistics.tasks')}</h3>
+              <RankedList
+                title={t('admin.statistics.topCompletedTasks')}
+                items={stats.top_completed_tasks}
+                idKey="task_id"
+                countKey="completions_count"
+              />
+              <RankedList
+                title={t('admin.statistics.leastCompletedTasks')}
+                items={stats.least_completed_tasks}
+                idKey="task_id"
+                countKey="completions_count"
+              />
             </div>
-          </div>
-
-          <div className="col-12 col-lg-6">
-            <div className="card h-100">
-              <div className="card-body">
-                <h6 className="card-title mb-3">{t('admin.statistics.tasks')}</h6>
-                <div className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">{t('admin.statistics.tasks')}</span>
-                  <strong>{stats.tasks_count}</strong>
-                </div>
-                <div className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">{t('admin.statistics.taskCompletions')}</span>
-                  <strong>{stats.task_completions_count}</strong>
-                </div>
-                <div className="d-flex justify-content-between py-2 border-bottom mb-3">
-                  <span className="text-muted">{t('admin.statistics.tasksWithCompletions')}</span>
-                  <strong>{stats.tasks_with_completions_count}</strong>
-                </div>
-
-                <h6 className="card-title mb-3">{t('admin.statistics.topCompletedTasks')}</h6>
-                {stats.top_completed_tasks.length === 0 ? (
-                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
-                ) : (
-                  <ol className="mb-0 ps-3">
-                    {stats.top_completed_tasks.map((item) => (
-                      <li key={item.task_id} className="mb-2">
-                        <div className="d-flex justify-content-between gap-2">
-                          <span>{item.title}</span>
-                          <span className="badge bg-secondary">{item.completions_count}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-
-                <h6 className="card-title mt-4 mb-3">{t('admin.statistics.leastCompletedTasks')}</h6>
-                {stats.least_completed_tasks.length === 0 ? (
-                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
-                ) : (
-                  <ol className="mb-0 ps-3">
-                    {stats.least_completed_tasks.map((item) => (
-                      <li key={`least-task-${item.task_id}`} className="mb-2">
-                        <div className="d-flex justify-content-between gap-2">
-                          <span>{item.title}</span>
-                          <span className="badge bg-secondary">{item.completions_count}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
-
-        <div className="row g-3 mt-2">
-          <div className="col-12 col-lg-6">
-            <div className="card h-100">
-              <div className="card-body">
-                <h6 className="card-title mb-3">{t('admin.statistics.favourites')}</h6>
-                <div className="d-flex justify-content-between py-2 border-bottom">
-                  <span className="text-muted">{t('admin.statistics.favouritesCount')}</span>
-                  <strong>{stats.favourites_count}</strong>
-                </div>
-                <div className="d-flex justify-content-between py-2 border-bottom mb-3">
-                  <span className="text-muted">{t('admin.statistics.teamsWithFavourites')}</span>
-                  <strong>{stats.teams_with_favourites_count}</strong>
-                </div>
-
-                <h6 className="card-title mb-3">{t('admin.statistics.topFavouriteCheckpoints')}</h6>
-                {stats.top_favourite_checkpoints.length === 0 ? (
-                  <div className="text-muted">{t('admin.statistics.noTopData')}</div>
-                ) : (
-                  <ol className="mb-0 ps-3">
-                    {stats.top_favourite_checkpoints.map((item) => (
-                      <li key={`fav-cp-${item.checkpoint_id}`} className="mb-2">
-                        <div className="d-flex justify-content-between gap-2">
-                          <span>{item.title}</span>
-                          <span className="badge bg-warning text-dark">★ {item.favourites_count}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
+        <div className="col">
+          <section className="card h-100">
+            <div className="card-body">
+              <h3 className="h5 mb-3">{t('admin.statistics.favourites')}</h3>
+              <RankedList
+                title={t('admin.statistics.topFavouriteCheckpoints')}
+                items={stats.top_favourite_checkpoints}
+                idKey="checkpoint_id"
+                countKey="favourites_count"
+                badgeClass="bg-warning text-dark"
+                badgePrefix="★ "
+              />
             </div>
-          </div>
+          </section>
         </div>
       </div>
     </div>

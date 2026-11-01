@@ -6,6 +6,8 @@ import { formatShortDateTime } from '../../utils/dateRange';
 import { logger } from '../../utils/logger';
 import { formatMoney } from '../../utils/money';
 
+import StatTile from './StatTile';
+
 const EMPTY_FILTERS = { status: '', teamId: '', dateFrom: '', dateTo: '' };
 const EMAIL_STATUSES = ['pending', 'sent', 'delivered', 'opened', 'failed', 'bounced', 'blocked'];
 const RETRYABLE_EMAIL = ['failed', 'bounced', 'blocked'];
@@ -23,20 +25,6 @@ const emailBadge = (status) => {
 };
 
 const attemptKeyOf = (attempt) => attempt.id || attempt.stripe_session_id || `${attempt.teamId}-${attempt.created_at || ''}`;
-
-// One small summary number.
-function Stat({ label, children }) {
-  return (
-    <div className="col">
-      <div className="card h-100 admin-stat">
-        <div className="card-body py-2 px-3">
-          <div className="text-muted small">{label}</div>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PaymentAttemptsSummary({ raceId }) {
   const { t, i18n } = useTranslation();
@@ -239,27 +227,27 @@ export default function PaymentAttemptsSummary({ raceId }) {
       {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
       <div className="row row-cols-2 row-cols-lg-4 g-2 mb-4">
-        <Stat label={t('admin.paymentAttemptsSummary.registeredTeams')}>
+        <StatTile label={t('admin.paymentAttemptsSummary.registeredTeams')}>
           <div className="fs-4 fw-semibold">{summary.registeredTeams}</div>
-        </Stat>
-        <Stat label={t('admin.paymentAttemptsSummary.paidTeams')}>
+        </StatTile>
+        <StatTile label={t('admin.paymentAttemptsSummary.paidTeams')}>
           <div className="fs-4 fw-semibold">
             {summary.paidTeams}
             <span className="fs-6 text-muted fw-normal"> / {summary.registeredTeams}</span>
           </div>
-        </Stat>
-        <Stat label={t('admin.paymentAttemptsSummary.totalAttempts')}>
+        </StatTile>
+        <StatTile label={t('admin.paymentAttemptsSummary.totalAttempts')}>
           <div className="fs-4 fw-semibold">{summary.total}</div>
           <div className="d-flex flex-wrap gap-1">
             {statusEntries.map(([status, count]) => (
               <span key={status} className={`badge ${attemptBadge(status)}`}>{status} {count}</span>
             ))}
           </div>
-        </Stat>
-        <Stat label={t('admin.paymentAttemptsSummary.latestAttempt')}>
+        </StatTile>
+        <StatTile label={t('admin.paymentAttemptsSummary.latestAttempt')}>
           <div className="fw-semibold mt-1">{summary.latest ? date(summary.latest.confirmed_at || summary.latest.created_at) : '—'}</div>
           {summary.latest && <div className="small text-muted text-truncate">{summary.latest.teamName}</div>}
-        </Stat>
+        </StatTile>
       </div>
 
       <section className="mb-4">

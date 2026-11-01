@@ -26,11 +26,25 @@ describe('RaceStatistics', () => {
 
     render(<RaceStatistics raceId={1} />);
 
-    const heading = await screen.findByText('Most favourite checkpoints');
+    const heading = await screen.findByText('Most favourite');
     const items = within(heading.parentElement).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual(['Bravo★ 3', 'Alpha★ 1']);
-    expect(screen.getByText('Favourite marks').nextSibling).toHaveTextContent('5');
-    expect(screen.getByText('Teams with favourites').nextSibling).toHaveTextContent('3');
+    const tile = screen.getByText('Favourite marks').closest('.card');
+    expect(tile).toHaveTextContent('5');
+    expect(tile).toHaveTextContent('by 3 teams');
     expect(adminApi.getRaceStatistics).toHaveBeenCalledWith(1);
+  });
+
+  it('sums up visits and completions in the tile row', async () => {
+    adminApi.getRaceStatistics.mockResolvedValue({
+      registered_teams_count: 4, checkpoints_count: 6, visits_count: 13, checkpoints_with_visits_count: 5,
+      tasks_count: 2, task_completions_count: 3, tasks_with_completions_count: 2,
+    });
+
+    render(<RaceStatistics raceId={1} />);
+
+    expect((await screen.findByText('Visits')).closest('.card')).toHaveTextContent('13at 5 of 6 checkpoints');
+    expect(screen.getByText('Task completions').closest('.card')).toHaveTextContent('3for 2 of 2 tasks');
+    expect(screen.getByText('Registered teams').closest('.card')).toHaveTextContent('4');
   });
 });
