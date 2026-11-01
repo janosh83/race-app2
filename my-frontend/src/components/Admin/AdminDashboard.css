@@ -191,3 +191,14 @@
 .admin-form-actions-message {
   min-width: 0;
 }
+
+/* Registrations: the search sits right of the filter pills, full width on phones. */
+.admin-registrations-search {
+  max-width: 260px;
+}
+
+@media (max-width: 767.98px) {
+  .admin-registrations-search {
+    max-width: none;
+  }
+}

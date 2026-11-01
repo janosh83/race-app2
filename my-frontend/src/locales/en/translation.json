@@ -591,7 +591,6 @@
       "title": "Race Categories",
       "refresh": "Refresh",
       "loading": "Loading…",
-      "allCategories": "All Categories",
       "assignedToRace": "Assigned to this race",
       "assign": "Assign",
       "unassign": "Unassign",
@@ -605,7 +604,9 @@
       "errorLoad": "Failed to load categories",
       "errorAssign": "Failed to assign category",
       "errorUnassign": "Failed to unassign category",
-      "errorCreate": "Failed to create category"
+      "errorCreate": "Failed to create category",
+      "help": "Categories teams register in. Only categories assigned to this race can be chosen.",
+      "notAssignedToRace": "Not in this race"
     },
     "registrations": {
       "title": "Registrations & Race Categories",
@@ -717,7 +718,18 @@
       "csvHeaderCategory": "Category",
       "csvHeaderPaymentStatus": "Payment status",
       "csvHeaderRegistrationFee": "Registration fee",
-      "notAssignedRole": "Not assigned"
+      "notAssignedRole": "Not assigned",
+      "listTitle": "Registrations",
+      "registerToggle": "+ Register team",
+      "importToggle": "Import",
+      "filterAll": "All",
+      "filterNotSent": "Email not sent",
+      "filterLabel": "Filter registrations",
+      "searchPlaceholder": "Search team or member",
+      "noMatches": "No registrations match.",
+      "tableStatus": "Status",
+      "cancel": "Cancel",
+      "sendEmailsHelp": "Send the registration email to paid teams that have not got it yet."
     },
     "paymentAttemptsSummary": {
       "title": "Payment Attempts Summary",

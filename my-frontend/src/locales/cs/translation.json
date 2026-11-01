@@ -592,7 +592,6 @@
       "title": "Kategorie závodu",
       "refresh": "Obnovit",
       "loading": "Načítám…",
-      "allCategories": "Všechny kategorie",
       "assignedToRace": "Přiřazeno k závodu",
       "assign": "Přiřadit",
       "unassign": "Odebrat",
@@ -606,7 +605,9 @@
       "errorLoad": "Nepodařilo se načíst kategorie",
       "errorAssign": "Nepodařilo se přiřadit kategorii",
       "errorUnassign": "Nepodařilo se odebrat kategorii",
-      "errorCreate": "Nepodařilo se vytvořit kategorii"
+      "errorCreate": "Nepodařilo se vytvořit kategorii",
+      "help": "Kategorie, do kterých se týmy registrují. Vybrat lze jen kategorie přiřazené k tomuto závodu.",
+      "notAssignedToRace": "Není v tomto závodě"
     },
     "registrations": {
       "title": "Registrace a kategorie závodu",
@@ -718,7 +719,18 @@
       "csvHeaderCategory": "Kategorie",
       "csvHeaderPaymentStatus": "Stav platby",
       "csvHeaderRegistrationFee": "Startovne",
-      "notAssignedRole": "Neprirazeno"
+      "notAssignedRole": "Neprirazeno",
+      "listTitle": "Registrace",
+      "registerToggle": "+ Registrovat tým",
+      "importToggle": "Import",
+      "filterAll": "Vše",
+      "filterNotSent": "E-mail neodeslán",
+      "filterLabel": "Filtrovat registrace",
+      "searchPlaceholder": "Hledat tým nebo člena",
+      "noMatches": "Žádná registrace neodpovídá.",
+      "tableStatus": "Stav",
+      "cancel": "Zrušit",
+      "sendEmailsHelp": "Odešle registrační e-mail zaplaceným týmům, které ho ještě nedostaly."
     },
     "paymentAttemptsSummary": {
       "title": "Souhrn pokusů o platbu",

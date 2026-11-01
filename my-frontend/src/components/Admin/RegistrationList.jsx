@@ -7,7 +7,10 @@ import { formatMoney } from '../../utils/money';
 
 import RegistrationImporter from './RegistrationImporter';
 
-// Single-page management for registrations, teams, and categories
+// Registrations of a race: the list first, filtered by payment, email or
+// disqualification and searchable by team or member; registering a team,
+// import, export and registration emails live in the toolbar. A row's
+// details hold its category, members, payments and other actions.
 export default function RegistrationList({ raceId, race }) {
   const { t, i18n } = useTranslation();
   const [registrations, setRegistrations] = useState([]);
@@ -33,6 +36,10 @@ export default function RegistrationList({ raceId, race }) {
   const [editMembersState, setEditMembersState] = useState({});
   const [memberPickerState, setMemberPickerState] = useState({});
   const [savingMembersTeamId, setSavingMembersTeamId] = useState(null);
+  const [panel, setPanel] = useState(null); // 'register' | 'import' | null
+  const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [notice, setNotice] = useState(null);
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -86,7 +93,8 @@ export default function RegistrationList({ raceId, race }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
-  const handleDeleteRegistration = async (teamId) => {    if (!window.confirm(t('admin.registrations.confirmDelete'))) {
+  const handleDeleteRegistration = async (teamId) => {
+    if (!window.confirm(t('admin.registrations.confirmDelete'))) {
       return;
     }
     try {
@@ -98,7 +106,8 @@ export default function RegistrationList({ raceId, race }) {
     }
   };
 
-  const handleRegister = async () => {    setFormError(null);
+  const handleRegister = async () => {
+    setFormError(null);
     if (!selectedTeamId || !selectedCategoryId) {
       setFormError(t('admin.registrations.formErrorSelect'));
       return;
@@ -110,6 +119,7 @@ export default function RegistrationList({ raceId, race }) {
         race_category_id: Number(selectedCategoryId),
       });
       await loadRegistrations();
+      setPanel(null);
     } catch (err) {
       logger.error('ADMIN', 'Failed to register team', err);
       setFormError(t('admin.registrations.errorRegister'));
@@ -126,7 +136,7 @@ export default function RegistrationList({ raceId, race }) {
     setError(null);
     try {
       const result = await adminApi.sendRegistrationEmails(raceId);
-      alert(t('admin.registrations.emailsSent', { sent: result.sent, failed: result.failed }));
+      setNotice(t('admin.registrations.emailsSent', { sent: result.sent, failed: result.failed }));
     } catch (err) {
       logger.error('ADMIN', 'Failed to send emails', err);
       setError(t('admin.registrations.errorSendEmails'));
@@ -143,7 +153,7 @@ export default function RegistrationList({ raceId, race }) {
     setError(null);
     try {
       const result = await adminApi.sendRegistrationEmails(raceId, { team_id: teamId });
-      alert(t('admin.registrations.teamEmailSent', { team: teamName, sent: result.sent, failed: result.failed }));
+      setNotice(t('admin.registrations.teamEmailSent', { team: teamName, sent: result.sent, failed: result.failed }));
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to send registration email for team', err);
@@ -895,222 +905,290 @@ export default function RegistrationList({ raceId, race }) {
 
   if (!raceId) return null;
 
+  const items = (registrations || []).map((reg, idx) => ({ reg, idx, item: getRegistrationViewModel(reg, idx) }));
+  const counts = {
+    all: items.length,
+    paid: items.filter(({ item }) => item.paymentConfirmed).length,
+    unpaid: items.filter(({ item }) => !item.paymentConfirmed).length,
+    notSent: items.filter(({ item }) => !item.emailSent).length,
+    disqualified: items.filter(({ item }) => item.disqualified).length,
+  };
+  const query = search.trim().toLowerCase();
+  const visibleItems = items.filter(({ item }) => {
+    if (filter === 'paid' && !item.paymentConfirmed) return false;
+    if (filter === 'unpaid' && item.paymentConfirmed) return false;
+    if (filter === 'notSent' && item.emailSent) return false;
+    if (filter === 'disqualified' && !item.disqualified) return false;
+    if (!query) return true;
+    return [item.teamName, item.categoryName, ...item.members.map(m => `${m.name || ''} ${m.email || ''}`)]
+      .some(text => (text || '').toLowerCase().includes(query));
+  });
+  const filters = [
+    { key: 'all', label: t('admin.registrations.filterAll') },
+    { key: 'paid', label: t('admin.registrations.paymentPaid') },
+    { key: 'unpaid', label: t('admin.registrations.paymentUnpaid') },
+    { key: 'notSent', label: t('admin.registrations.filterNotSent') },
+    { key: 'disqualified', label: t('admin.registrations.disqualified') },
+  ];
+  // Teams not registered yet: the only ones that can be registered.
+  const registeredTeamIds = new Set(items.map(({ item }) => String(item.teamId)));
+  const availableTeams = (teams || []).filter(team => !registeredTeamIds.has(String(team.id)));
+  const openRegister = () => {
+    if (panel === 'register') {
+      setPanel(null);
+      return;
+    }
+    if (!availableTeams.some(team => String(team.id) === String(selectedTeamId))) {
+      setSelectedTeamId(availableTeams[0] ? String(availableTeams[0].id) : '');
+    }
+    setFormError(null);
+    setPanel('register');
+  };
+  const emptyText = items.length === 0 ? t('admin.registrations.noRegistrations') : t('admin.registrations.noMatches');
+
+  const statusBadges = (item) => (
+    <>
+      <span className={`badge ${item.paymentConfirmed ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'}`}>
+        {item.paymentConfirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
+      </span>
+      <span className={`badge ${item.emailSent ? 'bg-success-subtle text-success-emphasis' : 'bg-secondary-subtle text-secondary-emphasis'}`}>
+        {item.emailSent ? t('admin.registrations.emailSent') : t('admin.registrations.notSent')}
+      </span>
+      {item.disqualified && <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>}
+    </>
+  );
+
+  const detailsButton = (item, extraClass = '') => (
+    <button
+      type="button"
+      className={`btn btn-sm ${item.showPaymentDetails ? 'btn-secondary' : 'btn-outline-secondary'} ${extraClass}`}
+      onClick={() => togglePaymentDetails(item.teamId)}
+      aria-expanded={item.showPaymentDetails}
+    >
+      {item.showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
+    </button>
+  );
+
   return (
-    <div className="mt-3">
-      <div className="d-flex align-items-center mb-2">
-        <h4 className="me-3">{t('admin.registrations.title')}</h4>
-        <button type="button" className="btn btn-sm btn-outline-secondary ms-auto" onClick={refreshAll}>{t('admin.registrations.refresh')}</button>
+    <div>
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h3 className="h5 mb-0 me-auto">
+          {t('admin.registrations.listTitle')} <span className="text-muted fw-normal">({counts.all})</span>
+        </h3>
+        <button
+          type="button"
+          className={`btn btn-sm ${panel === 'register' ? 'btn-secondary' : 'btn-primary'}`}
+          onClick={openRegister}
+          aria-expanded={panel === 'register'}
+        >
+          {t('admin.registrations.registerToggle')}
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${panel === 'import' ? 'btn-secondary' : 'btn-outline-secondary'}`}
+          onClick={() => setPanel(panel === 'import' ? null : 'import')}
+          aria-expanded={panel === 'import'}
+        >
+          {t('admin.registrations.importToggle')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleExportRegistrationsCsv}
+          disabled={loading || items.length === 0}
+        >
+          {t('admin.registrations.exportCsv')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={handleSendEmails}
+          disabled={sendingEmails || items.length === 0}
+          title={t('admin.registrations.sendEmailsHelp')}
+        >
+          {sendingEmails ? t('admin.registrations.sending') : t('admin.registrations.sendEmails')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={refreshAll}
+          title={t('admin.registrations.refresh')}
+          aria-label={t('admin.registrations.refresh')}
+        >
+          ↻
+        </button>
       </div>
 
-      {formError && <div className="alert alert-warning py-2 mb-3">{formError}</div>}
+      {notice && (
+        <div className="alert alert-success alert-dismissible py-2 mb-3" role="status">
+          {notice}
+          <button type="button" className="btn-close py-2" aria-label={t('admin.close')} onClick={() => setNotice(null)} />
+        </div>
+      )}
       {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
-      <div className="row g-3 mb-3">
-        <div className="col-12">
-          <div className="card h-100 p-3">
-            <h5 className="mb-3">{t('admin.registrations.registerCardTitle')}</h5>
-            <div className="mb-2">
-              <label className="form-label">{t('admin.registrations.teamLabel')}</label>
-              <select
-                className="form-select"
-                value={selectedTeamId}
-                onChange={(e) => setSelectedTeamId(e.target.value)}
-                disabled={metaLoading}
-              >
-                {(teams || []).map(team => (
-                  <option key={team.id} value={team.id}>{team.name}</option>
-                ))}
-                {(!teams || teams.length === 0) && <option value="">{t('admin.registrations.noTeams')}</option>}
-              </select>
+      {panel === 'register' && (
+        <section className="card mb-3">
+          <div className="card-body">
+            <h4 className="h6 card-title mb-3">{t('admin.registrations.registerCardTitle')}</h4>
+            {formError && <div className="alert alert-warning py-2 mb-3">{formError}</div>}
+            <div className="row g-2 align-items-end">
+              <div className="col-md-5">
+                <label className="form-label" htmlFor="register-team">{t('admin.registrations.teamLabel')}</label>
+                <select
+                  id="register-team"
+                  className="form-select"
+                  value={selectedTeamId}
+                  onChange={(e) => setSelectedTeamId(e.target.value)}
+                  disabled={metaLoading}
+                >
+                  {availableTeams.map(team => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                  {availableTeams.length === 0 && <option value="">{t('admin.registrations.noTeams')}</option>}
+                </select>
+              </div>
+              <div className="col-md-4">
+                <label className="form-label" htmlFor="register-category">{t('admin.registrations.categoryLabel')}</label>
+                <select
+                  id="register-category"
+                  className="form-select"
+                  value={selectedCategoryId}
+                  onChange={(e) => setSelectedCategoryId(e.target.value)}
+                  disabled={metaLoading}
+                >
+                  {(raceCategories || []).map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                  {(!raceCategories || raceCategories.length === 0) && <option value="">{t('admin.registrations.noCategories')}</option>}
+                </select>
+              </div>
+              <div className="col-md-3 d-flex gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary flex-grow-1"
+                  disabled={savingRegistration || !selectedTeamId || !selectedCategoryId}
+                  onClick={handleRegister}
+                >
+                  {savingRegistration ? t('admin.registrations.registering') : t('admin.registrations.registerButton')}
+                </button>
+                <button type="button" className="btn btn-outline-secondary" onClick={() => setPanel(null)}>
+                  {t('admin.registrations.cancel')}
+                </button>
+              </div>
             </div>
-            <div className="mb-3">
-              <label className="form-label">{t('admin.registrations.categoryLabel')}</label>
-              <select
-                className="form-select"
-                value={selectedCategoryId}
-                onChange={(e) => setSelectedCategoryId(e.target.value)}
-                disabled={metaLoading}
-              >
-                {(raceCategories || []).map(cat => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-                {(!raceCategories || raceCategories.length === 0) && <option value="">{t('admin.registrations.noCategories')}</option>}
-              </select>
-            </div>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={savingRegistration || !selectedTeamId || !selectedCategoryId}
-              onClick={handleRegister}
-            >
-              {savingRegistration ? t('admin.registrations.registering') : t('admin.registrations.registerButton')}
-            </button>
             {metaLoading && <div className="mt-2 text-muted small">{t('admin.registrations.loadingMeta')}</div>}
           </div>
+        </section>
+      )}
+
+      {panel === 'import' && (
+        <section className="card mb-3">
+          <div className="card-body">
+            <RegistrationImporter
+              raceId={raceId}
+              race={race}
+              teams={teams}
+              users={users}
+              registrations={registrations}
+              raceCategories={raceCategories}
+              onImportComplete={() => {
+                loadRegistrations();
+                loadMeta();
+              }}
+            />
+          </div>
+        </section>
+      )}
+
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <div className="d-flex flex-wrap gap-1" role="group" aria-label={t('admin.registrations.filterLabel')}>
+          {filters.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              className={`btn btn-sm rounded-pill ${filter === key ? 'btn-primary' : 'btn-outline-secondary'}`}
+              onClick={() => setFilter(key)}
+              aria-pressed={filter === key}
+            >
+              {label} <span className="opacity-75">{counts[key]}</span>
+            </button>
+          ))}
         </div>
+        <input
+          type="search"
+          className="form-control form-control-sm ms-md-auto admin-registrations-search"
+          placeholder={t('admin.registrations.searchPlaceholder')}
+          aria-label={t('admin.registrations.searchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
-        <div className="border rounded p-3 mb-3">
-        {loading && <div className="mb-3">{t('admin.registrations.loadingRegistrations')}</div>}
+      {loading && items.length === 0 && <div className="text-muted mb-3">{t('admin.registrations.loadingRegistrations')}</div>}
 
-        <h5 className="mb-3">{t('admin.registrations.currentRegistrations')}</h5>
-
-        <div className="d-none d-md-block">
-          <div className="w-100 overflow-hidden">
-            <table className="table table-sm align-middle" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <thead>
-                <tr>
-                  <th style={{ width: '22%' }}>{t('admin.registrations.tableTeam')}</th>
-                  <th style={{ width: '36%' }}>{t('admin.registrations.tableMembers')}</th>
-                  <th style={{ width: '26%' }}>
-                    {t('admin.registrations.tableEmailSent')} / {t('admin.registrations.tablePayment')} / {t('admin.registrations.tableDisqualified')}
-                  </th>
-                  <th style={{ width: '16%' }}>{t('admin.registrations.tableActions')}</th>
+      <div className="d-none d-md-block">
+        <table className="table table-sm align-middle admin-registrations-table">
+          <thead>
+            <tr>
+              <th>{t('admin.registrations.tableTeam')}</th>
+              <th>{t('admin.registrations.tableMembers')}</th>
+              <th>{t('admin.registrations.tableStatus')}</th>
+              <th className="text-end"><span className="visually-hidden">{t('admin.registrations.tableActions')}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {visibleItems.length === 0 && (
+              <tr><td colSpan="4" className="text-muted">{emptyText}</td></tr>
+            )}
+            {visibleItems.map(({ reg, idx, item }) => (
+              <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
+                <tr className={item.showPaymentDetails ? 'table-active' : ''}>
+                  <td className="text-break">
+                    <div className="fw-semibold">{item.teamName}</div>
+                    <div className="text-muted small">{item.categoryName || '—'}</div>
+                  </td>
+                  <td className="text-muted small text-break">{item.membersDisplay}</td>
+                  <td>
+                    <div className="d-flex flex-wrap gap-1">{statusBadges(item)}</div>
+                  </td>
+                  <td className="text-end">{detailsButton(item)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {(!registrations || registrations.length === 0) && (
-                  <tr><td colSpan="4" className="text-muted">{t('admin.registrations.noRegistrations')}</td></tr>
+                {item.showPaymentDetails && (
+                  <tr>
+                    <td colSpan="4">{renderPaymentDetails(item)}</td>
+                  </tr>
                 )}
-                {registrations.map((reg, idx) => {
-                  const item = getRegistrationViewModel(reg, idx);
-                  return (
-                    <React.Fragment key={reg.id ?? reg.team_id ?? idx}>
-                      <tr>
-                        <td className="text-break">
-                          <div className="fw-semibold">{item.teamName}</div>
-                          <div className="text-muted small">{item.categoryName || '—'}</div>
-                        </td>
-                        <td className="text-muted small text-break" title={item.membersDisplay}>
-                          {item.membersDisplay}
-                        </td>
-                        <td>
-                          <div className="d-flex flex-wrap gap-1">
-                            <span className={`badge ${item.emailSent ? 'bg-success' : 'bg-secondary'}`}>
-                              {item.emailSent ? t('admin.registrations.emailSent') : t('admin.registrations.notSent')}
-                            </span>
-                            <span className={`badge ${item.paymentConfirmed ? 'bg-success' : 'bg-warning text-dark'}`}>
-                              {item.paymentConfirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
-                            </span>
-                            <span className={`badge ${item.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                              {item.disqualified ? t('admin.registrations.disqualified') : t('admin.registrations.eligible')}
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            className="btn btn-sm btn-outline-secondary"
-                            onClick={() => togglePaymentDetails(item.teamId)}
-                            title={t('admin.registrations.paymentDetails')}
-                          >
-                            {item.showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
-                          </button>
-                        </td>
-                      </tr>
-                      {item.showPaymentDetails && (
-                        <tr>
-                          <td colSpan="4">{renderPaymentDetails(item)}</td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-        <div className="d-md-none">
-          {(!registrations || registrations.length === 0) && (
-            <div className="text-muted small">{t('admin.registrations.noRegistrations')}</div>
-          )}
-          {(registrations || []).map((reg, idx) => {
-            const item = getRegistrationViewModel(reg, idx);
-            return (
-              <div key={reg.id ?? reg.team_id ?? idx} className="card mb-2">
-                <div className="card-body p-2">
-                  <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                    <div>
-                      <div className="fw-semibold small">{item.teamName}</div>
-                      <div className="text-muted small">{item.categoryName || '—'}</div>
-                    </div>
-                    <div className="d-flex flex-wrap gap-1 justify-content-end">
-                      <span className={`badge ${item.emailSent ? 'bg-success' : 'bg-secondary'}`}>
-                        {item.emailSent ? t('admin.registrations.emailSent') : t('admin.registrations.notSent')}
-                      </span>
-                      <span className={`badge ${item.paymentConfirmed ? 'bg-success' : 'bg-warning text-dark'}`}>
-                        {item.paymentConfirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
-                      </span>
-                      <span className={`badge ${item.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                        {item.disqualified ? t('admin.registrations.disqualified') : t('admin.registrations.eligible')}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="small text-muted mb-2 text-break" style={{ lineHeight: 1.3 }}>
-                    <strong>{t('admin.registrations.tableMembers')}:</strong> {item.membersDisplay}
-                  </div>
-
-                  <div className="d-grid gap-1">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={() => togglePaymentDetails(item.teamId)}
-                      title={t('admin.registrations.paymentDetails')}
-                    >
-                      {item.showPaymentDetails ? t('admin.registrations.hideDetails') : t('admin.registrations.showDetails')}
-                    </button>
-                  </div>
-
-                  {item.showPaymentDetails && (
-                    <div className="mt-2">
-                      {renderPaymentDetails(item)}
-                    </div>
-                  )}
+      <div className="d-md-none">
+        {visibleItems.length === 0 && (
+          <div className="text-muted small">{emptyText}</div>
+        )}
+        {visibleItems.map(({ reg, idx, item }) => (
+          <div key={reg.id ?? reg.team_id ?? idx} className="card mb-2">
+            <div className="card-body p-2">
+              <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
+                <div className="min-w-0">
+                  <div className="fw-semibold">{item.teamName}</div>
+                  <div className="text-muted small">{item.categoryName || '—'}</div>
                 </div>
+                {detailsButton(item, 'flex-shrink-0')}
               </div>
-            );
-          })}
-        </div>
-
-        <div className="d-flex justify-content-end flex-wrap gap-2 mt-3">
-          <button
-            className="btn btn-primary"
-            onClick={handleSendEmails}
-            disabled={sendingEmails || !registrations || registrations.length === 0}
-          >
-            {sendingEmails ? t('admin.registrations.sending') : t('admin.registrations.sendEmails')}
-          </button>
-        </div>
-
-        <hr className="my-4" />
-
-        <RegistrationImporter
-          raceId={raceId}
-          race={race}
-          teams={teams}
-          users={users}
-          registrations={registrations}
-          raceCategories={raceCategories}
-          onImportComplete={() => {
-            loadRegistrations();
-            loadMeta();
-          }}
-        />
-
-        <div className="mt-3">
-          <div className="d-flex align-items-center gap-2 mb-2">
-            <h6 className="mb-0">{t('admin.registrations.exportSectionTitle')}</h6>
+              <div className="small text-muted mb-2 text-break">{item.membersDisplay}</div>
+              <div className="d-flex flex-wrap gap-1">{statusBadges(item)}</div>
+              {item.showPaymentDetails && (
+                <div className="mt-2">
+                  {renderPaymentDetails(item)}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="d-flex justify-content-end">
-            <button
-              className="btn btn-outline-secondary"
-              onClick={handleExportRegistrationsCsv}
-              disabled={loading || !registrations || registrations.length === 0}
-            >
-              {t('admin.registrations.exportCsv')}
-            </button>
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );

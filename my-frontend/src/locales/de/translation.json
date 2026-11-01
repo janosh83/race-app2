@@ -591,7 +591,6 @@
       "title": "Rennkategorien",
       "refresh": "Aktualisieren",
       "loading": "Laden…",
-      "allCategories": "Alle Kategorien",
       "assignedToRace": "Diesem Rennen zugeordnet",
       "assign": "Zuordnen",
       "unassign": "Entfernen",
@@ -605,7 +604,9 @@
       "errorLoad": "Kategorien konnten nicht geladen werden",
       "errorAssign": "Kategorie konnte nicht zugeordnet werden",
       "errorUnassign": "Kategorie konnte nicht entfernt werden",
-      "errorCreate": "Kategorie konnte nicht erstellt werden"
+      "errorCreate": "Kategorie konnte nicht erstellt werden",
+      "help": "Kategorien, in denen sich Teams anmelden. Wählbar sind nur Kategorien, die diesem Rennen zugeordnet sind.",
+      "notAssignedToRace": "Nicht in diesem Rennen"
     },
     "registrations": {
       "title": "Registrierungen & Rennkategorien",
@@ -717,7 +718,18 @@
       "csvHeaderCategory": "Kategorie",
       "csvHeaderPaymentStatus": "Zahlungsstatus",
       "csvHeaderRegistrationFee": "Startgebuehr",
-      "notAssignedRole": "Nicht zugewiesen"
+      "notAssignedRole": "Nicht zugewiesen",
+      "listTitle": "Anmeldungen",
+      "registerToggle": "+ Team anmelden",
+      "importToggle": "Import",
+      "filterAll": "Alle",
+      "filterNotSent": "E-Mail nicht gesendet",
+      "filterLabel": "Anmeldungen filtern",
+      "searchPlaceholder": "Team oder Mitglied suchen",
+      "noMatches": "Keine Anmeldung passt.",
+      "tableStatus": "Status",
+      "cancel": "Abbrechen",
+      "sendEmailsHelp": "Sendet die Anmelde-E-Mail an bezahlte Teams, die sie noch nicht erhalten haben."
     },
     "paymentAttemptsSummary": {
       "title": "Uebersicht Zahlungsversuche",
