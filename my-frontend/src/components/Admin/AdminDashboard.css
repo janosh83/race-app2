@@ -234,3 +234,9 @@
 .admin-item-row strong {
   min-width: 0;
 }
+
+/* Payments: email filters side by side, wrapping two per row on phones. */
+.admin-email-filters > div {
+  flex: 1 1 140px;
+  max-width: 200px;
+}

@@ -2,16 +2,40 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
+import { formatShortDateTime } from '../../utils/dateRange';
 import { logger } from '../../utils/logger';
 import { formatMoney } from '../../utils/money';
 
-function formatDate(value) {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString();
-  } catch {
-    return value;
-  }
+const EMPTY_FILTERS = { status: '', teamId: '', dateFrom: '', dateTo: '' };
+const EMAIL_STATUSES = ['pending', 'sent', 'delivered', 'opened', 'failed', 'bounced', 'blocked'];
+const RETRYABLE_EMAIL = ['failed', 'bounced', 'blocked'];
+
+const attemptBadge = (status) => ({
+  confirmed: 'bg-success-subtle text-success-emphasis',
+  pending: 'bg-warning-subtle text-warning-emphasis',
+  failed: 'bg-danger-subtle text-danger-emphasis',
+}[status] || 'bg-secondary-subtle text-secondary-emphasis');
+
+const emailBadge = (status) => {
+  if (['sent', 'delivered', 'opened'].includes(status)) return 'bg-success-subtle text-success-emphasis';
+  if (RETRYABLE_EMAIL.includes(status)) return 'bg-danger-subtle text-danger-emphasis';
+  return 'bg-secondary-subtle text-secondary-emphasis';
+};
+
+const attemptKeyOf = (attempt) => attempt.id || attempt.stripe_session_id || `${attempt.teamId}-${attempt.created_at || ''}`;
+
+// One small summary number.
+function Stat({ label, children }) {
+  return (
+    <div className="col">
+      <div className="card h-100 admin-stat">
+        <div className="card-body py-2 px-3">
+          <div className="text-muted small">{label}</div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function PaymentAttemptsSummary({ raceId }) {
@@ -24,12 +48,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
   const [emailLogs, setEmailLogs] = useState([]);
   const [retryingFailedEmails, setRetryingFailedEmails] = useState(false);
   const [retryingEmailLogId, setRetryingEmailLogId] = useState(null);
-  const [emailLogFilters, setEmailLogFilters] = useState({
-    status: '',
-    teamId: '',
-    dateFrom: '',
-    dateTo: '',
-  });
+  const [emailLogFilters, setEmailLogFilters] = useState(EMPTY_FILTERS);
 
   const loadRegistrations = useCallback(async () => {
     setLoading(true);
@@ -89,7 +108,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
     const teamId = attempt?.teamId;
     if (!teamId) return;
 
-    const attemptKey = attempt?.id || attempt?.stripe_session_id || `${teamId}-${attempt?.created_at || ''}`;
+    const attemptKey = attemptKeyOf(attempt);
     const paymentType = attempt?.payment_type || 'team';
 
     setReconcilingAttemptKey(attemptKey);
@@ -133,18 +152,7 @@ export default function PaymentAttemptsSummary({ raceId }) {
     }));
   };
 
-  const handleApplyEmailFilters = async () => {
-    await loadEmailLogs();
-  };
-
-  const handleClearEmailFilters = async () => {
-    setEmailLogFilters({
-      status: '',
-      teamId: '',
-      dateFrom: '',
-      dateTo: '',
-    });
-  };
+  const filtersActive = Object.values(emailLogFilters).some(Boolean);
 
   const handleRetryEmailLog = async (log) => {
     if (!log?.id) return;
@@ -161,10 +169,6 @@ export default function PaymentAttemptsSummary({ raceId }) {
       setRetryingEmailLogId(null);
     }
   };
-
-  useEffect(() => {
-    loadEmailLogs();
-  }, [emailLogFilters, loadEmailLogs]);
 
   const summary = useMemo(() => {
     const allAttempts = [];
@@ -196,297 +200,242 @@ export default function PaymentAttemptsSummary({ raceId }) {
 
     return {
       registeredTeams: (registrations || []).length,
+      paidTeams: (registrations || []).filter(reg => reg?.payment_confirmed).length,
       total: allAttempts.length,
-      uniqueTeams: new Set(allAttempts.map(item => item.teamId || item.teamName)).size,
       latest: sortedAttempts[0] || null,
       statusCounts,
       recentAttempts: sortedAttempts,
     };
   }, [registrations]);
 
+  const teamOptions = useMemo(() => (registrations || [])
+    .map(reg => ({ id: reg?.team_id || reg?.id, name: reg?.name || reg?.team?.name || `#${reg?.team_id || reg?.id}` }))
+    .filter(team => team.id)
+    .sort((a, b) => a.name.localeCompare(b.name)), [registrations]);
+
   if (!raceId) return null;
+
+  const date = (value) => formatShortDateTime(value);
+  const attemptsNeedingAction = summary.recentAttempts.some(a => (a.status || '').toLowerCase() !== 'confirmed');
+  const emailsNeedingAction = emailLogs.some(log => RETRYABLE_EMAIL.includes((log.status || '').toLowerCase()));
+  const statusEntries = Object.entries(summary.statusCounts).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="mt-3">
-      <div className="d-flex align-items-center mb-3">
-        <h4 className="me-3 mb-0">{t('admin.paymentAttemptsSummary.title')}</h4>
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <h2 className="h4 mb-0 me-auto">{t('admin.paymentAttemptsSummary.title')}</h2>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={() => { loadRegistrations(); loadEmailLogs(); }}
+          title={t('admin.paymentAttemptsSummary.refresh')}
+          aria-label={t('admin.paymentAttemptsSummary.refresh')}
+        >
+          ↻
+        </button>
       </div>
 
-      {loading && <div className="mb-3">{t('admin.paymentAttemptsSummary.loading')}</div>}
+      {loading && <div className="mb-3 text-muted">{t('admin.paymentAttemptsSummary.loading')}</div>}
       {error && <div className="alert alert-danger py-2 mb-3">{error}</div>}
 
-      <div className="row g-3 mb-3">
-        <div className="col-12 col-md-4">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="text-muted small">{t('admin.paymentAttemptsSummary.registeredTeams')}</div>
-              <div className="display-6 fw-semibold">{summary.registeredTeams}</div>
-            </div>
+      <div className="row row-cols-2 row-cols-lg-4 g-2 mb-4">
+        <Stat label={t('admin.paymentAttemptsSummary.registeredTeams')}>
+          <div className="fs-4 fw-semibold">{summary.registeredTeams}</div>
+        </Stat>
+        <Stat label={t('admin.paymentAttemptsSummary.paidTeams')}>
+          <div className="fs-4 fw-semibold">
+            {summary.paidTeams}
+            <span className="fs-6 text-muted fw-normal"> / {summary.registeredTeams}</span>
           </div>
-        </div>
-        <div className="col-12 col-md-4">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="text-muted small">{t('admin.paymentAttemptsSummary.totalAttempts')}</div>
-              <div className="display-6 fw-semibold">{summary.total}</div>
-            </div>
+        </Stat>
+        <Stat label={t('admin.paymentAttemptsSummary.totalAttempts')}>
+          <div className="fs-4 fw-semibold">{summary.total}</div>
+          <div className="d-flex flex-wrap gap-1">
+            {statusEntries.map(([status, count]) => (
+              <span key={status} className={`badge ${attemptBadge(status)}`}>{status} {count}</span>
+            ))}
           </div>
-        </div>
-        <div className="col-12 col-md-4">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="text-muted small">{t('admin.paymentAttemptsSummary.uniqueTeams')}</div>
-              <div className="display-6 fw-semibold">{summary.uniqueTeams}</div>
-            </div>
-          </div>
-        </div>
+        </Stat>
+        <Stat label={t('admin.paymentAttemptsSummary.latestAttempt')}>
+          <div className="fw-semibold mt-1">{summary.latest ? date(summary.latest.confirmed_at || summary.latest.created_at) : '—'}</div>
+          {summary.latest && <div className="small text-muted text-truncate">{summary.latest.teamName}</div>}
+        </Stat>
       </div>
 
-      <div className="row g-3 mb-3">
-        <div className="col-12 col-lg-6">
-          <div className="card h-100">
-            <div className="card-body">
-              <h5 className="card-title">{t('admin.paymentAttemptsSummary.statusBreakdown')}</h5>
-              <table className="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th>{t('admin.registrations.attemptStatus')}</th>
-                    <th>{t('admin.paymentAttemptsSummary.count')}</th>
+      <section className="mb-4">
+        <h3 className="h5">{t('admin.paymentAttemptsSummary.recentAttempts')}</h3>
+        <div className="table-responsive">
+          <table className="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>{t('admin.registrations.tableTeam')}</th>
+                <th>{t('admin.registrations.attemptStatus')}</th>
+                <th>{t('admin.registrations.attemptAmount')}</th>
+                <th>{t('admin.registrations.attemptCreated')}</th>
+                {attemptsNeedingAction && <th>{t('admin.registrations.tableActions')}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {summary.recentAttempts.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
+                </tr>
+              )}
+              {summary.recentAttempts.map((attempt, index) => {
+                const status = (attempt.status || '').toLowerCase();
+                return (
+                  <tr key={`${attempt.id || attempt.stripe_session_id || index}`}>
+                    <td>{attempt.teamName}</td>
+                    <td>
+                      <span className={`badge ${attemptBadge(status)}`}>{attempt.status || t('admin.paymentAttemptsSummary.unknownStatus')}</span>
+                    </td>
+                    <td className="text-nowrap">
+                      {attempt.amount_cents ? formatMoney(attempt.amount_cents, attempt.currency, i18n.language) : '—'}
+                    </td>
+                    <td className="text-nowrap">{date(attempt.created_at)}</td>
+                    {attemptsNeedingAction && (
+                      <td>
+                        {status !== 'confirmed' && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-info"
+                            disabled={reconcilingAttemptKey === attemptKeyOf(attempt) || !attempt.teamId}
+                            onClick={() => handleReconcileAttempt(attempt)}
+                          >
+                            {t('admin.registrations.reconcilePayment')}
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(summary.statusCounts).length === 0 && (
-                    <tr>
-                      <td colSpan="2" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
-                    </tr>
-                  )}
-                  {Object.entries(summary.statusCounts)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([status, count]) => (
-                      <tr key={status}>
-                        <td>{status}</td>
-                        <td>{count}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        <div className="col-12 col-lg-6">
-          <div className="card h-100">
-            <div className="card-body">
-              <h5 className="card-title">{t('admin.paymentAttemptsSummary.latestAttempt')}</h5>
-              <div className="fw-semibold">{formatDate(summary.latest?.confirmed_at || summary.latest?.created_at)}</div>
-              <div className="small text-muted mt-1">
-                {summary.latest
-                  ? `${summary.latest.teamName} • ${summary.latest.status || t('admin.paymentAttemptsSummary.unknownStatus')}`
-                  : '—'}
-              </div>
-            </div>
-          </div>
+      </section>
+
+      <section className="mb-3">
+        <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <h3 className="h5 mb-0 me-auto">{t('admin.paymentAttemptsSummary.emailTrackingTitle')}</h3>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            onClick={handleRetryFailedEmails}
+            disabled={retryingFailedEmails}
+          >
+            {retryingFailedEmails
+              ? t('admin.paymentAttemptsSummary.retryingFailedEmails')
+              : t('admin.paymentAttemptsSummary.retryFailedEmails')}
+          </button>
         </div>
 
-      </div>
+        <div className="d-flex flex-wrap align-items-end gap-2 mb-3 admin-email-filters">
+          <div>
+            <label className="form-label small mb-1" htmlFor="email-filter-status">{t('admin.paymentAttemptsSummary.filterStatus')}</label>
+            <select
+              id="email-filter-status"
+              className="form-select form-select-sm"
+              value={emailLogFilters.status}
+              onChange={(event) => handleEmailFilterChange('status', event.target.value)}
+            >
+              <option value="">{t('admin.paymentAttemptsSummary.filterAnyStatus')}</option>
+              {EMAIL_STATUSES.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label small mb-1" htmlFor="email-filter-team">{t('admin.paymentAttemptsSummary.filterTeam')}</label>
+            <select
+              id="email-filter-team"
+              className="form-select form-select-sm"
+              value={emailLogFilters.teamId}
+              onChange={(event) => handleEmailFilterChange('teamId', event.target.value)}
+            >
+              <option value="">{t('admin.paymentAttemptsSummary.filterAnyTeam')}</option>
+              {teamOptions.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label small mb-1" htmlFor="email-filter-from">{t('admin.paymentAttemptsSummary.filterDateFrom')}</label>
+            <input
+              id="email-filter-from"
+              type="date"
+              className="form-control form-control-sm"
+              value={emailLogFilters.dateFrom}
+              onChange={(event) => handleEmailFilterChange('dateFrom', event.target.value)}
+            />
+          </div>
+          <div>
+            <label className="form-label small mb-1" htmlFor="email-filter-to">{t('admin.paymentAttemptsSummary.filterDateTo')}</label>
+            <input
+              id="email-filter-to"
+              type="date"
+              className="form-control form-control-sm"
+              value={emailLogFilters.dateTo}
+              onChange={(event) => handleEmailFilterChange('dateTo', event.target.value)}
+            />
+          </div>
+          {filtersActive && (
+            <button type="button" className="btn btn-sm btn-link" onClick={() => setEmailLogFilters(EMPTY_FILTERS)}>
+              {t('admin.paymentAttemptsSummary.clearFilters')}
+            </button>
+          )}
+        </div>
 
-      <div className="row g-3 mb-3">
-        <div className="col-12">
-          <div className="card h-100">
-            <div className="card-body">
-              <h5 className="card-title">{t('admin.paymentAttemptsSummary.recentAttempts')}</h5>
-              <div className="table-responsive">
-                <table className="table table-sm mb-0">
-                  <thead>
-                    <tr>
-                      <th>{t('admin.registrations.tableTeam')}</th>
-                      <th>{t('admin.registrations.attemptStatus')}</th>
-                      <th>{t('admin.registrations.attemptAmount')}</th>
-                      <th>{t('admin.registrations.attemptCreated')}</th>
-                      <th>{t('admin.registrations.tableActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {summary.recentAttempts.length === 0 && (
-                      <tr>
-                        <td colSpan="5" className="text-muted">{t('admin.registrations.noPaymentAttempts')}</td>
-                      </tr>
+        {emailLogsLoading && <div className="small text-muted mb-2">{t('admin.paymentAttemptsSummary.loading')}</div>}
+
+        <div className="table-responsive">
+          <table className="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>{t('admin.paymentAttemptsSummary.team')}</th>
+                <th>{t('admin.paymentAttemptsSummary.emailAddress')}</th>
+                <th>{t('admin.paymentAttemptsSummary.emailStatus')}</th>
+                <th>{t('admin.paymentAttemptsSummary.emailAttempts')}</th>
+                <th>{t('admin.paymentAttemptsSummary.lastAttempt')}</th>
+                <th>{t('admin.paymentAttemptsSummary.lastError')}</th>
+                {emailsNeedingAction && <th>{t('admin.paymentAttemptsSummary.actions')}</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {emailLogs.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="text-muted">{t('admin.paymentAttemptsSummary.noEmailLogs')}</td>
+                </tr>
+              )}
+              {emailLogs.map((log) => {
+                const status = (log.status || '').toLowerCase();
+                return (
+                  <tr key={log.id}>
+                    <td>{log.team_name || (log.team_id ? `#${log.team_id}` : '—')}</td>
+                    <td className="text-break">{log.email_address || '—'}</td>
+                    <td><span className={`badge ${emailBadge(status)}`}>{log.status || '—'}</span></td>
+                    <td>{log.attempt_count || 0}</td>
+                    <td className="text-nowrap">{date(log.last_attempted_at)}</td>
+                    <td className="small text-muted">{log.error_message || '—'}</td>
+                    {emailsNeedingAction && (
+                      <td>
+                        {RETRYABLE_EMAIL.includes(status) && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-warning"
+                            disabled={retryingEmailLogId === log.id}
+                            onClick={() => handleRetryEmailLog(log)}
+                          >
+                            {retryingEmailLogId === log.id
+                              ? t('admin.paymentAttemptsSummary.retryingEmailLog')
+                              : t('admin.paymentAttemptsSummary.retryEmailLog')}
+                          </button>
+                        )}
+                      </td>
                     )}
-                    {summary.recentAttempts.map((attempt, index) => (
-                      <tr key={`${attempt.id || attempt.stripe_session_id || index}`}>
-                        <td>{attempt.teamName}</td>
-                        <td>{attempt.status || t('admin.paymentAttemptsSummary.unknownStatus')}</td>
-                        <td>
-                          {attempt.amount_cents
-                            ? formatMoney(attempt.amount_cents, attempt.currency, i18n.language)
-                            : '—'}
-                        </td>
-                        <td>{formatDate(attempt.created_at)}</td>
-                        <td>
-                          {((attempt.status || '').toLowerCase() !== 'confirmed') ? (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-info"
-                              disabled={
-                                reconcilingAttemptKey === (attempt.id || attempt.stripe_session_id || `${attempt.teamId}-${attempt.created_at || ''}`)
-                                || !attempt.teamId
-                              }
-                              onClick={() => handleReconcileAttempt(attempt)}
-                            >
-                              {t('admin.registrations.reconcilePayment')}
-                            </button>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      <div className="row g-3 mb-3">
-        <div className="col-12">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="d-flex align-items-center justify-content-between mb-2">
-                <h5 className="card-title mb-0">{t('admin.paymentAttemptsSummary.emailTrackingTitle')}</h5>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={handleRetryFailedEmails}
-                  disabled={retryingFailedEmails}
-                >
-                  {retryingFailedEmails
-                    ? t('admin.paymentAttemptsSummary.retryingFailedEmails')
-                    : t('admin.paymentAttemptsSummary.retryFailedEmails')}
-                </button>
-              </div>
-
-              <div className="row g-2 mb-3">
-                <div className="col-12 col-md-3">
-                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterStatus')}</label>
-                  <select
-                    className="form-select form-select-sm"
-                    value={emailLogFilters.status}
-                    onChange={(event) => handleEmailFilterChange('status', event.target.value)}
-                  >
-                    <option value="">{t('admin.paymentAttemptsSummary.filterAnyStatus')}</option>
-                    {['pending', 'sent', 'delivered', 'opened', 'failed', 'bounced', 'blocked'].map((status) => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="col-12 col-md-2">
-                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterTeamId')}</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="form-control form-control-sm"
-                    value={emailLogFilters.teamId}
-                    onChange={(event) => handleEmailFilterChange('teamId', event.target.value)}
-                    placeholder="1"
-                  />
-                </div>
-
-                <div className="col-12 col-md-3">
-                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterDateFrom')}</label>
-                  <input
-                    type="date"
-                    className="form-control form-control-sm"
-                    value={emailLogFilters.dateFrom}
-                    onChange={(event) => handleEmailFilterChange('dateFrom', event.target.value)}
-                  />
-                </div>
-
-                <div className="col-12 col-md-3">
-                  <label className="form-label small mb-1">{t('admin.paymentAttemptsSummary.filterDateTo')}</label>
-                  <input
-                    type="date"
-                    className="form-control form-control-sm"
-                    value={emailLogFilters.dateTo}
-                    onChange={(event) => handleEmailFilterChange('dateTo', event.target.value)}
-                  />
-                </div>
-
-                <div className="col-12 col-md-1 d-flex align-items-end">
-                  <div className="d-flex gap-1 w-100">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-secondary w-100"
-                      onClick={handleApplyEmailFilters}
-                    >
-                      {t('admin.paymentAttemptsSummary.applyFilters')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-light w-100"
-                      onClick={handleClearEmailFilters}
-                    >
-                      {t('admin.paymentAttemptsSummary.clearFilters')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {emailLogsLoading && <div className="small text-muted mb-2">{t('admin.paymentAttemptsSummary.loading')}</div>}
-
-              <div className="table-responsive">
-                <table className="table table-sm mb-0">
-                  <thead>
-                    <tr>
-                      <th>{t('admin.paymentAttemptsSummary.team')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.emailAddress')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.emailStatus')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.emailAttempts')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.lastAttempt')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.lastError')}</th>
-                      <th>{t('admin.paymentAttemptsSummary.actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {emailLogs.length === 0 && (
-                      <tr>
-                        <td colSpan="7" className="text-muted">{t('admin.paymentAttemptsSummary.noEmailLogs')}</td>
-                      </tr>
-                    )}
-                    {emailLogs.map((log) => (
-                      <tr key={log.id}>
-                        <td>{log.team_name || (log.team_id ? `#${log.team_id}` : '—')}</td>
-                        <td>{log.email_address || '—'}</td>
-                        <td>{log.status || '—'}</td>
-                        <td>{log.attempt_count || 0}</td>
-                        <td>{formatDate(log.last_attempted_at)}</td>
-                        <td className="text-muted">{log.error_message || '—'}</td>
-                        <td>
-                          {['failed', 'bounced', 'blocked'].includes((log.status || '').toLowerCase()) ? (
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-warning"
-                              disabled={retryingEmailLogId === log.id}
-                              onClick={() => handleRetryEmailLog(log)}
-                            >
-                              {retryingEmailLogId === log.id
-                                ? t('admin.paymentAttemptsSummary.retryingEmailLog')
-                                : t('admin.paymentAttemptsSummary.retryEmailLog')}
-                            </button>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }
