@@ -7,27 +7,36 @@ import FilePickerButton from '../FilePickerButton';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import Toast from '../Toast';
 
+import CheckpointFormModal from './CheckpointFormModal';
+import CheckpointMap from './CheckpointMap';
 import TranslationManager from './TranslationManager';
+
+const toNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+};
+
+// One shape for the map, whatever field names the checkpoint came with.
+const forMap = (cp) => ({
+  ...cp,
+  id: cp.id ?? cp.checkpoint_id,
+  title: cp.title ?? cp.name,
+  latitude: toNumber(cp.latitude ?? cp.lat ?? cp.y),
+  longitude: toNumber(cp.longitude ?? cp.lng ?? cp.x),
+});
 
 export default function CheckpointList({ checkpoints = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
-  const [editingId, setEditingId] = useState(null);
+  const [formFor, setFormFor] = useState(null); // null, 'new' or the checkpoint being edited
   const [expandedId, setExpandedId] = useState(null);
   const [checkpointTranslations, setCheckpointTranslations] = useState({});
   const [loadingTranslations, setLoadingTranslations] = useState({});
   const [toast, setToast] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: '',
-    description: '',
-    latitude: '',
-    longitude: '',
-    numOfPoints: ''
-  });
-
   // Keep translation cache aligned with currently visible checkpoints.
   useEffect(() => {
     const checkpointIds = checkpoints.map(cp => cp.id ?? cp.checkpoint_id).filter(Boolean);
@@ -101,61 +110,32 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     }
   };
 
-  const handleEdit = (checkpoint) => {
-    setEditingId(checkpoint.id ?? checkpoint.checkpoint_id);
-    setEditForm({
-      title: checkpoint.name ?? checkpoint.title ?? '',
-      description: checkpoint.description ?? '',
-      latitude: checkpoint.lat ?? checkpoint.latitude ?? '',
-      longitude: checkpoint.lng ?? checkpoint.longitude ?? '',
-      numOfPoints: checkpoint.numOfPoints ?? 0
-    });
-  };
-
-  const handleEditChange = (field, value) => {
-    setEditForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
+  const handleSave = async (payload) => {
+    const isNew = formFor === 'new';
     try {
-      const payload = {
-        title: editForm.title,
-        description: editForm.description,
-        latitude: editForm.latitude ? parseFloat(editForm.latitude) : null,
-        longitude: editForm.longitude ? parseFloat(editForm.longitude) : null,
-        numOfPoints: editForm.numOfPoints ? parseInt(editForm.numOfPoints) : 0
-      };
-      await adminApi.updateCheckpoint(editingId, payload);
-      onUpdate(editingId, payload);
-      setEditingId(null);
+      if (isNew) {
+        const created = await adminApi.addCheckpoint(raceId, payload);
+        onImported(Array.isArray(created) ? created : [created]);
+      } else {
+        const id = formFor.id ?? formFor.checkpoint_id;
+        await adminApi.updateCheckpoint(id, payload);
+        onUpdate(id, payload);
+      }
+      setFormFor(null);
       setToast({
-        message: t('admin.checkpoints.updated'),
+        message: isNew ? t('admin.checkpoints.created', { name: payload.title }) : t('admin.checkpoints.updated'),
         type: 'success',
         duration: 5000
       });
     } catch (err) {
-      logger.error('ADMIN', 'Failed to update checkpoint', err);
+      logger.error('ADMIN', isNew ? 'Failed to create checkpoint' : 'Failed to update checkpoint', err);
       setToast({
-        message: t('admin.checkpoints.updateFailed', { message: err?.message || t('admin.common.unknownError') }),
+        message: t(isNew ? 'admin.checkpoints.createFailed' : 'admin.checkpoints.updateFailed', { message: err?.message || t('admin.common.unknownError') }),
         type: 'error',
         duration: 5000
       });
+      throw err;
     }
-  };
-
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditForm({
-      title: '',
-      description: '',
-      latitude: '',
-      longitude: '',
-      numOfPoints: ''
-    });
   };
 
   const validateItem = (it) => {
@@ -269,11 +249,19 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
     }
   };
 
-  return (
-    <div className="mb-3">
-      <h5>{t('admin.checkpoints.title')}</h5>
+  const mapCheckpoints = checkpoints.map(forMap);
 
-      <div className="mb-2">
+  return (
+    <div className="mb-4">
+      <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
+        <h5 className="mb-0">{t('admin.checkpoints.title')} <span className="text-muted fw-normal">({checkpoints.length})</span></h5>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setFormFor('new')}>
+          + {t('admin.checkpoints.new')}
+        </button>
+      </div>
+
+      <div className="row g-3 mb-2">
+      <div className="col-lg-6">
         {checkpoints.length === 0 ? (
           <div className="text-muted">{t('admin.checkpoints.none')}</div>
         ) : (
@@ -302,7 +290,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
                       </div>
                     </div>
                     <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(cp); }}>{t('admin.translationManager.edit')}</button>
+                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); setFormFor(cp); }}>{t('admin.translationManager.edit')}</button>
                       <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>{t('admin.translationManager.delete')}</button>
                     </div>
                   </div>
@@ -347,91 +335,40 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           </div>
         )}
       </div>
+      <div className="col-lg-6">
+        <CheckpointMap
+          checkpoints={mapCheckpoints}
+          onCheckpointClick={(cp) => setFormFor(checkpoints.find(item => (item.id ?? item.checkpoint_id) === cp.id) ?? cp)}
+          className="admin-checkpoints-overview-map"
+        />
+        <div className="form-text">{t('admin.checkpoints.overviewMapHelp')}</div>
+      </div>
+      </div>
 
-      {/* Edit Modal */}
-      {editingId !== null && (
-        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{t('admin.checkpoints.editTitle')}</h5>
-                <button type="button" className="btn-close" onClick={handleEditCancel}></button>
-              </div>
-              <form onSubmit={handleEditSubmit}>
-                <div className="modal-body">
-                  <div className="mb-3">
-                    <label className="form-label">{t('admin.checkpoints.fieldTitle')}</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={editForm.title}
-                      onChange={(e) => handleEditChange('title', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">{t('admin.checkpoints.fieldDescription')}</label>
-                    <textarea
-                      className="form-control"
-                      rows="3"
-                      value={editForm.description}
-                      onChange={(e) => handleEditChange('description', e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">{t('admin.checkpoints.fieldLatitude')}</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      className="form-control"
-                      value={editForm.latitude}
-                      onChange={(e) => handleEditChange('latitude', e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">{t('admin.checkpoints.fieldLongitude')}</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      className="form-control"
-                      value={editForm.longitude}
-                      onChange={(e) => handleEditChange('longitude', e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label">{t('admin.checkpoints.fieldPoints')}</label>
-                    <input
-                      type="number"
-                      className="form-control"
-                      value={editForm.numOfPoints}
-                      onChange={(e) => handleEditChange('numOfPoints', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={handleEditCancel}>{t('admin.checkpoints.cancel')}</button>
-                  <button type="submit" className="btn btn-primary">{t('admin.checkpoints.saveChanges')}</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      {formFor !== null && (
+        <CheckpointFormModal
+          checkpoint={formFor === 'new' ? null : forMap(formFor)}
+          checkpoints={mapCheckpoints}
+          onSave={handleSave}
+          onCancel={() => setFormFor(null)}
+        />
       )}
 
+      <details className="admin-import-details">
+        <summary>{t('admin.checkpoints.importTitle')}</summary>
       <div className="card card-body">
         <form onSubmit={handleImport}>
           <div className="d-flex align-items-center gap-2 mb-2">
-            <label className="form-label mb-0">{t('admin.checkpoints.importTitle')}</label>
             <button
               type="button"
-              className="btn btn-sm btn-link p-0"
+              className="btn btn-sm btn-link p-0 d-inline-flex align-items-center gap-1"
               onClick={() => setShowHelpModal(true)}
-              title={t('admin.checkpoints.importHelpTitle')}
             >
               <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                 <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
               </svg>
+              {t('admin.checkpoints.importHelpTitle')}
             </button>
           </div>
           <FilePickerButton
@@ -465,6 +402,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           </div>
         </form>
       </div>
+      </details>
 
       {/* Help Modal */}
       {showHelpModal && (

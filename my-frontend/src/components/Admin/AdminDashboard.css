@@ -74,3 +74,15 @@
     overflow-y: auto;
   }
 }
+
+/* Rarely used bulk import, folded away under the checkpoint and task lists. */
+.admin-import-details {
+  margin-top: 0.5rem;
+}
+
+.admin-import-details > summary {
+  width: fit-content;
+  margin-bottom: 0.5rem;
+  color: var(--bs-link-color);
+  cursor: pointer;
+}

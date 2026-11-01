@@ -1,0 +1,42 @@
+.admin-checkpoint-map {
+  width: 100%;
+  height: 360px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  z-index: 0; /* keep Leaflet panes under dialogs and the top bar */
+}
+
+.admin-checkpoint-map.is-picking {
+  cursor: crosshair;
+}
+
+/* Draggable pin for the position being chosen, in the brand accent. */
+.admin-map-pin span {
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  background: var(--brand-accent);
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  transform: rotate(-45deg);
+  cursor: grab;
+}
+
+.admin-checkpoint-map-picker {
+  height: 300px;
+}
+
+@media (min-width: 992px) {
+  .admin-checkpoint-map-picker {
+    height: 480px;
+  }
+
+  /* Checkpoints tab: the overview map stays beside the list while it scrolls. */
+  .admin-checkpoints-overview-map {
+    position: sticky;
+    top: 1rem;
+    height: min(560px, calc(100vh - 2rem));
+  }
+}

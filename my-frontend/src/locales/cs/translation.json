@@ -489,7 +489,17 @@
       "validationExpectedArray": "Očekáváno JSON pole checkpointů",
       "validationFailed": "Validace selhala: {{error}}",
       "importSuccess": "Importováno {{count}} checkpointů",
-      "importSuccessWithTranslations": "Importováno {{count}} checkpointů a {{translations}} překladů"
+      "importSuccessWithTranslations": "Importováno {{count}} checkpointů a {{translations}} překladů",
+      "new": "Nový checkpoint",
+      "newTitle": "Nový checkpoint",
+      "create": "Vytvořit",
+      "created": "Checkpoint „{{name}}“ vytvořen",
+      "createFailed": "Vytvoření checkpointu selhalo: {{message}}",
+      "fieldCoordinates": "Souřadnice",
+      "coordinatesHelp": "Zeměpisná šířka, délka. Můžete je vložit z Mapy.com nebo Google Maps.",
+      "coordinatesInvalid": "Zadejte šířku, délku, např. 50.0755, 14.4378 nebo 50.0755N, 14.4378E.",
+      "mapHelp": "Kliknutím do mapy umístíte checkpoint, přetažením špendlíku ho posunete. Šedé tečky jsou ostatní checkpointy.",
+      "overviewMapHelp": "Kliknutím na checkpoint v mapě ho upravíte."
     },
     "tasks": {
       "title": "Úkoly",
@@ -531,7 +541,12 @@
       "validationExpectedArray": "Očekáváno JSON pole úkolů",
       "validationFailed": "Validace selhala: {{error}}",
       "importSuccess": "Importováno {{count}} úkolů",
-      "importSuccessWithTranslations": "Importováno {{count}} úkolů a {{translations}} překladů"
+      "importSuccessWithTranslations": "Importováno {{count}} úkolů a {{translations}} překladů",
+      "new": "Nový úkol",
+      "newTitle": "Nový úkol",
+      "create": "Vytvořit",
+      "created": "Úkol „{{name}}“ vytvořen",
+      "createFailed": "Vytvoření úkolu selhalo: {{message}}"
     },
     "categoryForm": {
       "title": "Kategorie závodu",

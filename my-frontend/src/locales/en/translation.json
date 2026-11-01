@@ -488,7 +488,17 @@
       "validationExpectedArray": "Expected JSON array of checkpoints",
       "validationFailed": "Validation failed: {{error}}",
       "importSuccess": "Imported {{count}} checkpoints successfully",
-      "importSuccessWithTranslations": "Imported {{count}} checkpoints with {{translations}} translations"
+      "importSuccessWithTranslations": "Imported {{count}} checkpoints with {{translations}} translations",
+      "new": "New checkpoint",
+      "newTitle": "New checkpoint",
+      "create": "Create",
+      "created": "Checkpoint \"{{name}}\" created",
+      "createFailed": "Creating the checkpoint failed: {{message}}",
+      "fieldCoordinates": "Coordinates",
+      "coordinatesHelp": "Latitude, longitude. You can paste them from Mapy.com or Google Maps.",
+      "coordinatesInvalid": "Use latitude, longitude, e.g. 50.0755, 14.4378 or 50.0755N, 14.4378E.",
+      "mapHelp": "Click the map to place the checkpoint, drag the pin to move it. Grey dots are the other checkpoints.",
+      "overviewMapHelp": "Click a checkpoint on the map to edit it."
     },
     "tasks": {
       "title": "Tasks",
@@ -530,7 +540,12 @@
       "validationExpectedArray": "Expected JSON array of tasks",
       "validationFailed": "Validation failed: {{error}}",
       "importSuccess": "Imported {{count}} tasks successfully",
-      "importSuccessWithTranslations": "Imported {{count}} tasks with {{translations}} translations"
+      "importSuccessWithTranslations": "Imported {{count}} tasks with {{translations}} translations",
+      "new": "New task",
+      "newTitle": "New task",
+      "create": "Create",
+      "created": "Task \"{{name}}\" created",
+      "createFailed": "Creating the task failed: {{message}}"
     },
     "categoryForm": {
       "title": "Race Categories",

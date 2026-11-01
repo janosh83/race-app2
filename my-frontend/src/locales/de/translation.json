@@ -488,7 +488,17 @@
       "validationExpectedArray": "JSON-Array von Checkpoints erwartet",
       "validationFailed": "Validierung fehlgeschlagen: {{error}}",
       "importSuccess": "{{count}} Checkpoints importiert",
-      "importSuccessWithTranslations": "{{count}} Checkpoints mit {{translations}} Uebersetzungen importiert"
+      "importSuccessWithTranslations": "{{count}} Checkpoints mit {{translations}} Uebersetzungen importiert",
+      "new": "Neuer Checkpoint",
+      "newTitle": "Neuer Checkpoint",
+      "create": "Erstellen",
+      "created": "Checkpoint „{{name}}“ erstellt",
+      "createFailed": "Checkpoint konnte nicht erstellt werden: {{message}}",
+      "fieldCoordinates": "Koordinaten",
+      "coordinatesHelp": "Breite, Länge. Du kannst sie aus Mapy.com oder Google Maps einfügen.",
+      "coordinatesInvalid": "Breite, Länge angeben, z. B. 50.0755, 14.4378 oder 50.0755N, 14.4378E.",
+      "mapHelp": "Klicke in die Karte, um den Checkpoint zu setzen, ziehe die Nadel, um ihn zu verschieben. Graue Punkte sind die anderen Checkpoints.",
+      "overviewMapHelp": "Klicke auf einen Checkpoint in der Karte, um ihn zu bearbeiten."
     },
     "tasks": {
       "title": "Aufgaben",
@@ -530,7 +540,12 @@
       "validationExpectedArray": "JSON-Array von Aufgaben erwartet",
       "validationFailed": "Validierung fehlgeschlagen: {{error}}",
       "importSuccess": "{{count}} Aufgaben importiert",
-      "importSuccessWithTranslations": "{{count}} Aufgaben mit {{translations}} Uebersetzungen importiert"
+      "importSuccessWithTranslations": "{{count}} Aufgaben mit {{translations}} Uebersetzungen importiert",
+      "new": "Neue Aufgabe",
+      "newTitle": "Neue Aufgabe",
+      "create": "Erstellen",
+      "created": "Aufgabe „{{name}}“ erstellt",
+      "createFailed": "Aufgabe konnte nicht erstellt werden: {{message}}"
     },
     "categoryForm": {
       "title": "Rennkategorien",
