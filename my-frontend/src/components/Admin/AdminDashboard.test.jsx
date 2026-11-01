@@ -80,7 +80,7 @@ describe('AdminDashboard', () => {
     expect(within(futureRow).getAllByText('Before checkpoints are shown').length).toBeGreaterThan(0);
   });
 
-  test('race list puts running races first, then upcoming, then finished', async () => {
+  test('race list sorts races by the end of logging, latest first', async () => {
     adminApi.listRaces.mockResolvedValue([
       {
         id: 3, name: 'Old Race', start_showing_checkpoints_at: iso(-200), end_showing_checkpoints_at: iso(-150),
@@ -96,7 +96,7 @@ describe('AdminDashboard', () => {
 
     await screen.findByRole('button', { name: 'City Race' });
     const names = screen.getAllByRole('row').slice(1).map(row => within(row).getAllByRole('button')[0].textContent);
-    expect(names).toEqual(['City Race', 'Future Race', 'Old Race', 'Older Race']);
+    expect(names).toEqual(['Future Race', 'City Race', 'Old Race', 'Older Race']);
   });
 
   test('opening a race shows its overview full width and puts it in the URL', async () => {

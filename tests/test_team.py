@@ -414,6 +414,18 @@ def test_get_team_registrations_admin_only(test_client, add_test_data, regular_u
     assert response.status_code == 403
 
 
+def test_get_teams_sorted_by_name(test_client, add_test_data, admin_auth_headers):
+    """Teams come sorted by name, case-insensitively, also when paginated."""
+    for name in ["zebra", "Alpha", "middle"]:
+        assert test_client.post("/api/team/", json={"name": name}, headers=admin_auth_headers).status_code == 201
+
+    names = [t["name"] for t in test_client.get("/api/team/").json]
+    paged = [t["name"] for t in test_client.get("/api/team/?page=1&per_page=100").json["data"]]
+
+    assert names == sorted(names, key=str.lower)
+    assert paged == names
+
+
 def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers):
     """Deleting a team with members removes the membership, not the users."""
     test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})

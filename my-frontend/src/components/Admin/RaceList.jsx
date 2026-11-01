@@ -5,25 +5,19 @@ import { timeStateForRace } from '../../contexts/TimeContext';
 import { formatDateRange } from '../../utils/dateRange';
 import { getPhasePresentation } from '../../utils/racePhase';
 
-const RUNNING = ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'];
-
-const startOf = (race) => {
-  const value = race.start_showing_checkpoints_at ?? race.start_showing_checkpoints;
+const endOfLogging = (race) => {
+  const value = race.end_logging_at ?? race.end_logging;
   const ms = value ? new Date(value).getTime() : NaN;
   return Number.isFinite(ms) ? ms : null;
 };
 
-// Running races first, then upcoming ones (soonest first), then finished ones
-// (latest first), so the races an admin works on are at the top.
+// Races by the end of logging, latest first; races without it go last.
 export function sortRacesForAdmin(races, now = Date.now()) {
-  const group = (state) => (RUNNING.includes(state) ? 0 : state === 'BEFORE_SHOW' ? 1 : 2);
   return races
-    .map(race => ({ race, state: timeStateForRace(now, race).state, start: startOf(race) }))
+    .map(race => ({ race, state: timeStateForRace(now, race).state, end: endOfLogging(race) }))
     .sort((a, b) => {
-      const byGroup = group(a.state) - group(b.state);
-      if (byGroup !== 0) return byGroup;
-      if (a.start === null || b.start === null) return (a.start === null) - (b.start === null);
-      return group(a.state) === 2 ? b.start - a.start : a.start - b.start;
+      if (a.end === null || b.end === null) return (a.end === null) - (b.end === null);
+      return b.end - a.end || a.race.id - b.race.id;
     });
 }
 

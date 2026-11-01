@@ -709,6 +709,19 @@ def test_update_user_self_cannot_change_admin(test_client, add_test_data):
 
 # DELETE /api/user/<id>/ endpoint tests
 
+def test_get_users_sorted_by_name(test_client, add_test_data, admin_auth_headers):
+    """Users come sorted by name, case-insensitively, also when paginated."""
+    for name, email in [("zoe", "zoe@example.com"), ("Adam", "adam@example.com")]:
+        response = test_client.post("/api/user/", json={"name": name, "email": email, "password": "x"}, headers=admin_auth_headers)
+        assert response.status_code == 201
+
+    names = [u["name"] for u in test_client.get("/api/user/", headers=admin_auth_headers).json]
+    paged = [u["name"] for u in test_client.get("/api/user/?page=1&per_page=100", headers=admin_auth_headers).json["data"]]
+
+    assert names == sorted(names, key=str.lower)
+    assert paged == names
+
+
 def test_delete_user_success(test_client, add_test_data, admin_auth_headers):
     """Test deleting a user as admin."""
     response = test_client.delete("/api/user/1/", headers=admin_auth_headers)

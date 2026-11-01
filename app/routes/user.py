@@ -39,7 +39,7 @@ def get_users():
       403:
         description: Forbidden - admin access required
     """
-    query = User.query.order_by(User.id.asc())
+    query = User.query.order_by(db.func.lower(User.name).asc(), User.email.asc(), User.id.asc())
     paginate_requested = 'page' in request.args or 'per_page' in request.args
     search_term = (request.args.get('search') or '').strip()
 

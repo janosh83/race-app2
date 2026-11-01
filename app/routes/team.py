@@ -214,7 +214,7 @@ def get_teams():
               items:
                 $ref: '#/components/schemas/TeamObject'
     """
-    query = Team.query.order_by(Team.id.asc())
+    query = Team.query.order_by(db.func.lower(Team.name).asc(), Team.id.asc())
     paginate_requested = 'page' in request.args or 'per_page' in request.args
     search_term = (request.args.get('search') or '').strip()
 
