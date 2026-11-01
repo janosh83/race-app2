@@ -387,7 +387,13 @@
     },
     "raceList": {
       "title": "Races",
-      "manage": "Manage"
+      "manage": "Manage",
+      "colRace": "Race",
+      "colStatus": "Status",
+      "colRegistration": "Registration",
+      "registrationOpen": "Open",
+      "registrationClosed": "Closed",
+      "empty": "No races yet."
     },
     "raceForm": {
       "editTitle": "Edit race",

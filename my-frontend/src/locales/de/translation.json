@@ -387,7 +387,13 @@
     },
     "raceList": {
       "title": "Rennen",
-      "manage": "Verwalten"
+      "manage": "Verwalten",
+      "colRace": "Rennen",
+      "colStatus": "Status",
+      "colRegistration": "Anmeldung",
+      "registrationOpen": "Offen",
+      "registrationClosed": "Geschlossen",
+      "empty": "Noch keine Rennen."
     },
     "raceForm": {
       "editTitle": "Rennen bearbeiten",

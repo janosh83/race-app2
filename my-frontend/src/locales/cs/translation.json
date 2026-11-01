@@ -388,7 +388,13 @@
     },
     "raceList": {
       "title": "Závody",
-      "manage": "Spravovat"
+      "manage": "Spravovat",
+      "colRace": "Závod",
+      "colStatus": "Stav",
+      "colRegistration": "Registrace",
+      "registrationOpen": "Otevřená",
+      "registrationClosed": "Zavřená",
+      "empty": "Zatím žádné závody."
     },
     "raceForm": {
       "editTitle": "Upravit závod",

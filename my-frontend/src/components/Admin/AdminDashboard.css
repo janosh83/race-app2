@@ -16,8 +16,33 @@
 }
 
 .admin-race-row {
-  padding-top: 12px;
-  padding-bottom: 12px;
+  cursor: pointer;
+}
+
+.admin-race-table > :not(caption) > * > * {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.admin-race-table thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+
+.admin-race-name {
+  color: var(--bs-body-color);
+}
+
+@media (min-width: 576px) {
+  .admin-race-col-name {
+    min-width: 11rem;
+  }
+}
+
+.admin-race-row:hover .admin-race-name {
+  color: var(--brand-accent);
 }
 
 /* Results & visits. Wide screens: standings on the left (sticky, scrolls on

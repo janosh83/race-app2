@@ -74,10 +74,29 @@ describe('AdminDashboard', () => {
   test('lists races with their current phase', async () => {
     renderAt();
 
-    const cityRow = await screen.findByRole('button', { name: /City Race/ });
-    expect(within(cityRow).getByText('Logging open')).toBeInTheDocument();
-    const futureRow = screen.getByRole('button', { name: /Future Race/ });
-    expect(within(futureRow).getByText('Before checkpoints are shown')).toBeInTheDocument();
+    const cityRow = (await screen.findByRole('button', { name: 'City Race' })).closest('tr');
+    expect(within(cityRow).getAllByText('Logging open').length).toBeGreaterThan(0);
+    const futureRow = screen.getByRole('button', { name: 'Future Race' }).closest('tr');
+    expect(within(futureRow).getAllByText('Before checkpoints are shown').length).toBeGreaterThan(0);
+  });
+
+  test('race list puts running races first, then upcoming, then finished', async () => {
+    adminApi.listRaces.mockResolvedValue([
+      {
+        id: 3, name: 'Old Race', start_showing_checkpoints_at: iso(-200), end_showing_checkpoints_at: iso(-150),
+        start_logging_at: iso(-190), end_logging_at: iso(-160),
+      },
+      {
+        id: 4, name: 'Older Race', start_showing_checkpoints_at: iso(-400), end_showing_checkpoints_at: iso(-350),
+        start_logging_at: iso(-390), end_logging_at: iso(-360),
+      },
+      ...races.slice().reverse(),
+    ]);
+    renderAt();
+
+    await screen.findByRole('button', { name: 'City Race' });
+    const names = screen.getAllByRole('row').slice(1).map(row => within(row).getAllByRole('button')[0].textContent);
+    expect(names).toEqual(['City Race', 'Future Race', 'Old Race', 'Older Race']);
   });
 
   test('opening a race shows its overview full width and puts it in the URL', async () => {
