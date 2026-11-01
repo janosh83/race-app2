@@ -224,3 +224,13 @@
   color: var(--bs-body-color); /* not the muted colour of action items */
   cursor: pointer;
 }
+
+/* Checkpoint and task rows: the whole row opens the item; long names and
+   description previews are cut with an ellipsis. */
+.admin-item-row {
+  min-width: 0;
+}
+
+.admin-item-row strong {
+  min-width: 0;
+}

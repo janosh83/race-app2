@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { formatCoordinates, parseCoordinates } from '../../utils/coordinates';
 
 import CheckpointMap from './CheckpointMap';
+import ConfirmDeleteFooter from './ConfirmDeleteFooter';
 
 const toNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
@@ -15,7 +16,10 @@ const toNumber = (value) => {
 // drag the pin) or from the coordinates field, which takes text pasted from
 // Mapy.com or Google Maps. The race's other checkpoints show as grey dots.
 // `onSave(payload)` returns a promise; the dialog stays open if it rejects.
-export default function CheckpointFormModal({ checkpoint = null, checkpoints = [], onSave, onCancel }) {
+// When editing, `onDelete()` (a promise; its error message shows in the
+// dialog) adds a Delete button that asks to confirm, and `children` (the
+// translations) show below the form.
+export default function CheckpointFormModal({ checkpoint = null, checkpoints = [], onSave, onDelete, onCancel, children }) {
   const { t } = useTranslation();
   const isNew = !checkpoint;
   const initialLat = toNumber(checkpoint?.latitude ?? checkpoint?.lat);
@@ -30,6 +34,8 @@ export default function CheckpointFormModal({ checkpoint = null, checkpoints = [
   const [coordinatesText, setCoordinatesText] = useState(formatCoordinates(initialLat, initialLng));
   const [coordinatesError, setCoordinatesError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const pick = (next) => {
     setPosition(next);
@@ -68,11 +74,24 @@ export default function CheckpointFormModal({ checkpoint = null, checkpoints = [
     }
   };
 
+  const handleDelete = async () => {
+    setSaving(true);
+    setDeleteError(null);
+    try {
+      await onDelete();
+    } catch (err) {
+      setDeleteError(err.message);
+      setConfirmingDelete(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const editedId = checkpoint ? (checkpoint.id ?? checkpoint.checkpoint_id) : null;
 
   return (
     <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} role="dialog" aria-modal="true" aria-labelledby="checkpoint-form-title">
-      <div className="modal-dialog modal-xl modal-fullscreen-md-down">
+      <div className="modal-dialog modal-xl modal-fullscreen-md-down modal-dialog-scrollable">
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title" id="checkpoint-form-title">
@@ -80,8 +99,9 @@ export default function CheckpointFormModal({ checkpoint = null, checkpoints = [
             </h5>
             <button type="button" className="btn-close" aria-label={t('admin.checkpoints.cancel')} onClick={onCancel} />
           </div>
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body">
+          <div className="modal-body">
+            {deleteError && <div className="alert alert-danger py-2" role="alert">{deleteError}</div>}
+            <form id="checkpoint-form" onSubmit={handleSubmit}>
               <div className="row g-3">
                 <div className="col-lg-5">
                   <div className="mb-3">
@@ -146,14 +166,29 @@ export default function CheckpointFormModal({ checkpoint = null, checkpoints = [
                   <div className="form-text">{t('admin.checkpoints.mapHelp')}</div>
                 </div>
               </div>
-            </div>
+            </form>
+            {children && <div className="mt-4">{children}</div>}
+          </div>
+          {confirmingDelete ? (
+            <ConfirmDeleteFooter
+              text={t('admin.checkpoints.deleteConfirm', { name: checkpoint?.title ?? checkpoint?.name })}
+              onConfirm={handleDelete}
+              onKeep={() => setConfirmingDelete(false)}
+              busy={saving}
+            />
+          ) : (
             <div className="modal-footer">
+              {!isNew && onDelete && (
+                <button type="button" className="btn btn-outline-danger me-auto" onClick={() => setConfirmingDelete(true)}>
+                  {t('admin.checkpoints.delete')}
+                </button>
+              )}
               <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>{t('admin.checkpoints.cancel')}</button>
-              <button type="submit" className="btn btn-primary" disabled={saving || coordinatesError}>
+              <button type="submit" form="checkpoint-form" className="btn btn-primary" disabled={saving || coordinatesError}>
                 {isNew ? t('admin.checkpoints.create') : t('admin.checkpoints.saveChanges')}
               </button>
             </div>
-          </form>
+          )}
         </div>
       </div>
     </div>

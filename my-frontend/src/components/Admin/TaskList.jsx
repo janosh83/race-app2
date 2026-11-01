@@ -1,143 +1,135 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import FilePickerButton from '../FilePickerButton';
-import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import Toast from '../Toast';
 
+import ConfirmDeleteFooter from './ConfirmDeleteFooter';
+import { plainExcerpt } from './listText';
 import TranslationManager from './TranslationManager';
+
+// Create or edit one task. `onSave(payload)` and `onDelete()` return
+// promises; the dialog stays open if they reject. When editing, Delete asks
+// to confirm and `children` (the translations) show below the form.
+function TaskFormModal({ task = null, onSave, onDelete, onCancel, children }) {
+  const { t } = useTranslation();
+  const isNew = !task;
+  const [form, setForm] = useState({
+    title: task?.title ?? task?.name ?? '',
+    description: task?.description ?? '',
+    numOfPoints: String(task?.numOfPoints ?? task?.points ?? (isNew ? '' : 0)),
+  });
+  const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
+  const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await onSave({
+        title: form.title.trim(),
+        description: form.description,
+        numOfPoints: form.numOfPoints ? parseInt(form.numOfPoints, 10) || 0 : 0,
+      });
+    } catch {
+      // The caller shows the error; keep the dialog and what was typed.
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    setDeleteError(null);
+    try {
+      await onDelete();
+    } catch (err) {
+      setDeleteError(err.message);
+      setConfirmingDelete(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} role="dialog" aria-modal="true" aria-labelledby="task-form-title">
+      <div className={`modal-dialog modal-fullscreen-sm-down modal-dialog-scrollable${isNew ? '' : ' modal-lg'}`}>
+        <div className="modal-content">
+          <div className="modal-header">
+            <h5 className="modal-title" id="task-form-title">{isNew ? t('admin.tasks.newTitle') : t('admin.tasks.editTitle')}</h5>
+            <button type="button" className="btn-close" aria-label={t('admin.tasks.cancel')} onClick={onCancel}></button>
+          </div>
+          <div className="modal-body">
+            {deleteError && <div className="alert alert-danger py-2" role="alert">{deleteError}</div>}
+            <form id="task-form" onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="task-title">{t('admin.tasks.fieldTitle')}</label>
+                <input id="task-title" type="text" className="form-control" autoFocus={isNew} value={form.title} onChange={set('title')} required />
+              </div>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="task-description">{t('admin.tasks.fieldDescription')}</label>
+                <textarea id="task-description" className="form-control" rows="3" value={form.description} onChange={set('description')} />
+              </div>
+              <div className="mb-0">
+                <label className="form-label" htmlFor="task-points">{t('admin.tasks.fieldPoints')}</label>
+                <input id="task-points" type="number" min="0" step="1" className="form-control" value={form.numOfPoints} onChange={set('numOfPoints')} />
+              </div>
+            </form>
+            {children && <div className="mt-4">{children}</div>}
+          </div>
+          {confirmingDelete ? (
+            <ConfirmDeleteFooter
+              text={t('admin.tasks.deleteConfirm', { name: task?.title ?? task?.name })}
+              onConfirm={handleDelete}
+              onKeep={() => setConfirmingDelete(false)}
+              busy={saving}
+            />
+          ) : (
+            <div className="modal-footer">
+              {!isNew && (
+                <button type="button" className="btn btn-outline-danger me-auto" onClick={() => setConfirmingDelete(true)}>
+                  {t('admin.tasks.delete')}
+                </button>
+              )}
+              <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>{t('admin.tasks.cancel')}</button>
+              <button type="submit" form="task-form" className="btn btn-primary" disabled={saving}>
+                {isNew ? t('admin.tasks.create') : t('admin.tasks.saveChanges')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function TaskList({ tasks = [], onRemove = () => {}, raceId = null, onImported = () => {}, onUpdate = () => {}, supportedLanguages = [] }) {
   const { t } = useTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
-  const [editingId, setEditingId] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [taskTranslations, setTaskTranslations] = useState({});
-  const [loadingTranslations, setLoadingTranslations] = useState({});
+  const [formFor, setFormFor] = useState(null); // null, 'new' or the task being edited
+  const [showImport, setShowImport] = useState(false);
   const [toast, setToast] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: '',
-    description: '',
-    numOfPoints: ''
-  });
 
-  // Keep translation cache aligned with currently visible tasks.
-  useEffect(() => {
-    const taskIds = tasks.map(t => t.id ?? t.task_id).filter(Boolean);
-    const taskIdSet = new Set(taskIds);
-
-    setTaskTranslations(prev => {
-      const cleanedMap = {};
-      for (const [id, value] of Object.entries(prev)) {
-        if (taskIdSet.has(Number(id))) cleanedMap[id] = value;
-      }
-      return cleanedMap;
-    });
-
-    setLoadingTranslations(prev => {
-      const cleanedMap = {};
-      for (const [id, value] of Object.entries(prev)) {
-        if (taskIdSet.has(Number(id))) cleanedMap[id] = value;
-      }
-      return cleanedMap;
-    });
-  }, [tasks]);
-
-  const ensureTaskTranslations = async (taskId) => {
-    if (!taskId) return;
-    if (taskTranslations[taskId] !== undefined) return;
-    if (loadingTranslations[taskId]) return;
-
-    setLoadingTranslations(prev => ({ ...prev, [taskId]: true }));
+  const handleSave = async (payload) => {
+    const isNew = formFor === 'new';
     try {
-      const data = await adminApi.getTaskTranslations(taskId);
-      const translations = Array.isArray(data) ? data : (data?.data || []);
-      setTaskTranslations(prev => ({ ...prev, [taskId]: translations }));
-    } catch (e) {
-      logger.error('ADMIN', `Failed to load translations for task ${taskId}`, e);
-      setTaskTranslations(prev => ({ ...prev, [taskId]: [] }));
-    } finally {
-      setLoadingTranslations(prev => {
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
-      });
-    }
-  };
-
-  const handleToggleExpanded = async (taskId, isExpanded) => {
-    if (isExpanded) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(taskId);
-    await ensureTaskTranslations(taskId);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm(t('admin.tasks.deleteConfirm'))) return;
-    try {
-      await adminApi.deleteTask(id);
-      onRemove(id);
-      setToast({
-        message: t('admin.tasks.deleted'),
-        type: 'success',
-        duration: 5000
-      });
-    } catch (err) {
-      logger.error('ADMIN', 'Failed to delete task', err);
-      setToast({
-        message: t('admin.tasks.deleteFailed', { message: err?.message || t('admin.common.unknownError') }),
-        type: 'error',
-        duration: 5000
-      });
-    }
-  };
-
-  const handleEdit = (task) => {
-    setEditingId(task.id ?? task.task_id);
-    setEditForm({
-      title: task.title ?? '',
-      description: task.description ?? '',
-      numOfPoints: task.numOfPoints ?? task.points ?? 0
-    });
-  };
-
-  const handleEditChange = (field, value) => {
-    setEditForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // editingId is 'new' while creating a task.
-  const handleNew = () => {
-    setEditingId('new');
-    setEditForm({ title: '', description: '', numOfPoints: '' });
-  };
-
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    const isNew = editingId === 'new';
-    try {
-      const payload = {
-        title: editForm.title.trim(),
-        description: editForm.description,
-        numOfPoints: editForm.numOfPoints ? parseInt(editForm.numOfPoints) : 0
-      };
       if (isNew) {
         const created = await adminApi.addTask(raceId, payload);
         onImported(Array.isArray(created) ? created : [created]);
       } else {
-        await adminApi.updateTask(editingId, payload);
-        onUpdate(editingId, payload);
+        const id = formFor.id ?? formFor.task_id;
+        await adminApi.updateTask(id, payload);
+        onUpdate(id, payload);
       }
-      setEditingId(null);
+      setFormFor(null);
       setToast({
         message: isNew ? t('admin.tasks.created', { name: payload.title }) : t('admin.tasks.updated'),
         type: 'success',
@@ -150,16 +142,22 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
         type: 'error',
         duration: 5000
       });
+      throw err;
     }
   };
 
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditForm({
-      title: '',
-      description: '',
-      numOfPoints: ''
-    });
+  // Called from the edit dialog after the admin confirmed.
+  const handleDelete = async () => {
+    const id = formFor.id ?? formFor.task_id;
+    try {
+      await adminApi.deleteTask(id);
+    } catch (err) {
+      logger.error('ADMIN', 'Failed to delete task', err);
+      throw new Error(t('admin.tasks.deleteFailed', { message: err?.message || t('admin.common.unknownError') }));
+    }
+    onRemove(id);
+    setFormFor(null);
+    setToast({ message: t('admin.tasks.deleted'), type: 'success', duration: 5000 });
   };
 
   const validateItem = (it) => {
@@ -245,6 +243,7 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
       }
       onImported(created);
       setSelectedFile(null);
+      setShowImport(false);
       // Reset file input
       const fileInput = document.getElementById('task-file-input');
       if (fileInput) fileInput.value = '';
@@ -267,186 +266,91 @@ export default function TaskList({ tasks = [], onRemove = () => {}, raceId = nul
 
   return (
     <div className="mb-3">
-      <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
-        <h5 className="mb-0">{t('admin.tasks.title')} <span className="text-muted fw-normal">({tasks.length})</span></h5>
-        <button type="button" className="btn btn-sm btn-primary" onClick={handleNew}>
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h5 className="mb-0 me-auto">{t('admin.tasks.title')} <span className="text-muted fw-normal">({tasks.length})</span></h5>
+        <button
+          type="button"
+          className={`btn btn-sm ${showImport ? 'btn-secondary' : 'btn-outline-secondary'}`}
+          onClick={() => setShowImport(prev => !prev)}
+          aria-expanded={showImport}
+        >
+          {t('admin.tasks.importButton')}
+        </button>
+        <button type="button" className="btn btn-sm btn-primary" onClick={() => setFormFor('new')}>
           + {t('admin.tasks.new')}
         </button>
       </div>
 
-      <div className="mb-2">
-        {tasks.length === 0 ? (
-          <div className="text-muted">{t('admin.tasks.none')}</div>
-        ) : (
-          <div className="list-group">
-            {tasks.map(task => {
-              const taskId = task.id ?? task.task_id;
-              const isExpanded = expandedId === taskId;
-              const translations = taskTranslations[taskId] || [];
-              const translationLanguages = translations.map(t => t.language);
-
-              return (
-                <div key={taskId} className="list-group-item">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => handleToggleExpanded(taskId, isExpanded)}>
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
-                        <strong>{task.title ?? task.name}</strong>
-                        {translationLanguages.length > 0 && (
-                          <LanguageFlagsDisplay
-                            languages={translationLanguages}
-                            flagWidth={20}
-                            flagHeight={14}
-                          />
-                        )}
-                        <span className="badge bg-secondary">{task.numOfPoints ?? task.points ?? 0} {t('admin.common.pointsShort')}</span>
-                      </div>
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); handleEdit(task); }}>{t('admin.translationManager.edit')}</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(taskId); }}>{t('admin.translationManager.delete')}</button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-top">
-                      <div className="row">
-                        <div className="col-md-6">
-                          <h6 className="text-muted small">{t('admin.tasks.details')}</h6>
-                          <dl className="row small">
-                            <dt className="col-sm-4">{t('admin.tasks.labelDescription')}</dt>
-                            <dd className="col-sm-8">{task.description || <span className="text-muted">—</span>}</dd>
-
-                            <dt className="col-sm-4">{t('admin.tasks.labelPoints')}</dt>
-                            <dd className="col-sm-8">{task.numOfPoints ?? task.points ?? 0}</dd>
-                          </dl>
-                        </div>
-
-                        <div className="col-md-6">
-                          <h6 className="text-muted small">{t('admin.tasks.translations')}</h6>
-                          <TranslationManager
-                            entityType="task"
-                            entityId={taskId}
-                            entityName={task.title ?? task.name}
-                            fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
-                            supportedLanguages={supportedLanguages}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Edit Modal */}
-      {editingId !== null && (
-        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{editingId === 'new' ? t('admin.tasks.newTitle') : t('admin.tasks.editTitle')}</h5>
-                <button type="button" className="btn-close" onClick={handleEditCancel}></button>
-              </div>
-              <form onSubmit={handleEditSubmit}>
-                <div className="modal-body">
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="task-title">{t('admin.tasks.fieldTitle')}</label>
-                    <input
-                      id="task-title"
-                      type="text"
-                      className="form-control"
-                      autoFocus={editingId === 'new'}
-                      value={editForm.title}
-                      onChange={(e) => handleEditChange('title', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="task-description">{t('admin.tasks.fieldDescription')}</label>
-                    <textarea
-                      id="task-description"
-                      className="form-control"
-                      rows="3"
-                      value={editForm.description}
-                      onChange={(e) => handleEditChange('description', e.target.value)}
-                    />
-                  </div>
-                  <div className="mb-3">
-                    <label className="form-label" htmlFor="task-points">{t('admin.tasks.fieldPoints')}</label>
-                    <input
-                      id="task-points"
-                      type="number"
-                      min="0"
-                      step="1"
-                      className="form-control"
-                      value={editForm.numOfPoints}
-                      onChange={(e) => handleEditChange('numOfPoints', e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-outline-secondary" onClick={handleEditCancel}>{t('admin.tasks.cancel')}</button>
-                  <button type="submit" className="btn btn-primary">{editingId === 'new' ? t('admin.tasks.create') : t('admin.tasks.saveChanges')}</button>
-                </div>
-              </form>
+      {showImport && (
+        <div className="card card-body mb-3">
+          <form onSubmit={handleImport}>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <h6 className="mb-0 me-auto">{t('admin.tasks.importTitle')}</h6>
+              <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setShowHelpModal(true)}>
+                {t('admin.tasks.importHelpTitle')}
+              </button>
+              <button type="button" className="btn-close" aria-label={t('admin.close')} onClick={() => setShowImport(false)} />
             </div>
-          </div>
+            <FilePickerButton
+              id="task-file-input"
+              accept=".json"
+              onChange={handleFileChange}
+              disabled={importing}
+              fileName={selectedFile?.name}
+              className="mb-2"
+            />
+            {importError && <div className="alert alert-danger">{importError}</div>}
+            <button className="btn btn-primary btn-sm" type="submit" disabled={importing || !selectedFile}>
+              {importing ? t('admin.tasks.importing') : t('admin.tasks.import')}
+            </button>
+            <div className="small text-muted mt-2">{t('admin.tasks.importHelp')}</div>
+          </form>
         </div>
       )}
 
-      <details className="admin-import-details">
-        <summary>{t('admin.tasks.importTitle')}</summary>
-      <div className="card card-body">
-        <form onSubmit={handleImport}>
-          <div className="d-flex align-items-center gap-2 mb-2">
-            <button
-              type="button"
-              className="btn btn-sm btn-link p-0 d-inline-flex align-items-center gap-1"
-              onClick={() => setShowHelpModal(true)}
-            >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-              </svg>
-              {t('admin.tasks.importHelpTitle')}
-            </button>
-          </div>
-          <FilePickerButton
-            id="task-file-input"
-            accept=".json"
-            onChange={handleFileChange}
-            disabled={importing}
-            fileName={selectedFile?.name}
-            className="mb-2"
-          />
-          {importError && <div className="alert alert-danger">{importError}</div>}
-          <div className="d-flex gap-2">
-            <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
-              {importing ? t('admin.tasks.importing') : t('admin.tasks.import')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => {
-                setSelectedFile(null);
-                const fileInput = document.getElementById('task-file-input');
-                if (fileInput) fileInput.value = '';
-              }}
-              disabled={importing || !selectedFile}
-            >
-              {t('admin.tasks.clear')}
-            </button>
-          </div>
-          <div className="small text-muted mt-2">
-            {t('admin.tasks.importHelp')}
-          </div>
-        </form>
-      </div>
-      </details>
+      {tasks.length === 0 ? (
+        <div className="text-muted">{t('admin.tasks.none')}</div>
+      ) : (
+        <div className="list-group">
+          {tasks.map(task => {
+            const taskId = task.id ?? task.task_id;
+            const excerpt = plainExcerpt(task.description);
+            return (
+              <button
+                key={taskId}
+                type="button"
+                className="list-group-item list-group-item-action admin-item-row"
+                onClick={() => setFormFor(task)}
+              >
+                <span className="d-flex align-items-center gap-2">
+                  <strong className="text-truncate">{task.title ?? task.name}</strong>
+                  <span className="badge bg-secondary flex-shrink-0">{task.numOfPoints ?? task.points ?? 0} {t('admin.common.pointsShort')}</span>
+                </span>
+                {excerpt && <span className="d-block small text-muted text-truncate">{excerpt}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {formFor !== null && (
+        <TaskFormModal
+          task={formFor === 'new' ? null : formFor}
+          onSave={handleSave}
+          onDelete={handleDelete}
+          onCancel={() => setFormFor(null)}
+        >
+          {formFor !== 'new' && (
+            <TranslationManager
+              entityType="task"
+              entityId={formFor.id ?? formFor.task_id}
+              entityName={formFor.title ?? formFor.name}
+              fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
+              supportedLanguages={supportedLanguages}
+            />
+          )}
+        </TaskFormModal>
+      )}
 
       {/* Help Modal */}
       {showHelpModal && (

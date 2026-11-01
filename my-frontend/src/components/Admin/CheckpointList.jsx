@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import FilePickerButton from '../FilePickerButton';
-import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 import Toast from '../Toast';
 
 import CheckpointFormModal from './CheckpointFormModal';
 import CheckpointMap from './CheckpointMap';
+import { plainExcerpt } from './listText';
 import TranslationManager from './TranslationManager';
 
 const toNumber = (value) => {
@@ -32,82 +32,23 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
   const [formFor, setFormFor] = useState(null); // null, 'new' or the checkpoint being edited
-  const [expandedId, setExpandedId] = useState(null);
-  const [checkpointTranslations, setCheckpointTranslations] = useState({});
-  const [loadingTranslations, setLoadingTranslations] = useState({});
+  const [showImport, setShowImport] = useState(false);
   const [toast, setToast] = useState(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  // Keep translation cache aligned with currently visible checkpoints.
-  useEffect(() => {
-    const checkpointIds = checkpoints.map(cp => cp.id ?? cp.checkpoint_id).filter(Boolean);
-    const checkpointIdSet = new Set(checkpointIds);
 
-    setCheckpointTranslations(prev => {
-      const cleanedMap = {};
-      for (const [id, value] of Object.entries(prev)) {
-        if (checkpointIdSet.has(Number(id))) cleanedMap[id] = value;
-      }
-      return cleanedMap;
-    });
-
-    setLoadingTranslations(prev => {
-      const cleanedMap = {};
-      for (const [id, value] of Object.entries(prev)) {
-        if (checkpointIdSet.has(Number(id))) cleanedMap[id] = value;
-      }
-      return cleanedMap;
-    });
-  }, [checkpoints]);
-
-  const ensureCheckpointTranslations = async (cpId) => {
-    if (!cpId) return;
-    if (checkpointTranslations[cpId] !== undefined) return;
-    if (loadingTranslations[cpId]) return;
-
-    setLoadingTranslations(prev => ({ ...prev, [cpId]: true }));
-    try {
-      const data = await adminApi.getCheckpointTranslations(cpId);
-      const translations = Array.isArray(data) ? data : (data?.data || []);
-      setCheckpointTranslations(prev => ({ ...prev, [cpId]: translations }));
-    } catch (e) {
-      logger.error('ADMIN', `Failed to load translations for checkpoint ${cpId}`, e);
-      setCheckpointTranslations(prev => ({ ...prev, [cpId]: [] }));
-    } finally {
-      setLoadingTranslations(prev => {
-        const next = { ...prev };
-        delete next[cpId];
-        return next;
-      });
-    }
-  };
-
-  const handleToggleExpanded = async (cpId, isExpanded) => {
-    if (isExpanded) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(cpId);
-    await ensureCheckpointTranslations(cpId);
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm(t('admin.checkpoints.deleteConfirm'))) return;
+  // Called from the edit dialog after the admin confirmed; a rejection keeps
+  // the dialog open with the message.
+  const handleDelete = async () => {
+    const id = formFor.id ?? formFor.checkpoint_id;
     try {
       await adminApi.deleteCheckpoint(id);
-      onRemove(id);
-      setToast({
-        message: t('admin.checkpoints.deleted'),
-        type: 'success',
-        duration: 5000
-      });
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete checkpoint', err);
-      setToast({
-        message: t('admin.checkpoints.deleteFailed', { message: err?.message || t('admin.common.unknownError') }),
-        type: 'error',
-        duration: 5000
-      });
+      throw new Error(t('admin.checkpoints.deleteFailed', { message: err?.message || t('admin.common.unknownError') }));
     }
+    onRemove(id);
+    setFormFor(null);
+    setToast({ message: t('admin.checkpoints.deleted'), type: 'success', duration: 5000 });
   };
 
   const handleSave = async (payload) => {
@@ -229,6 +170,7 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
       // notify parent and clear file selection
       onImported(checkpoints);
       setSelectedFile(null);
+      setShowImport(false);
       // Reset file input
       const fileInput = document.getElementById('checkpoint-file-input');
       if (fileInput) fileInput.value = '';
@@ -253,96 +195,87 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
 
   return (
     <div className="mb-4">
-      <div className="d-flex justify-content-between align-items-center gap-2 mb-2">
-        <h5 className="mb-0">{t('admin.checkpoints.title')} <span className="text-muted fw-normal">({checkpoints.length})</span></h5>
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <h5 className="mb-0 me-auto">{t('admin.checkpoints.title')} <span className="text-muted fw-normal">({checkpoints.length})</span></h5>
+        <button
+          type="button"
+          className={`btn btn-sm ${showImport ? 'btn-secondary' : 'btn-outline-secondary'}`}
+          onClick={() => setShowImport(prev => !prev)}
+          aria-expanded={showImport}
+        >
+          {t('admin.checkpoints.importButton')}
+        </button>
         <button type="button" className="btn btn-sm btn-primary" onClick={() => setFormFor('new')}>
           + {t('admin.checkpoints.new')}
         </button>
       </div>
 
+      {showImport && (
+        <div className="card card-body mb-3">
+          <form onSubmit={handleImport}>
+            <div className="d-flex align-items-center gap-2 mb-2">
+              <h6 className="mb-0 me-auto">{t('admin.checkpoints.importTitle')}</h6>
+              <button type="button" className="btn btn-sm btn-link p-0" onClick={() => setShowHelpModal(true)}>
+                {t('admin.checkpoints.importHelpTitle')}
+              </button>
+              <button type="button" className="btn-close" aria-label={t('admin.close')} onClick={() => setShowImport(false)} />
+            </div>
+            <FilePickerButton
+              id="checkpoint-file-input"
+              accept=".json"
+              onChange={handleFileChange}
+              disabled={importing}
+              fileName={selectedFile?.name}
+              className="mb-2"
+            />
+            {importError && <div className="alert alert-danger">{importError}</div>}
+            <button className="btn btn-primary btn-sm" type="submit" disabled={importing || !selectedFile}>
+              {importing ? t('admin.checkpoints.importing') : t('admin.checkpoints.import')}
+            </button>
+            <div className="small text-muted mt-2">{t('admin.checkpoints.importHelp')}</div>
+          </form>
+        </div>
+      )}
+
       <div className="row g-3 mb-2">
-      <div className="col-lg-6">
-        {checkpoints.length === 0 ? (
-          <div className="text-muted">{t('admin.checkpoints.none')}</div>
-        ) : (
-          <div className="list-group">
-            {checkpoints.map(cp => {
-              const cpId = cp.id ?? cp.checkpoint_id;
-              const isExpanded = expandedId === cpId;
-              const translations = checkpointTranslations[cpId] || [];
-              const translationLanguages = translations.map(t => t.language);
-
-              return (
-                <div key={cpId} className="list-group-item">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div className="flex-grow-1" style={{ cursor: 'pointer' }} onClick={() => handleToggleExpanded(cpId, isExpanded)}>
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
-                        <strong>{cp.name ?? cp.title}</strong>
-                        {translationLanguages.length > 0 && (
-                          <LanguageFlagsDisplay
-                            languages={translationLanguages}
-                            flagWidth={20}
-                            flagHeight={14}
-                          />
-                        )}
-                        <span className="badge bg-secondary">{cp.numOfPoints} {t('admin.common.pointsShort')}</span>
-                      </div>
-                    </div>
-                    <div className="d-flex gap-1">
-                      <button className="btn btn-sm btn-outline-primary" onClick={(e) => { e.stopPropagation(); setFormFor(cp); }}>{t('admin.translationManager.edit')}</button>
-                      <button className="btn btn-sm btn-outline-danger" onClick={(e) => { e.stopPropagation(); handleDelete(cpId); }}>{t('admin.translationManager.delete')}</button>
-                    </div>
-                  </div>
-
-                  {isExpanded && (
-                    <div className="mt-3 pt-3 border-top">
-                      <div className="row">
-                        <div className="col-md-6">
-                          <h6 className="text-muted small">{t('admin.checkpoints.details')}</h6>
-                          <dl className="row small">
-                            <dt className="col-sm-4">{t('admin.checkpoints.labelDescription')}</dt>
-                            <dd className="col-sm-8">{cp.description || <span className="text-muted">—</span>}</dd>
-
-                            <dt className="col-sm-4">{t('admin.checkpoints.labelCoordinates')}</dt>
-                            <dd className="col-sm-8">
-                              {(cp.lat ?? cp.latitude ?? cp.y) && (cp.lng ?? cp.longitude ?? cp.x)
-                                ? `${cp.lat ?? cp.latitude ?? cp.y}, ${cp.lng ?? cp.longitude ?? cp.x}`
-                                : <span className="text-muted">—</span>}
-                            </dd>
-
-                            <dt className="col-sm-4">{t('admin.checkpoints.labelPoints')}</dt>
-                            <dd className="col-sm-8">{cp.numOfPoints}</dd>
-                          </dl>
-                        </div>
-
-                        <div className="col-md-6">
-                          <h6 className="text-muted small">{t('admin.checkpoints.translations')}</h6>
-                          <TranslationManager
-                            entityType="checkpoint"
-                            entityId={cpId}
-                            entityName={cp.name ?? cp.title}
-                            fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
-                            supportedLanguages={supportedLanguages}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-      <div className="col-lg-6">
-        <CheckpointMap
-          checkpoints={mapCheckpoints}
-          onCheckpointClick={(cp) => setFormFor(checkpoints.find(item => (item.id ?? item.checkpoint_id) === cp.id) ?? cp)}
-          className="admin-checkpoints-overview-map"
-        />
-        <div className="form-text">{t('admin.checkpoints.overviewMapHelp')}</div>
-      </div>
+        <div className="col-lg-6">
+          {checkpoints.length === 0 ? (
+            <div className="text-muted">{t('admin.checkpoints.none')}</div>
+          ) : (
+            <div className="list-group">
+              {checkpoints.map(cp => {
+                const cpId = cp.id ?? cp.checkpoint_id;
+                const point = forMap(cp);
+                const excerpt = plainExcerpt(cp.description);
+                return (
+                  <button
+                    key={cpId}
+                    type="button"
+                    className="list-group-item list-group-item-action admin-item-row"
+                    onClick={() => setFormFor(cp)}
+                  >
+                    <span className="d-flex align-items-center gap-2">
+                      <strong className="text-truncate">{point.title}</strong>
+                      <span className="badge bg-secondary flex-shrink-0">{cp.numOfPoints} {t('admin.common.pointsShort')}</span>
+                      {(point.latitude === null || point.longitude === null) && (
+                        <span className="badge bg-warning-subtle text-warning-emphasis flex-shrink-0">{t('admin.checkpoints.noPosition')}</span>
+                      )}
+                    </span>
+                    {excerpt && <span className="d-block small text-muted text-truncate">{excerpt}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="col-lg-6">
+          <CheckpointMap
+            checkpoints={mapCheckpoints}
+            onCheckpointClick={(cp) => setFormFor(checkpoints.find(item => (item.id ?? item.checkpoint_id) === cp.id) ?? cp)}
+            className="admin-checkpoints-overview-map"
+          />
+          <div className="form-text">{t('admin.checkpoints.overviewMapHelp')}</div>
+        </div>
       </div>
 
       {formFor !== null && (
@@ -350,59 +283,20 @@ export default function CheckpointList({ checkpoints = [], onRemove = () => {}, 
           checkpoint={formFor === 'new' ? null : forMap(formFor)}
           checkpoints={mapCheckpoints}
           onSave={handleSave}
+          onDelete={handleDelete}
           onCancel={() => setFormFor(null)}
-        />
+        >
+          {formFor !== 'new' && (
+            <TranslationManager
+              entityType="checkpoint"
+              entityId={formFor.id ?? formFor.checkpoint_id}
+              entityName={formFor.name ?? formFor.title}
+              fields={{ title: t('admin.translationManager.fieldTitle'), description: t('admin.translationManager.fieldDescription') }}
+              supportedLanguages={supportedLanguages}
+            />
+          )}
+        </CheckpointFormModal>
       )}
-
-      <details className="admin-import-details">
-        <summary>{t('admin.checkpoints.importTitle')}</summary>
-      <div className="card card-body">
-        <form onSubmit={handleImport}>
-          <div className="d-flex align-items-center gap-2 mb-2">
-            <button
-              type="button"
-              className="btn btn-sm btn-link p-0 d-inline-flex align-items-center gap-1"
-              onClick={() => setShowHelpModal(true)}
-            >
-              <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-              </svg>
-              {t('admin.checkpoints.importHelpTitle')}
-            </button>
-          </div>
-          <FilePickerButton
-            id="checkpoint-file-input"
-            accept=".json"
-            onChange={handleFileChange}
-            disabled={importing}
-            fileName={selectedFile?.name}
-            className="mb-2"
-          />
-          {importError && <div className="alert alert-danger">{importError}</div>}
-          <div className="d-flex gap-2">
-            <button className="btn btn-primary" type="submit" disabled={importing || !selectedFile}>
-              {importing ? t('admin.checkpoints.importing') : t('admin.checkpoints.import')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => {
-                setSelectedFile(null);
-                const fileInput = document.getElementById('checkpoint-file-input');
-                if (fileInput) fileInput.value = '';
-              }}
-              disabled={importing || !selectedFile}
-            >
-              {t('admin.checkpoints.clear')}
-            </button>
-          </div>
-          <div className="small text-muted mt-2">
-            {t('admin.checkpoints.importHelp')}
-          </div>
-        </form>
-      </div>
-      </details>
 
       {/* Help Modal */}
       {showHelpModal && (

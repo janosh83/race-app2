@@ -25,7 +25,10 @@ vi.mock('../../services/adminApi', () => ({
     addCheckpoint: vi.fn(),
     updateCheckpoint: vi.fn(),
     addTask: vi.fn(),
+    deleteCheckpoint: vi.fn(),
+    deleteTask: vi.fn(),
     getCheckpointTranslations: vi.fn(),
+    getTaskTranslations: vi.fn(),
   },
 }));
 
@@ -116,5 +119,75 @@ describe('creating single checkpoints and tasks', () => {
 
     await waitFor(() => expect(adminApi.addTask).toHaveBeenCalledWith(2, { title: 'Sing', description: '', numOfPoints: 0 }));
     expect(onImported).toHaveBeenCalledWith([{ id: 5, title: 'Sing', numOfPoints: 4 }]);
+  });
+});
+
+describe('checkpoint and task rows', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adminApi.getCheckpointTranslations.mockResolvedValue([]);
+    adminApi.getTaskTranslations.mockResolvedValue([]);
+  });
+
+  it('a checkpoint row opens its dialog, which deletes it after confirming', async () => {
+    adminApi.deleteCheckpoint.mockResolvedValue({});
+    const onRemove = vi.fn();
+    render(<CheckpointList raceId={2} onRemove={onRemove} checkpoints={[
+      { id: 4, title: 'Bridge', description: '<p>Under the <b>old</b> bridge</p>', latitude: 50, longitude: 14, numOfPoints: 3 },
+    ]} />);
+
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Bridge.*Under the old bridge/ }));
+
+    expect(screen.getByLabelText('Title')).toHaveValue('Bridge');
+    expect(await screen.findByText('No translations yet')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete checkpoint' }));
+    expect(screen.getByText(/Visits logged at it/)).toBeInTheDocument();
+    expect(adminApi.deleteCheckpoint).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith(4));
+    expect(adminApi.deleteCheckpoint).toHaveBeenCalledWith(4);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('a failed delete keeps the dialog open with the reason', async () => {
+    adminApi.deleteCheckpoint.mockRejectedValue(new Error('Server down'));
+    render(<CheckpointList raceId={2} checkpoints={[{ id: 4, title: 'Bridge', latitude: 50, longitude: 14, numOfPoints: 3 }]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Bridge/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete checkpoint' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server down');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('flags a checkpoint without a position', () => {
+    render(<CheckpointList raceId={2} checkpoints={[{ id: 4, title: 'Somewhere', numOfPoints: 1 }]} />);
+    expect(screen.getByText('No position')).toBeInTheDocument();
+  });
+
+  it('the import panel opens from the Import button', () => {
+    render(<CheckpointList raceId={2} checkpoints={[]} />);
+    expect(screen.queryByText('Import checkpoints from JSON file')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+
+    expect(screen.getByText('Import checkpoints from JSON file')).toBeInTheDocument();
+  });
+
+  it('a task row opens its dialog, which deletes it after confirming', async () => {
+    adminApi.deleteTask.mockResolvedValue({});
+    const onRemove = vi.fn();
+    render(<TaskList raceId={2} onRemove={onRemove} tasks={[{ id: 5, title: 'Sing', numOfPoints: 4 }]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Sing/ }));
+    expect(screen.getByLabelText('Title')).toHaveValue('Sing');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete task' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, delete' }));
+
+    await waitFor(() => expect(onRemove).toHaveBeenCalledWith(5));
+    expect(adminApi.deleteTask).toHaveBeenCalledWith(5);
   });
 });
