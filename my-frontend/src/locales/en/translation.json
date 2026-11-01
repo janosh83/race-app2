@@ -335,7 +335,13 @@
       "tabOverview": "Overview",
       "backToRaces": "Races",
       "raceNotFound": "This race was not found.",
-      "visitsTeamName": "Visits — {{name}}"
+      "visitsTeamName": "Visits — {{name}}",
+      "backToStandings": "Standings",
+      "teamPlacement": "Place {{position}} · {{points}} pts",
+      "switchTeam": "Switch team",
+      "previousTeam": "Previous team",
+      "nextTeam": "Next team",
+      "pickTeamHint": "Click a team to review its visits and photos."
     },
     "statistics": {
       "title": "Race statistics",
@@ -832,13 +838,12 @@
     "visits": {
       "loading": "Loading visits and tasks...",
       "noItems": "No visits or task completions",
-      "clickToView": "Click to view",
-      "noImage": "📷 No image",
+      "noImage": "No photo",
       "badgeCheckpoint": "🚩 Checkpoint",
       "badgeTask": "✓ Task",
       "unknownTask": "Task",
       "noPositionData": "No position from the photo or the device. Verify this visit manually.",
-      "delete": "🗑️ Delete",
+      "delete": "Delete",
       "confirmDeleteVisit": "Are you sure you want to delete this visit?",
       "confirmDeleteTaskCompletion": "Are you sure you want to delete this task completion?",
       "errorLoad": "Failed to load visits or tasks",
@@ -849,7 +854,13 @@
       "distanceDevice": "Device position:",
       "usedForCheck": "used",
       "farPhoto": "Photo taken {{meters}} m from the checkpoint",
-      "farDevice": "Device was {{meters}} m from the checkpoint when logging"
+      "farDevice": "Device was {{meters}} m from the checkpoint when logging",
+      "summaryCheckpoints": "Checkpoints: {{count}}",
+      "summaryTasks": "Tasks: {{count}}",
+      "summaryToCheck": "To check: {{count}}",
+      "openPhoto": "Open photo: {{name}}",
+      "previousPhoto": "Previous photo",
+      "nextPhoto": "Next photo"
     },
     "checkpointVisits": {
       "loading": "Loading visits...",

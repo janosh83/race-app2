@@ -1,58 +1,61 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import { assessVisitPosition } from '../../utils/visitPosition';
 
+import './VisitsList.css';
+
 const apiUrl = import.meta.env.VITE_API_URL || '';
 
 const formatMeters = (km) => (km === null || km === undefined ? '—' : `${(km * 1000).toFixed(0)} m`);
 
-const WARNING_STYLES = {
-  missing: { backgroundColor: '#fff3cd', color: '#856404' },
-  far: { backgroundColor: '#f8d7da', color: '#721c24' },
-};
-
+// Day, month and time without seconds, in the browser locale like the other
+// admin dates.
 function formatDate(iso) {
   if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  } catch {
-    return iso;
-  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// The visits and task completions of one team, newest first, for review:
+// photo, where it was taken compared with the checkpoint, and a way to delete
+// a visit that does not count.
 export default function VisitsList({ teamId, raceId, onDataChanged }) {
   const { t } = useTranslation();
   const [visits, setVisits] = useState([]);
   const [taskCompletions, setTaskCompletions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedImage, setSelectedImage] = useState(null); // For image modal
-  const [imageZoom, setImageZoom] = useState(1); // For pinch zoom on mobile
+  const [viewerKey, setViewerKey] = useState(null); // key of the item shown in the photo viewer
+  const swipeStartX = useRef(null);
 
   useEffect(() => {
+    let mounted = true;
     const fetchData = async () => {
       setLoading(true);
       setError(null);
+      setViewerKey(null);
       try {
         const [visitsData, tasksData] = await Promise.all([
           adminApi.getVisitsByTeamAndRace(teamId, raceId),
           adminApi.getTaskCompletionsByTeamAndRace(teamId, raceId)
         ]);
+        if (!mounted) return;
         setVisits(Array.isArray(visitsData) ? visitsData : (visitsData?.data || []));
         setTaskCompletions(Array.isArray(tasksData) ? tasksData : (tasksData?.data || []));
       } catch (err) {
         logger.error('ADMIN', 'Failed to load visits or tasks', err);
-        setError(t('admin.visits.errorLoad'));
+        if (mounted) setError(t('admin.visits.errorLoad'));
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     if (teamId && raceId) fetchData();
+    return () => { mounted = false; };
   }, [teamId, raceId, t]);
 
   const handleDeleteVisit = async (visitId) => {
@@ -95,9 +98,6 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
     }
   };
 
-  if (loading) return <div>{t('admin.visits.loading')}</div>;
-  if (error) return <div className="alert alert-danger">{error}</div>;
-
   const getPositionWarning = (assessment) => {
     if (assessment.status === 'missing') return t('admin.visits.noPositionData');
     if (assessment.status === 'far') {
@@ -108,256 +108,192 @@ export default function VisitsList({ teamId, raceId, onDataChanged }) {
     return null;
   };
 
-  const allItems = [
-    ...visits.map(v => ({ ...v, type: 'visit', sortTime: v.created_at })),
-    ...taskCompletions.map(t => ({ ...t, type: 'task', sortTime: t.created_at }))
-  ].sort((a, b) => new Date(b.sortTime) - new Date(a.sortTime));
+  const items = [
+    ...visits.map(v => ({ ...v, type: 'visit' })),
+    ...taskCompletions.map(tc => ({ ...tc, type: 'task' }))
+  ]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .map(item => {
+      const assessment = item.type === 'visit' ? assessVisitPosition(item) : null;
+      return {
+        ...item,
+        key: `${item.type}-${item.id}`,
+        title: item.type === 'visit'
+          ? (item.checkpoint || `#${item.checkpoint_id}`)
+          : (item.task || item.task_title || t('admin.visits.unknownTask')),
+        imageUrl: item.image_filename ? `${apiUrl}/static/images/${item.image_filename}` : null,
+        assessment,
+        warning: assessment ? getPositionWarning(assessment) : null,
+      };
+    });
+
+  const withPhotos = items.filter(item => item.imageUrl);
+  const viewerIndex = withPhotos.findIndex(item => item.key === viewerKey);
+  const viewerItem = viewerIndex >= 0 ? withPhotos[viewerIndex] : null;
+
+  const showPhoto = useCallback((offset) => {
+    if (viewerIndex < 0 || withPhotos.length === 0) return;
+    const next = (viewerIndex + offset + withPhotos.length) % withPhotos.length;
+    setViewerKey(withPhotos[next].key);
+  }, [viewerIndex, withPhotos]);
+
+  // Photo viewer keys: arrows go through the team's photos, Escape closes.
+  useEffect(() => {
+    if (!viewerItem) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape') setViewerKey(null);
+      else if (event.key === 'ArrowRight') showPhoto(1);
+      else if (event.key === 'ArrowLeft') showPhoto(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewerItem, showPhoto]);
+
+  if (loading) return <div>{t('admin.visits.loading')}</div>;
+  if (error) return <div className="alert alert-danger">{error}</div>;
+
+  if (items.length === 0) {
+    return <div className="text-muted">{t('admin.visits.noItems')}</div>;
+  }
+
+  const toCheck = items.filter(item => item.warning).length;
 
   return (
     <div>
-      {/* Image Viewer Modal */}
-      {selectedImage && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.95)',
-            zIndex: 1050,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '10px',
-            cursor: 'zoom-in'
-          }}
-          onClick={() => {
-            setSelectedImage(null);
-            setImageZoom(1);
-          }}
-        >
-          <div style={{ maxWidth: '100%', maxHeight: '100%', position: 'relative' }}>
-            <img
-              src={selectedImage.url}
-              alt={t('admin.visits.imageAltCheckpointVisit')}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '90vh',
-                objectFit: 'contain',
-                transform: `scale(${imageZoom})`
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
-            {/* Close button */}
-            <button
-              style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                background: 'rgba(255,255,255,0.9)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                fontSize: '24px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onClick={() => {
-                setSelectedImage(null);
-                setImageZoom(1);
-              }}
-            >
-              ✕
-            </button>
-            {/* Image info */}
-            {selectedImage.checkpoint && (
-              <div style={{
-                position: 'absolute',
-                bottom: '10px',
-                left: '10px',
-                background: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                padding: '8px 12px',
-                borderRadius: '4px',
-                fontSize: '12px'
-              }}>
-                {selectedImage.checkpoint}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <p className="admin-visits-summary">
+        <span>{t('admin.visits.summaryCheckpoints', { count: visits.length })}</span>
+        <span>{t('admin.visits.summaryTasks', { count: taskCompletions.length })}</span>
+        {toCheck > 0 && (
+          <span className="admin-visits-summary-warning">⚠️ {t('admin.visits.summaryToCheck', { count: toCheck })}</span>
+        )}
+      </p>
 
-      {allItems.length === 0 ? (
-        <div className="text-muted">{t('admin.visits.noItems')}</div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(350px, 100%), 1fr))', gap: '16px' }}>
-          {allItems.map(item => {
-            const assessment = item.type === 'visit' ? assessVisitPosition(item) : null;
-            const warning = assessment ? getPositionWarning(assessment) : null;
-            const imageUrl = item.image_filename
-              ? `${apiUrl}/static/images/${item.image_filename}`
-              : null;
-            const hasImage = Boolean(imageUrl);
+      <div className="admin-visits-grid">
+        {items.map(item => {
+          const { assessment, warning } = item;
+          return (
+            <article key={item.key} className={`admin-visit-card${warning ? ` admin-visit-card-${assessment.status}` : ''}`}>
+              {item.imageUrl ? (
+                <button
+                  type="button"
+                  className="admin-visit-photo"
+                  onClick={() => setViewerKey(item.key)}
+                  aria-label={t('admin.visits.openPhoto', { name: item.title })}
+                >
+                  <img src={item.imageUrl} alt="" loading="lazy" />
+                </button>
+              ) : (
+                <div className="admin-visit-no-photo">{t('admin.visits.noImage')}</div>
+              )}
 
-            return (
-              <div
-                key={`${item.type}-${item.id}`}
-                style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  backgroundColor: '#fff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  display: 'flex',
-                  flexDirection: 'column'
-                }}
-              >
-                {/* Image Section */}
-                {hasImage ? (
-                  <div
-                    style={{
-                      position: 'relative',
-                      backgroundColor: '#f0f0f0',
-                      minHeight: '200px',
-                      cursor: 'pointer',
-                      overflow: 'hidden'
-                    }}
-                    onClick={() => setSelectedImage({
-                      url: imageUrl,
-                      checkpoint: item.type === 'visit'
-                        ? item.checkpoint
-                        : (item.task || item.task_title || t('admin.visits.unknownTask'))
-                    })}
-                  >
-                    <img
-                      src={imageUrl}
-                      alt={t('admin.visits.imageAltCheckpointVisit')}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
-                    />
-                    {/* Tap to view indicator on mobile */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        inset: '0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(0,0,0,0)',
-                        opacity: '0',
-                        transition: 'opacity 0.2s',
-                        fontSize: '14px',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-                      className="hover-indicator"
-                    >
-                      {t('admin.visits.clickToView')}
-                    </div>
+              <div className="admin-visit-body">
+                <div className="admin-visit-header">
+                  <div className="admin-visit-badges">
+                    <span className={`badge ${item.type === 'visit' ? 'bg-primary' : 'bg-success'}`}>
+                      {item.type === 'visit' ? t('admin.visits.badgeCheckpoint') : t('admin.visits.badgeTask')}
+                    </span>
+                    {Number.isFinite(item.num_of_points) && (
+                      <span className="badge bg-secondary">
+                        {t('tasks.points', { count: item.num_of_points })}
+                      </span>
+                    )}
+                    <span className="admin-visit-time">{formatDate(item.created_at)}</span>
                   </div>
-                ) : (
-                  <div
-                    style={{
-                      backgroundColor: '#f9f9f9',
-                      padding: '40px 16px',
-                      textAlign: 'center',
-                      color: '#999'
-                    }}
-                  >
-                    {t('admin.visits.noImage')}
+                  <h4 className="admin-visit-title">{item.title}</h4>
+                </div>
+
+                {assessment && (
+                  <div className={`admin-visit-position${warning ? ` admin-visit-position-${assessment.status}` : ''}`}>
+                    {[
+                      { source: 'image', label: t('admin.visits.distancePhoto'), km: item.image_distance_km },
+                      { source: 'user', label: t('admin.visits.distanceDevice'), km: item.user_distance_km },
+                    ].map(row => {
+                      const used = assessment.source === row.source;
+                      return (
+                        <div key={row.source} className={`admin-visit-position-row${used ? ' is-used' : ''}`}>
+                          <span>
+                            {row.label}
+                            {used && <span className="badge bg-dark ms-2">{t('admin.visits.usedForCheck')}</span>}
+                          </span>
+                          <span className="admin-visit-distance">{formatMeters(row.km)}</span>
+                        </div>
+                      );
+                    })}
+                    {warning && (
+                      <div role="alert" className="admin-visit-warning">⚠️ {warning}</div>
+                    )}
                   </div>
                 )}
 
-                {/* Card Content */}
-                <div style={{ padding: '16px', flex: '1', display: 'flex', flexDirection: 'column' }}>
-                  {/* Header */}
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                      <span className={`badge ${item.type === 'visit' ? 'bg-primary' : 'bg-success'}`}>
-                        {item.type === 'visit' ? t('admin.visits.badgeCheckpoint') : t('admin.visits.badgeTask')}
-                      </span>
-                      {Number.isFinite(item.num_of_points) && (
-                        <span className="badge bg-secondary">
-                          {t('tasks.points', { count: item.num_of_points })}
-                        </span>
-                      )}
-                    </div>
-                    <h6 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '600' }}>
-                      {item.type === 'visit' ? (item.checkpoint || `#${item.checkpoint_id}`) : (item.task || item.task_title || t('admin.visits.unknownTask'))}
-                    </h6>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                      {formatDate(item.created_at)}
-                    </div>
-                  </div>
-
-                  {/* Distance Info for Checkpoints */}
-                  {assessment && (
-                    <div style={{
-                      marginBottom: '12px',
-                      padding: '10px',
-                      backgroundColor: warning ? WARNING_STYLES[assessment.status].backgroundColor : '#f8f9fa',
-                      borderRadius: '4px',
-                      fontSize: '13px'
-                    }}>
-                      {[
-                        { source: 'image', label: t('admin.visits.distancePhoto'), km: item.image_distance_km },
-                        { source: 'user', label: t('admin.visits.distanceDevice'), km: item.user_distance_km },
-                      ].map(row => {
-                        const used = assessment.source === row.source;
-                        return (
-                          <div
-                            key={row.source}
-                            style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: used ? undefined : '#6c757d' }}
-                          >
-                            <span>
-                              {row.label}
-                              {used && <span className="badge bg-dark ms-2">{t('admin.visits.usedForCheck')}</span>}
-                            </span>
-                            <span style={{ fontWeight: used ? '600' : '400' }}>{formatMeters(row.km)}</span>
-                          </div>
-                        );
-                      })}
-                      {warning && (
-                        <div
-                          role="alert"
-                          style={{
-                            marginTop: '8px',
-                            padding: '6px 8px',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            ...WARNING_STYLES[assessment.status],
-                          }}
-                        >
-                          ⚠️ {warning}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Actions */}
-                  <div style={{ marginTop: 'auto' }}>
-                    <button
-                      className="btn btn-sm btn-danger w-100"
-                      onClick={() => item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id)}
-                    >
-                      {t('admin.visits.delete')}
-                    </button>
-                  </div>
+                <div className="admin-visit-actions">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => (item.type === 'visit' ? handleDeleteVisit(item.id) : handleDeleteTaskCompletion(item.id))}
+                  >
+                    {t('admin.visits.delete')}
+                  </button>
                 </div>
               </div>
-            );
-          })}
+            </article>
+          );
+        })}
+      </div>
+
+      {viewerItem && (
+        <div
+          className="admin-photo-viewer"
+          role="dialog"
+          aria-modal="true"
+          aria-label={viewerItem.title}
+          onClick={() => setViewerKey(null)}
+          // Swipe sideways on a phone to go through the photos.
+          onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            if (swipeStartX.current === null) return;
+            const dx = e.changedTouches[0].clientX - swipeStartX.current;
+            swipeStartX.current = null;
+            if (Math.abs(dx) > 50) showPhoto(dx < 0 ? 1 : -1);
+          }}
+        >
+          <img src={viewerItem.imageUrl} alt={viewerItem.title} onClick={(e) => e.stopPropagation()} />
+          <button
+            type="button"
+            className="admin-photo-viewer-close"
+            aria-label={t('admin.dashboard.close')}
+            onClick={() => setViewerKey(null)}
+          >
+            ✕
+          </button>
+          {withPhotos.length > 1 && (
+            <>
+              <button
+                type="button"
+                className="admin-photo-viewer-nav is-prev"
+                aria-label={t('admin.visits.previousPhoto')}
+                onClick={(e) => { e.stopPropagation(); showPhoto(-1); }}
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                className="admin-photo-viewer-nav is-next"
+                aria-label={t('admin.visits.nextPhoto')}
+                onClick={(e) => { e.stopPropagation(); showPhoto(1); }}
+              >
+                ›
+              </button>
+            </>
+          )}
+          <div className="admin-photo-viewer-caption" onClick={(e) => e.stopPropagation()}>
+            <strong>{viewerItem.title}</strong>
+            <span>{formatDate(viewerItem.created_at)}</span>
+            {viewerItem.assessment?.distanceKm !== null && viewerItem.assessment?.distanceKm !== undefined && (
+              <span>{formatMeters(viewerItem.assessment.distanceKm)}</span>
+            )}
+            {viewerItem.warning && <span className="admin-photo-viewer-warning">⚠️ {viewerItem.warning}</span>}
+            {withPhotos.length > 1 && <span>{viewerIndex + 1} / {withPhotos.length}</span>}
+          </div>
         </div>
       )}
     </div>

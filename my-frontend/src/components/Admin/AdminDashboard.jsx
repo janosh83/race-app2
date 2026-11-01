@@ -33,6 +33,10 @@ export const RACE_SECTIONS = [
 ];
 const SECTION_KEYS = RACE_SECTIONS.map(s => s.key);
 
+// Below Bootstrap's lg breakpoint a team's visits replace the standings
+// instead of sitting next to them (keep in sync with AdminDashboard.css).
+const NARROW_RESULTS_QUERY = '(max-width: 991.98px)';
+
 // The opened race, its section and the team whose visits are shown live in
 // the URL (?race=1&section=results&team=5), so reload, Back and shared links
 // keep the place, e.g. while reviewing photos at the finish.
@@ -50,7 +54,7 @@ function AdminDashboard() {
   const [creatingNew, setCreatingNew] = useState(false);
   const [editingRace, setEditingRace] = useState(null);
   const [standingsRefreshVersion, setStandingsRefreshVersion] = useState(0);
-  const [teamNames, setTeamNames] = useState({});
+  const [teamOrder, setTeamOrder] = useState([]); // standings order, for previous/next team
   const teamVisitsDetailsRef = useRef(null);
 
   const selectedId = searchParams.get('race');
@@ -68,10 +72,27 @@ function AdminDashboard() {
     setSearchParams(next);
   };
 
+  // On phones the visits replace the standings. After tapping a team far
+  // down a long table the page may stay scrolled past the panel's top, so
+  // bring its header back. On wide screens the visits sit next to the
+  // standings and nothing needs to move.
   useEffect(() => {
-    if (activeSection !== 'results' || !visitingTeam || !teamVisitsDetailsRef.current) return;
-    teamVisitsDetailsRef.current.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
-  }, [activeSection, visitingTeam]);
+    const panel = teamVisitsDetailsRef.current;
+    if (activeSection !== 'results' || !visitingTeam || !panel) return;
+    if (!window.matchMedia?.(NARROW_RESULTS_QUERY).matches) return;
+    if (panel.getBoundingClientRect().top < 0) panel.scrollIntoView?.({ block: 'start' });
+    // selected: the panel only exists once the races have loaded.
+  }, [activeSection, visitingTeam, selected?.id]);
+
+  // Keep the active section tab visible in the sideways-scrolling tab row.
+  const sectionTabsRef = useRef(null);
+  useEffect(() => {
+    const strip = sectionTabsRef.current;
+    const active = strip?.querySelector('.nav-link.active');
+    if (!strip || !active) return;
+    const left = active.offsetLeft - (strip.clientWidth - active.offsetWidth) / 2;
+    strip.scrollLeft = Math.max(0, left);
+  }, [activeSection, selected?.id, editingRace]);
 
   useEffect(() => {
     let mounted = true;
@@ -175,6 +196,14 @@ function AdminDashboard() {
 
   const phase = getPhasePresentation(t, timeStateForRace(Date.now(), selected).state);
 
+  const visitingIndex = teamOrder.findIndex(row => row.id === visitingTeam);
+  const visitingRow = visitingIndex >= 0 ? teamOrder[visitingIndex] : null;
+  const previousTeam = visitingIndex > 0 ? teamOrder[visitingIndex - 1] : null;
+  const nextTeam = visitingIndex >= 0 && visitingIndex < teamOrder.length - 1 ? teamOrder[visitingIndex + 1] : null;
+  const visitsTitle = visitingRow
+    ? t('admin.dashboard.visitsTeamName', { name: visitingRow.name })
+    : t('admin.dashboard.visitsTeam', { id: visitingTeam });
+
   return (
     <div className="admin-dashboard">
       {backLink}
@@ -198,7 +227,7 @@ function AdminDashboard() {
         />
       ) : (
         <>
-          <ul className="nav nav-tabs mb-3 admin-section-tabs">
+          <ul className="nav nav-tabs mb-3 admin-section-tabs" ref={sectionTabsRef}>
             {RACE_SECTIONS.map(({ key, label }) => (
               <li className="nav-item" key={key}>
                 <button
@@ -250,34 +279,85 @@ function AdminDashboard() {
           )}
 
           {activeSection === 'results' && (
-            <>
-              <Standings
-                raceId={selected.id}
-                refreshVersion={standingsRefreshVersion}
-                onTeamClick={(teamId) => updateParams({ team: teamId })}
-                onOpenRegistrations={() => updateParams({ section: 'registrations', team: null })}
-                onLoaded={(rows) => setTeamNames(Object.fromEntries(rows.map(row => [String(row.teamId), row.teamName])))}
-              />
+            <div className={`admin-results${visitingTeam ? ' admin-results-with-team' : ''}`}>
+              <div className="admin-results-standings">
+                <Standings
+                  raceId={selected.id}
+                  refreshVersion={standingsRefreshVersion}
+                  selectedTeamId={visitingTeam}
+                  compact={Boolean(visitingTeam)}
+                  onTeamClick={(teamId) => updateParams({ team: teamId })}
+                  onOpenRegistrations={() => updateParams({ section: 'registrations', team: null })}
+                  onLoaded={(rows) => setTeamOrder(rows.map(row => ({
+                    id: String(row.teamId),
+                    name: row.teamName,
+                    position: row.positionLabel,
+                    totalPoints: row.totalPoints,
+                  })))}
+                />
+                {!visitingTeam && teamOrder.length > 0 && (
+                  <p className="small text-muted mb-0">{t('admin.dashboard.pickTeamHint')}</p>
+                )}
+              </div>
               {visitingTeam && (
-                <div className="card mt-3" ref={teamVisitsDetailsRef}>
-                  <div className="card-body">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <h5 className="mb-0">
-                        {teamNames[visitingTeam]
-                          ? t('admin.dashboard.visitsTeamName', { name: teamNames[visitingTeam] })
-                          : t('admin.dashboard.visitsTeam', { id: visitingTeam })}
-                      </h5>
-                      <button className="btn btn-sm btn-outline-secondary" onClick={() => updateParams({ team: null })}>{t('admin.dashboard.close')}</button>
+                <section className="card admin-results-visits" ref={teamVisitsDetailsRef} aria-label={visitsTitle}>
+                  <div className="admin-visits-header">
+                    <button
+                      type="button"
+                      className="btn btn-link px-0 py-0 admin-back-link d-lg-none"
+                      onClick={() => updateParams({ team: null })}
+                    >
+                      ‹ {t('admin.dashboard.backToStandings')}
+                    </button>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="flex-grow-1 min-w-0">
+                        <h3 className="h5 mb-0 text-truncate">{visitsTitle}</h3>
+                        {visitingRow && (
+                          <div className="small text-muted">
+                            {t('admin.dashboard.teamPlacement', { position: visitingRow.position, points: visitingRow.totalPoints })}
+                          </div>
+                        )}
+                      </div>
+                      <div className="btn-group btn-group-sm" role="group" aria-label={t('admin.dashboard.switchTeam')}>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          disabled={!previousTeam}
+                          title={previousTeam?.name}
+                          aria-label={t('admin.dashboard.previousTeam')}
+                          onClick={() => updateParams({ team: previousTeam.id })}
+                        >
+                          ‹
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          disabled={!nextTeam}
+                          title={nextTeam?.name}
+                          aria-label={t('admin.dashboard.nextTeam')}
+                          onClick={() => updateParams({ team: nextTeam.id })}
+                        >
+                          ›
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-close d-none d-lg-inline-block"
+                        aria-label={t('admin.dashboard.close')}
+                        onClick={() => updateParams({ team: null })}
+                      />
                     </div>
+                  </div>
+                  <div className="card-body">
                     <VisitsList
                       teamId={visitingTeam}
                       raceId={selected.id}
                       onDataChanged={() => setStandingsRefreshVersion(prev => prev + 1)}
                     />
                   </div>
-                </div>
+                </section>
               )}
-            </>
+            </div>
           )}
 
           {activeSection === 'paths' && (

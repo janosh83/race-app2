@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 
 import { adminApi } from '../../services/adminApi';
@@ -64,5 +64,42 @@ describe('VisitsList position review', () => {
 
     const farCard = cardOf(screen.getByText('Photo far device near'));
     expect(within(farCard).getByRole('alert')).toHaveTextContent('Photo taken 1200 m from the checkpoint');
+  });
+});
+
+describe('VisitsList photos and summary', () => {
+  beforeEach(() => {
+    adminApi.getTaskCompletionsByTeamAndRace.mockResolvedValue([
+      { id: 5, task_id: 5, team_id: 1, task: 'Sing a song', created_at: '2026-05-01T10:09:00', image_filename: 'song.jpg' },
+    ]);
+    adminApi.getVisitsByTeamAndRace.mockResolvedValue([
+      visit(1, 'Old mill', { image_filename: 'mill.jpg', image_distance_km: 0.01 }),
+      visit(2, 'Bridge', { user_distance_km: 0.9 }),
+    ]);
+  });
+
+  it('counts visits, tasks and the ones to check', async () => {
+    render(<VisitsList teamId={1} raceId={1} />);
+
+    expect(await screen.findByText('Checkpoints: 2')).toBeInTheDocument();
+    expect(screen.getByText('Tasks: 1')).toBeInTheDocument();
+    expect(screen.getByText(/To check: 1/)).toBeInTheDocument();
+  });
+
+  it('goes through the photos with arrow keys and closes with Escape', async () => {
+    render(<VisitsList teamId={1} raceId={1} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open photo: Sing a song' }));
+    const viewer = screen.getByRole('dialog', { name: 'Sing a song' });
+    expect(within(viewer).getByText('1 / 2')).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('dialog', { name: 'Old mill' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(screen.getByRole('dialog', { name: 'Sing a song' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

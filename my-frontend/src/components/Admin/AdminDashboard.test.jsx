@@ -108,6 +108,41 @@ describe('AdminDashboard', () => {
     expect(screen.getByRole('button', { name: 'Results & visits' })).toHaveAttribute('aria-current', 'page');
   });
 
+  test('previous and next switch between teams in standings order', async () => {
+    adminApi.getResults.mockResolvedValue([
+      { team_id: 7, team: 'Rockets', category: 'Cars', points_for_checkpoints: 10, points_for_tasks: 2, total_points: 12 },
+      { team_id: 8, team: 'Snails', category: 'Cars', points_for_checkpoints: 3, points_for_tasks: 0, total_points: 3 },
+      { team_id: 9, team: 'Comets', category: 'Bikes', points_for_checkpoints: 20, points_for_tasks: 0, total_points: 20 },
+    ]);
+    renderAt('?race=1&section=results&team=7');
+
+    expect(await screen.findByRole('heading', { name: 'Visits — Rockets' })).toBeInTheDocument();
+    expect(screen.getByText('Place 2. · 12 pts')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Rockets/ })).toHaveAttribute('aria-current', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next team' }));
+    expect(await screen.findByRole('heading', { name: 'Visits — Snails' })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('team=8');
+    expect(screen.getByRole('button', { name: 'Next team' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous team' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Previous team' }));
+    expect(await screen.findByRole('heading', { name: 'Visits — Comets' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous team' })).toBeDisabled();
+  });
+
+  test('a whole standings row opens the team, Standings goes back', async () => {
+    renderAt('?race=1&section=results');
+
+    expect(await screen.findByText('Click a team to review its visits and photos.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('cell', { name: '12' }));
+    expect(await screen.findByText('visits of 7')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Standings/ }));
+    expect(screen.queryByText('visits of 7')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1&section=results');
+  });
+
   test('back to races clears the opened race', async () => {
     renderAt('?race=1&section=results');
 

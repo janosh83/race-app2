@@ -1,0 +1,228 @@
+/* Visit review cards of one team (Results & visits). */
+.admin-visits-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--bs-secondary-color);
+}
+
+.admin-visits-summary-warning {
+  color: #856404;
+  font-weight: 600;
+}
+
+.admin-visits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  gap: 1rem;
+}
+
+.admin-visit-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+}
+
+.admin-visit-card-far {
+  border-color: #f1aeb5;
+}
+
+.admin-visit-card-missing {
+  border-color: #ffe69c;
+}
+
+/* Photos keep one shape so a grid of cards lines up; the viewer shows them whole. */
+.admin-visit-photo {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  aspect-ratio: 4 / 3;
+  background: #f0f0f0;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+
+.admin-visit-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.admin-visit-photo:hover img,
+.admin-visit-photo:focus-visible img {
+  transform: scale(1.03);
+}
+
+.admin-visit-no-photo {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--bs-secondary-color);
+  background: var(--bs-tertiary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.admin-visit-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.admin-visit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.25rem;
+}
+
+.admin-visit-time {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+
+.admin-visit-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.admin-visit-position {
+  padding: 0.5rem 0.625rem;
+  font-size: 0.8125rem;
+  background: var(--bs-tertiary-bg);
+  border-radius: 4px;
+}
+
+.admin-visit-position-far {
+  background: #f8d7da;
+}
+
+.admin-visit-position-missing {
+  background: #fff3cd;
+}
+
+.admin-visit-position-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--bs-secondary-color);
+}
+
+.admin-visit-position-row + .admin-visit-position-row {
+  margin-top: 0.125rem;
+}
+
+.admin-visit-position-row.is-used {
+  color: var(--bs-body-color);
+}
+
+.admin-visit-position-row.is-used .admin-visit-distance {
+  font-weight: 600;
+}
+
+.admin-visit-warning {
+  margin-top: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.admin-visit-position-far .admin-visit-warning {
+  color: #721c24;
+}
+
+.admin-visit-position-missing .admin-visit-warning {
+  color: #856404;
+}
+
+/* Deleting is the rare action: small and at the end, not a full-width red bar. */
+.admin-visit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+/* Full-screen photo viewer. */
+.admin-photo-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1060;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 0.5rem 5rem;
+  background: rgba(0, 0, 0, 0.92);
+}
+
+.admin-photo-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.admin-photo-viewer-close,
+.admin-photo-viewer-nav {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  background: rgba(255, 255, 255, 0.85);
+  border: 0;
+  border-radius: 50%;
+}
+
+.admin-photo-viewer-close {
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.25rem;
+}
+
+.admin-photo-viewer-nav {
+  top: 50%;
+  width: 3rem;
+  height: 3rem;
+  font-size: 2rem;
+  line-height: 1;
+  transform: translateY(-50%);
+}
+
+.admin-photo-viewer-nav.is-prev {
+  left: 0.5rem;
+}
+
+.admin-photo-viewer-nav.is-next {
+  right: 0.5rem;
+}
+
+.admin-photo-viewer-caption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.admin-photo-viewer-warning {
+  color: #ffda6a;
+  font-weight: 600;
+}

@@ -336,7 +336,13 @@
       "tabOverview": "Přehled",
       "backToRaces": "Závody",
       "raceNotFound": "Tento závod nebyl nalezen.",
-      "visitsTeamName": "Návštěvy — {{name}}"
+      "visitsTeamName": "Návštěvy — {{name}}",
+      "backToStandings": "Pořadí",
+      "teamPlacement": "{{position}} místo · {{points}} b.",
+      "switchTeam": "Přepnout tým",
+      "previousTeam": "Předchozí tým",
+      "nextTeam": "Další tým",
+      "pickTeamHint": "Kliknutím na tým zobrazíte jeho návštěvy a fotky."
     },
     "statistics": {
       "title": "Statistiky závodu",
@@ -833,13 +839,12 @@
     "visits": {
       "loading": "Načítám návštěvy a úkoly...",
       "noItems": "Žádné návštěvy ani splnění úkolů",
-      "clickToView": "Klikněte pro zobrazení",
-      "noImage": "📷 Bez obrázku",
+      "noImage": "Bez fotky",
       "badgeCheckpoint": "🚩 Checkpoint",
       "badgeTask": "✓ Úkol",
       "unknownTask": "Úkol",
       "noPositionData": "Chybí poloha z fotky i ze zařízení. Ověřte tuto návštěvu ručně.",
-      "delete": "🗑️ Smazat",
+      "delete": "Smazat",
       "confirmDeleteVisit": "Opravdu chcete smazat tuto návštěvu?",
       "confirmDeleteTaskCompletion": "Opravdu chcete smazat toto splnění úkolu?",
       "errorLoad": "Nepodařilo se načíst návštěvy nebo úkoly",
@@ -850,7 +855,13 @@
       "distanceDevice": "Poloha zařízení:",
       "usedForCheck": "použito",
       "farPhoto": "Fotka pořízena {{meters}} m od checkpointu",
-      "farDevice": "Zařízení bylo při zápisu {{meters}} m od checkpointu"
+      "farDevice": "Zařízení bylo při zápisu {{meters}} m od checkpointu",
+      "summaryCheckpoints": "Checkpointy: {{count}}",
+      "summaryTasks": "Úkoly: {{count}}",
+      "summaryToCheck": "Ke kontrole: {{count}}",
+      "openPhoto": "Otevřít fotku: {{name}}",
+      "previousPhoto": "Předchozí fotka",
+      "nextPhoto": "Další fotka"
     },
     "checkpointVisits": {
       "loading": "Načítám návštěvy...",

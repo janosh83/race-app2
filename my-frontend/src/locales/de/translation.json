@@ -335,7 +335,13 @@
       "tabOverview": "Uebersicht",
       "backToRaces": "Rennen",
       "raceNotFound": "Dieses Rennen wurde nicht gefunden.",
-      "visitsTeamName": "Besuche — {{name}}"
+      "visitsTeamName": "Besuche — {{name}}",
+      "backToStandings": "Rangliste",
+      "teamPlacement": "Platz {{position}} · {{points}} Pkt.",
+      "switchTeam": "Team wechseln",
+      "previousTeam": "Vorheriges Team",
+      "nextTeam": "Nächstes Team",
+      "pickTeamHint": "Klicke auf ein Team, um seine Besuche und Fotos zu prüfen."
     },
     "statistics": {
       "title": "Rennstatistiken",
@@ -832,13 +838,12 @@
     "visits": {
       "loading": "Besuche und Aufgaben werden geladen...",
       "noItems": "Keine Besuche oder Aufgabenabschluesse",
-      "clickToView": "Zum Anzeigen klicken",
-      "noImage": "📷 Kein Bild",
+      "noImage": "Kein Foto",
       "badgeCheckpoint": "🚩 Checkpoint",
       "badgeTask": "✓ Aufgabe",
       "unknownTask": "Aufgabe",
       "noPositionData": "Weder Foto noch Gerät haben eine Position geliefert. Bitte diesen Besuch manuell prüfen.",
-      "delete": "🗑️ Loeschen",
+      "delete": "Löschen",
       "confirmDeleteVisit": "Diesen Besuch wirklich loeschen?",
       "confirmDeleteTaskCompletion": "Diesen Aufgabenabschluss wirklich loeschen?",
       "errorLoad": "Besuche oder Aufgaben konnten nicht geladen werden",
@@ -849,7 +854,13 @@
       "distanceDevice": "Position des Geräts:",
       "usedForCheck": "verwendet",
       "farPhoto": "Foto {{meters}} m vom Checkpoint entfernt aufgenommen",
-      "farDevice": "Gerät war beim Erfassen {{meters}} m vom Checkpoint entfernt"
+      "farDevice": "Gerät war beim Erfassen {{meters}} m vom Checkpoint entfernt",
+      "summaryCheckpoints": "Checkpoints: {{count}}",
+      "summaryTasks": "Aufgaben: {{count}}",
+      "summaryToCheck": "Zu prüfen: {{count}}",
+      "openPhoto": "Foto öffnen: {{name}}",
+      "previousPhoto": "Vorheriges Foto",
+      "nextPhoto": "Nächstes Foto"
     },
     "checkpointVisits": {
       "loading": "Besuche werden geladen...",
