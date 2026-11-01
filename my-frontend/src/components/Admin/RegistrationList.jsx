@@ -40,6 +40,8 @@ export default function RegistrationList({ raceId, race }) {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [notice, setNotice] = useState(null);
+  // Delete asks in the registration's details: { teamId, deleting, error }.
+  const [deleteState, setDeleteState] = useState(null);
 
   const loadRegistrations = async () => {
     setLoading(true);
@@ -93,18 +95,23 @@ export default function RegistrationList({ raceId, race }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
+  // Called after the admin confirmed in the registration's details; a
+  // refusal (e.g. the team logged visits) shows right there.
   const handleDeleteRegistration = async (teamId) => {
-    if (!window.confirm(t('admin.registrations.confirmDelete'))) {
-      return;
-    }
+    setDeleteState({ teamId, deleting: true, error: null });
     try {
       await adminApi.deleteRegistration(raceId, teamId);
+      setDeleteState(null);
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete registration', err);
-      setError(err?.payload?.code === 'registration_has_visits'
-        ? t('admin.registrations.errorDeleteHasVisits', { count: err.payload.visits })
-        : t('admin.registrations.errorDelete'));
+      setDeleteState({
+        teamId,
+        deleting: false,
+        error: err?.payload?.code === 'registration_has_visits'
+          ? t('admin.registrations.errorDeleteHasVisits', { count: err.payload.visits })
+          : t('admin.registrations.errorDelete'),
+      });
     }
   };
 
@@ -609,15 +616,36 @@ export default function RegistrationList({ raceId, race }) {
                 {savingEditRegistrationTeamId === item.teamId ? t('admin.registrations.sending') : t('admin.registrations.saveRegistrationButton')}
               </button>
               <button
+                type="button"
                 className="btn btn-sm btn-outline-danger"
-                onClick={() => handleDeleteRegistration(item.teamId)}
+                onClick={() => setDeleteState({ teamId: item.teamId, deleting: false, error: null, confirming: true })}
                 title={t('admin.registrations.deleteRegistration')}
+                disabled={deleteState?.teamId === item.teamId && (deleteState.confirming || deleteState.deleting)}
               >
                 {t('admin.registrations.delete')}
               </button>
             </div>
           </div>
         </div>
+        {deleteState?.teamId === item.teamId && deleteState.error && (
+          <div className="alert alert-danger d-flex align-items-start gap-2 py-2 mt-2 mb-0" role="alert">
+            <span className="me-auto">{deleteState.error}</span>
+            <button type="button" className="btn-close" aria-label={t('admin.close')} onClick={() => setDeleteState(null)} />
+          </div>
+        )}
+        {deleteState?.teamId === item.teamId && (deleteState.confirming || deleteState.deleting) && (
+          <div className="d-flex flex-wrap align-items-center gap-2 rounded bg-danger-subtle p-2 mt-2">
+            <span className="small text-danger-emphasis me-auto">
+              {t('admin.registrations.confirmDelete', { team: item.teamName })}
+            </span>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => setDeleteState(null)} disabled={deleteState.deleting}>
+              {t('admin.teams.keep')}
+            </button>
+            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDeleteRegistration(item.teamId)} disabled={deleteState.deleting}>
+              {t('admin.teams.deleteYes')}
+            </button>
+          </div>
+        )}
 
         <div className="border-top mt-2 pt-2">
           <div className="fw-semibold small mb-2">{t('admin.registrations.membersSectionTitle')}</div>

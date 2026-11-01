@@ -678,7 +678,7 @@
       "sendTeamEmail": "Odeslat email",
       "sendTeamEmailTitle": "Odeslat registrační email týmu {{team}}",
       "sending": "Odesílám...",
-      "confirmDelete": "Opravdu chcete smazat tuto registraci?",
+      "confirmDelete": "Smazat registraci týmu {{team}} z tohoto závodu? Smažou se i záznamy o platbách; tým zůstane.",
       "confirmSendEmails": "Odeslat potvrzovací emaily všem registrovaným členům týmů?",
       "confirmSendTeamEmail": "Odeslat potvrzovací email týmu {{team}}?",
       "emailsSent": "Emaily byly odeslány!\nOdesláno: {{sent}}\nNeodesláno: {{failed}}",

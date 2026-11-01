@@ -676,7 +676,7 @@
       "sendTeamEmail": "Send Email",
       "sendTeamEmailTitle": "Send registration email to {{team}}",
       "sending": "Sending...",
-      "confirmDelete": "Are you sure you want to delete this registration?",
+      "confirmDelete": "Delete the registration of {{team}} from this race? Its payment records are deleted too; the team stays.",
       "confirmSendEmails": "Send registration confirmation emails to all registered team members?",
       "confirmSendTeamEmail": "Send registration confirmation email to team {{team}}?",
       "emailsSent": "Emails sent successfully!\nSent: {{sent}}\nFailed: {{failed}}",

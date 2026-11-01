@@ -79,8 +79,27 @@ describe('RegistrationList', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/2/);
   });
 
+  it('deletes a registration after confirming in its details, without a browser pop-up', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    adminApi.deleteRegistration.mockResolvedValue({});
+    render(<RegistrationList raceId={2} race={{ id: 2 }} />);
+    await table().findByText('Bob & Eva');
+
+    fireEvent.click(table().getAllByRole('button', { name: 'Show details' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+    expect(screen.getAllByText(/Delete the registration of Alice solo/).length).toBeGreaterThan(0);
+    expect(adminApi.deleteRegistration).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Keep' })[0]);
+    expect(screen.queryByText(/Delete the registration of/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Yes, delete' })[0]);
+
+    await waitFor(() => expect(adminApi.deleteRegistration).toHaveBeenCalledWith(2, 1));
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
   it('explains why a registration with logged visits cannot be deleted', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const err = new Error('Cannot delete');
     err.payload = { code: 'registration_has_visits', visits: 3 };
     adminApi.deleteRegistration.mockRejectedValue(err);
@@ -89,8 +108,9 @@ describe('RegistrationList', () => {
 
     fireEvent.click(table().getAllByRole('button', { name: 'Show details' })[0]);
     fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Yes, delete' })[0]);
 
-    expect(await screen.findByText(/3 logged visits in this race/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/3 logged visits in this race/)).length).toBeGreaterThan(0);
     expect(adminApi.deleteRegistration).toHaveBeenCalledWith(2, 1);
   });
 });
