@@ -528,6 +528,23 @@ def test_delete_registration_success(test_client, add_test_data, admin_auth_head
     assert len(response.json) == 0
 
 
+def test_delete_registration_removes_payment_attempts_and_email_logs(test_client, add_test_data, admin_auth_headers):
+    """Deleting a registration also deletes its payment attempts and email logs."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+    db.session.add(RegistrationPaymentAttempt(registration_id=registration.id, stripe_session_id="cs_test_cascade", payment_type="team"))
+    db.session.add(RegistrationEmailLog(registration_id=registration.id, email_address="a@example.com", template_type="registration_confirmation"))
+    db.session.commit()
+    registration_id = registration.id
+
+    response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert RegistrationPaymentAttempt.query.filter_by(registration_id=registration_id).count() == 0
+    assert RegistrationEmailLog.query.filter_by(registration_id=registration_id).count() == 0
+
+
 def test_delete_registration_not_found(test_client, add_test_data, admin_auth_headers):
     """Test deleting non-existent registration returns 404."""
     # Try to delete registration that doesn't exist
