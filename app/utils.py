@@ -221,6 +221,19 @@ def resolve_language(race, user, requested_language=None, default_language=None)
     return default_language or DEFAULT_LANGUAGE
 
 
+# Map place names a race translation can override.
+RACE_PLACE_NAME_FIELDS = ("finish_description", "bivak_1_name", "bivak_2_name")
+
+
+def translated_place_names(source, translation=None):
+    """Finish and bivak names from `source` (a race or a query row), each
+    replaced by the translation's when that one is filled in."""
+    return {
+        field: (getattr(translation, field, None) if translation is not None else None) or getattr(source, field, None)
+        for field in RACE_PLACE_NAME_FIELDS
+    }
+
+
 def registration_mode(race):
     """Return race registration mode as 'team' or 'individual'."""
     return 'team' if race and race.allow_team_registration else 'individual'

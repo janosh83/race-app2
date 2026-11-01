@@ -16,19 +16,23 @@ const pinIcon = L.divIcon?.({
   iconAnchor: [14, 34], // the rotated square's tip, below its centre
 });
 
-const placeIcon = L.divIcon?.({
-  className: 'admin-map-place',
-  html: '<span></span>',
-  iconSize: [14, 14],
-  iconAnchor: [7, 7],
-});
+// Finish and bivaks as the pins participants see on their map, smaller; a
+// bivak pin carries its number so bivak 1 and 2 tell apart.
+const placeIcon = (place) => L.divIcon?.({
+  className: `admin-map-place admin-map-place-${place.kind}`,
+  html: `<img src="${place.kind === 'finish' ? '/map-finish-marker.svg' : '/map-bivak-marker.svg'}" alt="">${
+    place.number ? `<span class="admin-map-place-number">${place.number}</span>` : ''}`,
+  iconSize: [24, 36],
+  iconAnchor: [12, 35],
+})
 
 // The race's checkpoints on a map, for the admin.
 // - `onCheckpointClick(cp)`: clicking a checkpoint dot (overview).
 // - `picked` + `onPick({ latitude, longitude })`: a draggable pin; clicking the
 //   map moves it there (choosing a checkpoint's position).
 // - `excludeId`: the checkpoint being edited, shown as the pin, not as a dot.
-// - `markers`: race places (finish, bivaks) as dark squares with their name.
+// - `markers`: race places `{ kind: 'finish' | 'bivak', number?, title, latitude,
+//   longitude }` as finish and bivak pins with their name.
 export default function CheckpointMap({
   checkpoints = [], markers = [], picked = null, onPick = null, onCheckpointClick = null, excludeId = null, className = '',
 }) {
@@ -93,8 +97,8 @@ export default function CheckpointMap({
       dot.addTo(layer);
     });
     places.forEach(place => {
-      L.marker([place.latitude, place.longitude], { icon: placeIcon, keyboard: false })
-        .bindTooltip(place.title, { direction: 'top', offset: [0, -8] })
+      L.marker([place.latitude, place.longitude], { icon: placeIcon(place), keyboard: false })
+        .bindTooltip(place.title, { direction: 'top', offset: [0, -32] })
         .addTo(layer);
     });
   });

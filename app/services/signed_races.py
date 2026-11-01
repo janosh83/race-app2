@@ -2,13 +2,17 @@
 
 Shared by login and GET /user/signed-races so both return the same shape.
 """
+from sqlalchemy.orm import selectinload
+
 from app import db
 from app.models import Race, RaceCategory, Registration, Team, User, team_members
+from app.utils import resolve_language, translated_place_names
 
 
 def signed_races_for_user(user_id):
     """Return the user's paid registrations as dicts, with race timing, the
-    team (name and members, names only) and the category."""
+    team (name and members, names only) and the category. Finish and bivak
+    names are in the user's language when the race has them translated."""
     rows = (
         db.session.query(
             Race.id.label("race_id"),
@@ -55,25 +59,45 @@ def signed_races_for_user(user_id):
         for team_id, member_id, member_name in member_rows:
             members_by_team[team_id].append({"id": member_id, "name": member_name})
 
-    return [{
-        "race_id": row.race_id,
-        "team_id": row.team_id,
-        "team_name": row.team_name,
-        "team_members": members_by_team.get(row.team_id, []),
-        "race_name": row.race_name,
-        "race_category": row.race_category,
-        "race_description": row.race_description,
-        "finish_description": row.finish_description,
-        "finish_latitude": row.finish_latitude,
-        "finish_longitude": row.finish_longitude,
-        "bivak_1_name": row.bivak_1_name,
-        "bivak_1_latitude": row.bivak_1_latitude,
-        "bivak_1_longitude": row.bivak_1_longitude,
-        "bivak_2_name": row.bivak_2_name,
-        "bivak_2_latitude": row.bivak_2_latitude,
-        "bivak_2_longitude": row.bivak_2_longitude,
-        "start_showing_checkpoints": row.start_showing_checkpoints_at,
-        "end_showing_checkpoints": row.end_showing_checkpoints_at,
-        "start_logging": row.start_logging_at,
-        "end_logging": row.end_logging_at,
-    } for row in rows]
+    # Translated place names, in the language race content uses for this user.
+    user = db.session.get(User, int(user_id))
+    race_ids = {row.race_id for row in rows}
+    races = {
+        race.id: race
+        for race in Race.query.options(selectinload(Race.translations)).filter(Race.id.in_(race_ids)).all()
+    } if race_ids else {}
+
+    def place_names(row):
+        race = races.get(row.race_id)
+        if race is None:
+            return translated_place_names(row)
+        language = resolve_language(race, user)
+        translation = next((tr for tr in race.translations if tr.language == language), None)
+        return translated_place_names(row, translation)
+
+    result = []
+    for row in rows:
+        places = place_names(row)
+        result.append({
+            "race_id": row.race_id,
+            "team_id": row.team_id,
+            "team_name": row.team_name,
+            "team_members": members_by_team.get(row.team_id, []),
+            "race_name": row.race_name,
+            "race_category": row.race_category,
+            "race_description": row.race_description,
+            "finish_description": places["finish_description"],
+            "finish_latitude": row.finish_latitude,
+            "finish_longitude": row.finish_longitude,
+            "bivak_1_name": places["bivak_1_name"],
+            "bivak_1_latitude": row.bivak_1_latitude,
+            "bivak_1_longitude": row.bivak_1_longitude,
+            "bivak_2_name": places["bivak_2_name"],
+            "bivak_2_latitude": row.bivak_2_latitude,
+            "bivak_2_longitude": row.bivak_2_longitude,
+            "start_showing_checkpoints": row.start_showing_checkpoints_at,
+            "end_showing_checkpoints": row.end_showing_checkpoints_at,
+            "start_logging": row.start_logging_at,
+            "end_logging": row.end_logging_at,
+        })
+    return result

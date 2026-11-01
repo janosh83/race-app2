@@ -458,7 +458,9 @@
       "toastSaveFailed": "Rennen konnte nicht gespeichert werden: {{message}}",
       "translationFieldName": "Name",
       "translationFieldDescription": "Beschreibung",
-      "translationFieldRaceGreeting": "Rennbegruessung"
+      "translationFieldRaceGreeting": "Rennbegruessung",
+      "translationFieldFinish": "Name des Ziels",
+      "translationFieldBivak": "Name von Biwak {{index}}"
     },
     "checkpoints": {
       "title": "Checkpoints",

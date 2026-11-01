@@ -580,6 +580,40 @@ def test_race_translation_crud(test_client, add_test_data, admin_auth_headers):
     assert all(item["language"] != "de" for item in list_resp.json)
 
 
+def test_race_translation_place_names(test_client, add_test_data, admin_auth_headers):
+    """A race translation can name the finish and bivaks; the translated race
+    uses them, and an emptied name falls back to the race's own."""
+    create_resp = test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "de", "name": "Frühjahrsfahrt", "finish_description": "Ziel am See", "bivak_1_name": "Lager"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json["finish_description"] == "Ziel am See"
+    assert create_resp.json["bivak_1_name"] == "Lager"
+    assert create_resp.json["bivak_2_name"] is None
+
+    original = test_client.get("/api/race/1/", headers=admin_auth_headers).json
+    translated = test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers).json
+    assert translated["finish_description"] == "Ziel am See"
+    assert translated["bivak_1_name"] == "Lager"
+    assert translated["bivak_2_name"] == original["bivak_2_name"]
+
+    in_list = next(r for r in test_client.get("/api/race/?lang=de").json if r["id"] == 1)
+    assert in_list["finish_description"] == "Ziel am See"
+
+    update_resp = test_client.put(
+        "/api/race/1/translations/de/", json={"finish_description": ""}, headers=admin_auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json["finish_description"] is None
+    assert update_resp.json["bivak_1_name"] == "Lager"
+    assert test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers).json["finish_description"] == original["finish_description"]
+
+    listed = test_client.get("/api/race/1/translations/", headers=admin_auth_headers).json
+    assert next(item for item in listed if item["language"] == "de")["bivak_1_name"] == "Lager"
+
+
 def test_race_translation_unsupported_language(test_client, add_test_data, admin_auth_headers):
     """Test that unsupported language returns 400 error from schema validation."""
     # "xx" is not in SUPPORTED_LANGUAGES, so schema validation catches it

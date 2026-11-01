@@ -668,6 +668,17 @@ export default function RaceForm({ race = null, onSaved = null, onCreated = null
             name: t('admin.raceForm.translationFieldName'),
             description: t('admin.raceForm.translationFieldDescription'),
             race_greeting: t('admin.raceForm.translationFieldRaceGreeting'),
+            // Place names only for places the race has; empty = the original name.
+            ...(race.finish_description ? { finish_description: t('admin.raceForm.translationFieldFinish') } : {}),
+            ...(race.bivak_1_name ? { bivak_1_name: t('admin.raceForm.translationFieldBivak', { index: 1 }) } : {}),
+            ...(race.bivak_2_name ? { bivak_2_name: t('admin.raceForm.translationFieldBivak', { index: 2 }) } : {}),
+          }}
+          placeholders={{
+            name: race.name,
+            race_greeting: race.race_greeting,
+            finish_description: race.finish_description,
+            bivak_1_name: race.bivak_1_name,
+            bivak_2_name: race.bivak_2_name,
           }}
           supportedLanguages={supportedLanguages}
         />

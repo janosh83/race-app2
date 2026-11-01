@@ -61,6 +61,10 @@ class RaceTranslation(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     race_greeting = db.Column(db.String(255), nullable=True)
+    # Map place names; empty means "use the race's own name".
+    finish_description = db.Column(db.String(255), nullable=True)
+    bivak_1_name = db.Column(db.String(100), nullable=True)
+    bivak_2_name = db.Column(db.String(100), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'language', name='uq_race_translation_language'),

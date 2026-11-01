@@ -459,7 +459,9 @@
       "toastSaveFailed": "Nepodařilo se uložit závod: {{message}}",
       "translationFieldName": "Název",
       "translationFieldDescription": "Popis",
-      "translationFieldRaceGreeting": "Pozdrav závodu"
+      "translationFieldRaceGreeting": "Pozdrav závodu",
+      "translationFieldFinish": "Název cíle",
+      "translationFieldBivak": "Název bivaku {{index}}"
     },
     "checkpoints": {
       "title": "Checkpointy",

@@ -13,7 +13,8 @@ const API_METHODS = {
   category: { get: adminApi.getCategoryTranslations, create: adminApi.createCategoryTranslation, update: adminApi.updateCategoryTranslation, delete: adminApi.deleteCategoryTranslation }
 };
 
-function TranslationManager({ raceId: _raceId, entityType, entityId, entityName, fields = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
+// `placeholders`: the original text per field, shown in the empty input.
+function TranslationManager({ raceId: _raceId, entityType, entityId, entityName, fields = {}, placeholders = {}, supportedLanguages = SUPPORTED_LANGUAGES }) {
   const { t } = useTranslation();
   const [translations, setTranslations] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -130,6 +131,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                           name={key}
                           value={formData[key] || ''}
                           onChange={handleInputChange}
+                          placeholder={placeholders[key] || undefined}
                           rows="3"
                         />
                       ) : (
@@ -140,6 +142,7 @@ function TranslationManager({ raceId: _raceId, entityType, entityId, entityName,
                           name={key}
                           value={formData[key] || ''}
                           onChange={handleInputChange}
+                          placeholder={placeholders[key] || undefined}
                         />
                       )}
                     </div>

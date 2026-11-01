@@ -17,12 +17,14 @@ const toNumber = (value) => {
 
 const languageName = (code) => `${LANGUAGE_LABELS[code] || code} (${code})`;
 
-// Finish and bivaks, with a label for the map and the list.
-function racePlaces(race, t) {
+// Finish and bivaks, with a label for the map and the list. Names come from
+// `names` (a translation being previewed) when it has them.
+function racePlaces(race, t, names = null) {
+  const name = (field) => names?.[field] || race[field];
   return [
-    { id: 'finish', label: t('admin.dashboard.finishMarker'), name: race.finish_description, lat: race.finish_latitude, lng: race.finish_longitude },
-    { id: 'bivak1', label: t('admin.dashboard.bivak1Marker'), name: race.bivak_1_name, lat: race.bivak_1_latitude, lng: race.bivak_1_longitude },
-    { id: 'bivak2', label: t('admin.dashboard.bivak2Marker'), name: race.bivak_2_name, lat: race.bivak_2_latitude, lng: race.bivak_2_longitude },
+    { id: 'finish', kind: 'finish', label: t('admin.dashboard.finishMarker'), name: name('finish_description'), lat: race.finish_latitude, lng: race.finish_longitude },
+    { id: 'bivak1', kind: 'bivak', number: 1, label: t('admin.dashboard.bivak1Marker'), name: name('bivak_1_name'), lat: race.bivak_1_latitude, lng: race.bivak_1_longitude },
+    { id: 'bivak2', kind: 'bivak', number: 2, label: t('admin.dashboard.bivak2Marker'), name: name('bivak_2_name'), lat: race.bivak_2_latitude, lng: race.bivak_2_longitude },
   ]
     .map(place => ({ ...place, latitude: toNumber(place.lat), longitude: toNumber(place.lng) }))
     .filter(place => place.latitude !== null && place.longitude !== null)
@@ -68,7 +70,7 @@ function RaceOverview({ race, translations = [], checkpoints = [], tasks = [] })
     }
   };
 
-  const places = racePlaces(race, t);
+  const places = racePlaces(race, t, translated);
   const mapCheckpoints = checkpoints.map(cp => ({
     id: cp.id ?? cp.checkpoint_id,
     title: cp.title ?? cp.name,
@@ -204,7 +206,11 @@ function RaceOverview({ race, translations = [], checkpoints = [], tasks = [] })
                 <ul className="list-unstyled small mb-0 mt-2 admin-overview-places">
                   {places.map(place => (
                     <li key={place.id}>
-                      <span className="admin-overview-place-icon" aria-hidden="true" />
+                      <img
+                        className="admin-overview-place-icon"
+                        src={place.kind === 'finish' ? '/map-finish-marker.svg' : '/map-bivak-marker.svg'}
+                        alt=""
+                      />
                       <strong>{place.label}</strong>
                       {place.name ? `: ${place.name}` : ''}
                       <span className="text-muted"> · {formatCoordinates(place.latitude, place.longitude)}</span>

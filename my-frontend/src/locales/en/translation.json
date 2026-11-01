@@ -458,7 +458,9 @@
       "toastSaveFailed": "Failed to save race: {{message}}",
       "translationFieldName": "Name",
       "translationFieldDescription": "Description",
-      "translationFieldRaceGreeting": "Race greeting"
+      "translationFieldRaceGreeting": "Race greeting",
+      "translationFieldFinish": "Finish name",
+      "translationFieldBivak": "Bivak {{index}} name"
     },
     "checkpoints": {
       "title": "Checkpoints",

@@ -757,3 +757,27 @@ def test_delete_user_by_id(test_client, add_test_data, admin_auth_headers):
     user_ids = [u["id"] for u in get_response.json]
     assert 2 not in user_ids
     assert 1 in user_ids  # Other user still exists
+
+def test_signed_races_place_names_in_users_language(test_client, add_test_data):
+    """Finish and bivak names come from the race translation in the user's
+    language; a place without a translated name keeps the race's own."""
+    from app.models import RaceTranslation
+
+    with test_client.application.app_context():
+        db.session.add(RaceTranslation(race_id=1, language="cs", name="Jarní závod", bivak_1_name="Tábor jedna"))
+        User.query.filter_by(email="user1@example.com").first().preferred_language = "cs"
+        db.session.commit()
+
+    def spring_race(email):
+        login = test_client.post("/auth/login/", json={"email": email, "password": "password"})
+        races = test_client.get(
+            "/api/user/signed-races/", headers={"Authorization": f"Bearer {login.json['access_token']}"}
+        ).json["signed_races"]
+        return next(r for r in races if r["race_id"] == 1)
+
+    czech = spring_race("user1@example.com")
+    assert czech["bivak_1_name"] == "Tábor jedna"
+    assert czech["finish_description"] == "Spring finish"
+
+    other = spring_race("user2@example.com")
+    assert other["bivak_1_name"] == "Camp One"

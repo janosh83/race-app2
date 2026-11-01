@@ -62,4 +62,19 @@ describe('RaceOverview', () => {
     expect(screen.getByText('Vítejte!')).toBeInTheDocument();
     expect(screen.getByText('Běhejte.')).toBeInTheDocument();
   });
+
+  it('previews translated finish and bivak names, falling back to the original', () => {
+    render(
+      <RaceOverview
+        race={{ ...race, bivak_1_name: 'Camp', bivak_1_latitude: 50.2, bivak_1_longitude: 14.3 }}
+        translations={[{ language: 'cs', finish_description: 'Hospoda', bivak_1_name: null }]}
+      />,
+    );
+
+    expect(screen.getByText(/: Pub/)).toBeInTheDocument();
+    fireEvent.click(screen.getByAltText('cs'));
+
+    expect(screen.getByText(/: Hospoda/)).toBeInTheDocument();
+    expect(screen.getByText(/: Camp/)).toBeInTheDocument();
+  });
 });

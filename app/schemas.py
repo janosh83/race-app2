@@ -327,12 +327,18 @@ class RaceTranslationCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
     race_greeting = fields.String(load_default=None, allow_none=True)
+    finish_description = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=255))
+    bivak_1_name = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=100))
+    bivak_2_name = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=100))
 
 
 class RaceTranslationUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
     race_greeting = fields.String(allow_none=True)
+    finish_description = fields.String(allow_none=True, validate=validate.Length(max=255))
+    bivak_1_name = fields.String(allow_none=True, validate=validate.Length(max=100))
+    bivak_2_name = fields.String(allow_none=True, validate=validate.Length(max=100))
 
 
 class CheckpointTranslationCreateSchema(Schema):

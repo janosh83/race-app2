@@ -160,10 +160,8 @@
 
 /* Same dark square as the places on the map. */
 .admin-overview-place-icon {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 21px;
   margin-right: 0.4rem;
-  background: #212529;
-  border-radius: 2px;
+  vertical-align: -5px;
 }
