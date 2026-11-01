@@ -963,7 +963,11 @@
       "keep": "Keep",
       "deleteBlockedRegistrations": "This team is registered for a race. Delete its registrations first (race → Registrations).",
       "deleteBlockedVisits": "This team has logged visits, so it can't be deleted.",
-      "deleteFailed": "Delete failed: {{message}}"
+      "deleteFailed": "Delete failed: {{message}}",
+      "races": "Registered for races",
+      "noRaces": "Not registered for any race",
+      "racesFailed": "Could not load the races",
+      "racesLoading": "Loading races…"
     }
   },
   "favourites": {

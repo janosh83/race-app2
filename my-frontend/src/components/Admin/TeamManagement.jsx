@@ -1,12 +1,65 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 import { adminApi } from '../../services/adminApi';
+import { formatDateRange } from '../../utils/dateRange';
 import { logger } from '../../utils/logger';
 
 const TEAMS_PAGE_SIZE = 20;
 
 const memberLabel = (member) => member.name || member.email || `#${member.id}`;
+
+// The races a team is registered for, each linking to that race's
+// Registrations tab.
+function TeamRaces({ teamId }) {
+  const { t } = useTranslation();
+  const [registrations, setRegistrations] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApi.getTeamRegistrations(teamId)
+      .then(data => { if (!cancelled) setRegistrations(Array.isArray(data) ? data : []); })
+      .catch(err => {
+        logger.error('ADMIN', 'Failed to load team registrations', err);
+        if (!cancelled) setFailed(true);
+      });
+    return () => { cancelled = true; };
+  }, [teamId]);
+
+  return (
+    <div className="mb-3">
+      <div className="form-label">
+        {t('admin.teams.races')}
+        {registrations && <span className="text-muted"> ({registrations.length})</span>}
+      </div>
+      {failed && <div className="small text-danger">{t('admin.teams.racesFailed')}</div>}
+      {!failed && !registrations && <div className="small text-muted">{t('admin.teams.racesLoading')}</div>}
+      {registrations?.length === 0 && <div className="small text-muted">{t('admin.teams.noRaces')}</div>}
+      {registrations?.length > 0 && (
+        <ul className="list-group">
+          {registrations.map(reg => (
+            <li key={reg.race_id} className="list-group-item d-flex flex-wrap align-items-center gap-2">
+              <Link to={`/admin?race=${reg.race_id}&section=registrations`} className="fw-semibold">
+                {reg.race_name}
+              </Link>
+              <span className="small text-muted">
+                {[reg.race_category, formatDateRange(reg.start_logging_at, reg.end_logging_at)].filter(Boolean).join(' · ')}
+              </span>
+              <span className="ms-auto d-flex gap-1">
+                <span className={`badge ${reg.payment_confirmed ? 'bg-success-subtle text-success-emphasis' : 'bg-warning-subtle text-warning-emphasis'}`}>
+                  {reg.payment_confirmed ? t('admin.registrations.paymentPaid') : t('admin.registrations.paymentUnpaid')}
+                </span>
+                {reg.disqualified && <span className="badge bg-danger">{t('admin.registrations.disqualified')}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // Create a team or edit one: its name and members. Members are picked from
 // all users (searchable); the chosen ones show on top and can be removed.
@@ -111,6 +164,8 @@ function TeamDialog({ team, members, users, onSave, onDelete, onCancel }) {
                 </div>
               )}
             </div>
+
+            {!isNew && <TeamRaces teamId={team.id} />}
 
             <label className="form-label mt-2" htmlFor="team-user-search">{t('admin.teams.addMembers')}</label>
             <input

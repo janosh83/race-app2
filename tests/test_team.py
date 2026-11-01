@@ -394,6 +394,26 @@ def test_delete_team_success(test_client, add_test_data, admin_auth_headers):
     assert response.status_code == 404
 
 
+def test_get_team_registrations(test_client, add_test_data, admin_auth_headers):
+    """An admin sees the races a team is registered for."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    response = test_client.get("/api/team/1/registrations/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert [r["race_id"] for r in response.json] == [1]
+    item = response.json[0]
+    assert item["race_name"] == db.session.get(Race, 1).name
+    assert item["race_category"] == db.session.get(RaceCategory, 1).name
+    assert item["payment_confirmed"] is False and item["disqualified"] is False
+
+
+def test_get_team_registrations_admin_only(test_client, add_test_data, regular_user_auth_headers):
+    response = test_client.get("/api/team/1/registrations/", headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
 def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers):
     """Deleting a team with members removes the membership, not the users."""
     test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})

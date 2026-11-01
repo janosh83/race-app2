@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 import { adminApi } from '../../services/adminApi';
 
@@ -13,8 +14,11 @@ vi.mock('../../services/adminApi', () => ({
     createTeam: vi.fn(),
     updateTeam: vi.fn(),
     deleteTeam: vi.fn(),
+    getTeamRegistrations: vi.fn(),
   },
 }));
+
+const renderPage = () => render(<MemoryRouter><TeamManagement /></MemoryRouter>);
 
 const users = [
   { id: 1, name: 'Alice Thompson', email: 'alice@example.com' },
@@ -29,10 +33,11 @@ describe('TeamManagement', () => {
     adminApi.getTeamMembers.mockResolvedValue([users[1], users[2]]);
     adminApi.createTeam.mockResolvedValue({ id: 9, name: 'Night Owls' });
     adminApi.updateTeam.mockResolvedValue({});
+    adminApi.getTeamRegistrations.mockResolvedValue([]);
   });
 
   it('lists teams first and creates a team with members from one dialog', async () => {
-    render(<TeamManagement />);
+    renderPage();
 
     expect(await screen.findByText('Bob Novák, Eva Svobodová')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Teams/ })).toHaveTextContent('(1)');
@@ -52,7 +57,7 @@ describe('TeamManagement', () => {
   });
 
   it('edits a team from its row, removing a member chip', async () => {
-    render(<TeamManagement />);
+    renderPage();
     fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
 
     const dialog = within(screen.getByRole('dialog'));
@@ -65,7 +70,7 @@ describe('TeamManagement', () => {
 
   it('deletes a team after confirming in the dialog', async () => {
     adminApi.deleteTeam.mockResolvedValue({});
-    render(<TeamManagement />);
+    renderPage();
     fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
 
     const dialog = within(screen.getByRole('dialog'));
@@ -81,7 +86,7 @@ describe('TeamManagement', () => {
     const err = new Error('Cannot delete');
     err.payload = { code: 'team_has_registrations' };
     adminApi.deleteTeam.mockRejectedValue(err);
-    render(<TeamManagement />);
+    renderPage();
     fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
 
     const dialog = within(screen.getByRole('dialog'));
@@ -90,5 +95,29 @@ describe('TeamManagement', () => {
 
     expect(await dialog.findByRole('alert')).toHaveTextContent('registered for a race');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('lists the races the team is registered for, linking to their registrations', async () => {
+    adminApi.getTeamRegistrations.mockResolvedValue([
+      { race_id: 4, race_name: 'Autumn Picnic', race_category: 'Bikes', start_logging_at: '2026-10-10T08:00:00', end_logging_at: '2026-10-10T18:00:00', payment_confirmed: true, disqualified: false },
+      { race_id: 1, race_name: 'Spring Picnic', race_category: 'Runners', start_logging_at: '2026-04-10T08:00:00', end_logging_at: '2026-04-10T18:00:00', payment_confirmed: false, disqualified: true },
+    ]);
+    renderPage();
+    fireEvent.click(await screen.findByText('Bob Novák, Eva Svobodová'));
+
+    const dialog = within(screen.getByRole('dialog'));
+    const link = await dialog.findByRole('link', { name: 'Autumn Picnic' });
+    expect(link).toHaveAttribute('href', '/admin?race=4&section=registrations');
+    expect(adminApi.getTeamRegistrations).toHaveBeenCalledWith(5);
+    expect(dialog.getByText('Registered for races')).toHaveTextContent('(2)');
+    expect(dialog.getByText('Disqualified')).toBeInTheDocument();
+    expect(dialog.getByText('Unpaid')).toBeInTheDocument();
+  });
+
+  it('does not ask for races when creating a team', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: '+ New team' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(adminApi.getTeamRegistrations).not.toHaveBeenCalled();
   });
 });

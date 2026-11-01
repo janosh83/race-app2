@@ -1451,6 +1451,51 @@ def add_members(team_id):
 # get members of team
 # tested by test_teams.py -> test_add_members
 # for now it can stay open, but in the future it should be somehow protected
+@team_bp.route("/<int:team_id>/registrations/", methods=["GET"])
+@admin_required()
+def get_team_registrations(team_id):
+    """
+    Races a team is registered for, newest first - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+    responses:
+      200:
+        description: >
+          One item per registration: race_id, race_name, race_category,
+          start_logging_at, end_logging_at, payment_confirmed, disqualified.
+      404:
+        description: Team not found
+    """
+    team = Team.query.filter_by(id=team_id).first_or_404()
+    registrations = (
+        Registration.query.filter_by(team_id=team.id)
+        .join(Race, Registration.race_id == Race.id)
+        .options(joinedload(Registration.race))
+        .order_by(Race.start_logging_at.desc(), Race.id.desc())
+        .all()
+    )
+    category_ids = {r.race_category_id for r in registrations}
+    categories = {c.id: c.name for c in RaceCategory.query.filter(RaceCategory.id.in_(category_ids)).all()} if category_ids else {}
+    return jsonify([{
+        "race_id": r.race_id,
+        "race_name": r.race.name,
+        "race_category": categories.get(r.race_category_id),
+        "start_logging_at": r.race.start_logging_at,
+        "end_logging_at": r.race.end_logging_at,
+        "payment_confirmed": r.payment_confirmed,
+        "disqualified": r.disqualified,
+    } for r in registrations])
+
+
 @team_bp.route("/<int:team_id>/members/", methods=["GET"])
 def get_members(team_id):
     """

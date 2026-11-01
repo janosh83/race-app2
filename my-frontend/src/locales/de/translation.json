@@ -963,7 +963,11 @@
       "keep": "Behalten",
       "deleteBlockedRegistrations": "Dieses Team ist für ein Rennen angemeldet. Lösche zuerst seine Anmeldungen (Rennen → Anmeldungen).",
       "deleteBlockedVisits": "Dieses Team hat erfasste Besuche und kann daher nicht gelöscht werden.",
-      "deleteFailed": "Löschen fehlgeschlagen: {{message}}"
+      "deleteFailed": "Löschen fehlgeschlagen: {{message}}",
+      "races": "Angemeldet für Rennen",
+      "noRaces": "Für kein Rennen angemeldet",
+      "racesFailed": "Rennen konnten nicht geladen werden",
+      "racesLoading": "Rennen werden geladen…"
     }
   },
   "favourites": {

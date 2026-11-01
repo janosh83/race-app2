@@ -965,7 +965,11 @@
       "keep": "Ponechat",
       "deleteBlockedRegistrations": "Tým je registrovaný do závodu. Nejdřív smažte jeho registrace (závod → Registrace).",
       "deleteBlockedVisits": "Tým má zapsané návštěvy, proto ho nelze smazat.",
-      "deleteFailed": "Smazání selhalo: {{message}}"
+      "deleteFailed": "Smazání selhalo: {{message}}",
+      "races": "Registrován do závodů",
+      "noRaces": "Není registrován do žádného závodu",
+      "racesFailed": "Závody se nepodařilo načíst",
+      "racesLoading": "Načítám závody…"
     }
   },
   "favourites": {

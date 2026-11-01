@@ -82,6 +82,7 @@ export const adminApi = {
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
   updateTeam: (teamId, payload) => apiFetch(`/api/team/${teamId}/`, { method: 'PUT', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
+  getTeamRegistrations: (teamId) => apiFetch(`/api/team/${teamId}/registrations/`),
   deleteTeam: (teamId) => apiFetch(`/api/team/${teamId}/`, { method: 'DELETE' }),
   removeAllTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`, { method: 'DELETE' }),
 
