@@ -545,6 +545,27 @@ def test_delete_registration_removes_payment_attempts_and_email_logs(test_client
     assert RegistrationEmailLog.query.filter_by(registration_id=registration_id).count() == 0
 
 
+def test_delete_registration_with_visits(test_client, add_test_data, admin_auth_headers):
+    """A registration whose team logged visits in the race can't be deleted."""
+    race_id, team_id = 1, 1
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    checkpoint = Checkpoint.query.filter_by(race_id=race_id).first()
+    if checkpoint is None:
+        checkpoint = Checkpoint(title="CP", latitude=50.0, longitude=14.0, race_id=race_id)
+        db.session.add(checkpoint)
+        db.session.flush()
+    db.session.add(CheckpointLog(checkpoint_id=checkpoint.id, team_id=team_id, race_id=race_id))
+    db.session.commit()
+
+    response = test_client.delete(f"/api/team/race/{race_id}/team/{team_id}/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "registration_has_visits"
+    assert response.json["visits"] == 1
+    assert Registration.query.filter_by(race_id=race_id, team_id=team_id).count() == 1
+
+
 def test_delete_registration_not_found(test_client, add_test_data, admin_auth_headers):
     """Test deleting non-existent registration returns 404."""
     # Try to delete registration that doesn't exist

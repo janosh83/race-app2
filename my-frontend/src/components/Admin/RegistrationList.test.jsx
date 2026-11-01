@@ -12,6 +12,7 @@ vi.mock('../../services/adminApi', () => ({
     getRaceCategories: vi.fn(),
     getUsers: vi.fn(),
     addRegistration: vi.fn(),
+    deleteRegistration: vi.fn(),
     sendRegistrationEmails: vi.fn(),
   },
 }));
@@ -76,5 +77,20 @@ describe('RegistrationList', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send Registration Emails' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(/2/);
+  });
+
+  it('explains why a registration with logged visits cannot be deleted', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const err = new Error('Cannot delete');
+    err.payload = { code: 'registration_has_visits', visits: 3 };
+    adminApi.deleteRegistration.mockRejectedValue(err);
+    render(<RegistrationList raceId={2} race={{ id: 2 }} />);
+    await table().findByText('Bob & Eva');
+
+    fireEvent.click(table().getAllByRole('button', { name: 'Show details' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete' })[0]);
+
+    expect(await screen.findByText(/3 logged visits in this race/)).toBeInTheDocument();
+    expect(adminApi.deleteRegistration).toHaveBeenCalledWith(2, 1);
   });
 });

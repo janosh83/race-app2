@@ -729,7 +729,9 @@
       "noMatches": "Keine Anmeldung passt.",
       "tableStatus": "Status",
       "cancel": "Abbrechen",
-      "sendEmailsHelp": "Sendet die Anmelde-E-Mail an bezahlte Teams, die sie noch nicht erhalten haben."
+      "sendEmailsHelp": "Sendet die Anmelde-E-Mail an bezahlte Teams, die sie noch nicht erhalten haben.",
+      "errorDeleteHasVisits_one": "Dieses Team hat in diesem Rennen 1 erfassten Besuch, daher kann seine Anmeldung nicht gelöscht werden. Disqualifiziere das Team stattdessen oder lösche zuerst den Besuch in der Besuchsprüfung.",
+      "errorDeleteHasVisits_other": "Dieses Team hat in diesem Rennen {{count}} erfasste Besuche, daher kann seine Anmeldung nicht gelöscht werden. Disqualifiziere das Team stattdessen oder lösche zuerst die Besuche in der Besuchsprüfung."
     },
     "paymentAttemptsSummary": {
       "title": "Uebersicht Zahlungsversuche",

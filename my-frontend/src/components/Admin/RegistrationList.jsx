@@ -102,7 +102,9 @@ export default function RegistrationList({ raceId, race }) {
       await loadRegistrations();
     } catch (err) {
       logger.error('ADMIN', 'Failed to delete registration', err);
-      setError(t('admin.registrations.errorDelete'));
+      setError(err?.payload?.code === 'registration_has_visits'
+        ? t('admin.registrations.errorDeleteHasVisits', { count: err.payload.visits })
+        : t('admin.registrations.errorDelete'));
     }
   };
 

@@ -670,6 +670,10 @@ def update_registration(race_id, team_id):
 def delete_registration(race_id, team_id):
     """
     Delete a registration (unregister a team from a race) - admin only.
+    Its payment attempts and email logs go with it. A team with logged
+    visits or task completions in the race can't be unregistered, so a
+    mistaken delete can't lose results: disqualify it, or delete the
+    visits in visit review first.
     ---
     tags:
       - Teams
@@ -701,12 +705,23 @@ def delete_registration(race_id, team_id):
                   example: Registration deleted successfully
       404:
         description: Registration not found
+      409:
+        description: The team has logged visits in this race (code registration_has_visits).
       401:
         description: Unauthorized
       403:
         description: Forbidden - admin access required
     """
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+    visits = (CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).count()
+              + TaskLog.query.filter_by(race_id=race_id, team_id=team_id).count())
+    if visits:
+        return jsonify({
+            "message": "Cannot delete the registration, the team has logged visits in this race. "
+                       "Disqualify it, or delete its visits first.",
+            "code": "registration_has_visits",
+            "visits": visits,
+        }), 409
     db.session.delete(registration)
     db.session.commit()
     logger.info("Registration deleted: team %s unregistered from race %s", team_id, race_id)

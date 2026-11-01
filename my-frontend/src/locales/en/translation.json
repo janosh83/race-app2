@@ -729,7 +729,9 @@
       "noMatches": "No registrations match.",
       "tableStatus": "Status",
       "cancel": "Cancel",
-      "sendEmailsHelp": "Send the registration email to paid teams that have not got it yet."
+      "sendEmailsHelp": "Send the registration email to paid teams that have not got it yet.",
+      "errorDeleteHasVisits_one": "This team has 1 logged visit in this race, so its registration can't be deleted. Disqualify the team instead, or delete the visit in visit review first.",
+      "errorDeleteHasVisits_other": "This team has {{count}} logged visits in this race, so its registration can't be deleted. Disqualify the team instead, or delete the visits in visit review first."
     },
     "paymentAttemptsSummary": {
       "title": "Payment Attempts Summary",
