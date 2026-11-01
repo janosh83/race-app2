@@ -842,34 +842,19 @@
       "totalPointsShort": "Celkem"
     },
     "teamCreation": {
-      "title": "Vytvořit tým",
-      "allTeams": "Všechny týmy",
       "refresh": "Obnovit",
       "loadingTeams": "Načítám týmy…",
       "teamName": "Název týmu",
       "create": "Vytvořit",
-      "creating": "Vytvářím…",
-      "addMembersTitle": "Přidat členy podle jména",
-      "searchUsers": "Hledat uživatele",
       "searchPlaceholder": "Pište jméno nebo email pro filtrování",
       "searchTeams": "Hledat týmy",
       "searchTeamsPlaceholder": "Pište název týmu pro filtrování",
-      "tableName": "Jméno",
-      "tableEmail": "Email",
-      "tableAdmin": "Admin",
       "tableMembers": "Členové",
-      "tableMemberCount": "Počet členů",
       "adminYes": "Ano",
       "adminNo": "Ne",
       "noUsers": "Žádní uživatelé",
-      "teamLabel": "Tým",
-      "addMembers": "Přidat členy",
-      "adding": "Přidávám…",
       "errorCreate": "Nepodařilo se vytvořit tým",
-      "errorLoadTeams": "Nepodařilo se načíst týmy",
-      "errorSelectTeam": "Nejprve vyberte tým",
-      "errorSelectUsers": "Vyberte alespoň jednoho uživatele",
-      "errorAddMembers": "Nepodařilo se přidat členy"
+      "errorLoadTeams": "Nepodařilo se načíst týmy"
     },
     "users": {
       "title": "Uživatelé",
@@ -962,6 +947,15 @@
       "races": "Závody",
       "teams": "Týmy",
       "users": "Uživatelé"
+    },
+    "teams": {
+      "title": "Týmy",
+      "newTeam": "+ Nový tým",
+      "newTitle": "Nový tým",
+      "editTitle": "Upravit tým",
+      "noMembers": "Zatím bez členů",
+      "addMembers": "Přidat členy",
+      "removeMember": "Odebrat: {{name}}"
     }
   },
   "favourites": {

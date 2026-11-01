@@ -202,3 +202,25 @@
     max-width: none;
   }
 }
+
+/* Teams and users lists: a search box no wider than needed. */
+.admin-list-search {
+  max-width: 360px;
+}
+
+/* Team dialog: chosen members as chips, all users in a scrolling list. */
+.admin-chip-close {
+  width: 0.5em;
+  height: 0.5em;
+  padding: 0.25em;
+}
+
+.admin-team-user-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.admin-team-user-list .list-group-item {
+  color: var(--bs-body-color); /* not the muted colour of action items */
+  cursor: pointer;
+}

@@ -841,34 +841,19 @@
       "totalPointsShort": "Total"
     },
     "teamCreation": {
-      "title": "Create team",
-      "allTeams": "All teams",
       "refresh": "Refresh",
       "loadingTeams": "Loading teams…",
       "teamName": "Team name",
       "create": "Create",
-      "creating": "Creating…",
-      "addMembersTitle": "Add members by user name",
-      "searchUsers": "Search users",
       "searchPlaceholder": "Type name or email to filter",
       "searchTeams": "Search teams",
       "searchTeamsPlaceholder": "Type team name to filter",
-      "tableName": "Name",
-      "tableEmail": "Email",
-      "tableAdmin": "Admin",
       "tableMembers": "Members",
-      "tableMemberCount": "Members count",
       "adminYes": "Yes",
       "adminNo": "No",
       "noUsers": "No users",
-      "teamLabel": "Team",
-      "addMembers": "Add members",
-      "adding": "Adding…",
       "errorCreate": "Failed to create team",
-      "errorLoadTeams": "Failed to load teams",
-      "errorSelectTeam": "Select a team first",
-      "errorSelectUsers": "Select at least one user",
-      "errorAddMembers": "Failed to add members"
+      "errorLoadTeams": "Failed to load teams"
     },
     "users": {
       "title": "Users",
@@ -961,6 +946,15 @@
       "races": "Races",
       "teams": "Teams",
       "users": "Users"
+    },
+    "teams": {
+      "title": "Teams",
+      "newTeam": "+ New team",
+      "newTitle": "New team",
+      "editTitle": "Edit team",
+      "noMembers": "No members yet",
+      "addMembers": "Add members",
+      "removeMember": "Remove {{name}}"
     }
   },
   "favourites": {
