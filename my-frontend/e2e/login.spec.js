@@ -16,7 +16,12 @@ test('with several running races the user picks one', async ({ page }) => {
   const raceB = page.locator('.list-group-item', { hasText: RUNNING_B });
   await raceB.getByRole('button', { name: 'Select' }).click();
 
+  // Picking a running race opens its map; a notice links back to the switcher.
+  await expect(page).toHaveURL(MAP_URL);
   await expect(page.getByRole('button', { name: RUNNING_B })).toBeVisible();
+  const notice = page.getByRole('status').filter({ hasText: '2 races are running now' });
+  await notice.getByRole('button', { name: 'Switch' }).click();
+  await expect(page).toHaveURL(/\/race$/);
   await expect(page.locator('.list-group-item', { hasText: RUNNING_A })).toBeVisible();
 });
 

@@ -25,7 +25,7 @@ const taskCard = (page, title) => page.locator('.tasks-card', { hasText: title }
 const mapMarkers = (page) => page.locator('.leaflet-marker-icon');
 
 // Races whose checkpoints are currently shown are auto-selected after login;
-// the others must be picked on the race page.
+// the others must be picked on the race page ("Select", or "Open" for past races).
 async function openRace(page, userKey, raceName, { autoSelected }) {
   await login(page, userKey);
   if (autoSelected) {
@@ -33,7 +33,7 @@ async function openRace(page, userKey, raceName, { autoSelected }) {
   } else {
     await expect(page).toHaveURL(/\/race$/);
     await page.locator('.list-group-item', { hasText: raceName })
-      .getByRole('button', { name: 'Select' }).click();
+      .getByRole('button', { name: /^(Select|Open)$/ }).click();
   }
   await expect(page.getByRole('button', { name: raceName })).toBeVisible();
 }
@@ -126,7 +126,8 @@ async function expectReadOnly(page, { visited }) {
   await expect(mapMarkers(page)).toHaveCount(2);
 
   await nav(page, 'Checkpoints');
-  await expect(page.getByText('Read-only')).toBeVisible();
+  // Before logging opens the badge counts down to it.
+  await expect(page.getByText(visited ? 'Read-only' : /^Logging opens in /)).toBeVisible();
   for (const title of ['North Gate', 'South Gate']) {
     await checkpointCard(page, title).click();
     await expect(page.getByRole('button', { name: 'Log Visit' })).toHaveCount(0);
