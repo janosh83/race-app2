@@ -34,6 +34,7 @@ class Race(db.Model):
     checkpoints = db.relationship('Checkpoint', backref='race', cascade="all, delete-orphan", lazy=True)
     tasks = db.relationship('Task', backref='race', cascade="all, delete-orphan", lazy=True)
     registrations = db.relationship('Registration', backref='race', cascade="all, delete-orphan", lazy=True)
+    positions = db.relationship('TeamPosition', cascade="all, delete-orphan", lazy=True)
     categories = db.relationship('RaceCategory', secondary=race_categories_in_race, back_populates='races')
     start_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
     end_showing_checkpoints_at = db.Column(db.DateTime, nullable=False)
@@ -65,6 +66,10 @@ class RaceTranslation(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     race_greeting = db.Column(db.String(255), nullable=True)
+    # Map place names; empty means "use the race's own name".
+    finish_description = db.Column(db.String(255), nullable=True)
+    bivak_1_name = db.Column(db.String(100), nullable=True)
+    bivak_2_name = db.Column(db.String(100), nullable=True)
 
     __table_args__ = (
         db.UniqueConstraint('race_id', 'language', name='uq_race_translation_language'),
@@ -160,6 +165,7 @@ class Checkpoint(db.Model):
     numOfPoints = db.Column(db.Integer, default=1)
     race_id = db.Column(db.Integer, db.ForeignKey('race.id'), nullable=False)
     translations = db.relationship('CheckpointTranslation', backref='checkpoint', cascade="all, delete-orphan", lazy=True)
+    favourites = db.relationship('FavouriteCheckpoint', backref='checkpoint', cascade="all, delete-orphan", lazy=True)
 
 class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -212,6 +218,17 @@ class CheckpointLog(db.Model):
         db.Index('ix_checkpoint_log_race_team', 'race_id', 'team_id'),
     )
 
+class FavouriteCheckpoint(db.Model):
+    """A checkpoint a team marked as favourite while planning the race."""
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id', ondelete='CASCADE'), nullable=False)
+    checkpoint_id = db.Column(db.Integer, db.ForeignKey('checkpoint.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'checkpoint_id', name='uq_favourite_checkpoint_team'),
+    )
+
 class TaskLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.Integer, db.ForeignKey('task.id'), nullable=False)
@@ -225,6 +242,24 @@ class TaskLog(db.Model):
         db.Index('ix_task_log_race_team', 'race_id', 'team_id'),
     )
 
+class TeamPosition(db.Model):
+    """A GPS fix reported by a team member's device while the race logging
+    window is open. All members' fixes, ordered by recorded_at, form the team's trail."""
+    id = db.Column(db.Integer, primary_key=True)
+    race_id = db.Column(db.Integer, db.ForeignKey('race.id', ondelete='CASCADE'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    latitude = db.Column(db.Float, nullable=False)
+    longitude = db.Column(db.Float, nullable=False)
+    accuracy_m = db.Column(db.Float, nullable=True)
+    recorded_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+
+    __table_args__ = (
+        db.Index('ix_team_position_race_team_recorded', 'race_id', 'team_id', 'recorded_at'),
+        db.Index('ix_team_position_user_race_created', 'user_id', 'race_id', 'created_at'),
+    )
+
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(256), nullable=False)
@@ -234,6 +269,8 @@ class Team(db.Model):
     name = db.Column(db.String(100), nullable=False)
     members = db.relationship('User', secondary=team_members, back_populates='teams')
     registrations = db.relationship('Registration', backref='team', cascade="all, delete-orphan", lazy=True)
+    favourite_checkpoints = db.relationship('FavouriteCheckpoint', cascade="all, delete-orphan", lazy=True)
+    positions = db.relationship('TeamPosition', cascade="all, delete-orphan", lazy=True)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -245,6 +282,8 @@ class User(db.Model):
     reset_token = db.Column(db.String(100), nullable=True, unique=True)
     reset_token_expiry = db.Column(db.DateTime, nullable=True)
     teams = db.relationship('Team', secondary=team_members, back_populates='members')
+    refresh_sessions = db.relationship('RefreshSession', backref='user', cascade="all, delete-orphan", lazy=True)
+    positions = db.relationship('TeamPosition', cascade="all, delete-orphan", lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -259,3 +298,19 @@ class User(db.Model):
     def clear_reset_token(self):
         self.reset_token = None
         self.reset_token_expiry = None
+
+    def revoke_refresh_sessions(self):
+        """Log the user out everywhere, e.g. after a password change."""
+        self.refresh_sessions.clear()  # delete-orphan cascade deletes the rows
+
+class RefreshSession(db.Model):
+    """One logged-in browser/device. The refresh token carries the session id
+    ("sid") and the JTI of its current rotation ("refresh_jti"). The previous
+    JTI stays valid for a short grace period so a refresh whose response was
+    lost, or two tabs refreshing at once, doesn't log the user out."""
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    current_jti = db.Column(db.String(64), nullable=False)
+    previous_jti = db.Column(db.String(64), nullable=True)
+    rotated_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now(), nullable=False)

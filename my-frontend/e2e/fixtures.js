@@ -1,0 +1,89 @@
+import path from 'node:path';
+
+import { test as base, expect } from '@playwright/test';
+
+// Seeded by ../../scripts/e2e_server.py (keep USERS there in sync).
+export const BACKEND_URL = 'http://127.0.0.1:5055';
+export const PASSWORD = 'e2e-password';
+export const RUNNING_A = 'Running Race A';
+export const RUNNING_B = 'Running Race B';
+export const FUTURE = 'Future Race';
+export const NOT_STARTED = 'Not Started Race';
+export const PREVIEW = 'Preview Race';
+export const LOGGING_CLOSED = 'Logging Closed Race';
+export const FINISHED = 'Finished Race';
+export const JUST_OPENED = 'Just Opened Race';
+export const OPENS_SOON = 'Opens Soon Race';
+export const userEmail = (key) => `${key}@e2e.test`;
+export const ADMIN_EMAIL = 'admin@e2e.test';
+
+// A real JPEG, so it passes the backend's image validation.
+export const TEST_PHOTO = path.resolve(__dirname, '../../tests/test_image.jpg');
+
+// The <img> is shown and its file was actually served by the backend.
+export async function expectImageLoaded(img) {
+  await expect(img).toBeVisible();
+  await expect.poll(() => img.evaluate((el) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+}
+
+// Only the app's own servers are reachable: map tiles, marker icons etc. are
+// blocked so tests don't depend on the internet.
+export async function blockExternalRequests(context) {
+  await context.route('**/*', (route) => {
+    const { hostname } = new URL(route.request().url());
+    return hostname === '127.0.0.1' ? route.continue() : route.abort();
+  });
+}
+
+export const test = base.extend({
+  context: async ({ context }, use) => {
+    await blockExternalRequests(context);
+    await use(context);
+  },
+});
+
+export { expect };
+
+export async function login(page, userKey, password = PASSWORD) {
+  await page.goto('/login');
+  await page.getByLabel('Email address').fill(userEmail(userKey));
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Login' }).click();
+}
+
+export const MAP_URL = /\/race\/\d+\/map$/;
+
+// Replace the stored access token with an expired one (same shape as a JWT;
+// the frontend only reads the payload's exp). The HttpOnly refresh cookie is
+// untouched, so the app should silently refresh instead of logging out.
+export async function expireAccessToken(page) {
+  await page.evaluate(() => {
+    const payload = btoa(JSON.stringify({ sub: 'e2e', exp: Math.floor(Date.now() / 1000) - 60 }));
+    localStorage.setItem('accessToken', `e2e.${payload}.expired`);
+  });
+}
+
+export async function storedAccessToken(page) {
+  return page.evaluate(() => localStorage.getItem('accessToken'));
+}
+
+// Calls the backend as the seeded admin, using Playwright's standalone
+// `request` fixture so the browser's session cookies are untouched.
+export async function apiAsAdmin(request, method, path) {
+  const login = await request.post(`${BACKEND_URL}/auth/login/`, {
+    data: { email: ADMIN_EMAIL, password: PASSWORD },
+  });
+  const { access_token: token } = await login.json();
+  return request.fetch(`${BACKEND_URL}${path}`, { method, headers: { Authorization: `Bearer ${token}` } });
+}
+
+// Calls the backend directly as the logged-in user, bypassing the UI (e.g. to
+// check that the server enforces what the UI only hides).
+export async function apiAsUser(page, method, path, data) {
+  const token = await storedAccessToken(page);
+  return page.request.fetch(`${BACKEND_URL}${path}`, {
+    method,
+    data,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}

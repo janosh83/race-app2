@@ -6,10 +6,18 @@ import TasksPage from './TasksPage';
 
 // Mock the Tasks component
 vi.mock('../Tasks', () => {
-  return function MockTasks() {
-    return <div data-testid="tasks-component">Tasks Component</div>;
+  return {
+    default: function MockTasks({ topOffset }) {
+      return <div data-testid="tasks-component">Tasks Component (topOffset: {String(topOffset)})</div>;
+    },
   };
 });
+
+const mockUseOutletContext = vi.hoisted(() => vi.fn(() => ({ navHeight: 56 })));
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
+  useOutletContext: () => mockUseOutletContext(),
+}));
 
 describe('TasksPage Component', () => {
   describe('Component rendering', () => {

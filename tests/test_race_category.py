@@ -1,13 +1,14 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
+from app.utils import utc_now
 from app.models import Race, Team, User, RaceCategory, Registration
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 @pytest.fixture
 def add_test_data(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
@@ -119,7 +120,7 @@ def test_delete_category_conflict_when_assigned_to_race(test_client, add_test_da
 def test_delete_category_conflict_when_used_by_registration(test_client, admin_auth_headers, test_app):
     """Deleting a category used by registrations must return deterministic 409."""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         race = Race(
             name="Registrace Race",
             description="race",

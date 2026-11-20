@@ -1,0 +1,242 @@
+/* Section tabs of an opened race: one row that scrolls sideways on narrow
+   screens instead of wrapping into a stack of tabs. */
+.admin-section-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.admin-section-tabs .nav-link {
+  white-space: nowrap;
+}
+
+.admin-back-link {
+  text-decoration: none;
+}
+
+.admin-race-row {
+  cursor: pointer;
+}
+
+.admin-race-table > :not(caption) > * > * {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.admin-race-table thead th {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+
+.admin-race-name {
+  color: var(--bs-body-color);
+}
+
+@media (min-width: 576px) {
+  .admin-race-col-name {
+    min-width: 11rem;
+  }
+}
+
+.admin-race-row:hover .admin-race-name {
+  color: var(--brand-accent);
+}
+
+/* Results & visits. Wide screens: standings on the left (sticky, scrolls on
+   its own), the selected team's visits on the right, so an admin can go
+   through team after team without scrolling back up. Phones: the visits
+   replace the standings and "‹ Standings" goes back. The breakpoint matches
+   NARROW_RESULTS_QUERY in AdminDashboard.jsx. */
+.admin-standings-clickable {
+  cursor: pointer;
+}
+
+.admin-standings-selected > td {
+  box-shadow: inset 0 0 0 9999px var(--brand-accent-subtle);
+}
+
+.admin-standings-selected > td:first-child {
+  border-left: 3px solid var(--brand-accent);
+}
+
+.admin-visits-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 0.75rem 1rem;
+  background: var(--bs-body-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-card-inner-border-radius) var(--bs-card-inner-border-radius) 0 0;
+}
+
+.admin-visits-header .btn-group .btn {
+  min-width: 2.5rem;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+@media (max-width: 991.98px) {
+  .admin-results-with-team .admin-results-standings {
+    display: none;
+  }
+}
+
+@media (min-width: 992px) {
+  .admin-results-with-team {
+    display: grid;
+    grid-template-columns: minmax(320px, 5fr) 7fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .admin-results-with-team .admin-results-standings {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+}
+
+/* Rarely used bulk import, folded away under the checkpoint and task lists. */
+.admin-import-details {
+  margin-top: 0.5rem;
+}
+
+.admin-import-details > summary {
+  width: fit-content;
+  margin-bottom: 0.5rem;
+  color: var(--bs-link-color);
+  cursor: pointer;
+}
+
+/* Race overview cards. */
+.admin-overview-description {
+  white-space: pre-line;
+}
+
+.admin-overview-fields {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-overview-field {
+  display: grid;
+  grid-template-columns: minmax(8rem, 40%) 1fr;
+  gap: 0.75rem;
+}
+
+.admin-overview-field dt {
+  font-weight: 400;
+  color: var(--bs-secondary-color);
+}
+
+.admin-overview-field dd {
+  margin: 0;
+}
+
+/* Phones: label above its value, so dates stay on one line. */
+@media (max-width: 575.98px) {
+  .admin-overview-field {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .admin-overview-field dt {
+    font-size: 0.8125rem;
+  }
+}
+
+.admin-overview-map {
+  flex: 1;
+  min-height: 300px;
+}
+
+.admin-overview-places li + li {
+  margin-top: 0.25rem;
+}
+
+/* Same dark square as the places on the map. */
+.admin-overview-place-icon {
+  width: 14px;
+  height: 21px;
+  margin-right: 0.4rem;
+  vertical-align: -5px;
+}
+
+/* Race form: places separated by a rule, actions stuck to the bottom. */
+.admin-race-place + .admin-race-place {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bs-border-color-translucent);
+}
+
+.admin-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1010; /* above Leaflet panes and controls */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 -0.75rem;
+  padding: 0.75rem;
+  background: var(--bs-body-bg);
+  border-top: 1px solid var(--bs-border-color);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.admin-form-actions-message {
+  min-width: 0;
+}
+
+/* Registrations: the search sits right of the filter pills, full width on phones. */
+.admin-registrations-search {
+  max-width: 260px;
+}
+
+@media (max-width: 767.98px) {
+  .admin-registrations-search {
+    max-width: none;
+  }
+}
+
+/* Teams and users lists: a search box no wider than needed. */
+.admin-list-search {
+  max-width: 360px;
+}
+
+/* Team dialog: chosen members as chips, all users in a scrolling list. */
+.admin-chip-close {
+  width: 0.5em;
+  height: 0.5em;
+  padding: 0.25em;
+}
+
+.admin-team-user-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.admin-team-user-list .list-group-item {
+  color: var(--bs-body-color); /* not the muted colour of action items */
+  cursor: pointer;
+}
+
+/* Checkpoint and task rows: the whole row opens the item; long names and
+   description previews are cut with an ellipsis. */
+.admin-item-row {
+  min-width: 0;
+}
+
+.admin-item-row strong {
+  min-width: 0;
+}
+
+/* Payments: email filters side by side, wrapping two per row on phones. */
+.admin-email-filters > div {
+  flex: 1 1 140px;
+  max-width: 200px;
+}

@@ -5,14 +5,16 @@ import { MemoryRouter } from 'react-router-dom';
 import CheckpointsPage from './CheckpointsPage';
 
 vi.mock('../CheckpointsList', () => {
-  return function MockCheckpointsList({ topOffset }) {
-    return <div data-testid="checkpoints-list">Checkpoints List (topOffset: {String(topOffset)})</div>;
+  return {
+    default: function MockCheckpointsList({ topOffset }) {
+      return <div data-testid="checkpoints-list">Checkpoints List (topOffset: {String(topOffset)})</div>;
+    },
   };
 });
 
-const mockUseOutletContext = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
+const mockUseOutletContext = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useOutletContext: () => mockUseOutletContext(),
 }));
 

@@ -6,15 +6,17 @@ import MapPage from './MapPage';
 
 // Mock the Map component
 vi.mock('../Map', () => {
-  return function MockMap({ topOffset }) {
-    return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
+  return {
+    default: function MockMap({ topOffset }) {
+      return <div data-testid="map-component">Map Component (topOffset: {String(topOffset)})</div>;
+    },
   };
 });
 
 // Mock useOutletContext
-const mockUseOutletContext = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
+const mockUseOutletContext = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useOutletContext: () => mockUseOutletContext(),
 }));
 

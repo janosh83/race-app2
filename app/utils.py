@@ -2,13 +2,21 @@ import logging
 from datetime import datetime, timezone, timedelta
 from math import radians, sin, cos, sqrt, atan2
 from dateutil import parser
-from PIL import Image, UnidentifiedImageError
+from flask_jwt_extended import get_jwt_identity
+from PIL import ExifTags, Image, UnidentifiedImageError
 from app.constants import DEFAULT_LANGUAGE
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
 ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/gif"}
+
+
+def normalize_email(value: str | None) -> str:
+    """Normalize email addresses to a canonical lowercase form for login and storage."""
+    if value is None:
+        return ""
+    return str(value).strip().lower()
 
 
 def allowed_file(filename: str) -> bool:
@@ -39,8 +47,38 @@ def validate_uploaded_image(file_storage) -> tuple[bool, str | None]:
 
     return True, None
 
+def current_user_id() -> int:
+    """The logged-in user's id from the JWT.
+
+    The JWT subject is a string; use this instead of get_jwt_identity() in
+    queries, because PostgreSQL rejects comparing an integer column with a
+    string (SQLAlchemy 2.1 binds a Python str as VARCHAR).
+    """
+    return int(get_jwt_identity())
+
+
+def utc_now() -> datetime:
+    """The current time as naive UTC, the form every datetime is stored in.
+
+    Use this instead of datetime.now(), which is the server's local time and
+    would shift race windows by the server's UTC offset.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def to_naive_utc(dt: datetime) -> datetime:
+    """Convert an aware datetime to naive UTC; naive input is taken as UTC."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 def parse_datetime(s: str) -> datetime:
-    """Parse common datetime string formats into a timezone-aware UTC datetime."""
+    """Parse common datetime string formats into a naive UTC datetime.
+
+    Strings with an offset (the admin form sends toISOString(), i.e. "Z") are
+    converted to UTC; strings without one are taken as UTC.
+    """
     if s is None:
         raise ValueError("empty string")
 
@@ -49,11 +87,7 @@ def parse_datetime(s: str) -> datetime:
         s = s[:-1] + "+00:00"
     try:
         # accepts "YYYY-MM-DDTHH:MM:SS" and with timezone offset
-        dt = datetime.fromisoformat(s)
-        # make tz-aware UTC if naive
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return to_naive_utc(datetime.fromisoformat(s))
     except ValueError:
         pass
 
@@ -66,17 +100,13 @@ def parse_datetime(s: str) -> datetime:
     ]
     for fmt in formats:
         try:
-            dt = datetime.strptime(s, fmt)
-            return dt.replace(tzinfo=timezone.utc)
+            return datetime.strptime(s, fmt)
         except ValueError:
             continue
 
     # fallback: use dateutil if available (more flexible)
     try:
-        dt = parser.parse(s)
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
+        return to_naive_utc(parser.parse(s))
     except (parser.ParserError, TypeError, OverflowError, ValueError) as exc:
         raise ValueError(f"unrecognized datetime format: {s}") from exc
 
@@ -92,59 +122,61 @@ def extract_image_coordinates(image_path: str) -> tuple:
         Tuple of (latitude, longitude) or (None, None) if not available
     """
     try:
-        image = Image.open(image_path)
-        exif_data = image.getexif()
-
-        if not exif_data:
-            logger.debug("No EXIF data found in image: %s", image_path)
-            return None, None
-
-        # GPS IFD tags
-        gps_ifd_tag = 34853
-        if gps_ifd_tag not in exif_data:
-            logger.debug("No GPS data in EXIF for image: %s", image_path)
-            return None, None
-
-        gps_data = exif_data[gps_ifd_tag]
-
-        # GPS tags: North/South (1) and East/West (3)
-        lat_tag = 2  # North latitude
-        lon_tag = 4  # East longitude
-        lat_ref_tag = 1  # North/South reference
-        lon_ref_tag = 3  # East/West reference
-
-        if lat_tag in gps_data and lon_tag in gps_data:
-            lat = _convert_to_degrees(gps_data[lat_tag])
-            lon = _convert_to_degrees(gps_data[lon_tag])
-
-            # Apply reference (negative for South/West)
-            if gps_data.get(lat_ref_tag) == 'S':
-                lat = -lat
-            if gps_data.get(lon_ref_tag) == 'W':
-                lon = -lon
-
-            logger.info("Extracted GPS coordinates from image: (%s, %s)", lat, lon)
-            return lat, lon
-
-        logger.debug("Incomplete GPS data in image: %s", image_path)
+        with Image.open(image_path) as image:
+            # The GPSInfo tag in the main EXIF directory only holds the offset of
+            # the GPS directory; get_ifd() reads the directory itself.
+            gps_data = image.getexif().get_ifd(ExifTags.IFD.GPSInfo)
+    except (OSError, SyntaxError, ValueError) as err:
+        logger.warning("Failed to read EXIF from image %s: %s", image_path, err)
         return None, None
 
-    except (OSError, AttributeError, TypeError, ValueError, KeyError) as err:
-        logger.warning("Failed to extract coordinates from image %s: %s", image_path, err)
+    if not gps_data:
+        logger.debug("No GPS data in EXIF for image: %s", image_path)
         return None, None
 
+    lat = _convert_to_degrees(gps_data.get(ExifTags.GPS.GPSLatitude))
+    lon = _convert_to_degrees(gps_data.get(ExifTags.GPS.GPSLongitude))
+    if lat is None or lon is None:
+        logger.debug("Incomplete or invalid GPS data in image: %s", image_path)
+        return None, None
 
-def _convert_to_degrees(value) -> float:
+    # Apply reference (negative for South/West)
+    if _gps_ref(gps_data.get(ExifTags.GPS.GPSLatitudeRef)) == 'S':
+        lat = -lat
+    if _gps_ref(gps_data.get(ExifTags.GPS.GPSLongitudeRef)) == 'W':
+        lon = -lon
+
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        logger.warning("Out-of-range GPS coordinates in image %s: (%s, %s)", image_path, lat, lon)
+        return None, None
+
+    logger.info("Extracted GPS coordinates from image: (%s, %s)", lat, lon)
+    return lat, lon
+
+
+def _gps_ref(value) -> str:
+    if isinstance(value, bytes):
+        value = value.decode('ascii', errors='ignore')
+    return str(value or '').strip().upper()
+
+
+def _convert_to_degrees(value) -> float | None:
     """
     Convert GPS coordinates from EXIF format to decimal degrees.
     EXIF GPS coordinates are in (degrees, minutes, seconds) format.
+    Returns None for missing or invalid values (e.g. 0/0 rationals written by
+    cameras without a GPS fix), so they are never stored as a real position.
     """
+    if value is None:
+        return None
     try:
-        d, m, s = value
-        return float(d) + (float(m) / 60.0) + (float(s) / 3600.0)
+        d, m, s = (float(part) for part in value)
     except (TypeError, ValueError, ZeroDivisionError) as e:
         logger.warning("Failed to convert GPS value %s to degrees: %s", value, e)
-        return 0.0
+        return None
+    if any(part != part for part in (d, m, s)):  # NaN from a 0/0 rational
+        return None
+    return d + (m / 60.0) + (s / 3600.0)
 
 
 def calculate_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -189,77 +221,103 @@ def resolve_language(race, user, requested_language=None, default_language=None)
     return default_language or DEFAULT_LANGUAGE
 
 
+# Map place names a race translation can override.
+RACE_PLACE_NAME_FIELDS = ("finish_description", "bivak_1_name", "bivak_2_name")
+
+
+def translated_place_names(source, translation=None):
+    """Finish and bivak names from `source` (a race or a query row), each
+    replaced by the translation's when that one is filled in."""
+    return {
+        field: (getattr(translation, field, None) if translation is not None else None) or getattr(source, field, None)
+        for field in RACE_PLACE_NAME_FIELDS
+    }
+
+
 def registration_mode(race):
     """Return race registration mode as 'team' or 'individual'."""
     return 'team' if race and race.allow_team_registration else 'individual'
 
 
-def get_registration_time_windows(registration, race=None):
-    """Return effective per-registration time windows, falling back to race defaults."""
-    race_windows = {
-        'start_showing_checkpoints_at': getattr(race, 'start_showing_checkpoints_at', None),
-        'end_showing_checkpoints_at': getattr(race, 'end_showing_checkpoints_at', None),
-        'start_logging_at': getattr(race, 'start_logging_at', None),
-        'end_logging_at': getattr(race, 'end_logging_at', None),
+TIME_WINDOW_FIELDS = (
+    'start_showing_checkpoints_at',
+    'end_showing_checkpoints_at',
+    'start_logging_at',
+    'end_logging_at',
+)
+
+
+def _race_time_windows(race):
+    return {field: getattr(race, field, None) for field in TIME_WINDOW_FIELDS}
+
+
+def _shifted_time_windows(race, anchor):
+    """Windows of a registration-shifted race for a registration paid at `anchor`.
+
+    Each window starts at the race's offset (seconds) after `anchor`. A race with
+    no offsets set uses its absolute windows' offsets from its start of logging.
+    A window whose offset is missing keeps the race's absolute value.
+    """
+    race_windows = _race_time_windows(race)
+    offsets = {
+        'start_showing_checkpoints_at': getattr(race, 'start_showing_offset_seconds', None),
+        'end_showing_checkpoints_at': getattr(race, 'end_showing_offset_seconds', None),
+        'start_logging_at': getattr(race, 'start_logging_offset_seconds', None),
+        'end_logging_at': getattr(race, 'end_logging_offset_seconds', None),
     }
-
-    if not registration:
-        return race_windows
-
-    registration_windows = {
-        'start_showing_checkpoints_at': registration.start_showing_checkpoints_at,
-        'end_showing_checkpoints_at': registration.end_showing_checkpoints_at,
-        'start_logging_at': registration.start_logging_at,
-        'end_logging_at': registration.end_logging_at,
-    }
-
-    if any(registration_windows.values()):
-        return {
-            'start_showing_checkpoints_at': registration_windows['start_showing_checkpoints_at'] or race_windows['start_showing_checkpoints_at'],
-            'end_showing_checkpoints_at': registration_windows['end_showing_checkpoints_at'] or race_windows['end_showing_checkpoints_at'],
-            'start_logging_at': registration_windows['start_logging_at'] or race_windows['start_logging_at'],
-            'end_logging_at': registration_windows['end_logging_at'] or race_windows['end_logging_at'],
+    if all(offset is None for offset in offsets.values()):
+        base = race_windows['start_logging_at']
+        if not base:
+            return race_windows
+        offsets = {
+            field: int((value - base).total_seconds()) if value is not None else None
+            for field, value in race_windows.items()
         }
 
-    mode = getattr(race, 'time_constraint_mode', 'fixed') if race else 'fixed'
-    if mode != 'registration_shift':
+    return {
+        field: anchor + timedelta(seconds=int(offsets[field])) if offsets[field] is not None else race_windows[field]
+        for field in TIME_WINDOW_FIELDS
+    }
+
+
+def is_registration_shift(race):
+    return getattr(race, 'time_constraint_mode', 'fixed') == 'registration_shift'
+
+
+def get_registration_time_windows(registration, race=None):
+    """Return the time windows that apply to `registration`.
+
+    In 'fixed' mode (every race created before per-registration windows existed)
+    all teams share the race's windows, whatever the registration stores. In
+    'registration_shift' mode the windows stamped on the registration at payment
+    win; without them they are computed from the payment confirmation time.
+    """
+    race_windows = _race_time_windows(race)
+    if not registration or not is_registration_shift(race):
         return race_windows
+
+    stored = {field: getattr(registration, field, None) for field in TIME_WINDOW_FIELDS}
+    if any(stored.values()):
+        return {field: stored[field] or race_windows[field] for field in TIME_WINDOW_FIELDS}
 
     anchor = getattr(registration, 'payment_confirmed_at', None)
     if not anchor:
         return race_windows
+    return _shifted_time_windows(race, anchor)
 
-    start_show_offset = getattr(race, 'start_showing_offset_seconds', None) if race else None
-    end_show_offset = getattr(race, 'end_showing_offset_seconds', None) if race else None
-    start_logging_offset = getattr(race, 'start_logging_offset_seconds', None) if race else None
-    end_logging_offset = getattr(race, 'end_logging_offset_seconds', None) if race else None
 
-    if all(offset is None for offset in (start_show_offset, end_show_offset, start_logging_offset, end_logging_offset)):
-        base = race_windows['start_logging_at']
-        if not base:
-            return race_windows
+def stamp_registration_time_windows(registration, race):
+    """Store the registration's own windows when its payment is confirmed.
 
-        def derived_offset(value):
-            if value is None:
-                return None
-            return int((value - base).total_seconds())
-
-        start_show_offset = derived_offset(race_windows['start_showing_checkpoints_at'])
-        end_show_offset = derived_offset(race_windows['end_showing_checkpoints_at'])
-        start_logging_offset = 0
-        end_logging_offset = derived_offset(race_windows['end_logging_at'])
-
-    def shift(offset_seconds):
-        if offset_seconds is None:
-            return None
-        return anchor + timedelta(seconds=int(offset_seconds))
-
-    return {
-        'start_showing_checkpoints_at': shift(start_show_offset),
-        'end_showing_checkpoints_at': shift(end_show_offset),
-        'start_logging_at': shift(start_logging_offset),
-        'end_logging_at': shift(end_logging_offset),
-    }
+    Registration-shifted races get windows computed from the payment time, so a
+    later change of the race's offsets doesn't move teams that already paid.
+    Other registrations store nothing and follow the race's windows.
+    """
+    windows = {field: None for field in TIME_WINDOW_FIELDS}
+    if race is not None and is_registration_shift(race) and registration.payment_confirmed_at:
+        windows = _shifted_time_windows(race, registration.payment_confirmed_at)
+    for field, value in windows.items():
+        setattr(registration, field, value)
 
 
 def _normalize_lang(language):

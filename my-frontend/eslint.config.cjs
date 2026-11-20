@@ -90,4 +90,12 @@ module.exports = [
       "no-console": "off",
     },
   },
+  {
+    // Playwright tests are not React code: fixtures receive a callback named
+    // `use`, which the hooks rule mistakes for React's use().
+    files: ["e2e/**/*.js"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ];

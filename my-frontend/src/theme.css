@@ -1,0 +1,79 @@
+/* Brand theme: black (logo, top bar) with a forest-teal accent for buttons,
+   links, the selected tab and highlights. Loaded after Bootstrap so these
+   replace its default blue "primary". Status colours (green success, red
+   danger, yellow warning) stay Bootstrap's. */
+:root {
+  --brand-black: #000;
+  --brand-accent: #0f766e;
+  --brand-accent-hover: #0b5d57;
+  --brand-accent-active: #094b46;
+  --brand-accent-rgb: 15, 118, 110;
+  --brand-accent-subtle: #e3f1ef;
+
+  --bs-primary: var(--brand-accent);
+  --bs-primary-rgb: var(--brand-accent-rgb);
+  --bs-primary-text-emphasis: #06403b;
+  --bs-primary-bg-subtle: var(--brand-accent-subtle);
+  --bs-primary-border-subtle: #9fd0c9;
+  --bs-link-color: var(--brand-accent);
+  --bs-link-color-rgb: var(--brand-accent-rgb);
+  --bs-link-hover-color: var(--brand-accent-hover);
+  --bs-link-hover-color-rgb: 11, 93, 87;
+  --bs-focus-ring-color: rgba(var(--brand-accent-rgb), 0.25);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--brand-accent);
+  --bs-btn-border-color: var(--brand-accent);
+  --bs-btn-hover-bg: var(--brand-accent-hover);
+  --bs-btn-hover-border-color: var(--brand-accent-hover);
+  --bs-btn-active-bg: var(--brand-accent-active);
+  --bs-btn-active-border-color: var(--brand-accent-active);
+  --bs-btn-disabled-bg: var(--brand-accent);
+  --bs-btn-disabled-border-color: var(--brand-accent);
+  --bs-btn-focus-shadow-rgb: var(--brand-accent-rgb);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--brand-accent);
+  --bs-btn-border-color: var(--brand-accent);
+  --bs-btn-hover-bg: var(--brand-accent);
+  --bs-btn-hover-border-color: var(--brand-accent);
+  --bs-btn-active-bg: var(--brand-accent-active);
+  --bs-btn-active-border-color: var(--brand-accent-active);
+  --bs-btn-disabled-color: var(--brand-accent);
+  --bs-btn-disabled-border-color: var(--brand-accent);
+  --bs-btn-focus-shadow-rgb: var(--brand-accent-rgb);
+}
+
+.btn-link {
+  --bs-btn-color: var(--brand-accent);
+  --bs-btn-hover-color: var(--brand-accent-hover);
+  --bs-btn-active-color: var(--brand-accent-active);
+}
+
+.nav-tabs,
+.nav-pills {
+  --bs-nav-link-color: var(--brand-accent);
+  --bs-nav-link-hover-color: var(--brand-accent-hover);
+}
+
+.nav-pills {
+  --bs-nav-pills-link-active-bg: var(--brand-accent);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #87c3bb;
+  box-shadow: 0 0 0 0.25rem rgba(var(--brand-accent-rgb), 0.25);
+}
+
+.form-check-input:checked {
+  background-color: var(--brand-accent);
+  border-color: var(--brand-accent);
+}
+
+.form-check-input:focus {
+  border-color: #87c3bb;
+  box-shadow: 0 0 0 0.25rem rgba(var(--brand-accent-rgb), 0.25);
+}

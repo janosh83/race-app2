@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 from marshmallow import ValidationError
@@ -14,12 +14,13 @@ from app.services.stripe_service import construct_stripe_event
 from app.services.stripe_service import create_registration_checkout_session
 from app.services.stripe_service import get_checkout_receipt_url
 from app.utils import (
+    utc_now,
     registration_mode as _registration_mode,
     resolve_language as _resolve_language,
     resolve_race_category_name as _resolve_race_category_name,
     resolve_race_greeting as _resolve_race_greeting,
     resolve_race_name as _resolve_race_name,
-    get_registration_time_windows as _get_registration_time_windows,
+    stamp_registration_time_windows as _stamp_registration_time_windows,
 )
 
 logger = logging.getLogger(__name__)
@@ -619,7 +620,7 @@ def stripe_registration_webhook():
         return jsonify({'message': 'Payment already confirmed.'}), 200
 
     payment_attempt.status = 'confirmed'
-    payment_attempt.confirmed_at = datetime.now()
+    payment_attempt.confirmed_at = utc_now()
 
     was_paid_before = bool(registration.payment_confirmed)
     race = Race.query.filter_by(id=registration.race_id).first()
@@ -627,12 +628,7 @@ def stripe_registration_webhook():
         registration.payment_confirmed = True
         registration.payment_confirmed_at = payment_attempt.confirmed_at
         registration.stripe_session_id = session_id
-        if race:
-            windows = _get_registration_time_windows(registration, race)
-            registration.start_showing_checkpoints_at = windows['start_showing_checkpoints_at']
-            registration.end_showing_checkpoints_at = windows['end_showing_checkpoints_at']
-            registration.start_logging_at = windows['start_logging_at']
-            registration.end_logging_at = windows['end_logging_at']
+        _stamp_registration_time_windows(registration, race)
 
     team = Team.query.filter_by(id=registration.team_id).first()
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
@@ -651,7 +647,7 @@ def stripe_registration_webhook():
 
         for member in team.members:
             reset_token = generate_reset_token()
-            member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+            member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
             email_language = _resolve_language(race, member)
             try:
                 send_result = EmailService.send_registration_confirmation_email(

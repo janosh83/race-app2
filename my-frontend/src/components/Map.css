@@ -19,13 +19,34 @@
 }
 
 .map-current-location-button:focus-visible {
-  outline: 2px solid #0d6efd;
+  outline: 2px solid var(--brand-accent);
   outline-offset: -2px;
 }
 
 .map-current-location-icon {
   width: 18px;
   height: 18px;
+}
+
+/* Next to the Leaflet zoom buttons (top left). */
+.map-favourites-filter {
+  position: fixed;
+  left: 54px;
+  z-index: 1500;
+  background: #ffffff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.9rem;
+  color: #495057;
+  cursor: pointer;
+}
+
+.map-favourites-filter.is-active {
+  background: #fff3cd;
+  border-color: #f0ad00;
+  color: #664d03;
+  font-weight: 600;
 }
 
 .map-checkpoint-error {
@@ -40,6 +61,29 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Centered so it doesn't collide with the status badge (top right) or the
+   map controls; clicks pass through to the map. */
+.map-hidden-notice {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1400;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  background-color: #fff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  pointer-events: none;
+}
+
+.map-hidden-notice-time {
+  margin-top: 4px;
+  font-weight: 600;
 }
 
 .map-checkpoint-error-text {
@@ -81,7 +125,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--race-tabbar-height, 0px);
   background-color: #fff;
   z-index: 2000;
   overflow-y: auto;
@@ -90,7 +134,7 @@
 
 .map-navigation-hint {
   background-color: #f8f9fa;
-  border: 1px solid rgba(13, 110, 253, 0.12);
+  border: 1px solid rgba(var(--brand-accent-rgb), 0.15);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 0.95rem;

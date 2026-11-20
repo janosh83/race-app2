@@ -52,6 +52,11 @@
   border-radius: 10px;
 }
 
+.checkpoint-list-card-favourite {
+  border-color: #f0ad00;
+  box-shadow: inset 4px 0 0 #f0ad00;
+}
+
 .checkpoint-list-card-title {
   line-height: 1.2;
 }
@@ -60,7 +65,7 @@
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--race-tabbar-height, 0px);
   background-color: #fff;
   z-index: 2000;
   overflow-y: auto;
@@ -84,28 +89,44 @@
 .checkpoint-list-scroll-top {
   position: fixed;
   right: 18px;
-  bottom: 18px;
+  bottom: calc(18px + var(--race-tabbar-height, 0px));
   width: 44px;
   height: 44px;
   border: none;
   border-radius: 999px;
-  background: #0d6efd;
+  background: var(--brand-accent);
   color: #fff;
   font-size: 22px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 18px rgba(13, 110, 253, 0.35);
+  box-shadow: 0 8px 18px rgba(var(--brand-accent-rgb), 0.35);
   z-index: 1600;
   cursor: pointer;
 }
 
 .checkpoint-list-scroll-top:hover {
-  background: #0b5ed7;
+  background: var(--brand-accent-hover);
 }
 
 .checkpoint-list-scroll-top:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 2px;
+}
+
+/* Visited checkpoints are done: dimmed so the ones left stand out. */
+.checkpoint-list-card-visited {
+  opacity: 0.6;
+}
+
+.checkpoint-list-card-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #adb5bd;
+  pointer-events: none;
 }

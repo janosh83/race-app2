@@ -1,7 +1,9 @@
 """add race time constraint mode and offsets
 
+Existing races get 'fixed' mode: one window for all teams, as before.
+
 Revision ID: d2a4b6c8e0f1
-Revises: f9e8d7c6b5a4
+Revises: c1f2a3d4e5f6
 Create Date: 2026-07-23 00:00:00.000000
 
 """
@@ -11,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'd2a4b6c8e0f1'
-down_revision = 'f9e8d7c6b5a4'
+down_revision = 'c1f2a3d4e5f6'
 branch_labels = None
 depends_on = None
 

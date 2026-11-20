@@ -1,9 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import Tasks from './Tasks';
 
@@ -11,11 +10,16 @@ import Tasks from './Tasks';
 // Mock dependencies
 vi.mock('../services/raceApi');
 vi.mock('../utils/api');
-vi.mock('piexifjs', () => ({
-  load: vi.fn(() => ({})),
-  dump: vi.fn(() => ''),
-  insert: vi.fn((exif, dataUrl) => dataUrl),
-}));
+vi.mock('piexifjs', async (importOriginal) => {
+  const actual = (await importOriginal()).default;
+  const mocked = {
+    ...actual,
+    load: vi.fn(() => ({})),
+    dump: vi.fn(() => ''),
+    insert: vi.fn((exif, dataUrl) => dataUrl),
+  };
+  return { __esModule: true, default: mocked, ...mocked };
+});
 
 describe('Tasks Component', () => {
   const mockTasks = [
@@ -39,7 +43,6 @@ describe('Tasks Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.useFakeTimers();
 
     // Mock TimeContext
     vi.spyOn(TimeContext, 'useTime').mockReturnValue({
@@ -54,44 +57,7 @@ describe('Tasks Component', () => {
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
-  });
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getTasksStatus.mockResolvedValue([]);
-
-      render(<Tasks />);
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('Tasks fetching', () => {
@@ -101,7 +67,7 @@ describe('Tasks Component', () => {
       render(<Tasks />);
 
       await waitFor(() => {
-        expect(raceApi.getTasksStatus).toHaveBeenCalledWith(1, 10);
+        expect(raceApi.getTasksStatus).toHaveBeenCalledWith(1, 10, undefined);
       });
     });
 
@@ -125,6 +91,52 @@ describe('Tasks Component', () => {
       render(<Tasks />);
 
       expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+    });
+
+    test.each(['BEFORE_SHOW', 'AFTER_SHOW'])('does not fetch tasks in %s (the API refuses them)', (state) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state },
+      });
+
+      render(<Tasks />);
+
+      expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+    });
+
+    test('fetches tasks when showing starts', async () => {
+      raceApi.getTasksStatus.mockResolvedValue(mockTasks);
+      const useTime = vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'BEFORE_SHOW' },
+      });
+
+      const { rerender } = render(<Tasks />);
+      expect(raceApi.getTasksStatus).not.toHaveBeenCalled();
+
+      useTime.mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'SHOW_ONLY' },
+      });
+      rerender(<Tasks />);
+
+      expect(await screen.findByText('Task 1')).toBeInTheDocument();
+      expect(raceApi.getTasksStatus).toHaveBeenCalledTimes(1);
+    });
+
+    test('retries quietly when the server does not show tasks yet', async () => {
+      vi.useFakeTimers();
+      raceApi.getTasksStatus
+        .mockRejectedValueOnce(Object.assign(new Error('not shown'), { status: 403 }))
+        .mockResolvedValue(mockTasks);
+
+      render(<Tasks />);
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(screen.queryByText(/Failed to load tasks/)).not.toBeInTheDocument();
+
+      await act(() => vi.advanceTimersByTimeAsync(TimeContext.SHOW_START_RETRY_MS));
+      expect(raceApi.getTasksStatus).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('Task 1')).toBeInTheDocument();
     });
   });
 
@@ -159,7 +171,7 @@ describe('Tasks Component', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Completed')).toBeInTheDocument();
-        expect(screen.getByText('Pending')).toBeInTheDocument();
+        expect(screen.getByText('Not completed')).toBeInTheDocument();
       });
     });
 
@@ -277,7 +289,7 @@ describe('Tasks Component', () => {
     test('shows warning message when logging is closed', async () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
-        timeInfo: { state: 'SHOW_ONLY' },
+        timeInfo: { state: 'POST_LOG_SHOW', endLogging: '2026-11-01 18:00' },
       });
       raceApi.getTasksStatus.mockResolvedValue(mockTasks);
 
@@ -291,6 +303,20 @@ describe('Tasks Component', () => {
       fireEvent.click(taskCard);
 
       expect(screen.getByText('Logging window is closed. You can only view tasks.')).toBeInTheDocument();
+    });
+
+    test('says when logging opens before it has opened', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'SHOW_ONLY', startLogging: '2026-11-01 10:00' },
+      });
+      raceApi.getTasksStatus.mockResolvedValue(mockTasks);
+
+      render(<Tasks />);
+      fireEvent.click((await screen.findByText('Task 1')).closest('.card'));
+
+      expect(screen.getByText('Logging opens at 2026-11-01 10:00. Until then you can only view tasks.')).toBeInTheDocument();
+      expect(screen.queryByText(/Logging window is closed/)).not.toBeInTheDocument();
     });
   });
 

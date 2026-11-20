@@ -1,8 +1,10 @@
 import pytest
 import io
 from app import create_app, db
+from app.utils import utc_now
 from app.models import Race, Team, Checkpoint, User, RaceCategory, Registration, Task, CheckpointLog, TaskLog, Image
-from datetime import datetime, timedelta
+from datetime import timedelta
+from email.utils import parsedate_to_datetime
 
 @pytest.fixture
 def test_app():
@@ -20,7 +22,7 @@ def test_client(test_app):
 @pytest.fixture
 def add_test_data(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
@@ -77,7 +79,7 @@ def add_test_data(test_app):
 @pytest.fixture
 def add_test_data_early_logginmg(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         in_5min = now + timedelta(minutes=5)
         in_15min = now + timedelta(minutes=15)
         race_category1 = RaceCategory(name="Kola", description="Na libovoln0m kole.")
@@ -107,7 +109,7 @@ def add_test_data_early_logginmg(test_app):
 @pytest.fixture
 def add_test_data_late_logginmg(test_app):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         before_5min = now - timedelta(minutes=5)
         before_15min = now - timedelta(minutes=15)
 
@@ -179,7 +181,9 @@ def test_log_visit(test_client, add_test_data):
 
 def test_log_visit_uses_registration_specific_window(test_client, test_app, add_test_data):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
+        # Stored per-registration windows only apply to registration-shifted races.
+        db.session.get(Race, 1).time_constraint_mode = 'registration_shift'
         reg_team_one = Registration.query.filter_by(race_id=1, team_id=1).first()
         reg_team_two = Registration.query.filter_by(race_id=1, team_id=2).first()
 
@@ -212,6 +216,86 @@ def test_log_visit_uses_registration_specific_window(test_client, test_app, add_
         json={"checkpoint_id": 2, "team_id": 2},
     )
     assert blocked.status_code == 403
+
+
+def _shift_team_two_an_hour_later(test_app):
+    """Race 1 in registration_shift mode; team 1 inside its window, team 2 an hour before its own."""
+    with test_app.app_context():
+        now = utc_now()
+        db.session.get(Race, 1).time_constraint_mode = 'registration_shift'
+        for team_id, start in ((1, now - timedelta(minutes=10)), (2, now + timedelta(hours=1))):
+            registration = Registration.query.filter_by(race_id=1, team_id=team_id).first()
+            registration.start_showing_checkpoints_at = start
+            registration.end_showing_checkpoints_at = start + timedelta(hours=2)
+            registration.start_logging_at = start
+            registration.end_logging_at = start + timedelta(hours=2)
+        db.session.commit()
+        return now
+
+
+def _login(test_client, email):
+    response = test_client.post("/auth/login/", json={"email": email, "password": "password"})
+    return {"Authorization": f"Bearer {response.json['access_token']}"}
+
+
+def test_fixed_race_ignores_windows_stored_on_registration(test_client, test_app, add_test_data):
+    """A fixed race (every race before per-registration windows) keeps the race's window for all teams."""
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=2).first()
+        registration.start_logging_at = utc_now() + timedelta(hours=1)
+        registration.end_logging_at = utc_now() + timedelta(hours=2)
+        db.session.commit()
+
+    response = test_client.post(
+        "/api/race/1/checkpoints/log/",
+        headers=_login(test_client, "example3@example.com"),
+        json={"checkpoint_id": 2, "team_id": 2},
+    )
+    assert response.status_code == 201
+
+
+def test_checkpoints_shown_in_each_registrations_own_window(test_client, test_app, add_test_data):
+    _shift_team_two_an_hour_later(test_app)
+
+    shown = test_client.get("/api/race/1/checkpoints/", headers=_login(test_client, "example2@example.com"))
+    assert shown.status_code == 200
+    hidden = test_client.get("/api/race/1/checkpoints/", headers=_login(test_client, "example3@example.com"))
+    assert hidden.status_code == 403
+
+
+def test_signed_races_return_the_registrations_own_window(test_client, test_app, add_test_data):
+    now = _shift_team_two_an_hour_later(test_app)
+
+    response = test_client.get("/api/user/signed-races/", headers=_login(test_client, "example3@example.com"))
+    assert response.status_code == 200
+    (race,) = response.json["signed_races"]
+    expected = (now + timedelta(hours=1)).replace(microsecond=0)
+    assert parsedate_to_datetime(race["start_logging"]).replace(tzinfo=None) == expected
+
+
+def test_log_visit_stores_gps_from_photo_exif(test_client, test_app, add_test_data, tmp_path):
+    from app.models import CheckpointLog
+    from tests.test_image_exif import dms, gps_tags, write_jpeg
+
+    test_app.config['IMAGE_UPLOAD_FOLDER'] = str(tmp_path / 'uploads')
+    # Checkpoint 3 is at 50.5 N, 15.0 E; the photo was taken right there.
+    photo = write_jpeg(tmp_path / 'photo.jpg', gps_tags(dms(50, 30), 'N', dms(15), 'E'), orientation=6)
+
+    response = test_client.post("/auth/login/", json={"email": "example2@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+    with open(photo, "rb") as img:
+        response = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": (img, "photo.jpg"), "checkpoint_id": 3, "team_id": 1},
+            content_type='multipart/form-data',
+        )
+
+    assert response.status_code == 201
+    with test_app.app_context():
+        log = CheckpointLog.query.filter_by(checkpoint_id=3, team_id=1).one()
+        assert (round(log.image_latitude, 6), round(log.image_longitude, 6)) == (50.5, 15.0)
+        assert log.image_distance_km is not None and log.image_distance_km < 0.01
 
 
 def test_log_visit_duplicate_returns_conflict(test_client, add_test_data):
@@ -545,7 +629,9 @@ def test_log_task_completion_by_team_member(test_client, add_test_data):
 
 def test_log_task_completion_uses_registration_specific_window(test_client, test_app, add_test_data):
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
+        # Stored per-registration windows only apply to registration-shifted races.
+        db.session.get(Race, 1).time_constraint_mode = 'registration_shift'
         reg_team_one = Registration.query.filter_by(race_id=1, team_id=1).first()
         reg_team_two = Registration.query.filter_by(race_id=1, team_id=2).first()
 
@@ -578,6 +664,7 @@ def test_log_task_completion_uses_registration_specific_window(test_client, test
         headers=headers,
     )
     assert blocked.status_code == 403
+
 
 def test_log_task_completion_with_image(test_client, add_test_data):
     """Test logging task completion with image upload"""
@@ -965,3 +1052,117 @@ def test_get_tasks_with_status_unauthorized_user_forbidden(test_client, add_test
     headers_other = {"Authorization": f"Bearer {response.json['access_token']}"}
     denied = test_client.get("/api/race/1/tasks/1/status/", headers=headers_other)
     assert denied.status_code == 403
+
+
+@pytest.fixture
+def add_second_race(test_app, add_test_data):
+    """Race 2 with its own checkpoint (id 4) and task (id 4); team 4 (example6)
+    is registered only for race 2."""
+    with test_app.app_context():
+        now = utc_now()
+        race2 = Race(name="Podzimní jízda", description="Second race",
+                     start_showing_checkpoints_at=now - timedelta(minutes=10),
+                     end_showing_checkpoints_at=now + timedelta(minutes=10),
+                     start_logging_at=now - timedelta(minutes=10),
+                     end_logging_at=now + timedelta(minutes=10))
+        user6 = User(name="User6", email="example6@example.com")
+        user6.set_password("password")
+        team4 = Team(name="Team4", members=[user6])
+        db.session.add_all([race2, team4])
+        db.session.flush()
+        db.session.add_all([
+            Checkpoint(title="Other race checkpoint", latitude=49.0, longitude=16.0, numOfPoints=5, race_id=race2.id),
+            Task(title="Other race task", description="d", numOfPoints=5, race_id=race2.id),
+            Registration(race_id=race2.id, team_id=team4.id, race_category_id=1, payment_confirmed=True),
+        ])
+        db.session.commit()
+
+
+def _auth_headers(test_client, email):
+    response = test_client.post("/auth/login/", json={"email": email, "password": "password"})
+    return {"Authorization": f"Bearer {response.json['access_token']}"}
+
+
+def test_log_visit_for_other_team_forbidden(test_client, test_app, add_test_data):
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_other)
+    assert denied.status_code == 403
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+
+
+def test_unlog_visit_of_other_team_forbidden(test_client, test_app, add_test_data):
+    headers_member = _auth_headers(test_client, "example2@example.com")  # team 1
+    created = test_client.post("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_member)
+    assert created.status_code == 201
+
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.delete("/api/race/1/checkpoints/log/", json={"checkpoint_id": 1, "team_id": 1}, headers=headers_other)
+    assert denied.status_code == 403
+    with test_app.app_context():
+        assert CheckpointLog.query.filter_by(race_id=1, team_id=1, checkpoint_id=1).first() is not None
+
+
+@pytest.mark.parametrize("path, payload", [
+    ("/api/race/1/checkpoints/log/", {"checkpoint_id": 1, "team_id": 4}),
+    ("/api/race/1/tasks/log/", {"task_id": 1, "team_id": 4}),
+])
+def test_log_in_race_team_is_not_registered_for(test_client, test_app, add_second_race, path, payload):
+    headers = _auth_headers(test_client, "example6@example.com")  # team 4, race 2 only
+    denied = test_client.post(path, json=payload, headers=headers)
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+        assert TaskLog.query.count() == 0
+
+
+@pytest.mark.parametrize("email", ["example2@example.com", "example1@example.com"])  # member, admin
+def test_log_visit_checkpoint_from_other_race_not_found(test_client, test_app, add_second_race, tmp_path, email):
+    test_app.config["IMAGE_UPLOAD_FOLDER"] = str(tmp_path)
+    headers = _auth_headers(test_client, email)
+    with open("tests/test_image.jpg", "rb") as img:
+        denied = test_client.post(
+            "/api/race/1/checkpoints/log/",
+            headers=headers,
+            data={"image": img, "checkpoint_id": 4, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert CheckpointLog.query.count() == 0
+        assert Image.query.count() == 0
+    assert list(tmp_path.iterdir()) == []  # the upload was not kept
+
+
+@pytest.mark.parametrize("email", ["example2@example.com", "example1@example.com"])  # member, admin
+def test_log_task_from_other_race_not_found(test_client, test_app, add_second_race, tmp_path, email):
+    test_app.config["IMAGE_UPLOAD_FOLDER"] = str(tmp_path)
+    headers = _auth_headers(test_client, email)
+    with open("tests/test_image.jpg", "rb") as img:
+        denied = test_client.post(
+            "/api/race/1/tasks/log/",
+            headers=headers,
+            data={"image": img, "task_id": 4, "team_id": 1},
+            content_type="multipart/form-data",
+        )
+    assert denied.status_code == 404
+    with test_app.app_context():
+        assert TaskLog.query.count() == 0
+        assert Image.query.count() == 0
+    assert list(tmp_path.iterdir()) == []
+
+    # ...so the other race's task can't add to team 1's score in race 1.
+    results = test_client.get("/api/race/1/results/", headers=_auth_headers(test_client, "example1@example.com"))
+    team1 = next(r for r in results.json if r["team"] == "Team1")
+    assert team1["points_for_tasks"] == 0
+
+
+@pytest.mark.parametrize("path", [
+    "/api/race/1/visits/1/",
+    "/api/race/1/task-completions/1/",
+])
+def test_team_history_of_other_team_forbidden(test_client, add_test_data, path):
+    headers_other = _auth_headers(test_client, "example3@example.com")  # team 2
+    denied = test_client.get(path, headers=headers_other)
+    assert denied.status_code == 403
+    assert denied.json["message"] == "You are not a member of this team."

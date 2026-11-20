@@ -31,7 +31,52 @@ function normalizeResults(payload) {
   return [];
 }
 
-export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
+// Position labels ("1.", or "2.-3." for a tie) for rows sorted by points.
+function computePositions(resultsList) {
+  const result = [];
+  let i = 0;
+  let nextPlace = 1;
+
+  while (i < resultsList.length) {
+    const startPlace = nextPlace;
+    const currentPoints = resultsList[i].totalPoints;
+    let j = i;
+    while (j < resultsList.length && resultsList[j].totalPoints === currentPoints) {
+      j += 1;
+    }
+    const endPlace = nextPlace + (j - i) - 1;
+    const label = startPlace === endPlace ? `${startPlace}.` : `${startPlace}.-${endPlace}.`;
+    for (let k = i; k < j; k += 1) {
+      result.push({ ...resultsList[k], positionLabel: label });
+    }
+    nextPlace = endPlace + 1;
+    i = j;
+  }
+
+  return result;
+}
+
+// Assign positions while keeping overall order; disqualified keep order but get dashed position
+function applyPositionLabels(rows) {
+  const eligible = rows.filter((row) => !row.disqualified);
+  const positionedEligible = computePositions(eligible);
+  let idx = 0;
+  return rows.map((row) => {
+    if (row.disqualified) return { ...row, positionLabel: '—' };
+    const label = positionedEligible[idx]?.positionLabel ?? '';
+    idx += 1;
+    return { ...row, positionLabel: label };
+  });
+}
+
+// Disqualifying is done per registration (Registrations tab); here a
+// disqualified team only gets a badge and no place.
+// `compact` is the narrow column next to a team's visits: short headings and
+// the category under the team name at every width. `selectedTeamId` marks the
+// row whose visits are open.
+export default function Standings({
+  raceId, onTeamClick, onLoaded, onOpenRegistrations, refreshVersion = 0, selectedTeamId = null, compact = false,
+}) {
   const { t } = useTranslation();
   const [standings, setStandings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +91,10 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
       try {
         const payload = await adminApi.getResults(raceId);
         const list = normalizeResults(payload);
-        if (mounted) setStandings(list);
+        if (mounted) {
+          setStandings(list);
+          onLoaded?.(applyPositionLabels(list));
+        }
       } catch (err) {
         logger.error('ADMIN', 'Failed to load standings', err);
         if (mounted) setError(err?.message || t('admin.standings.errorLoad'));
@@ -62,19 +110,9 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
     }
 
     return () => { mounted = false; };
+    // onLoaded is a notification only; a new callback identity must not reload.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, refreshVersion, t]);
-
-  const handleToggleDisqualification = async (teamId, current) => {
-    if (!raceId || !teamId) return;
-    try {
-      await adminApi.setDisqualification(raceId, teamId, !current);
-      const refreshed = await adminApi.getResults(raceId);
-      setStandings(normalizeResults(refreshed));
-    } catch (err) {
-      logger.error('ADMIN', 'Failed to toggle disqualification', err);
-      setError(err?.message || t('admin.standings.errorToggleDisqualification'));
-    }
-  };
 
   const handleTeamKeyDown = (event, teamId) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -83,46 +121,9 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
     }
   };
 
-  if (loading) return <div>{t('admin.standings.loading')}</div>;
+  // A refresh (after a visit is deleted) keeps the table on screen.
+  if (loading && standings.length === 0) return <div>{t('admin.standings.loading')}</div>;
   if (error) return <div className="alert alert-danger">{error}</div>;
-
-  // Helper function to compute position labels for a set of results
-  const computePositions = (resultsList) => {
-    const result = [];
-    let i = 0;
-    let nextPlace = 1;
-
-    while (i < resultsList.length) {
-      const startPlace = nextPlace;
-      const currentPoints = resultsList[i].totalPoints;
-      let j = i;
-      while (j < resultsList.length && resultsList[j].totalPoints === currentPoints) {
-        j += 1;
-      }
-      const endPlace = nextPlace + (j - i) - 1;
-      const label = startPlace === endPlace ? `${startPlace}.` : `${startPlace}.-${endPlace}.`;
-      for (let k = i; k < j; k += 1) {
-        result.push({ ...resultsList[k], positionLabel: label });
-      }
-      nextPlace = endPlace + 1;
-      i = j;
-    }
-
-    return result;
-  };
-
-  // Assign positions while keeping overall order; disqualified keep order but get dashed position
-  const applyPositionLabels = (rows) => {
-    const eligible = rows.filter((row) => !row.disqualified);
-    const positionedEligible = computePositions(eligible);
-    let idx = 0;
-    return rows.map((row) => {
-      if (row.disqualified) return { ...row, positionLabel: '—' };
-      const label = positionedEligible[idx]?.positionLabel ?? '';
-      idx += 1;
-      return { ...row, positionLabel: label };
-    });
-  };
 
   // Compute overall standings with position labels
   const rowsWithPosition = applyPositionLabels(standings);
@@ -150,67 +151,84 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
     };
   }).sort((a, b) => a.categoryName.localeCompare(b.categoryName));
 
+  // Full heading from 768px up, a short one on phones.
+  const heading = (full, short) => (compact ? t(short) : (
+    <>
+      <span className="d-none d-md-inline">{t(full)}</span>
+      <span className="d-md-none">{t(short)}</span>
+    </>
+  ));
+  const categoryColumnClass = compact ? 'd-none' : 'd-none d-sm-table-cell';
+  const categoryUnderNameClass = compact ? 'small text-muted' : 'small text-muted d-sm-none';
+
+  // Phones (e.g. reading results out at the finish): short headings and the
+  // category under the team name, so the total stays on screen. The table
+  // scrolls inside its box, not the page.
   const renderTable = (rows, showCategory = true) => (
-    <table className="table table-sm">
-      <thead>
-        <tr>
-          <th style={{ width: '90px' }}>{t('admin.standings.position')}</th>
-          <th>{t('admin.standings.team')}</th>
-          {showCategory && <th>{t('admin.standings.category')}</th>}
-          <th className="text-end">{t('admin.standings.pointsCheckpoints')}</th>
-          <th className="text-end">{t('admin.standings.pointsTasks')}</th>
-          <th className="text-end">{t('admin.standings.totalPoints')}</th>
-          <th style={{ width: '150px' }}>{t('admin.standings.disqualification')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, idx) => (
-          <tr key={row.teamId ?? idx}>
-            <td style={{ fontWeight: 600 }}>{row.positionLabel}</td>
-            <td>
-              {onTeamClick ? (
-                <span
-                  role="button"
-                  tabIndex={0}
-                  className="text-primary text-decoration-underline"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => onTeamClick(row.teamId || row.raw?.team_id || row.raw?.id)}
-                  onKeyDown={(event) => handleTeamKeyDown(event, row.teamId || row.raw?.team_id || row.raw?.id)}
-                >
-                  {row.teamName}
-                </span>
-              ) : (
-                row.teamName
-              )}
-            </td>
-            {showCategory && <td>{row.category}</td>}
-            <td className="text-end">{row.pointsForCheckpoints}</td>
-            <td className="text-end">{row.pointsForTasks}</td>
-            <td className="text-end"><strong>{row.totalPoints}</strong></td>
-            <td>
-              <div className="d-flex align-items-center gap-2">
-                <span className={`badge ${row.disqualified ? 'bg-danger' : 'bg-success'}`}>
-                  {row.disqualified ? t('admin.standings.disqualified') : t('admin.standings.eligible')}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-warning"
-                  onClick={() => handleToggleDisqualification(row.teamId, row.disqualified)}
-                >
-                  {row.disqualified ? t('admin.standings.reinstate') : t('admin.standings.disqualify')}
-                </button>
-              </div>
-            </td>
+    <div className="table-responsive">
+      <table className="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th className="text-nowrap">{heading('admin.standings.position', 'admin.standings.positionShort')}</th>
+            <th>{t('admin.standings.team')}</th>
+            {showCategory && <th className={categoryColumnClass}>{t('admin.standings.category')}</th>}
+            <th className="text-end">{heading('admin.standings.pointsCheckpoints', 'admin.standings.pointsCheckpointsShort')}</th>
+            <th className="text-end">{heading('admin.standings.pointsTasks', 'admin.standings.pointsTasksShort')}</th>
+            <th className="text-end">{heading('admin.standings.totalPoints', 'admin.standings.totalPointsShort')}</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => {
+            const selected = selectedTeamId !== null && String(row.teamId) === String(selectedTeamId);
+            const teamId = row.teamId || row.raw?.team_id || row.raw?.id;
+            const rowClasses = [onTeamClick && 'admin-standings-clickable', selected && 'table-active admin-standings-selected'];
+            return (
+              // The whole row opens the team (a big target on phones); the team
+              // name stays the keyboard-focusable control.
+              <tr
+                key={row.teamId ?? idx}
+                className={rowClasses.filter(Boolean).join(' ') || undefined}
+                aria-current={selected ? 'true' : undefined}
+                onClick={onTeamClick ? () => onTeamClick(teamId) : undefined}
+              >
+                <td className="text-nowrap" style={{ fontWeight: 600 }}>{row.positionLabel}</td>
+                <td>
+                  {onTeamClick ? (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="text-primary text-decoration-underline"
+                      style={{ cursor: 'pointer' }}
+                      onKeyDown={(event) => handleTeamKeyDown(event, teamId)}
+                    >
+                      {row.teamName}
+                    </span>
+                  ) : (
+                    row.teamName
+                  )}
+                  {row.disqualified && (
+                    <span className="badge bg-danger-subtle text-danger-emphasis ms-2">{t('admin.standings.disqualified')}</span>
+                  )}
+                  {showCategory && row.category && (
+                    <div className={categoryUnderNameClass} aria-hidden="true">{row.category}</div>
+                  )}
+                </td>
+                {showCategory && <td className={categoryColumnClass}>{row.category}</td>}
+                <td className="text-end">{row.pointsForCheckpoints}</td>
+                <td className="text-end">{row.pointsForTasks}</td>
+                <td className="text-end"><strong>{row.totalPoints}</strong></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="mb-0">{t('admin.standings.current')}</h3>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h3 className={compact ? 'h5 mb-0' : 'mb-0'}>{t('admin.standings.current')}</h3>
         <div className="btn-group" role="group">
           <button
             type="button"
@@ -244,6 +262,16 @@ export default function Standings({ raceId, onTeamClick, refreshVersion = 0 }) {
                 </div>
               ))}
             </>
+          )}
+          {standings.some(row => row.disqualified) && (
+            <p className="small text-muted mb-0">
+              {t('admin.standings.disqualifiedNote')}{' '}
+              {onOpenRegistrations && (
+                <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={onOpenRegistrations}>
+                  {t('admin.standings.openRegistrations')}
+                </button>
+              )}
+            </p>
           )}
         </>
       )}

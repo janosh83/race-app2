@@ -1,0 +1,208 @@
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import React from 'react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+
+import { adminApi } from '../../services/adminApi';
+
+import AdminDashboard from './AdminDashboard';
+
+vi.mock('../../services/adminApi', () => ({
+  adminApi: {
+    listRaces: vi.fn(),
+    getCheckpointsByRaceID: vi.fn(),
+    getTasksByRaceID: vi.fn(),
+    getRaceTranslations: vi.fn(),
+    getResults: vi.fn(),
+  },
+}));
+
+// The section bodies have their own tests; here they only need to show up.
+vi.mock('./VisitsList', () => ({ default: ({ teamId }) => <div>visits of {teamId}</div> }));
+vi.mock('./CheckpointList', () => ({ default: () => <div>checkpoint list</div> }));
+vi.mock('./TaskList', () => ({ default: () => <div>task list</div> }));
+vi.mock('./TeamPathsMap', () => ({ default: () => <div>team paths</div> }));
+vi.mock('./RaceStatistics', () => ({ default: () => <div>statistics</div> }));
+vi.mock('./RegistrationList', () => ({ default: () => <div>registration list</div> }));
+vi.mock('./CategoryForm', () => ({ default: () => <div>category form</div> }));
+
+const HOUR = 3_600_000;
+const iso = (offsetHours) => new Date(Date.now() + offsetHours * HOUR).toISOString();
+
+const races = [
+  {
+    id: 1,
+    name: 'City Race',
+    start_showing_checkpoints_at: iso(-48),
+    end_showing_checkpoints_at: iso(48),
+    start_logging_at: iso(-24),
+    end_logging_at: iso(24),
+  },
+  {
+    id: 2,
+    name: 'Future Race',
+    start_showing_checkpoints_at: iso(24),
+    end_showing_checkpoints_at: iso(72),
+    start_logging_at: iso(30),
+    end_logging_at: iso(60),
+  },
+];
+
+function LocationDisplay() {
+  const location = useLocation();
+  return <div data-testid="location">{location.search}</div>;
+}
+
+const renderAt = (search = '') => render(
+  <MemoryRouter initialEntries={[`/admin${search}`]}>
+    <AdminDashboard />
+    <LocationDisplay />
+  </MemoryRouter>
+);
+
+describe('AdminDashboard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    adminApi.listRaces.mockResolvedValue(races);
+    adminApi.getCheckpointsByRaceID.mockResolvedValue([]);
+    adminApi.getTasksByRaceID.mockResolvedValue([]);
+    adminApi.getRaceTranslations.mockResolvedValue([]);
+    adminApi.getResults.mockResolvedValue([
+      { team_id: 7, team: 'Rockets', category: 'Cars', points_for_checkpoints: 10, points_for_tasks: 2, total_points: 12 },
+    ]);
+  });
+
+  test('lists races with their current phase', async () => {
+    renderAt();
+
+    const cityRow = (await screen.findByRole('button', { name: 'City Race' })).closest('tr');
+    expect(within(cityRow).getAllByText('Logging open').length).toBeGreaterThan(0);
+    const futureRow = screen.getByRole('button', { name: 'Future Race' }).closest('tr');
+    expect(within(futureRow).getAllByText('Before checkpoints are shown').length).toBeGreaterThan(0);
+  });
+
+  test('race list sorts races by the end of logging, latest first', async () => {
+    adminApi.listRaces.mockResolvedValue([
+      {
+        id: 3, name: 'Old Race', start_showing_checkpoints_at: iso(-200), end_showing_checkpoints_at: iso(-150),
+        start_logging_at: iso(-190), end_logging_at: iso(-160),
+      },
+      {
+        id: 4, name: 'Older Race', start_showing_checkpoints_at: iso(-400), end_showing_checkpoints_at: iso(-350),
+        start_logging_at: iso(-390), end_logging_at: iso(-360),
+      },
+      ...races.slice().reverse(),
+    ]);
+    renderAt();
+
+    await screen.findByRole('button', { name: 'City Race' });
+    const names = screen.getAllByRole('row').slice(1).map(row => within(row).getAllByRole('button')[0].textContent);
+    expect(names).toEqual(['Future Race', 'City Race', 'Old Race', 'Older Race']);
+  });
+
+  test('opening a race shows its overview full width and puts it in the URL', async () => {
+    renderAt();
+
+    fireEvent.click(await screen.findByRole('button', { name: /City Race/ }));
+
+    expect(screen.getByRole('heading', { name: 'City Race' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('button', { name: /Future Race/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1');
+  });
+
+  test('switching sections updates the URL', async () => {
+    renderAt('?race=1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Statistics' }));
+
+    expect(screen.getByText('statistics')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1&section=statistics');
+  });
+
+  test('a reload restores the race, section and the team being reviewed', async () => {
+    renderAt('?race=1&section=results&team=7');
+
+    expect(await screen.findByText('visits of 7')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Visits — Rockets' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Results & visits' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('previous and next switch between teams in standings order', async () => {
+    adminApi.getResults.mockResolvedValue([
+      { team_id: 7, team: 'Rockets', category: 'Cars', points_for_checkpoints: 10, points_for_tasks: 2, total_points: 12 },
+      { team_id: 8, team: 'Snails', category: 'Cars', points_for_checkpoints: 3, points_for_tasks: 0, total_points: 3 },
+      { team_id: 9, team: 'Comets', category: 'Bikes', points_for_checkpoints: 20, points_for_tasks: 0, total_points: 20 },
+    ]);
+    renderAt('?race=1&section=results&team=7');
+
+    expect(await screen.findByRole('heading', { name: 'Visits — Rockets' })).toBeInTheDocument();
+    expect(screen.getByText('Place 2. · 12 pts')).toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Rockets/ })).toHaveAttribute('aria-current', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next team' }));
+    expect(await screen.findByRole('heading', { name: 'Visits — Snails' })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('team=8');
+    expect(screen.getByRole('button', { name: 'Next team' })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous team' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Previous team' }));
+    expect(await screen.findByRole('heading', { name: 'Visits — Comets' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous team' })).toBeDisabled();
+  });
+
+  test('a whole standings row opens the team, Standings goes back', async () => {
+    renderAt('?race=1&section=results');
+
+    expect(await screen.findByText('Click a team to review its visits and photos.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('cell', { name: '12' }));
+    expect(await screen.findByText('visits of 7')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Standings/ }));
+    expect(screen.queryByText('visits of 7')).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1&section=results');
+  });
+
+  test('back to races clears the opened race', async () => {
+    renderAt('?race=1&section=results');
+
+    fireEvent.click(await screen.findByRole('button', { name: /‹ Races/ }));
+
+    expect(await screen.findByRole('button', { name: /Future Race/ })).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toBeEmptyDOMElement();
+  });
+
+  test('results show points and mark disqualified teams without disqualify buttons', async () => {
+    adminApi.getResults.mockResolvedValue([
+      { team_id: 7, team: 'Rockets', category: 'Cars', points_for_checkpoints: 10, points_for_tasks: 2, total_points: 12 },
+      { team_id: 8, team: 'Cheaters', category: 'Cars', points_for_checkpoints: 30, points_for_tasks: 5, total_points: 35, disqualified: true },
+    ]);
+    renderAt('?race=1&section=results');
+
+    const cheaters = (await screen.findByText('Cheaters')).closest('tr');
+    expect(within(cheaters).getByText('Disqualified')).toBeInTheDocument();
+    expect(within(cheaters).getByText('—')).toBeInTheDocument();
+    expect(within(cheaters).getByText('30')).toBeInTheDocument();
+    expect(within(cheaters).getByText('5')).toBeInTheDocument();
+    const rockets = screen.getByText('Rockets').closest('tr');
+    expect(within(rockets).getByText('1.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Disqualify|Reinstate/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Registrations' }));
+
+    expect(screen.getByText('registration list')).toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent('?race=1&section=registrations');
+  });
+
+  test('no disqualification note when nobody is disqualified', async () => {
+    renderAt('?race=1&section=results');
+
+    await screen.findByText('Rockets');
+    expect(screen.queryByText(/Disqualified teams get no place/)).not.toBeInTheDocument();
+  });
+
+  test('says so when the race in the URL does not exist', async () => {
+    renderAt('?race=99');
+
+    expect(await screen.findByText('This race was not found.')).toBeInTheDocument();
+  });
+});

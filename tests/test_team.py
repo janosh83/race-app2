@@ -4,15 +4,16 @@ import types
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
-from datetime import datetime, timedelta
+from app.utils import utc_now
+from app.models import Checkpoint, CheckpointLog, Race, Team, RaceCategory, Registration, RegistrationEmailLog, RegistrationPaymentAttempt, User
+from datetime import timedelta
 from app.services.stripe_service import get_checkout_receipt_url, get_checkout_session_payment_state
 
 @pytest.fixture
 def add_test_data(test_app):
     # Vložení testovacích dat
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
@@ -84,6 +85,26 @@ def test_add_team(test_client, add_test_data):
     response = test_client.post("/api/team/", json={"name": "Team4"})
     assert response.status_code == 201
     assert response.json == {"id": 4, "name": "Team4"}
+
+
+def test_update_team_name_and_members(test_client, add_test_data, admin_auth_headers):
+    response = test_client.post("/auth/register/", json={"name": "John", "email": "john-update@example.com", "password": "password"})
+    assert response.status_code == 201
+    response = test_client.post("/auth/register/", json={"name": "Peter", "email": "peter-update@example.com", "password": "password"})
+    assert response.status_code == 201
+
+    response = test_client.put(
+        "/api/team/1/",
+        json={"name": "Updated Team1", "user_ids": [1, 2]},
+        headers=admin_auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json == {"id": 1, "name": "Updated Team1", "user_ids": [1, 2]}
+
+    response = test_client.get("/api/team/1/members/")
+    assert response.status_code == 200
+    assert [member["id"] for member in response.json] == [1, 2]
+
 
 def test_add_members(test_client, add_test_data):
     # Test přidání členů do týmu
@@ -373,18 +394,78 @@ def test_delete_team_success(test_client, add_test_data, admin_auth_headers):
     assert response.status_code == 404
 
 
-def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers):
-    """Test deleting team with members returns 400."""
-    # Add members to team 1
-    response = test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
-    response = test_client.post("/api/team/1/members/", json={"user_ids": [1]})
+def test_get_team_registrations(test_client, add_test_data, admin_auth_headers):
+    """An admin sees the races a team is registered for."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
     assert response.status_code == 201
 
-    # Try to delete team with members
-    response = test_client.delete("/api/team/1/", headers=admin_auth_headers)
-    assert response.status_code == 400
-    assert "Cannot delete the team" in response.json["message"]
-    assert "has members" in response.json["message"]
+    response = test_client.get("/api/team/1/registrations/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert [r["race_id"] for r in response.json] == [1]
+    item = response.json[0]
+    assert item["race_name"] == db.session.get(Race, 1).name
+    assert item["race_category"] == db.session.get(RaceCategory, 1).name
+    assert item["payment_confirmed"] is False and item["disqualified"] is False
+
+
+def test_get_team_registrations_admin_only(test_client, add_test_data, regular_user_auth_headers):
+    response = test_client.get("/api/team/1/registrations/", headers=regular_user_auth_headers)
+    assert response.status_code == 403
+
+
+def test_get_teams_sorted_by_name(test_client, add_test_data, admin_auth_headers):
+    """Teams come sorted by name, case-insensitively, also when paginated."""
+    for name in ["zebra", "Alpha", "middle"]:
+        assert test_client.post("/api/team/", json={"name": name}, headers=admin_auth_headers).status_code == 201
+
+    names = [t["name"] for t in test_client.get("/api/team/").json]
+    paged = [t["name"] for t in test_client.get("/api/team/?page=1&per_page=100").json["data"]]
+
+    assert names == sorted(names, key=str.lower)
+    assert paged == names
+
+
+def test_delete_team_with_members(test_client, add_test_data, admin_auth_headers):
+    """Deleting a team with members removes the membership, not the users."""
+    test_client.post("/auth/register/", json={"name": "John", "email": "john@example.com", "password": "password"})
+    user = User.query.filter_by(email="john@example.com").first()
+    response = test_client.post("/api/team/3/members/", json={"user_ids": [user.id]})
+    assert response.status_code == 201
+
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert db.session.get(Team, 3) is None
+    assert db.session.get(User, user.id) is not None
+
+
+def test_delete_team_registered_for_race(test_client, add_test_data, admin_auth_headers):
+    """A team registered for a race can't be deleted."""
+    race = Race.query.first()
+    db.session.add(Registration(race_id=race.id, team_id=3, race_category_id=RaceCategory.query.first().id))
+    db.session.commit()
+
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "team_has_registrations"
+    assert db.session.get(Team, 3) is not None
+
+
+def test_delete_team_with_visits(test_client, add_test_data, admin_auth_headers):
+    """A team with logged visits but no registration can't be deleted."""
+    race = Race.query.first()
+    checkpoint = Checkpoint(title="Bridge", latitude=50.0, longitude=14.0, race_id=race.id)
+    db.session.add(checkpoint)
+    db.session.flush()
+    db.session.add(CheckpointLog(checkpoint_id=checkpoint.id, team_id=3, race_id=race.id))
+    db.session.commit()
+
+    response = test_client.delete("/api/team/3/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "team_has_visits"
 
 
 def test_delete_team_not_found(test_client, add_test_data, admin_auth_headers):
@@ -477,6 +558,44 @@ def test_delete_registration_success(test_client, add_test_data, admin_auth_head
     response = test_client.get("/api/team/race/1/", headers=admin_auth_headers)
     assert response.status_code == 200
     assert len(response.json) == 0
+
+
+def test_delete_registration_removes_payment_attempts_and_email_logs(test_client, add_test_data, admin_auth_headers):
+    """Deleting a registration also deletes its payment attempts and email logs."""
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+    db.session.add(RegistrationPaymentAttempt(registration_id=registration.id, stripe_session_id="cs_test_cascade", payment_type="team"))
+    db.session.add(RegistrationEmailLog(registration_id=registration.id, email_address="a@example.com", template_type="registration_confirmation"))
+    db.session.commit()
+    registration_id = registration.id
+
+    response = test_client.delete("/api/team/race/1/team/1/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    assert RegistrationPaymentAttempt.query.filter_by(registration_id=registration_id).count() == 0
+    assert RegistrationEmailLog.query.filter_by(registration_id=registration_id).count() == 0
+
+
+def test_delete_registration_with_visits(test_client, add_test_data, admin_auth_headers):
+    """A registration whose team logged visits in the race can't be deleted."""
+    race_id, team_id = 1, 1
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+    checkpoint = Checkpoint.query.filter_by(race_id=race_id).first()
+    if checkpoint is None:
+        checkpoint = Checkpoint(title="CP", latitude=50.0, longitude=14.0, race_id=race_id)
+        db.session.add(checkpoint)
+        db.session.flush()
+    db.session.add(CheckpointLog(checkpoint_id=checkpoint.id, team_id=team_id, race_id=race_id))
+    db.session.commit()
+
+    response = test_client.delete(f"/api/team/race/{race_id}/team/{team_id}/", headers=admin_auth_headers)
+
+    assert response.status_code == 409
+    assert response.json["code"] == "registration_has_visits"
+    assert response.json["visits"] == 1
+    assert Registration.query.filter_by(race_id=race_id, team_id=team_id).count() == 1
 
 
 def test_delete_registration_not_found(test_client, add_test_data, admin_auth_headers):
@@ -990,7 +1109,7 @@ def test_retry_failed_registration_emails_endpoint(test_client, add_test_data, a
                 status='failed',
                 attempt_count=1,
                 error_message='smtp timeout',
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
@@ -1033,7 +1152,7 @@ def test_get_registration_email_logs_endpoint(test_client, add_test_data, admin_
                 status='failed',
                 attempt_count=1,
                 error_message='smtp timeout',
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
@@ -1081,8 +1200,8 @@ def test_get_registration_email_logs_endpoint_filters_by_team_and_date(test_clie
                 template_type='registration_confirmation',
                 status='failed',
                 attempt_count=1,
-                created_at=datetime.now(),
-                last_attempted_at=datetime.now(),
+                created_at=utc_now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.add(
@@ -1093,13 +1212,13 @@ def test_get_registration_email_logs_endpoint_filters_by_team_and_date(test_clie
                 template_type='registration_confirmation',
                 status='failed',
                 attempt_count=1,
-                created_at=datetime.now(),
-                last_attempted_at=datetime.now(),
+                created_at=utc_now(),
+                last_attempted_at=utc_now(),
             )
         )
         db.session.commit()
 
-    today = datetime.now().date().isoformat()
+    today = utc_now().date().isoformat()
     response = test_client.get(
         f"/api/team/race/1/email-logs/?status=failed&team_id=1&date_from={today}&date_to={today}",
         headers=admin_auth_headers,
@@ -1129,7 +1248,7 @@ def test_retry_single_registration_email_log_endpoint(test_client, add_test_data
             status='failed',
             attempt_count=1,
             error_message='smtp timeout',
-            last_attempted_at=datetime.now(),
+            last_attempted_at=utc_now(),
         )
         db.session.add(failed_log)
         db.session.commit()
@@ -1465,3 +1584,37 @@ def test_get_checkout_receipt_url_accepts_stripe_object(monkeypatch):
     result = get_checkout_receipt_url(session_object=StripeLikeObject({"payment_intent": "pi_test_1"}), secret_key="sk_test_1")
 
     assert result == "https://pay.stripe.com/receipts/test"
+
+def test_mark_payment_stamps_windows_only_for_registration_shift_race(test_client, add_test_data, admin_auth_headers, test_app):
+    """Paying for a registration_shift race times the team from the payment; unmarking clears it."""
+    with test_app.app_context():
+        race = Race.query.filter_by(id=1).first()
+        race.time_constraint_mode = 'registration_shift'
+        race.start_showing_offset_seconds = 0
+        race.end_showing_offset_seconds = 48 * 3600
+        race.start_logging_offset_seconds = 3600
+        race.end_logging_offset_seconds = 24 * 3600
+        db.session.commit()
+
+    response = test_client.post("/api/team/race/1/", json={"team_id": 1, "race_category_id": 1}, headers=admin_auth_headers)
+    assert response.status_code == 201
+
+    def mark(confirmed):
+        return test_client.patch(
+            "/api/race/1/team/1/payments/mark/",
+            json={"payment_type": "team", "confirmed": confirmed},
+            headers=admin_auth_headers,
+        )
+
+    assert mark(True).status_code == 200
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        paid_at = registration.payment_confirmed_at
+        assert registration.start_logging_at == paid_at + timedelta(hours=1)
+        assert registration.end_logging_at == paid_at + timedelta(hours=24)
+        assert registration.end_showing_checkpoints_at == paid_at + timedelta(hours=48)
+
+    assert mark(False).status_code == 200
+    with test_app.app_context():
+        registration = Registration.query.filter_by(race_id=1, team_id=1).first()
+        assert registration.start_logging_at is None

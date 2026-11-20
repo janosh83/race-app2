@@ -1,0 +1,188 @@
+/* Bottom tab bar for phones: one tap between the race sections, in reach of
+   the thumb. Hidden from 992px up (d-lg-none), where the top navbar shows the
+   same links. */
+.race-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2100; /* above the checkpoint/task overlays (2000) */
+  display: flex;
+  background: #fff;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.race-tabbar-item {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: #6c757d;
+  font-size: 0.75rem;
+  padding: 6px 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.race-tabbar-item.is-active {
+  color: var(--brand-accent);
+  font-weight: 600;
+  box-shadow: inset 0 3px 0 var(--brand-accent);
+}
+
+.race-tabbar-item:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: -4px;
+}
+
+.race-tabbar-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The selected race's name in the top bar opens My races (race switcher). */
+.race-navbar-switcher {
+  min-width: 0;
+  max-width: calc(100% - 64px);
+  margin-right: auto;
+  color: #fff;
+  text-decoration: none;
+  border: 0;
+}
+
+.race-navbar-switcher:hover,
+.race-navbar-switcher:focus-visible {
+  color: #fff;
+}
+
+.race-navbar-switcher-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-switcher-caret {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-left: -4px;
+}
+
+/* "2 races are running now · Switch": full width under the bar. */
+.race-navbar-notice {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 2px;
+  padding: 3px 12px;
+  font-size: 0.85rem;
+  color: #fff;
+  background-color: var(--brand-accent);
+}
+
+.race-navbar-notice-link {
+  padding: 0;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.race-navbar-notice-link:hover {
+  color: #fff;
+}
+
+@media (min-width: 992px) {
+  .race-navbar-switcher {
+    max-width: 40%;
+  }
+}
+
+/* Logged-in user: on top of the phone menu, a compact chip on wide screens. */
+.race-navbar-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #fff;
+}
+
+.race-navbar-account:not(.race-navbar-account-compact) {
+  padding: 8px 0 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.race-navbar-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background-color: var(--brand-accent);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.race-navbar-account-text {
+  min-width: 0;
+}
+
+.race-navbar-account-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-account-team {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.race-navbar-account-compact {
+  gap: 7px;
+  font-size: 0.9rem;
+  max-width: 220px;
+}
+
+.race-navbar-account-compact .race-navbar-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.7rem;
+}
+
+.race-navbar .nav-link {
+  white-space: nowrap;
+}
+
+/* Narrow desktops (992-1199px): initials only (name in the tooltip) and
+   flags without codes, so the bar stays on one line. */
+@media (min-width: 992px) and (max-width: 1199.98px) {
+  .race-navbar-switcher {
+    max-width: 30%;
+  }
+
+  .race-navbar-account-compact .race-navbar-account-name,
+  .race-navbar .language-switcher-code {
+    display: none;
+  }
+}

@@ -1,5 +1,5 @@
 function normalizeCoordinate(value) {
-  if (value == null) return null;
+  if (value === null || value === undefined) return null;
   if (typeof value === 'string' && value.trim() === '') return null;
 
   const parsed = Number(value);
@@ -10,7 +10,7 @@ export function formatNavigationCoordinates(point) {
   const latitude = normalizeCoordinate(point?.latitude ?? point?.lat);
   const longitude = normalizeCoordinate(point?.longitude ?? point?.lng);
 
-  if (latitude == null || longitude == null) {
+  if (latitude === null || longitude === null) {
     return null;
   }
 
@@ -21,7 +21,7 @@ export function getNavigationTarget(point, runtime = {}) {
   const latitude = normalizeCoordinate(point?.latitude ?? point?.lat);
   const longitude = normalizeCoordinate(point?.longitude ?? point?.lng);
 
-  if (latitude == null || longitude == null) {
+  if (latitude === null || longitude === null) {
     return null;
   }
 

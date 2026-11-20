@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useNavigate } from 'react-router-dom';
 
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { logoutAndRedirect } from '../../utils/api';
 import LanguageSwitcher from '../LanguageSwitcher';
+
+import './BrandNavbar.css';
 
 function AdminLayout() {
   const navigate = useNavigate();
@@ -19,20 +21,6 @@ function AdminLayout() {
     }
   }, []);
 
-  // Check token expiry
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   // Redirect non-admins
   useEffect(() => {
     if (user && user.is_administrator === false) {
@@ -40,11 +28,10 @@ function AdminLayout() {
     }
   }, [user, navigate]);
 
+  // Same logout as the race view: also ends the session on the server, so the
+  // refresh cookie can't log the next person on this computer back in.
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('signedRaces');
-    window.location.reload();
+    logoutAndRedirect();
   };
 
   const navigateTo = (path) => {
@@ -54,9 +41,13 @@ function AdminLayout() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-lg navbar-dark bg-dark" style={{ position: 'relative', zIndex: 1040 }}>
+      <nav className="navbar navbar-expand-lg navbar-dark brand-navbar brand-navbar-admin" style={{ position: 'relative', zIndex: 1040 }}>
         <div className="container-fluid">
-          <span className="navbar-brand">{t('nav.adminBrand')}</span>
+          <span className="navbar-brand brand-navbar-brand">
+            <img src="/logo192.png" alt="" width="28" height="28" className="brand-navbar-logo" />
+            {t('nav.brand')}
+            <span className="brand-navbar-admin-label">{t('nav.admin')}</span>
+          </span>
           <button
             className="navbar-toggler"
             type="button"
@@ -69,8 +60,8 @@ function AdminLayout() {
           </button>
           <div id="adminNavbar" className={`collapse navbar-collapse ${navOpen ? 'show' : ''}`}>
             <ul className="navbar-nav ms-auto">
-              <li className="nav-item d-flex align-items-center me-2">
-                <LanguageSwitcher />
+              <li className="nav-item d-flex align-items-center me-lg-2 py-1 py-lg-0">
+                <LanguageSwitcher variant="dark" />
               </li>
               <li className="nav-item">
                 <button className="nav-link btn btn-link" onClick={() => navigateTo('/race')}>{t('nav.backToRace')}</button>

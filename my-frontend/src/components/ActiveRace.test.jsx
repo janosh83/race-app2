@@ -1,9 +1,9 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 import * as TimeContext from '../contexts/TimeContext';
 import * as activeRaceUtils from '../utils/activeRaceUtils';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import ActiveRace from './ActiveRace';
 
@@ -12,6 +12,10 @@ import ActiveRace from './ActiveRace';
 vi.mock('../utils/api');
 vi.mock('../utils/activeRaceUtils');
 
+function LocationProbe() {
+  return <div data-testid="location">{useLocation().pathname}</div>;
+}
+
 describe('ActiveRace Component', () => {
   const mockSetActiveRace = vi.fn();
 
@@ -19,9 +23,7 @@ describe('ActiveRace Component', () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.useFakeTimers();
-    isTokenExpired.mockReturnValue(false);
     activeRaceUtils.findCandidates.mockReturnValue([]);
-    activeRaceUtils.resolveRaceRecord.mockImplementation((race) => race);
   });
 
   afterEach(() => {
@@ -33,67 +35,13 @@ describe('ActiveRace Component', () => {
     vi.spyOn(TimeContext, 'useTime').mockReturnValue(timeValue);
     return render(
       <TimeContext.TimeProvider>
-        <ActiveRace />
+        <MemoryRouter>
+          <ActiveRace />
+          <LocationProbe />
+        </MemoryRouter>
       </TimeContext.TimeProvider>
     );
   };
-
-  describe('Token expiry checking', () => {
-    test('checks token on mount and redirects if expired', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).toHaveBeenCalledWith('expired-token', 5);
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('does not redirect if token is valid', () => {
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
-
-    test('does nothing if no token exists', () => {
-      localStorage.removeItem('accessToken');
-
-      renderWithContext({
-        activeRace: null,
-        setActiveRace: mockSetActiveRace,
-        signedRaces: [],
-      });
-
-      expect(isTokenExpired).not.toHaveBeenCalled();
-    });
-  });
 
   describe('Rendering with no active race', () => {
     test('displays warning when no active race and no candidates', () => {
@@ -127,7 +75,8 @@ describe('ActiveRace Component', () => {
   });
 
   describe('Auto-selection behavior', () => {
-    test('auto-selects race when only one candidate exists', () => {
+    // Auto-selection lives in TimeContext.syncSignedRaces; the page only renders it.
+    test('does not select a race itself when exactly one candidate exists', () => {
       const singleCandidate = {
         race_id: 1,
         name: 'Only Race',
@@ -143,7 +92,7 @@ describe('ActiveRace Component', () => {
         signedRaces: [singleCandidate],
       });
 
-      expect(mockSetActiveRace).toHaveBeenCalledWith(singleCandidate);
+      expect(mockSetActiveRace).not.toHaveBeenCalled();
     });
 
     test('does not auto-select when active race already exists', () => {
@@ -190,14 +139,7 @@ describe('ActiveRace Component', () => {
     });
 
     test('shows the current phase of the selected race', () => {
-      const activeRace = {
-        race_id: 1,
-        name: 'Current Race',
-        start_showing_checkpoints_at: '2026-01-01T10:00:00Z',
-        start_logging_at: '2026-01-01T11:00:00Z',
-        end_logging_at: '2026-01-01T13:00:00Z',
-        end_showing_checkpoints_at: '2026-01-01T14:00:00Z',
-      };
+      const activeRace = { race_id: 1, name: 'Current Race' };
       activeRaceUtils.findCandidates.mockReturnValue([]);
 
       renderWithContext({
@@ -211,6 +153,57 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('Current phase')).toBeInTheDocument();
       expect(screen.getByText('Checkpoint visibility')).toBeInTheDocument();
       expect(screen.getByText('Logging window')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Map' })).toHaveAttribute('href', '/race/1/map');
+      expect(screen.getByRole('link', { name: 'Checkpoints' })).toHaveAttribute('href', '/race/1/checkpoints');
+      expect(screen.getByRole('link', { name: 'Tasks' })).toHaveAttribute('href', '/race/1/tasks');
+    });
+
+    test('shows the team, category and members with the user first', () => {
+      localStorage.setItem('user', JSON.stringify({ id: 2, name: 'Eva Nováková' }));
+      const activeRace = {
+        race_id: 1,
+        name: 'Current Race',
+        team_name: 'Rychlé šípy',
+        race_category: 'Rodiny',
+        team_members: [{ id: 1, name: 'Jan Novák' }, { id: 2, name: 'Eva Nováková' }],
+      };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+      });
+
+      expect(screen.getByText('Your team')).toBeInTheDocument();
+      expect(screen.getByText('Rychlé šípy')).toBeInTheDocument();
+      expect(screen.getByText('Rodiny')).toBeInTheDocument();
+      const members = within(screen.getByRole('list', { name: 'Team members' })).getAllByRole('listitem');
+      expect(members.map(li => li.textContent)).toEqual(['Eva Nováková (you)', 'Jan Novák']);
+    });
+
+    test('shows no team section when the race has no team data', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace],
+      });
+
+      expect(screen.queryByText('Your team')).not.toBeInTheDocument();
+    });
+
+    test('shows team and category on other races', () => {
+      const activeRace = { race_id: 1, name: 'Current Race' };
+      const otherRace = { race_id: 2, name: 'Other Race', team_name: 'Old Team', race_category: 'Sport' };
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace, otherRace],
+      });
+
+      expect(screen.getByText('Old Team · Sport')).toBeInTheDocument();
     });
 
     test('handles alternative property names for race data', () => {
@@ -270,18 +263,54 @@ describe('ActiveRace Component', () => {
       expect(screen.getByText('No other races.')).toBeInTheDocument();
     });
 
-    test('shows "Currently showing" badge for candidate races', () => {
+    test('groups other races into running now, upcoming and past', () => {
+      vi.setSystemTime(new Date('2026-05-01T12:00:00Z'));
       const activeRace = { race_id: 1, name: 'Active Race' };
-      const candidateRace = { race_id: 2, name: 'Candidate Race' };
-      activeRaceUtils.findCandidates.mockReturnValue([candidateRace]);
+      const runningRace = { race_id: 2, name: 'Running Race' };
+      const upcomingRace = {
+        race_id: 3,
+        name: 'Upcoming Race',
+        start_showing_checkpoints: '2026-06-01T08:00:00Z',
+        end_showing_checkpoints: '2026-06-01T18:00:00Z',
+      };
+      const pastRace = {
+        race_id: 4,
+        name: 'Past Race',
+        start_showing_checkpoints: '2025-06-01T08:00:00Z',
+        end_showing_checkpoints: '2025-06-01T18:00:00Z',
+      };
+      activeRaceUtils.findCandidates.mockReturnValue([activeRace, runningRace]);
 
       renderWithContext({
-        activeRace: activeRace,
+        activeRace,
         setActiveRace: mockSetActiveRace,
-        signedRaces: [activeRace, candidateRace],
+        signedRaces: [activeRace, runningRace, upcomingRace, pastRace],
       });
 
-      expect(screen.getByText('Currently showing')).toBeInTheDocument();
+      const group = (name) => screen.getByRole('region', { name: new RegExp(name) });
+      expect(within(group('Running now')).getByText('Running Race')).toBeInTheDocument();
+      expect(within(group('Upcoming')).getByText('Upcoming Race')).toBeInTheDocument();
+      expect(within(group('Past races')).getByText('Past Race')).toBeInTheDocument();
+      expect(within(group('Past races')).getByRole('button', { name: 'Open' })).toBeInTheDocument();
+      // The selected race is shown on top, not repeated in a group.
+      expect(within(group('Running now')).queryByText('Active Race')).not.toBeInTheDocument();
+    });
+
+    test('opens the map after selecting a running race', () => {
+      const activeRace = { race_id: 1, name: 'Active Race' };
+      const runningRace = { race_id: 2, name: 'Running Race' };
+      activeRaceUtils.findCandidates.mockReturnValue([activeRace, runningRace]);
+
+      renderWithContext({
+        activeRace,
+        setActiveRace: mockSetActiveRace,
+        signedRaces: [activeRace, runningRace],
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Select' }));
+
+      expect(mockSetActiveRace).toHaveBeenCalledWith(runningRace);
+      expect(screen.getByTestId('location')).toHaveTextContent('/race/2/map');
     });
 
     test('shows time status for non-active races', () => {

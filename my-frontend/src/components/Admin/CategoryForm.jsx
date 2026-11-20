@@ -5,14 +5,16 @@ import { adminApi } from '../../services/adminApi';
 import { logger } from '../../utils/logger';
 import LanguageFlagsDisplay from '../LanguageFlagsDisplay';
 
+import InlineConfirm from './InlineConfirm';
 import TranslationManager from './TranslationManager';
 
-export default function CategoryForm({ raceId, supportedLanguages = [] }) {
+export default function CategoryForm({ raceId, supportedLanguages = [], defaultLanguage = null }) {
   const { t } = useTranslation();
   const [allCategories, setAllCategories] = useState([]);
   const [assigned, setAssigned] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [confirmUnassign, setConfirmUnassign] = useState(null); // category id
   const [newName, setNewName] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [categoryTranslations, setCategoryTranslations] = useState({});
@@ -91,7 +93,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
   };
 
   const unassign = async (catId) => {
-    if (!window.confirm(t('admin.categoryForm.unassignConfirm'))) return;
+    setConfirmUnassign(null);
     try {
       await adminApi.removeRaceCategory(raceId, catId);
       await load();
@@ -134,11 +136,11 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
             style={{ cursor: 'pointer' }}
             onClick={() => setExpandedId(isExpanded ? null : catId)}
           >
-            <div className="d-flex align-items-center gap-2">
+            <div className="d-flex flex-wrap align-items-center gap-2">
               <span className="me-1">{isExpanded ? '▼' : '▶'}</span>
               <strong>{cat.name}</strong>
               <span className={`badge ${assignedToRace ? 'bg-success' : 'bg-secondary'}`}>
-                {assignedToRace ? t('admin.categoryForm.assignedToRace') : t('admin.categoryForm.allCategories')}
+                {assignedToRace ? t('admin.categoryForm.assignedToRace') : t('admin.categoryForm.notAssignedToRace')}
               </span>
               {translationLanguages.length > 0 && (
                 <LanguageFlagsDisplay
@@ -160,12 +162,22 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
               </div>
               <div>
                 {assignedToRace ? (
-                  <button className="btn btn-sm btn-outline-danger" onClick={() => unassign(catId)}>{t('admin.categoryForm.unassign')}</button>
+                  <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => setConfirmUnassign(catId)} disabled={confirmUnassign === catId}>{t('admin.categoryForm.unassign')}</button>
                 ) : (
                   <button className="btn btn-sm btn-primary" onClick={() => assign(catId)}>{t('admin.categoryForm.assign')}</button>
                 )}
               </div>
             </div>
+            {confirmUnassign === catId && (
+              <InlineConfirm
+                className="mb-3"
+                text={t('admin.categoryForm.unassignConfirm')}
+                cancelLabel={t('admin.teams.keep')}
+                confirmLabel={t('admin.categoryForm.unassign')}
+                onCancel={() => setConfirmUnassign(null)}
+                onConfirm={() => unassign(catId)}
+              />
+            )}
 
             <TranslationManager
               entityType="category"
@@ -173,6 +185,7 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
               entityName={cat.name}
               fields={{ name: t('admin.translationManager.fieldName'), description: t('admin.translationManager.fieldDescription') }}
               supportedLanguages={supportedLanguages}
+              defaultLanguage={defaultLanguage}
             />
           </div>
         )}
@@ -181,18 +194,26 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
   };
 
   return (
-    <div className="mt-3">
-      <div className="d-flex align-items-center mb-2">
-        <h4 className="me-3">{t('admin.categoryForm.title')}</h4>
-        <button className="btn btn-sm btn-outline-secondary ms-auto" onClick={load}>{t('admin.categoryForm.refresh')}</button>
+    <section className="card mt-4">
+      <div className="card-body">
+      <div className="d-flex align-items-center mb-1">
+        <h3 className="h5 mb-0 me-auto">{t('admin.categoryForm.title')}</h3>
+        <button
+          className="btn btn-sm btn-outline-secondary"
+          onClick={load}
+          title={t('admin.categoryForm.refresh')}
+          aria-label={t('admin.categoryForm.refresh')}
+        >
+          ↻
+        </button>
       </div>
+      <p className="form-text mt-0 mb-3">{t('admin.categoryForm.help')}</p>
 
       {loading && <div>{t('admin.categoryForm.loading')}</div>}
       {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row">
         <div className="col-12 mb-3">
-          <h5>{t('admin.categoryForm.allCategories')}</h5>
           <ul className="list-group">
             {allCategories.map(renderCategoryItem)}
             {allCategories.length === 0 && <li className="list-group-item text-muted">{t('admin.categoryForm.noCategories')}</li>}
@@ -205,11 +226,12 @@ export default function CategoryForm({ raceId, supportedLanguages = [] }) {
             <div className="input-group">
               <input className="form-control" placeholder={t('admin.categoryForm.categoryName')} value={newName} onChange={e => setNewName(e.target.value)} />
               <button className="btn btn-primary" onClick={() => createAndAssign(false)}>{t('admin.categoryForm.create')}</button>
-              <button className="btn btn-success" onClick={() => createAndAssign(true)}>{t('admin.categoryForm.createAssign')}</button>
+              <button className="btn btn-primary" onClick={() => createAndAssign(true)}>{t('admin.categoryForm.createAssign')}</button>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </section>
   );
 }

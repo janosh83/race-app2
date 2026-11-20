@@ -6,8 +6,10 @@ import StandingsPage from './StandingsPage';
 
 // Mock the Standings component
 vi.mock('../Standings', () => {
-  return function MockStandings() {
-    return <div data-testid="standings-component">Standings Component</div>;
+  return {
+    default: function MockStandings() {
+      return <div data-testid="standings-component">Standings Component</div>;
+    },
   };
 });
 

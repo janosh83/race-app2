@@ -4,18 +4,31 @@ import { useTranslation } from 'react-i18next';
 
 import 'leaflet/dist/leaflet.css';
 import './Map.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
-import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
+import { copyCoordinatesToClipboard, getNavigationTarget } from '../utils/navigation';
 
+import CoordinateActions from './CoordinateActions';
+import FavouriteButton from './FavouriteButton';
+import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
 const checkpointShadowUrl = 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png';
+const MARKER_ICON_BASE = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img';
+const FAVOURITES_ONLY_STORAGE_KEY = 'mapFavouritesOnly';
+
+// Visited checkpoints are done, so they stay green even when favourite;
+// favourites still to visit stand out in gold.
+export const getCheckpointIconUrl = (checkpoint) => {
+  if (checkpoint.visited) return `${MARKER_ICON_BASE}/marker-icon-green.png`;
+  if (checkpoint.is_favourite) return `${MARKER_ICON_BASE}/marker-icon-gold.png`;
+  return `${MARKER_ICON_BASE}/marker-icon-blue.png`;
+};
 
 const createMapIcon = (iconUrl, {
   iconSize = [25, 41],
@@ -115,7 +128,7 @@ const getMapUploadErrorMessage = (t, err) => {
   return t('map.visitLogFailed', { message: err?.message || t('map.unknownError') });
 };
 
-function Map({ topOffset = 56 }) {
+function Map({ topOffset = 56, bottomOffset = 0 }) {
   const { t } = useTranslation();
   const getViewportHeight = () => {
     if (typeof window === 'undefined') return 0;
@@ -123,21 +136,6 @@ function Map({ topOffset = 56 }) {
   };
 
   const [viewportHeight, setViewportHeight] = useState(getViewportHeight);
-  // token expiry watcher (redirect to login when token expires)
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) {
-        logger.warn('TOKEN', 'Token expiry detected in Map');
-        logoutAndRedirect();
-      }
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const userMarkerRef = useRef(null);
@@ -156,10 +154,11 @@ function Map({ topOffset = 56 }) {
   const [isUploading, setIsUploading] = useState(false);
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
+  const [favouritesOnly, setFavouritesOnly] = useState(() => localStorage.getItem(FAVOURITES_ONLY_STORAGE_KEY) === 'true');
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const API_KEY = import.meta.env.VITE_MAPY_API_KEY;
   const apiUrl = import.meta.env.VITE_API_URL;
-  const mapHeight = Math.max(0, viewportHeight - topOffset);
+  const mapHeight = Math.max(0, viewportHeight - topOffset - bottomOffset);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -194,10 +193,20 @@ function Map({ topOffset = 56 }) {
   // Get active race and team from TimeContext
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showCheckpoints = isContentShown(timeInfo);
 
   // Fetch checkpoints when activeRaceId changes (use raceApi proxy)
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses checkpoints outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showCheckpoints) {
+      setCheckpoints([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchCheckpoints = () => {
       logger.info('RACE', 'Fetching checkpoints for map', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -206,11 +215,18 @@ function Map({ topOffset = 56 }) {
       raceApi
         .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Checkpoints loaded for map', { count: data?.length || 0 });
           setCheckpoints(data);
           setCheckpointError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchCheckpoints, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch checkpoints', err.message);
           setCheckpointError(true);
           setToast({
@@ -222,7 +238,11 @@ function Map({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showCheckpoints, t]);
 
   useEffect(() => {
     if (!mapRef.current || mapInstance.current) return;
@@ -406,7 +426,14 @@ function Map({ topOffset = 56 }) {
   }, [mapHeight]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
+  const favouriteCount = checkpoints.filter(cp => cp.is_favourite).length;
+
+  const toggleFavouritesOnly = () => {
+    setFavouritesOnly(prev => {
+      localStorage.setItem(FAVOURITES_ONLY_STORAGE_KEY, String(!prev));
+      return !prev;
+    });
+  };
 
   // Update checkpoint markers efficiently by diffing changes
   useEffect(() => {
@@ -422,8 +449,10 @@ function Map({ topOffset = 56 }) {
       return;
     }
 
+    const visibleCheckpoints = favouritesOnly ? checkpoints.filter(cp => cp.is_favourite) : checkpoints;
+
     // Build a set of current checkpoint IDs
-    const currentIds = new Set(checkpoints.map(cp => cp.id));
+    const currentIds = new Set(visibleCheckpoints.map(cp => cp.id));
     const existingIds = new Set(Object.keys(markersRef.current).map(k => parseInt(k, 10)));
 
     // Remove markers for deleted checkpoints
@@ -438,22 +467,18 @@ function Map({ topOffset = 56 }) {
     }
 
     // Add or update markers for current checkpoints
-    checkpoints.forEach(cp => {
+    visibleCheckpoints.forEach(cp => {
       if (markersRef.current[cp.id]) {
-        // Marker exists - just update its icon if visited status changed
+        // Marker exists - just update its icon if visited/favourite status changed
         const currentIcon = markersRef.current[cp.id].options.icon;
-        const iconUrl = cp.visited
-          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
-          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+        const iconUrl = getCheckpointIconUrl(cp);
         const newIcon = currentIcon.options.iconUrl !== iconUrl
           ? createMapIcon(iconUrl)
           : currentIcon;
         markersRef.current[cp.id].setIcon(newIcon);
       } else {
         // New marker - create it
-        const iconUrl = cp.visited
-          ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png'
-          : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png';
+        const iconUrl = getCheckpointIconUrl(cp);
 
         const marker = L.marker([cp.latitude, cp.longitude], {
           title: cp.title,
@@ -468,7 +493,7 @@ function Map({ topOffset = 56 }) {
         markersRef.current[cp.id] = marker;
       }
     });
-  }, [checkpoints, showCheckpoints]);
+  }, [checkpoints, showCheckpoints, favouritesOnly]);
 
   useEffect(() => {
     if (!mapInstance.current) return;
@@ -517,7 +542,7 @@ function Map({ topOffset = 56 }) {
       setImagePreview(previewDataUrl);
     } catch (err) {
       logger.error('IMAGE', 'Failed to process image', err?.message || err);
-      alert(t('map.imageProcessFailed'));
+      setToast({ message: t('map.imageProcessFailed'), type: 'error', duration: 5000 });
     }
   };
 
@@ -627,6 +652,14 @@ function Map({ topOffset = 56 }) {
       });
   };
 
+  const handleFavouriteError = (err) => {
+    setToast({
+      message: t('favourites.saveFailed', { message: err?.message || t('map.unknownError') }),
+      type: 'error',
+      duration: 5000,
+    });
+  };
+
   const handleCloseOverlay = () => {
     setSelectedCheckpoint(null);
     setSelectedRaceMarker(null);
@@ -703,6 +736,38 @@ function Map({ topOffset = 56 }) {
         </div>
       )}
 
+      {/* Hidden phases: say why the map is empty and when that changes */}
+      {!showCheckpoints && (timeInfo.state === 'BEFORE_SHOW' || timeInfo.state === 'AFTER_SHOW') && (
+        <div className="map-hidden-notice" role="status">
+          <div>{t('map.checkpointsNotShown')}</div>
+          <div className="map-hidden-notice-time">
+            {timeInfo.state === 'BEFORE_SHOW'
+              ? t('map.checkpointsShowAt', { time: formatDate(timeInfo.startShow) })
+              : t('map.checkpointsEndedAt', { time: formatDate(timeInfo.endShow) })}
+          </div>
+        </div>
+      )}
+
+      {showCheckpoints && checkpoints.length > 0 && (
+        <button
+          type="button"
+          className={`map-favourites-filter ${favouritesOnly ? 'is-active' : ''}`}
+          style={{ top: `${topOffset + 10}px` }}
+          onClick={toggleFavouritesOnly}
+          aria-pressed={favouritesOnly}
+          title={t('map.favouritesOnlyHelp')}
+        >
+          <span aria-hidden="true">{favouritesOnly ? '★' : '☆'}</span>{' '}
+          {t('map.favouritesOnly', { count: favouriteCount })}
+        </button>
+      )}
+
+      {showCheckpoints && favouritesOnly && checkpoints.length > 0 && favouriteCount === 0 && (
+        <div className="map-hidden-notice" role="status">
+          {t('map.noFavourites')}
+        </div>
+      )}
+
       <StatusBadge
         topOffset={topOffset}
         isShown={showCheckpoints}
@@ -718,10 +783,21 @@ function Map({ topOffset = 56 }) {
           style={{ top: topOffset }}
         >
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedMapPoint.title}</h3>
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <div className="d-flex align-items-center gap-1">
+                {isCheckpointSelected && showCheckpoints && (
+                  <FavouriteButton
+                    raceId={activeRaceId}
+                    checkpoint={selectedCheckpoint}
+                    setCheckpoints={setCheckpoints}
+                    onError={handleFavouriteError}
+                    size="lg"
+                  />
+                )}
+                <h3 className="mb-0">{selectedMapPoint.title}</h3>
+              </div>
               <button
-                className="btn btn-sm btn-outline-secondary"
+                className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap"
                 onClick={handleCloseOverlay}
               >
                 ✕ {t('map.close')}
@@ -730,40 +806,18 @@ function Map({ topOffset = 56 }) {
 
             <div className="mb-3">
               <div><strong>{t('map.descriptionLabel')}:</strong></div>
-              <p className="mb-2">{selectedMapPoint.description?.trim() || t('map.noDescription')}</p>
-              <div className="d-flex flex-wrap align-items-center gap-2">
-                <div>
-                  <strong>{t('map.coordinatesLabel')}:</strong>{' '}
-                  {formatCoordinateDisplay(selectedMapPoint.latitude)}, {formatCoordinateDisplay(selectedMapPoint.longitude)}
-                </div>
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => openNavigationTarget({
-                      latitude: selectedMapPoint.latitude,
-                      longitude: selectedMapPoint.longitude,
-                      title: selectedMapPoint.title,
-                    })}
-                  >
-                    {t('map.navigate')}
-                  </button>
-                )}
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => handleCopyCoordinates({
-                      latitude: selectedMapPoint.latitude,
-                      longitude: selectedMapPoint.longitude,
-                    })}
-                  >
-                    {t('map.copyCoordinates')}
-                  </button>
-                )}
-              </div>
-              {selectedCheckpointNavigationTarget && (
-                <div
-                  className="mt-3 map-navigation-hint"
-                >
+              {selectedMapPoint.description?.trim()
+                ? <SafeDescription html={selectedMapPoint.description} className="mb-2" />
+                : <p className="mb-2">{t('map.noDescription')}</p>}
+              <CoordinateActions
+                point={selectedMapPoint}
+                label={t('map.coordinatesLabel')}
+                coordinatesText={`${formatCoordinateDisplay(selectedMapPoint.latitude)}, ${formatCoordinateDisplay(selectedMapPoint.longitude)}`}
+                canNavigate={Boolean(selectedCheckpointNavigationTarget)}
+                onCopy={handleCopyCoordinates}
+              >
+                <details className="coordinate-actions-help">
+                  <summary>{t('map.navigationHelpToggle')}</summary>
                   <div className="map-navigation-hint-row">
                     <strong>{t('map.navigate')}:</strong>{' '}
                     {t('map.navigateHelp')}
@@ -772,8 +826,8 @@ function Map({ topOffset = 56 }) {
                     <strong>{t('map.copyCoordinates')}:</strong>{' '}
                     {t('map.copyCoordinatesHelp')}
                   </div>
-                </div>
-              )}
+                </details>
+              </CoordinateActions>
             </div>
 
             {isCheckpointSelected && (
@@ -815,12 +869,7 @@ function Map({ topOffset = 56 }) {
                   <>
                     <div className="mb-3">
                       <label className="form-label">{t('map.attachPhoto')}</label>
-                      <input
-                        type="file"
-                        className="form-control"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                      />
+                      <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
                       {imagePreview && (
                         <div className="mt-2">
                           <img
@@ -831,7 +880,7 @@ function Map({ topOffset = 56 }) {
                         </div>
                       )}
                     </div>
-                    <div className="d-grid gap-2">
+                    <div className="overlay-action-bar">
                       <button
                         className="btn btn-primary btn-lg"
                         onClick={handleLogVisit}
@@ -842,7 +891,7 @@ function Map({ topOffset = 56 }) {
                   </>
                 )}
                 {loggingAllowed && selectedCheckpoint.visited && (
-                  <div className="d-grid gap-2">
+                  <div className="overlay-action-bar">
                     <button
                       className="btn btn-danger btn-lg"
                       onClick={handleDeleteVisit}
@@ -853,7 +902,7 @@ function Map({ topOffset = 56 }) {
                 )}
                 {!loggingAllowed && (
                   <div className="alert alert-info">
-                    {getCheckpointReadOnlyMessage(t, selectedCheckpoint)}
+                    {getCheckpointReadOnlyMessage(t, selectedCheckpoint, timeInfo)}
                   </div>
                 )}
               </div>

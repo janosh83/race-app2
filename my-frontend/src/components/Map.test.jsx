@@ -1,12 +1,11 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import L from 'leaflet';
 import React from 'react';
 
 import * as TimeContext from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
-import Map from './Map';
+import Map, { getCheckpointIconUrl } from './Map';
 
 
 // Mock CSS imports
@@ -22,6 +21,7 @@ vi.mock('leaflet', () => {
     remove: vi.fn(),
     eachLayer: vi.fn(),
     removeLayer: vi.fn(),
+    removeControl: vi.fn(),
   };
 
   const mockAddTo = vi.fn(() => mockMap);
@@ -43,6 +43,7 @@ vi.mock('leaflet', () => {
     const handlers = {};
     const markerObject = {
       __handlers: handlers,
+      options: _options,
       addTo: vi.fn(() => markerObject),
       bindPopup: vi.fn(),
       on: vi.fn((eventName, handler) => {
@@ -72,7 +73,7 @@ vi.mock('leaflet', () => {
           setLatLng: vi.fn(() => ({})),
         };
       },
-      icon: vi.fn(),
+      icon: vi.fn((options) => ({ options })),
       Control: Control,
       DomUtil: {
         create: vi.fn(() => ({})),
@@ -89,11 +90,16 @@ vi.mock('../services/raceApi');
 vi.mock('../utils/api');
 
 // Mock piexifjs
-vi.mock('piexifjs', () => ({
-  load: vi.fn(() => ({})),
-  dump: vi.fn(() => ''),
-  insert: vi.fn((exif, dataUrl) => dataUrl),
-}));
+vi.mock('piexifjs', async (importOriginal) => {
+  const actual = (await importOriginal()).default;
+  const mocked = {
+    ...actual,
+    load: vi.fn(() => ({})),
+    dump: vi.fn(() => ''),
+    insert: vi.fn((exif, dataUrl) => dataUrl),
+  };
+  return { __esModule: true, default: mocked, ...mocked };
+});
 
 const mockGeolocation = {
   getCurrentPosition: vi.fn(),
@@ -127,42 +133,6 @@ describe('Map Component', () => {
   afterEach(() => {
     vi.runOnlyPendingTimers();
     vi.useRealTimers();
-  });
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getCheckpointsStatus.mockResolvedValue([]);
-
-      render(<Map />);
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('Checkpoint fetching', () => {
@@ -442,6 +412,34 @@ describe('Map Component', () => {
   });
 
   describe('Time states', () => {
+    test.each([
+      ['BEFORE_SHOW', { startShow: '2026-11-01 10:00' }, 'Checkpoints will be shown at 2026-11-01 10:00'],
+      ['AFTER_SHOW', { endShow: '2026-11-02 18:00' }, 'Showing of checkpoints ended at 2026-11-02 18:00'],
+    ])('explains on the map why it is empty in %s', (state, times, message) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state, ...times },
+      });
+
+      render(<Map />);
+
+      const notice = screen.getByRole('status');
+      expect(notice).toHaveTextContent('Checkpoints are not shown at this time.');
+      expect(notice).toHaveTextContent(message);
+    });
+
+    test.each(['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'])('shows no hidden-map notice in %s', (state) => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state },
+      });
+      raceApi.getCheckpointsStatus.mockResolvedValue([]);
+
+      render(<Map />);
+
+      expect(screen.queryByText('Checkpoints are not shown at this time.')).not.toBeInTheDocument();
+    });
+
     test('allows checkpoints to show in SHOW_ONLY state', () => {
       vi.spyOn(TimeContext, 'useTime').mockReturnValue({
         activeRace: { race_id: 1, team_id: 10 },
@@ -491,6 +489,66 @@ describe('Map Component', () => {
     });
   });
 
+  describe('Favourites filter', () => {
+    const checkpoints = [
+      { id: 1, title: 'Plain CP', latitude: 50.0, longitude: 14.0, visited: false, is_favourite: false },
+      { id: 2, title: 'Loved CP', latitude: 50.1, longitude: 14.1, visited: false, is_favourite: true },
+    ];
+    const markerTitles = () => L.marker.mock.calls.map(([, options]) => options.title);
+
+    const renderMap = async (data = checkpoints) => {
+      raceApi.getCheckpointsStatus.mockResolvedValue(data);
+      render(<Map />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+    };
+
+    test('shows only favourite markers when enabled and remembers the choice', async () => {
+      await renderMap();
+      expect(markerTitles()).toEqual(['Plain CP', 'Loved CP']);
+
+      const toggle = screen.getByRole('button', { name: /Favourites only \(1\)/ });
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(localStorage.getItem('mapFavouritesOnly')).toBe('true');
+      const plainMarker = L.marker.mock.results[0].value;
+      expect(L.map().removeLayer).toHaveBeenCalledWith(plainMarker);
+      expect(screen.queryByText(/no favourite checkpoints yet/)).not.toBeInTheDocument();
+    });
+
+    test('starts filtered when the choice was stored', async () => {
+      localStorage.setItem('mapFavouritesOnly', 'true');
+
+      await renderMap();
+
+      expect(markerTitles()).toEqual(['Loved CP']);
+    });
+
+    test('explains an empty map when the team has no favourites', async () => {
+      localStorage.setItem('mapFavouritesOnly', 'true');
+
+      await renderMap([checkpoints[0]]);
+
+      expect(markerTitles()).toEqual([]);
+      expect(screen.getByText(/no favourite checkpoints yet/)).toBeInTheDocument();
+    });
+
+    test('is hidden while checkpoints are not shown', async () => {
+      vi.spyOn(TimeContext, 'useTime').mockReturnValue({
+        activeRace: { race_id: 1, team_id: 10 },
+        timeInfo: { state: 'BEFORE_SHOW' },
+        selectedLanguage: 'en',
+      });
+
+      await renderMap();
+
+      expect(screen.queryByRole('button', { name: /Favourites only/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe('Custom topOffset prop', () => {
     test('uses default topOffset of 56', () => {
       raceApi.getCheckpointsStatus.mockResolvedValue([]);
@@ -509,5 +567,13 @@ describe('Map Component', () => {
       const badge = screen.getByText('Logging open').closest('div');
       expect(badge).toHaveStyle({ top: '108px' }); // 100 + 8
     });
+  });
+});
+
+describe('getCheckpointIconUrl', () => {
+  test('shows favourites in gold until they are visited', () => {
+    expect(getCheckpointIconUrl({ visited: false, is_favourite: false })).toMatch(/marker-icon-blue\.png$/);
+    expect(getCheckpointIconUrl({ visited: false, is_favourite: true })).toMatch(/marker-icon-gold\.png$/);
+    expect(getCheckpointIconUrl({ visited: true, is_favourite: true })).toMatch(/marker-icon-green\.png$/);
   });
 });

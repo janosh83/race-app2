@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './CheckpointsList.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { getCheckpointReadOnlyMessage } from '../utils/checkpointStatus';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
-import { copyCoordinatesToClipboard, getNavigationTarget, openNavigationTarget } from '../utils/navigation';
+import { copyCoordinatesToClipboard, getNavigationTarget } from '../utils/navigation';
 
+import CoordinateActions from './CoordinateActions';
+import FavouriteButton from './FavouriteButton';
+import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -36,17 +39,6 @@ function CheckpointsList({ topOffset = 56 }) {
     return 0;
   };
 
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const [checkpoints, setCheckpoints] = useState([]);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
@@ -56,13 +48,51 @@ function CheckpointsList({ topOffset = 56 }) {
   const [toast, setToast] = useState(null);
   const [checkpointError, setCheckpointError] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const userLocationRef = useRef(null);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showCheckpoints = isContentShown(timeInfo);
 
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!navigator.geolocation) return undefined;
+
+    const onPosition = ({ coords }) => {
+      userLocationRef.current = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        timestamp: Date.now(),
+      };
+    };
+    const onError = (error) => {
+      logger.warn('GEOLOCATION', 'Checkpoint list location unavailable', error.message);
+    };
+
+    navigator.geolocation.getCurrentPosition(onPosition, onError, {
+      enableHighAccuracy: false,
+      timeout: 5000,
+    });
+    const watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 3000,
+      timeout: 8000,
+    });
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  useEffect(() => {
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses checkpoints outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showCheckpoints) {
+      setCheckpoints([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchCheckpoints = () => {
       logger.info('RACE', 'Fetching checkpoints for list', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -71,11 +101,18 @@ function CheckpointsList({ topOffset = 56 }) {
       raceApi
         .getCheckpointsStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Checkpoints loaded for list', { count: data?.length || 0 });
           setCheckpoints(data);
           setCheckpointError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchCheckpoints, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch checkpoints for list', err.message);
           setCheckpointError(true);
           setToast({
@@ -87,10 +124,13 @@ function CheckpointsList({ topOffset = 56 }) {
     };
 
     fetchCheckpoints();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showCheckpoints, t]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showCheckpoints = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -134,6 +174,10 @@ function CheckpointsList({ topOffset = 56 }) {
       const formData = new FormData();
       formData.append('checkpoint_id', selectedCheckpoint.id);
       formData.append('team_id', activeTeamId);
+      if (userLocationRef.current) {
+        formData.append('user_latitude', userLocationRef.current.latitude);
+        formData.append('user_longitude', userLocationRef.current.longitude);
+      }
       if (selectedImage) {
         formData.append('image', selectedImage);
       }
@@ -208,6 +252,14 @@ function CheckpointsList({ topOffset = 56 }) {
       });
   };
 
+  const handleFavouriteError = (err) => {
+    setToast({
+      message: t('favourites.saveFailed', { message: err?.message || t('map.unknownError') }),
+      type: 'error',
+      duration: 5000,
+    });
+  };
+
   const handleCloseOverlay = () => {
     setSelectedCheckpoint(null);
     setSelectedImage(null);
@@ -254,7 +306,17 @@ function CheckpointsList({ topOffset = 56 }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const sortedCheckpoints = [...checkpoints].sort((a, b) => Number(b.visited) - Number(a.visited));
+  // What's left to do comes first (favourites on top); visited checkpoints
+  // sink to the bottom.
+  const sortedCheckpoints = [...checkpoints].sort(
+    (a, b) => Number(a.visited) - Number(b.visited) || Number(Boolean(b.is_favourite)) - Number(Boolean(a.is_favourite)),
+  );
+  const visitedCount = checkpoints.filter(cp => cp.visited).length;
+  // The overlay shows the selected checkpoint from the list, so favourite
+  // changes made in the overlay are reflected right away.
+  const shownCheckpoint = selectedCheckpoint
+    ? checkpoints.find(cp => cp.id === selectedCheckpoint.id) ?? selectedCheckpoint
+    : null;
 
   return (
     <>
@@ -302,6 +364,11 @@ function CheckpointsList({ topOffset = 56 }) {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">{t('map.checkpoints')}</h3>
         </div>
+        {showCheckpoints && checkpoints.length > 0 && (
+          <p className="text-muted small mb-2 checkpoint-list-progress">
+            {t('checkpointsList.progress', { visited: visitedCount, total: checkpoints.length })}
+          </p>
+        )}
 
         {!showCheckpoints && (
           <div className="alert alert-warning">
@@ -316,14 +383,31 @@ function CheckpointsList({ topOffset = 56 }) {
             {sortedCheckpoints.map((checkpoint) => (
               <div className="col-12 col-md-6 col-lg-3" key={checkpoint.id}>
                 <div
-                  className="card h-100 checkpoint-list-card"
+                  className={`card h-100 checkpoint-list-card ${checkpoint.is_favourite ? 'checkpoint-list-card-favourite' : ''} ${checkpoint.visited ? 'checkpoint-list-card-visited' : ''}`}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setSelectedCheckpoint(checkpoint)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      setSelectedCheckpoint(checkpoint);
+                    }
+                  }}
                 >
-                  <div className="card-body p-2">
+                  <span className="checkpoint-list-card-chevron" aria-hidden="true">›</span>
+                  <div className="card-body p-2 pe-4">
                     <div className="d-flex justify-content-between align-items-start gap-2 mb-1">
-                      <h6 className="card-title mb-0 checkpoint-list-card-title">
-                        {checkpoint.title}
-                      </h6>
+                      <div className="d-flex align-items-start">
+                        <FavouriteButton
+                          raceId={activeRaceId}
+                          checkpoint={checkpoint}
+                          setCheckpoints={setCheckpoints}
+                          onError={handleFavouriteError}
+                        />
+                        <h6 className="card-title mb-0 checkpoint-list-card-title">
+                          {checkpoint.title}
+                        </h6>
+                      </div>
                       <span className={`badge ${checkpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
                         {checkpoint.visited ? t('map.visited') : t('map.notVisited')}
                       </span>
@@ -344,73 +428,55 @@ function CheckpointsList({ topOffset = 56 }) {
         )}
       </div>
 
-      {selectedCheckpoint && (
+      {shownCheckpoint && (
         <div
           className="checkpoint-list-overlay"
           style={{ top: topOffset }}
         >
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedCheckpoint.title}</h3>
-              <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <div className="d-flex align-items-center gap-1">
+                {showCheckpoints && (
+                  <FavouriteButton
+                    raceId={activeRaceId}
+                    checkpoint={shownCheckpoint}
+                    setCheckpoints={setCheckpoints}
+                    onError={handleFavouriteError}
+                    size="lg"
+                  />
+                )}
+                <h3 className="mb-0">{shownCheckpoint.title}</h3>
+              </div>
+              <button className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap" onClick={handleCloseOverlay}>
                 ✕ {t('map.close')}
               </button>
             </div>
 
             <div className="mb-3">
-              <span className={`badge ${selectedCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
+              <span className={`badge ${shownCheckpoint.visited ? 'bg-success' : 'bg-secondary'}`}>
+                {shownCheckpoint.visited ? `✓ ${t('map.visited')}` : t('map.notVisited')}
               </span>
-              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(selectedCheckpoint) })}</span>
+              <span className="badge bg-primary ms-2">{t('tasks.points', { count: getCheckpointPoints(shownCheckpoint) })}</span>
             </div>
 
-            <div className="mb-3 text-muted small">
-              <div className="d-flex flex-wrap align-items-center gap-2">
-                <div>
-                  <strong>{t('checkpointsList.coordinates')}:</strong>{' '}
-                  {selectedCheckpoint.latitude}, {selectedCheckpoint.longitude}
-                </div>
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => openNavigationTarget({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
-                      title: selectedCheckpoint.title,
-                    })}
-                  >
-                    {t('map.navigate')}
-                  </button>
-                )}
-                {selectedCheckpointNavigationTarget && (
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => handleCopyCoordinates({
-                      latitude: selectedCheckpoint.latitude,
-                      longitude: selectedCheckpoint.longitude,
-                    })}
-                  >
-                    {t('map.copyCoordinates')}
-                  </button>
-                )}
-              </div>
-              <div>
-                <strong>{t('checkpointsList.points')}:</strong> {getCheckpointPoints(selectedCheckpoint)}
-              </div>
-            </div>
+            <CoordinateActions
+              point={shownCheckpoint}
+              label={t('checkpointsList.coordinates')}
+              coordinatesText={`${shownCheckpoint.latitude}, ${shownCheckpoint.longitude}`}
+              canNavigate={Boolean(selectedCheckpointNavigationTarget)}
+              onCopy={handleCopyCoordinates}
+            />
 
-            {selectedCheckpoint.description && (
-              <div className="mb-3">
-                <p>{selectedCheckpoint.description}</p>
-              </div>
+            {shownCheckpoint.description && (
+              <SafeDescription html={shownCheckpoint.description} className="mb-3" />
             )}
 
-            {selectedCheckpoint.visited && selectedCheckpoint.image_filename && (
+            {shownCheckpoint.visited && shownCheckpoint.image_filename && (
               <div className="mb-3">
                 <label className="form-label">{t('map.visitPhotoLabel')}</label>
                 <div>
                   <img
-                    src={`${apiUrl}/static/images/${selectedCheckpoint.image_filename}`}
+                    src={`${apiUrl}/static/images/${shownCheckpoint.image_filename}`}
                     alt={t('map.visitPhotoAlt')}
                     className="checkpoint-list-visit-photo"
                   />
@@ -435,15 +501,15 @@ function CheckpointsList({ topOffset = 56 }) {
               <>
                 <div className="mb-4">
                   <label className="form-label">{t('map.attachPhoto')}</label>
-                  <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
+                  <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
                   <div className="form-text">{t('checkpointsList.imageHelp')}</div>
                 </div>
 
-                <div className="d-flex gap-2">
-                  <button className="btn btn-primary" onClick={handleLogVisit}>
-                    {selectedCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
+                <div className="overlay-action-bar">
+                  <button className="btn btn-primary btn-lg" onClick={handleLogVisit}>
+                    {shownCheckpoint.visited ? t('map.logVisitWithPhoto') : t('map.logVisit')}
                   </button>
-                  {selectedCheckpoint.visited && (
+                  {shownCheckpoint.visited && (
                     <button className="btn btn-outline-danger" onClick={handleDeleteVisit}>
                       {t('map.deleteVisit')}
                     </button>
@@ -451,7 +517,7 @@ function CheckpointsList({ topOffset = 56 }) {
                 </div>
               </>
             ) : (
-              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, selectedCheckpoint)}</div>
+              <div className="alert alert-warning">{getCheckpointReadOnlyMessage(t, shownCheckpoint, timeInfo)}</div>
             )}
           </div>
         </div>

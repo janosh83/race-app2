@@ -1,0 +1,9 @@
+/* The user's own team: teal tint and an accent bar on the left. Bootstrap
+   paints table cells from --bs-table-bg, so the tint goes through it. */
+.standings-own-team {
+  --bs-table-bg: rgba(var(--brand-accent-rgb), 0.1);
+}
+
+.table > tbody > tr.standings-own-team > td:first-child {
+  box-shadow: inset 4px 0 0 var(--brand-accent);
+}

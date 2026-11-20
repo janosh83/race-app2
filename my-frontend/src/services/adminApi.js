@@ -41,13 +41,13 @@ export const adminApi = {
   retryRegistrationEmailLog: (raceId, logId) => apiFetch(`/api/team/race/${raceId}/email-logs/${logId}/retry/`, { method: 'POST' }),
   getResults: (raceId) => apiFetch(`/api/race/${raceId}/results/`), // OK
   getRaceStatistics: (raceId) => apiFetch(`/api/race/${raceId}/statistics/`),
+  getRaceTeamPaths: (raceId) => apiFetch(`/api/race/${raceId}/team-paths/`),
 
   // User management (admin)
   getUsers: (params = {}) => {
     const query = toQueryString(params);
     return apiFetch(`/api/user/${query ? `?${query}` : ''}`);
   },
-  registerAdminUser: (payload) => apiFetch('/auth/register-admin/', { method: 'POST', body: payload }),
   createUser: (payload) => apiFetch('/api/user/', { method: 'POST', body: payload }),
   updateUser: (userId, payload) => apiFetch(`/api/user/${userId}/`, { method: 'PUT', body: payload }),
   deleteUser: (userId) => apiFetch(`/api/user/${userId}/`, { method: 'DELETE' }),
@@ -79,7 +79,10 @@ export const adminApi = {
   },
   getTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`),
   createTeam: (payload) => apiFetch('/api/team/', { method: 'POST', body: payload }),
+  updateTeam: (teamId, payload) => apiFetch(`/api/team/${teamId}/`, { method: 'PUT', body: payload }),
   addTeamMembers: (teamId, payload) => apiFetch(`/api/team/${teamId}/members/`, { method: 'POST', body: payload }),
+  getTeamRegistrations: (teamId) => apiFetch(`/api/team/${teamId}/registrations/`),
+  deleteTeam: (teamId) => apiFetch(`/api/team/${teamId}/`, { method: 'DELETE' }),
   removeAllTeamMembers: (teamId) => apiFetch(`/api/team/${teamId}/members/`, { method: 'DELETE' }),
 
   // race-category endpoints

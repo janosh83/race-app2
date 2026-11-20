@@ -1,9 +1,10 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import create_app, db
+from app.utils import utc_now
 from app.models import Race, Checkpoint, CheckpointLog, User, RaceTranslation, Team, Registration, RegistrationEmailLog, RaceCategory, RaceCategoryTranslation
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 @pytest.fixture
 def test_app():
@@ -22,7 +23,7 @@ def test_client(test_app):
 def add_test_data(test_app):
     # insert test data
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
         race1 = Race(name="Jarní jízda", description="24 hodin objevování Česka", start_showing_checkpoints_at=some_time_earlier,
@@ -77,9 +78,13 @@ def test_get_all_races(test_client, add_test_data):
     assert response.json[0]["name"] == "Jarní jízda CZ"
     assert response.json[0]["description"] == "24 hodin objevování Česka CZ"
 
-    # TODO: test also empty race list
 
-    # FIXME: test time constraints for race
+def test_get_all_races_empty_list(test_client):
+    """Empty race lists should return an empty array without errors."""
+    response = test_client.get("/api/race/")
+    assert response.status_code == 200
+    assert response.json == []
+
 
 def test_get_single_race(test_client, add_test_data):
     """Test endpoint GET /api/race/race_id """
@@ -103,13 +108,26 @@ def test_get_single_race(test_client, add_test_data):
     response = test_client.get("/api/race/2/") # non existing race
     assert response.status_code == 404
 
-    # FIXME: test time constraints for race
+
+def test_get_race_time_constraints_are_exposed(test_client, add_test_data):
+    """Race time windows should be returned in the public API payload."""
+    response = test_client.get("/api/race/1/")
+    assert response.status_code == 200
+    assert 'start_showing_checkpoints_at' in response.json
+    assert 'end_showing_checkpoints_at' in response.json
+    assert 'start_logging_at' in response.json
+    assert 'end_logging_at' in response.json
+    assert response.json["start_showing_checkpoints_at"].endswith('GMT')
+    assert response.json["end_showing_checkpoints_at"].endswith('GMT')
+    assert response.json["start_logging_at"].endswith('GMT')
+    assert response.json["end_logging_at"].endswith('GMT')
+
 
 def test_create_race(test_client, add_test_data):
     """Test endpoint POST /api/race """
     access_token = _admin_token(test_client, email="test@example.com", password="test")
 
-    now = datetime.now()
+    now = utc_now()
     some_time_later = now + timedelta(minutes=10)
     # create the race
     response = test_client.post("/api/race/", json={
@@ -151,7 +169,7 @@ def test_create_race(test_client, add_test_data):
     assert response.json[1]["description"] == "Roadtrip po Balkáně."
 
 
-    response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"}) # FIXME: test is failing due to checkpoints assigned to the race, TODO: write separate test for deleting race
+    response = test_client.delete("/api/race/1/", headers={"Authorization": f"Bearer {access_token}"})
     assert response.status_code == 400  # Cannot delete race with checkpoints
 
     response = test_client.get("/api/race/") # get all races to see both races still exist
@@ -166,7 +184,7 @@ def test_create_race_requires_admin(test_client):
     response = test_client.post("/auth/login/", json={"email": "user@example.com", "password": "pass"})
     access_token = response.json["access_token"]
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(hours=1)
 
     # try to create race as non-admin
@@ -201,7 +219,7 @@ def test_update_race(test_client, add_test_data):
     assert response.json["description"] == "New description"
 
     # update multiple fields
-    now = datetime.now()
+    now = utc_now()
     new_time = now + timedelta(days=1)
     response = test_client.put("/api/race/1/", json={
         "name": "Final Name",
@@ -240,7 +258,7 @@ def test_update_race(test_client, add_test_data):
 def test_create_race_rejects_incomplete_marker_coordinates(test_client, add_test_data):
     access_token = _admin_token(test_client, email="marker@example.com", password="test")
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(minutes=10)
     response = test_client.post("/api/race/", json={
         "name": "Broken Marker Race",
@@ -297,7 +315,7 @@ def test_delete_race_success(test_client):
     """Test deleting a race without any dependencies."""
     access_token = _admin_token(test_client)
 
-    now = datetime.now()
+    now = utc_now()
     later = now + timedelta(hours=1)
 
     response = test_client.post("/api/race/", json={
@@ -362,7 +380,7 @@ def test_delete_race_with_tasks(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Tasks",
@@ -393,7 +411,7 @@ def test_delete_race_with_registrations(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Registrations",
@@ -430,7 +448,7 @@ def test_delete_race_with_checkpoint_logs(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Logs",
@@ -472,7 +490,7 @@ def test_delete_race_with_task_logs(test_client, test_app):
         access_token = _admin_token(test_client)
 
         # create a race
-        now = datetime.now()
+        now = utc_now()
         later = now + timedelta(hours=1)
         response = test_client.post("/api/race/", json={
             "name": "Race with Task Logs",
@@ -560,6 +578,40 @@ def test_race_translation_crud(test_client, add_test_data, admin_auth_headers):
     list_resp = test_client.get("/api/race/1/translations/", headers=admin_auth_headers)
     assert list_resp.status_code == 200
     assert all(item["language"] != "de" for item in list_resp.json)
+
+
+def test_race_translation_place_names(test_client, add_test_data, admin_auth_headers):
+    """A race translation can name the finish and bivaks; the translated race
+    uses them, and an emptied name falls back to the race's own."""
+    create_resp = test_client.post(
+        "/api/race/1/translations/",
+        json={"language": "de", "name": "Frühjahrsfahrt", "finish_description": "Ziel am See", "bivak_1_name": "Lager"},
+        headers=admin_auth_headers,
+    )
+    assert create_resp.status_code == 201
+    assert create_resp.json["finish_description"] == "Ziel am See"
+    assert create_resp.json["bivak_1_name"] == "Lager"
+    assert create_resp.json["bivak_2_name"] is None
+
+    original = test_client.get("/api/race/1/", headers=admin_auth_headers).json
+    translated = test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers).json
+    assert translated["finish_description"] == "Ziel am See"
+    assert translated["bivak_1_name"] == "Lager"
+    assert translated["bivak_2_name"] == original["bivak_2_name"]
+
+    in_list = next(r for r in test_client.get("/api/race/?lang=de").json if r["id"] == 1)
+    assert in_list["finish_description"] == "Ziel am See"
+
+    update_resp = test_client.put(
+        "/api/race/1/translations/de/", json={"finish_description": ""}, headers=admin_auth_headers,
+    )
+    assert update_resp.status_code == 200
+    assert update_resp.json["finish_description"] is None
+    assert update_resp.json["bivak_1_name"] == "Lager"
+    assert test_client.get("/api/race/1/?lang=de", headers=admin_auth_headers).json["finish_description"] == original["finish_description"]
+
+    listed = test_client.get("/api/race/1/translations/", headers=admin_auth_headers).json
+    assert next(item for item in listed if item["language"] == "de")["bivak_1_name"] == "Lager"
 
 
 def test_race_translation_unsupported_language(test_client, add_test_data, admin_auth_headers):
@@ -1128,6 +1180,7 @@ def test_stripe_registration_webhook_sends_admin_notification_when_configured(te
 
 
 def test_brevo_webhook_requires_configuration(test_client, add_test_data):
+    test_client.application.config['BREVO_WEBHOOK_SECRET'] = ''
     response = test_client.post('/api/race/registration/brevo/webhook/', json={"event": "delivered"})
     assert response.status_code == 503
     assert response.json["message"] == "Webhook is not configured."
@@ -1162,7 +1215,7 @@ def test_brevo_webhook_updates_email_log_status(test_client, add_test_data, test
                 provider_message_id='brevo-message-1',
                 status='sent',
                 attempt_count=1,
-                last_attempted_at=datetime.now(),
+                last_attempted_at=utc_now(),
             )
         )
         test_app.config['BREVO_WEBHOOK_SECRET'] = 'brevo-secret'
@@ -1176,7 +1229,7 @@ def test_brevo_webhook_updates_email_log_status(test_client, add_test_data, test
             'event': 'delivered',
             'email': 'brevo-user@example.com',
             'message-id': 'brevo-message-1',
-            'date': datetime.now().isoformat(),
+            'date': utc_now().isoformat(),
         },
         headers={'X-Brevo-Webhook-Secret': 'brevo-secret'},
     )
@@ -1225,7 +1278,7 @@ def test_get_registration_payment_status_by_slug(test_client, add_test_data, tes
             team_id=team.id,
             race_category_id=category.id,
             payment_confirmed=True,
-            payment_confirmed_at=datetime.now(),
+            payment_confirmed_at=utc_now(),
         )
         db.session.add(registration)
         db.session.commit()

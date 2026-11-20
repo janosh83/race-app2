@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, Race, Registration, Task, TaskLog
+from app.models import Checkpoint, CheckpointLog, FavouriteCheckpoint, Race, Registration, Task, TaskLog
 from app.routes.admin import admin_required
 
 race_statistics_bp = Blueprint('race_statistics', __name__)
@@ -91,6 +91,23 @@ def get_race_statistics(race_id):
                       title:
                         type: string
                       completions_count:
+                        type: integer
+                favourites_count:
+                  type: integer
+                  description: Favourite marks on this race's checkpoints, over all teams
+                teams_with_favourites_count:
+                  type: integer
+                top_favourite_checkpoints:
+                  type: array
+                  description: Up to 10 checkpoints marked as favourite by the most teams
+                  items:
+                    type: object
+                    properties:
+                      checkpoint_id:
+                        type: integer
+                      title:
+                        type: string
+                      favourites_count:
                         type: integer
       404:
         description: Race not found
@@ -187,6 +204,30 @@ def get_race_statistics(race_id):
       .all()
     )
 
+    race_favourites = (
+      db.session.query(FavouriteCheckpoint)
+      .join(Checkpoint, Checkpoint.id == FavouriteCheckpoint.checkpoint_id)
+      .filter(Checkpoint.race_id == race_id)
+    )
+    favourites_count = race_favourites.count()
+    teams_with_favourites_count = race_favourites.with_entities(
+      db.func.count(db.distinct(FavouriteCheckpoint.team_id))
+    ).scalar() or 0
+
+    top_favourite_checkpoints_query = (
+      db.session.query(
+        Checkpoint.id.label('checkpoint_id'),
+        Checkpoint.title,
+        db.func.count(FavouriteCheckpoint.id).label('favourites_count'),
+      )
+      .join(FavouriteCheckpoint, FavouriteCheckpoint.checkpoint_id == Checkpoint.id)
+      .filter(Checkpoint.race_id == race_id)
+      .group_by(Checkpoint.id, Checkpoint.title)
+      .order_by(db.func.count(FavouriteCheckpoint.id).desc(), Checkpoint.title.asc())
+      .limit(10)
+      .all()
+    )
+
     return jsonify(
         {
             'race_id': race_id,
@@ -220,6 +261,16 @@ def get_race_statistics(race_id):
             'visits_count': int(item.visits_count),
           }
           for item in least_visited_checkpoints_query
+        ],
+        'favourites_count': int(favourites_count),
+        'teams_with_favourites_count': int(teams_with_favourites_count),
+        'top_favourite_checkpoints': [
+          {
+            'checkpoint_id': int(item.checkpoint_id),
+            'title': item.title,
+            'favourites_count': int(item.favourites_count),
+          }
+          for item in top_favourite_checkpoints_query
         ],
         'least_completed_tasks': [
           {

@@ -3,7 +3,6 @@ import React from 'react';
 
 
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 import Standings from './Standings';
 
@@ -15,51 +14,10 @@ describe('Standings Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
     vi.useRealTimers();
-  });
-
-  describe('Token management', () => {
-    test('checks token expiry on mount', async () => {
-      localStorage.setItem('accessToken', 'test-token');
-      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1 }));
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getResults.mockResolvedValue([]);
-
-      render(<Standings />);
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('redirects on expired token', async () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1 }));
-      isTokenExpired.mockReturnValue(true);
-      raceApi.getResults.mockResolvedValue([]);
-
-      render(<Standings />);
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', async () => {
-      localStorage.setItem('accessToken', 'test-token');
-      localStorage.setItem('activeRace', JSON.stringify({ race_id: 1 }));
-      isTokenExpired.mockReturnValue(false);
-      raceApi.getResults.mockResolvedValue([]);
-
-      render(<Standings />);
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-    });
   });
 
   describe('Loading state', () => {
@@ -215,8 +173,10 @@ describe('Standings Component', () => {
       const ownRow = screen.getByRole('row', { name: /My Team/i });
       const otherRow = screen.getByRole('row', { name: /Other Team/i });
 
-      expect(ownRow).toHaveClass('table-warning');
-      expect(otherRow).not.toHaveClass('table-warning');
+      expect(ownRow).toHaveClass('standings-own-team');
+      expect(otherRow).not.toHaveClass('standings-own-team');
+      expect(within(ownRow).getByText('Your team')).toBeInTheDocument();
+      expect(within(otherRow).queryByText('Your team')).not.toBeInTheDocument();
 
       expect(within(ownRow).getByText('50')).toBeInTheDocument();
       expect(within(ownRow).getByText('30')).toBeInTheDocument();

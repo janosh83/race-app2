@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import './Standings.css';
+
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 
 const normalizeComparableId = (value) => (
   value === null || value === undefined ? null : String(value)
@@ -66,17 +67,6 @@ function Standings() {
   }, [results]);
 
   useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
     const fetchResults = async () => {
       if (!activeRaceId) {
         setError(t('results.noActiveRace'));
@@ -119,34 +109,43 @@ function Standings() {
       {rankedResults.length === 0 ? (
         <p>{t('results.noResults')}</p>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>{t('results.position')}</th>
-              <th>{t('results.team')}</th>
-              <th>{t('results.category')}</th>
-              <th>{t('results.pointsCheckpoints')}</th>
-              <th>{t('results.pointsTasks')}</th>
-              <th>{t('results.pointsTotal')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rankedResults.map((result, index) => (
-              <tr
-                key={index}
-                className={isOwnTeam(result) ? 'table-warning' : ''}
-                style={isOwnTeam(result) ? { boxShadow: 'inset 4px 0 0 #fd7e14' } : undefined}
-              >
-                <td style={{ fontWeight: 600 }}>{result.positionLabel}</td>
-                <td>{result.team}</td>
-                <td>{result.category}</td>
-                <td>{renderPointsCell(result, result.points_for_checkpoints)}</td>
-                <td>{renderPointsCell(result, result.points_for_tasks)}</td>
-                <td>{renderPointsCell(result, result.total_points, true)}</td>
+        // Phones get rank, team, category and total; the per-section breakdown
+        // starts at 768px. table-responsive keeps long names from widening the page.
+        <div className="table-responsive">
+          <table className="table align-middle">
+            <thead>
+              <tr>
+                <th>{t('results.position')}</th>
+                <th>{t('results.team')}</th>
+                <th>{t('results.category')}</th>
+                <th className="d-none d-md-table-cell">{t('results.pointsCheckpoints')}</th>
+                <th className="d-none d-md-table-cell">{t('results.pointsTasks')}</th>
+                <th>{t('results.pointsTotal')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rankedResults.map((result, index) => (
+                <tr
+                  key={index}
+                  className={isOwnTeam(result) ? 'standings-own-team' : ''}
+                  aria-current={isOwnTeam(result) ? 'true' : undefined}
+                >
+                  <td style={{ fontWeight: 600 }}>{result.positionLabel}</td>
+                  <td>
+                    {result.team}
+                    {isOwnTeam(result) && (
+                      <span className="badge rounded-pill bg-primary ms-2">{t('results.yourTeam')}</span>
+                    )}
+                  </td>
+                  <td>{result.category}</td>
+                  <td className="d-none d-md-table-cell">{renderPointsCell(result, result.points_for_checkpoints)}</td>
+                  <td className="d-none d-md-table-cell">{renderPointsCell(result, result.points_for_tasks)}</td>
+                  <td>{renderPointsCell(result, result.total_points, true)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

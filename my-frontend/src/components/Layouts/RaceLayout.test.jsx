@@ -1,24 +1,29 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import * as TimeContext from '../../contexts/TimeContext';
-import { isTokenExpired, logoutAndRedirect } from '../../utils/api';
+import { logoutAndRedirect } from '../../utils/api';
 
 import RaceLayout from './RaceLayout';
 
 // Mock dependencies
 vi.mock('../../utils/api');
 
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', () => ({
-  ...vi.requireActual('react-router-dom'),
+const mockNavigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', async () => ({
+  ...(await vi.importActual('react-router-dom')),
   useNavigate: () => mockNavigate,
-  Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight})</div>,
+  Outlet: ({ context }) => <div data-testid="outlet">Outlet Content (navHeight: {context?.navHeight}, tabbarHeight: {context?.tabbarHeight})</div>,
 }));
 
+// The race section links exist twice: in the top navbar (wide screens) and in
+// the bottom tab bar (phones). jsdom applies no CSS, so both are rendered.
+const topNav = () => document.querySelector('nav.navbar');
+const tabBar = () => screen.getByRole('navigation', { name: 'Race sections' });
+
 // Helper function to render component with router and context
-const renderWithProviders = (activeRace = null, signedRaces = [], user = null) => {
+const renderWithProviders = (activeRace = null, signedRaces = [], user = null, path = '/race') => {
   if (user) {
     localStorage.setItem('user', JSON.stringify(user));
   } else {
@@ -37,7 +42,7 @@ const renderWithProviders = (activeRace = null, signedRaces = [], user = null) =
   vi.spyOn(TimeContext, 'useTime').mockReturnValue(mockTimeContext);
 
   return render(
-    <MemoryRouter initialEntries={['/race']}>
+    <MemoryRouter initialEntries={[path]}>
       <TimeContext.TimeProvider>
         <RaceLayout />
       </TimeContext.TimeProvider>
@@ -50,7 +55,6 @@ describe('RaceLayout Component', () => {
     vi.clearAllMocks();
     localStorage.clear();
     vi.useFakeTimers();
-    isTokenExpired.mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -63,6 +67,80 @@ describe('RaceLayout Component', () => {
       renderWithProviders();
 
       expect(screen.getByText('Race App')).toBeInTheDocument();
+    });
+
+    test('shows the logo next to the brand', () => {
+      renderWithProviders();
+
+      const logo = screen.getByText('Race App').querySelector('img');
+      expect(logo).toHaveAttribute('src', '/logo192.png');
+      expect(logo).toHaveAttribute('alt', '');
+    });
+
+    test('shows the selected race name as the race switcher', () => {
+      renderWithProviders({ race_id: 5, name: 'City Challenge' });
+
+      expect(screen.queryByText('Race App')).not.toBeInTheDocument();
+      const switcher = screen.getByRole('button', { name: 'City Challenge – switch race' });
+      expect(switcher).toHaveTextContent('City Challenge');
+      expect(switcher.querySelector('img')).toHaveAttribute('src', '/logo192.png');
+
+      fireEvent.click(switcher);
+      expect(mockNavigate).toHaveBeenCalledWith('/race');
+    });
+
+    describe('races running at the same time', () => {
+      const now = new Date('2026-05-01T12:00:00Z');
+      const running = (id) => ({
+        race_id: id,
+        name: `Race ${id}`,
+        start_showing_checkpoints: '2026-05-01T08:00:00Z',
+        end_showing_checkpoints: '2026-05-01T18:00:00Z',
+      });
+
+      test('shows a notice with a switch link when two races run', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1), running(2)], null, '/race/1/map');
+
+        expect(screen.getByRole('status')).toHaveTextContent('2 races are running now');
+        fireEvent.click(within(screen.getByRole('status')).getByRole('button', { name: 'Switch' }));
+        expect(mockNavigate).toHaveBeenCalledWith('/race');
+      });
+
+      test('shows no notice with a single running race', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1)], null, '/race/1/map');
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      });
+
+      test('shows no notice on the race list itself', () => {
+        vi.setSystemTime(now);
+        renderWithProviders(running(1), [running(1), running(2)], null, '/race');
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      });
+    });
+
+    test('shows the logged-in user with team and category of the selected race', () => {
+      renderWithProviders(
+        { race_id: 5, name: 'Test Race', team_name: 'Rychlé šípy', race_category: 'Rodiny' },
+        [],
+        { id: 1, name: 'Jan Novák' },
+      );
+
+      const account = screen.getByTestId('account-menu');
+      expect(account).toHaveTextContent('JN');
+      expect(account).toHaveTextContent('Jan Novák');
+      expect(account).toHaveTextContent('Rychlé šípy · Rodiny');
+      expect(screen.getByTestId('account-chip')).toHaveAttribute('title', 'Jan Novák · Rychlé šípy · Rodiny');
+    });
+
+    test('shows the user without a team line when no race is selected', () => {
+      renderWithProviders(null, [], { id: 1, name: 'Jan Novák' });
+
+      expect(screen.getByTestId('account-menu')).toHaveTextContent('Jan Novák');
+      expect(screen.getByTestId('account-chip')).toHaveAttribute('title', 'Jan Novák');
     });
 
     test('renders outlet for child routes', () => {
@@ -79,23 +157,23 @@ describe('RaceLayout Component', () => {
       expect(toggleButton).toHaveAttribute('aria-expanded', 'false');
     });
 
-    test('renders Active Race navigation link', () => {
+    test('renders My races navigation link', () => {
       renderWithProviders();
 
-      expect(screen.getByRole('button', { name: 'Active Race' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'My races' })).toBeInTheDocument();
     });
 
     test('renders Standings navigation link when activeRace exists', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      expect(screen.getByRole('button', { name: 'Standings' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Standings' })).toBeInTheDocument();
     });
 
     test('hides Standings navigation link when no activeRace', () => {
       renderWithProviders(null);
 
-      expect(screen.queryByRole('button', { name: 'Standings' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Standings' })).not.toBeInTheDocument();
     });
 
     test('renders Logout button', () => {
@@ -110,24 +188,24 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      expect(screen.getByRole('button', { name: 'Map' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Checkpoints' })).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Map' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Checkpoints' })).toBeInTheDocument();
+      expect(within(topNav()).getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
     });
 
     test('hides Map, Checkpoints and Tasks links when no activeRace', () => {
       renderWithProviders(null);
 
-      expect(screen.queryByRole('button', { name: 'Map' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Checkpoints' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Map' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Checkpoints' })).not.toBeInTheDocument();
+      expect(within(topNav()).queryByRole('button', { name: 'Tasks' })).not.toBeInTheDocument();
     });
 
     test('uses race_id property for Map navigation', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const mapButton = screen.getByRole('button', { name: 'Map' });
+      const mapButton = within(topNav()).getByRole('button', { name: 'Map' });
       fireEvent.click(mapButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/map');
@@ -137,7 +215,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const mapButton = screen.getByRole('button', { name: 'Map' });
+      const mapButton = within(topNav()).getByRole('button', { name: 'Map' });
       fireEvent.click(mapButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/map');
@@ -147,7 +225,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const tasksButton = screen.getByRole('button', { name: 'Tasks' });
+      const tasksButton = within(topNav()).getByRole('button', { name: 'Tasks' });
       fireEvent.click(tasksButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/tasks');
@@ -157,7 +235,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      const checkpointsButton = within(topNav()).getByRole('button', { name: 'Checkpoints' });
       fireEvent.click(checkpointsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/checkpoints');
@@ -167,7 +245,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const checkpointsButton = screen.getByRole('button', { name: 'Checkpoints' });
+      const checkpointsButton = within(topNav()).getByRole('button', { name: 'Checkpoints' });
       fireEvent.click(checkpointsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/checkpoints');
@@ -177,7 +255,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { id: 7, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const tasksButton = screen.getByRole('button', { name: 'Tasks' });
+      const tasksButton = within(topNav()).getByRole('button', { name: 'Tasks' });
       fireEvent.click(tasksButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/7/tasks');
@@ -185,10 +263,10 @@ describe('RaceLayout Component', () => {
   });
 
   describe('Navigation interactions', () => {
-    test('navigates to Active Race on button click', () => {
+    test('navigates to My races on button click', () => {
       renderWithProviders();
 
-      const activeRaceButton = screen.getByRole('button', { name: 'Active Race' });
+      const activeRaceButton = screen.getByRole('button', { name: 'My races' });
       fireEvent.click(activeRaceButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race');
@@ -198,7 +276,7 @@ describe('RaceLayout Component', () => {
       const activeRace = { race_id: 5, name: 'Test Race' };
       renderWithProviders(activeRace);
 
-      const standingsButton = screen.getByRole('button', { name: 'Standings' });
+      const standingsButton = within(topNav()).getByRole('button', { name: 'Standings' });
       fireEvent.click(standingsButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/race/5/standings');
@@ -213,7 +291,7 @@ describe('RaceLayout Component', () => {
       expect(toggleButton).toHaveAttribute('aria-expanded', 'true');
 
       // Navigate
-      const activeRaceButton = screen.getByRole('button', { name: 'Active Race' });
+      const activeRaceButton = screen.getByRole('button', { name: 'My races' });
       fireEvent.click(activeRaceButton);
 
       // Navbar should close
@@ -324,57 +402,6 @@ describe('RaceLayout Component', () => {
     });
   });
 
-  describe('Token expiry checking', () => {
-    test('checks token expiry on mount', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      renderWithProviders();
-
-      expect(isTokenExpired).toHaveBeenCalledWith('test-token', 5);
-    });
-
-    test('logs out on expired token', () => {
-      localStorage.setItem('accessToken', 'expired-token');
-      isTokenExpired.mockReturnValue(true);
-
-      renderWithProviders();
-
-      expect(logoutAndRedirect).toHaveBeenCalled();
-    });
-
-    test('does not logout when token is valid', () => {
-      localStorage.setItem('accessToken', 'valid-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithProviders();
-
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-
-    test('checks token periodically every 30 seconds', () => {
-      localStorage.setItem('accessToken', 'test-token');
-      isTokenExpired.mockReturnValue(false);
-
-      renderWithProviders();
-
-      expect(isTokenExpired).toHaveBeenCalledTimes(1);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(2);
-
-      vi.advanceTimersByTime(30000);
-      expect(isTokenExpired).toHaveBeenCalledTimes(3);
-    });
-
-    test('does nothing when no token exists', () => {
-      localStorage.removeItem('accessToken');
-
-      renderWithProviders();
-
-      expect(isTokenExpired).not.toHaveBeenCalled();
-      expect(logoutAndRedirect).not.toHaveBeenCalled();
-    });
-  });
-
   describe('User data parsing', () => {
     test('parses valid user JSON from localStorage', () => {
       const user = { username: 'testuser', is_administrator: false };
@@ -475,7 +502,7 @@ describe('RaceLayout Component', () => {
       renderWithProviders();
 
       const navbar = screen.getByRole('navigation');
-      expect(navbar).toHaveClass('navbar', 'navbar-expand-lg', 'navbar-dark', 'bg-primary');
+      expect(navbar).toHaveClass('navbar', 'navbar-expand-lg', 'navbar-dark', 'race-navbar');
     });
 
     test('applies correct positioning and z-index', () => {
@@ -493,6 +520,42 @@ describe('RaceLayout Component', () => {
       const container = document.querySelector('.container.mt-4');
       expect(container).toBeInTheDocument();
       expect(container).toContainElement(screen.getByTestId('outlet'));
+    });
+  });
+
+  describe('Bottom tab bar', () => {
+    test('is not rendered without an active race', () => {
+      renderWithProviders(null);
+
+      expect(screen.queryByRole('navigation', { name: 'Race sections' })).not.toBeInTheDocument();
+    });
+
+    test('shows the four race sections', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      const buttons = within(tabBar()).getAllByRole('button');
+      expect(buttons.map((b) => b.textContent)).toEqual(['Map', 'Checkpoints', 'Tasks', 'Standings']);
+    });
+
+    test('navigates to the tapped section', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      fireEvent.click(within(tabBar()).getByRole('button', { name: 'Tasks' }));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/race/5/tasks');
+    });
+
+    test('marks the current section', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' }, [], null, '/race/5/checkpoints');
+
+      expect(within(tabBar()).getByRole('button', { name: 'Checkpoints' })).toHaveAttribute('aria-current', 'page');
+      expect(within(tabBar()).getByRole('button', { name: 'Map' })).not.toHaveAttribute('aria-current');
+    });
+
+    test('passes its height to the Outlet context', () => {
+      renderWithProviders({ race_id: 5, name: 'Test Race' });
+
+      expect(screen.getByTestId('outlet')).toHaveTextContent('tabbarHeight: 0');
     });
   });
 });

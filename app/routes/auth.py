@@ -1,15 +1,19 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import logging
+import uuid
 from flask import current_app
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt, set_refresh_cookies, unset_jwt_cookies, verify_jwt_in_request
+from flask_jwt_extended.exceptions import JWTExtendedException
+from jwt.exceptions import PyJWTError
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
-from app.models import User, Registration, Team, Race, RaceCategory, team_members
+from app.models import User, RefreshSession
 from app.routes.admin import admin_required
 from app import db
 from app.services.email_service import EmailService, generate_reset_token
-from app.utils import get_registration_time_windows
+from app.services.signed_races import signed_races_for_user
+from app.utils import normalize_email, utc_now
 from app.schemas import (
   AuthLoginSchema,
   AuthRegisterSchema,
@@ -20,6 +24,14 @@ from app.schemas import (
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def _create_session_refresh_token(user_id, refresh_session):
+    return create_refresh_token(
+        identity=str(user_id),
+        additional_claims={"sid": refresh_session.id, "refresh_jti": refresh_session.current_jti},
+    )
+
 
 # tested by test_auth.py -> test_auth_login
 @auth_bp.route('/register/', methods=['POST'])
@@ -86,14 +98,15 @@ def register():
     """
     data = request.get_json() or {}
     validated = AuthRegisterSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    if User.query.filter_by(email=validated['email']).first():
-        logger.error("Registration attempt for existing user: %s", validated['email'])
+    if User.query.filter_by(email=normalized_email).first():
+        logger.error("Registration attempt for existing user: %s", normalized_email)
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
-        email=validated['email'],
+        email=normalized_email,
         is_administrator=False,
         preferred_language=validated.get('preferred_language'),
     )
@@ -154,14 +167,15 @@ def register_admin():
     """
     data = request.get_json() or {}
     validated = AuthRegisterSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    if User.query.filter_by(email=validated['email']).first():
-        logger.error("Admin registration attempt for existing user: %s", validated['email'])
+    if User.query.filter_by(email=normalized_email).first():
+        logger.error("Admin registration attempt for existing user: %s", normalized_email)
         return jsonify({"msg": "User already exists"}), 409
 
     user = User(
         name=validated.get('name', ''),
-        email=validated['email'],
+        email=normalized_email,
         is_administrator=True,
         preferred_language=validated.get('preferred_language'),
     )
@@ -266,10 +280,11 @@ def login():
     """
     data = request.get_json() or {}
     validated = AuthLoginSchema().load(data)
+    normalized_email = normalize_email(validated['email'])
 
-    user = User.query.filter_by(email=validated['email']).first()
+    user = User.query.filter_by(email=normalized_email).first()
     if not user or not user.check_password(validated['password']):
-        logger.error("Failed login attempt for email: %s", validated.get('email', 'unknown'))
+        logger.error("Failed login attempt for email: %s", normalized_email or 'unknown')
         return jsonify({"msg": "Invalid credentials"}), 401
 
     if user.is_administrator:
@@ -277,74 +292,23 @@ def login():
     else:
         access_token = create_access_token(identity=str(user.id), additional_claims={"is_administrator": False})
 
-    # Issue refresh token with longer lifetime for silent re-auth
-    refresh_token = create_refresh_token(identity=str(user.id))
+    # Each login starts its own refresh session, so logging in on one device
+    # doesn't invalidate the others. Sessions unused for longer than the refresh
+    # token lifetime can no longer be refreshed and are pruned here.
+    now = utc_now()
+    RefreshSession.query.filter(
+        RefreshSession.user_id == user.id,
+        RefreshSession.rotated_at < now - current_app.config['JWT_REFRESH_TOKEN_EXPIRES'],
+    ).delete(synchronize_session=False)
+    refresh_session = RefreshSession(id=str(uuid.uuid4()), user_id=user.id, current_jti=str(uuid.uuid4()), rotated_at=now)
+    db.session.add(refresh_session)
+    db.session.commit()
+    refresh_token = _create_session_refresh_token(user.id, refresh_session)
 
     logger.info("User logged in: %s (ID: %s, admin: %s)", user.email, user.id, user.is_administrator)
 
-    # Fetch teams and races associated with the user
-    races_by_user = (
-        db.session.query(Registration,
-            Race.id.label("race_id"),
-            Team.id.label("team_id"),
-            Race.name.label("race_name"),
-            Race.description.label("race_description"),
-            RaceCategory.name.label("race_category"),
-            Race.finish_description.label("finish_description"),
-            Race.finish_latitude.label("finish_latitude"),
-            Race.finish_longitude.label("finish_longitude"),
-            Race.bivak_1_name.label("bivak_1_name"),
-            Race.bivak_1_latitude.label("bivak_1_latitude"),
-            Race.bivak_1_longitude.label("bivak_1_longitude"),
-            Race.bivak_2_name.label("bivak_2_name"),
-            Race.bivak_2_latitude.label("bivak_2_latitude"),
-            Race.bivak_2_longitude.label("bivak_2_longitude"),
-            Race.start_showing_checkpoints_at,
-            Race.end_showing_checkpoints_at,
-            Race.start_logging_at,
-            Race.end_logging_at,
-            Race.time_constraint_mode,
-            Race.start_showing_offset_seconds,
-            Race.end_showing_offset_seconds,
-            Race.start_logging_offset_seconds,
-            Race.end_logging_offset_seconds)
-        .join(Race, Registration.race_id == Race.id)
-        .join(Team, Registration.team_id == Team.id)
-        .join(RaceCategory, Registration.race_category_id == RaceCategory.id)
-        .join(team_members, team_members.c.team_id == Team.id)
-        .filter(team_members.c.user_id == user.id)
-        .filter(Registration.payment_confirmed.is_(True))
-        .all()
-    )
-
-    registered_races = []
-    for race in races_by_user:
-        registration = getattr(race, 'Registration', None)
-        windows = get_registration_time_windows(registration, race)
-        registered_races.append({
-        "race_id": race.race_id,
-        "team_id": race.team_id,
-        "race_name": race.race_name,
-        "race_category": race.race_category,
-        "race_description": race.race_description,
-        "finish_description": race.finish_description,
-        "finish_latitude": race.finish_latitude,
-        "finish_longitude": race.finish_longitude,
-        "bivak_1_name": race.bivak_1_name,
-        "bivak_1_latitude": race.bivak_1_latitude,
-        "bivak_1_longitude": race.bivak_1_longitude,
-        "bivak_2_name": race.bivak_2_name,
-        "bivak_2_latitude": race.bivak_2_latitude,
-        "bivak_2_longitude": race.bivak_2_longitude,
-        "start_showing_checkpoints": windows['start_showing_checkpoints_at'],
-        "end_showing_checkpoints": windows['end_showing_checkpoints_at'],
-        "start_logging": windows['start_logging_at'],
-        "end_logging": windows['end_logging_at'],
-        })
-
-    return jsonify({
+    response = jsonify({
       "access_token": access_token,
-      "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "name": user.name,
@@ -352,8 +316,10 @@ def login():
             "is_administrator": user.is_administrator,
             "preferred_language": user.preferred_language,
         },
-        "signed_races": registered_races
-    }), 200
+        "signed_races": signed_races_for_user(user.id)
+    })
+    set_refresh_cookies(response, refresh_token)
+    return response, 200
 
 
 # tested by test_auth.py -> test_auth_protected
@@ -419,6 +385,27 @@ def admin():
     current_user_id = str(get_jwt_identity())
     return jsonify({"msg": f"Hello, admin {current_user_id}!"}), 200
 
+@auth_bp.route('/logout/', methods=['POST'])
+def logout():
+    # Revoke the session identified by the refresh cookie rather than the access
+    # token, which is often already expired when the frontend logs out. A missing
+    # or invalid cookie must not block logout: cookies are cleared regardless.
+    try:
+        verify_jwt_in_request(refresh=True, locations=['cookies'])
+        claims = get_jwt()
+        refresh_session = RefreshSession.query.filter_by(id=claims.get("sid"), user_id=int(get_jwt_identity())).first()
+        # Only the cookie's own session is ended; other devices stay logged in.
+        # A cookie older than the previous rotation can't end the session.
+        if refresh_session is not None and claims.get("refresh_jti") in (refresh_session.current_jti, refresh_session.previous_jti):
+            db.session.delete(refresh_session)
+            db.session.commit()
+    except (JWTExtendedException, PyJWTError, TypeError, ValueError):
+        pass
+
+    response = jsonify({"msg": "Logged out"})
+    unset_jwt_cookies(response)
+    return response, 200
+
 # Refresh access token using a valid refresh token
 @auth_bp.route('/refresh/', methods=['POST'])
 @jwt_required(refresh=True)
@@ -432,13 +419,15 @@ def refresh():
       - BearerAuth: []
     responses:
       200:
-        description: Returns a new access token
+        description: Returns a new access token and refresh token
         content:
           application/json:
             schema:
               type: object
               properties:
                 access_token:
+                  type: string
+                refresh_token:
                   type: string
       401:
         description: Missing or invalid refresh token
@@ -450,15 +439,41 @@ def refresh():
         logger.warning("Refresh token has invalid subject: %s", user_id)
         return jsonify({"msg": "Invalid refresh token subject"}), 401
 
-    # Look up current admin flag to keep claims in sync and ensure user still exists.
     user = User.query.filter_by(id=user_id_int).first()
     if not user:
         logger.warning("Refresh denied: user %s not found", user_id)
         return jsonify({"msg": "User not found"}), 401
 
+    refresh_claims = get_jwt()
+    refresh_jti = refresh_claims.get("refresh_jti")
+    refresh_session = RefreshSession.query.filter_by(id=refresh_claims.get("sid"), user_id=user.id).first()
+    if not refresh_jti or refresh_session is None:
+        logger.warning("Refresh denied for user %s: refresh session missing or revoked", user_id)
+        return jsonify({"msg": "Invalid refresh token"}), 401
+
+    now = utc_now()
+    if refresh_jti == refresh_session.current_jti:
+        refresh_session.previous_jti = refresh_session.current_jti
+        refresh_session.current_jti = str(uuid.uuid4())
+        refresh_session.rotated_at = now
+        db.session.commit()
+    elif (refresh_jti == refresh_session.previous_jti
+          and now - refresh_session.rotated_at <= current_app.config['JWT_REFRESH_GRACE_PERIOD']):
+        # A concurrent refresh already rotated this session (or its response
+        # was lost). Don't rotate again; hand out the current token instead.
+        logger.info("Refresh for user %s used previous token within grace period", user_id)
+    else:
+        logger.warning("Refresh denied for user %s: refresh token JTI mismatch", user_id)
+        return jsonify({"msg": "Invalid refresh token"}), 401
+
     is_admin = bool(user.is_administrator)
     new_access = create_access_token(identity=str(user_id), additional_claims={"is_administrator": is_admin})
-    return jsonify({"access_token": new_access}), 200
+    new_refresh = _create_session_refresh_token(user.id, refresh_session)
+
+    logger.info("Access token refreshed for user %s (ID: %s)", user.email, user.id)
+    response = jsonify({"access_token": new_access})
+    set_refresh_cookies(response, new_refresh)
+    return response, 200
 
 @auth_bp.route('/request-password-reset/', methods=['POST'])
 def request_password_reset():
@@ -508,14 +523,14 @@ def request_password_reset():
         logger.error("Password reset request with missing email")
         return jsonify({"msg": "Email is required"}), 400
 
-    email = validated['email']
+    email = normalize_email(validated['email'])
     user = User.query.filter_by(email=email).first()
 
     # Always return success message for security (don't reveal if email exists)
     if user:
         # Generate reset token
         reset_token = generate_reset_token()
-        expiry = datetime.now() + timedelta(hours=1)
+        expiry = utc_now() + timedelta(hours=1)
 
         # Save token to user
         user.set_reset_token(reset_token, expiry)
@@ -592,15 +607,17 @@ def reset_password():
         return jsonify({"msg": "Invalid or expired token"}), 400
 
     # Check if token is expired
-    if datetime.now() > user.reset_token_expiry:
+    if utc_now() > user.reset_token_expiry:
         user.clear_reset_token()
         db.session.commit()
         logger.warning("Password reset attempt with expired token for user: %s", user.email)
         return jsonify({"msg": "Token has expired"}), 400
 
-    # Reset password
+    # Reset password and end all existing sessions: whoever knew the old
+    # password may still hold a valid refresh cookie.
     user.set_password(new_password)
     user.clear_reset_token()
+    user.revoke_refresh_sessions()
     db.session.commit()
 
     logger.info("Password successfully reset for user: %s (ID: %s)", user.email, user.id)

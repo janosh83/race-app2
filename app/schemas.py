@@ -1,3 +1,5 @@
+from datetime import timezone
+
 from marshmallow import INCLUDE, Schema, fields, validate, pre_load, validates_schema, ValidationError
 from app.constants import SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE
 
@@ -85,6 +87,13 @@ class CheckpointLogSchema(Schema):
     user_latitude = fields.Float(load_default=None)
     user_longitude = fields.Float(load_default=None)
     user_distance_km = fields.Float(load_default=None)
+
+
+class TeamPositionSchema(Schema):
+    latitude = fields.Float(required=True, validate=LATITUDE_VALIDATOR)
+    longitude = fields.Float(required=True, validate=LONGITUDE_VALIDATOR)
+    accuracy = fields.Float(load_default=None, validate=validate.Range(min=0))
+    recorded_at = fields.AwareDateTime(load_default=None, default_timezone=timezone.utc)
 
 
 class TaskCreateSchema(Schema):
@@ -348,12 +357,18 @@ class RaceTranslationCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
     description = fields.String(load_default="")
     race_greeting = fields.String(load_default=None, allow_none=True)
+    finish_description = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=255))
+    bivak_1_name = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=100))
+    bivak_2_name = fields.String(load_default=None, allow_none=True, validate=validate.Length(max=100))
 
 
 class RaceTranslationUpdateSchema(Schema):
     name = fields.String(validate=validate.Length(min=1))
     description = fields.String()
     race_greeting = fields.String(allow_none=True)
+    finish_description = fields.String(allow_none=True, validate=validate.Length(max=255))
+    bivak_1_name = fields.String(allow_none=True, validate=validate.Length(max=100))
+    bivak_2_name = fields.String(allow_none=True, validate=validate.Length(max=100))
 
 
 class CheckpointTranslationCreateSchema(Schema):
@@ -442,6 +457,18 @@ class PasswordResetSchema(Schema):
 
 class TeamCreateSchema(Schema):
     name = fields.String(required=True, validate=validate.Length(min=1))
+
+
+class TeamUpdateSchema(Schema):
+    name = fields.String(load_default=None, validate=validate.Length(min=1))
+    user_ids = fields.List(fields.Integer(strict=True), load_default=None)
+
+    @validates_schema
+    def validate_payload(self, data, **_kwargs):
+        has_name = data.get('name') is not None
+        has_user_ids = data.get('user_ids') is not None
+        if not has_name and not has_user_ids:
+            raise ValidationError({'_schema': ['Provide at least one field to update.']})
 
 
 class TeamSignUpSchema(Schema):

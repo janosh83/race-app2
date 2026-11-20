@@ -25,15 +25,16 @@ def upgrade():
         batch_op.add_column(sa.Column('start_logging_at', sa.DateTime(), nullable=True))
         batch_op.add_column(sa.Column('end_logging_at', sa.DateTime(), nullable=True))
 
-    # backfill existing races with a safe default (now) to satisfy NOT NULL
+    # backfill existing races with a safe default (now) to satisfy NOT NULL;
+    # CURRENT_TIMESTAMP works on both PostgreSQL and SQLite (NOW() is PostgreSQL-only)
     op.execute(sa.text(
         """
         UPDATE race
         SET
-            start_showing_checkpoints_at = COALESCE(start_showing_checkpoints_at, NOW()),
-            end_showing_checkpoints_at   = COALESCE(end_showing_checkpoints_at,   NOW()),
-            start_logging_at             = COALESCE(start_logging_at,             NOW()),
-            end_logging_at               = COALESCE(end_logging_at,               NOW())
+            start_showing_checkpoints_at = COALESCE(start_showing_checkpoints_at, CURRENT_TIMESTAMP),
+            end_showing_checkpoints_at   = COALESCE(end_showing_checkpoints_at,   CURRENT_TIMESTAMP),
+            start_logging_at             = COALESCE(start_logging_at,             CURRENT_TIMESTAMP),
+            end_logging_at               = COALESCE(end_logging_at,               CURRENT_TIMESTAMP)
         """
     ))
 

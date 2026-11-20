@@ -39,6 +39,10 @@ DATABASE_URL=sqlite:///app.db
 # Comma-separated list of allowed frontend origins
 CORS_ORIGINS=http://localhost:5173
 
+# JWT refresh-cookie settings for local HTTP development
+JWT_COOKIE_SECURE=false
+JWT_COOKIE_SAMESITE=Lax
+
 # Local SMTP sink (recommended for local testing)
 MAIL_SERVER=localhost
 MAIL_PORT=1025
@@ -59,6 +63,11 @@ BREVO_WEBHOOK_SECRET_HEADER=X-Brevo-Webhook-Secret
 # Optional image storage override
 # IMAGE_UPLOAD_FOLDER=./app/static/images
 
+# Production-only strong secrets:
+# Use 32+ random characters; never reuse development secrets.
+# Example generation:
+# python -c "import secrets; print(secrets.token_urlsafe(48))"
+
 # Stripe (registration payments)
 # Per-race currency/pricing is configured in Admin UI.
 # Variables below are fallback defaults for races without explicit pricing.
@@ -78,6 +87,19 @@ LOG_REQUESTS=true
 # Default is 5242880 (5 MB)
 MAX_CONTENT_LENGTH=5242880
 ```
+
+### 3.2 Production JWT cookie settings
+
+When the frontend and backend use separate HTTPS domains, configure the backend environment as follows:
+
+```env
+FLASK_CONFIG=app.config.ProductionConfig
+CORS_ORIGINS=https://your-frontend.example.com
+JWT_COOKIE_SECURE=true
+JWT_COOKIE_SAMESITE=None
+```
+
+`JWT_COOKIE_SAMESITE=None` is required for the browser to send the HTTP-only refresh cookie with cross-site requests, and it requires `JWT_COOKIE_SECURE=true` and HTTPS. Set `CORS_ORIGINS` to the exact frontend origin without a trailing slash. Keep `Lax` and `false` for local HTTP development.
 
 Run database migrations:
 
@@ -164,7 +186,37 @@ If needed:
 - Use `VITE_API_URL=http://127.0.0.1:5000`, or
 - Run Flask on a different port and update `VITE_API_URL` accordingly.
 
-Quick CORS preflight check:
+### 3.6 CORS configuration
+
+The frontend and backend run on different origins (e.g. `http://localhost:5173` and `http://localhost:5000`), so the browser only lets the frontend call the API when the backend answers with CORS headers. CORS is configured in `create_app()` in `app/__init__.py` using Flask-CORS.
+
+**Allowed origins** come from the `CORS_ORIGINS` environment variable (root `.env`):
+
+```env
+# single origin
+CORS_ORIGINS=http://localhost:5173
+# several origins, comma-separated
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+- If `CORS_ORIGINS` is not set, it defaults to `http://localhost:5173` (the Vite dev server).
+- Each value must exactly match the browser's origin: protocol, host and port, without a path or trailing slash. `http://localhost:5173` and `http://127.0.0.1:5173` are different origins.
+- The first origin in the list is also used as `FRONTEND_URL`, the base URL for links in emails (e.g. password reset) and for Stripe checkout return URLs, so put the main frontend URL first.
+- In production, set it to the deployed frontend URL (e.g. `https://your-frontend.onrender.com`). The backend logs a `config_safety_check` warning if `ProductionConfig` still allows `localhost`/`127.0.0.1`.
+
+**What the backend allows** for those origins:
+
+| Setting | Value |
+| --- | --- |
+| Paths | `/api/*`, `/auth/*`, `/static/images/*` |
+| Methods | `GET`, `HEAD`, `POST`, `OPTIONS`, `PUT`, `PATCH`, `DELETE` |
+| Request headers | `Authorization`, `Content-Type`, `X-Requested-With`, `Accept` |
+| Exposed response headers | `Content-Type`, `Authorization` |
+| Credentials | Allowed (`supports_credentials=True`), needed for the HTTP-only refresh-token cookie |
+
+Requests from an origin that is not listed still reach the server, but the response has no `Access-Control-Allow-Origin` header, so the browser blocks the frontend from reading it. If the frontend and backend are on different sites in production, also set the cookie options from [3.2 Production JWT cookie settings](#32-production-jwt-cookie-settings).
+
+**Quick preflight check.** An allowed origin gets `Access-Control-Allow-Origin: <origin>` back; an origin that is not allowed gets no CORS headers:
 
 ```bash
 curl -i -X OPTIONS 'http://127.0.0.1:5000/api/race/' \
@@ -396,10 +448,12 @@ gunicorn run:app
 
 - **Recommended Environment Variables:**
 
+> Production signing secrets must be at least 32 characters long and must not be default/dev placeholders. Generate them with a strong random source such as `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+
 ```env
 FLASK_CONFIG=app.config.ProductionConfig
-SECRET_KEY=strong-random-secret
-JWT_SECRET_KEY=strong-random-jwt-secret
+SECRET_KEY=replace-with-strong-random-secret-32-plus-chars
+JWT_SECRET_KEY=replace-with-strong-random-jwt-secret-32-plus-chars
 DATABASE_URL=<Render PostgreSQL connection string>
 CORS_ORIGINS=https://your-frontend.onrender.com
 
@@ -502,6 +556,24 @@ cd my-frontend
 npm test
 ```
 
+End-to-end tests (Playwright: real browser, frontend and backend together):
+
+```bash
+cd my-frontend
+npx playwright install chromium   # once
+npm run test:e2e
+```
+
+`npm run test:e2e` starts its own backend (`scripts/e2e_server.py`, port 5055, with a fresh
+SQLite database in `.e2e/` seeded with test users and races) and Vite (port 5175), so your
+dev servers and `instance/app.db` are not touched. The tests live in `my-frontend/e2e/`.
+Useful options: `npx playwright test --ui` (interactive), `--headed` (watch the browser),
+`npx playwright show-trace <trace.zip>` (inspect a failure). Set `E2E_PYTHON` if your Python
+executable isn't `python` (e.g. a virtualenv path).
+
+All three suites run on GitHub Actions for pushes to `master`/`develop` and for pull
+requests (`.github/workflows/tests.yml`).
+
 Frontend static analysis:
 
 ```bash
@@ -512,7 +584,7 @@ npm run lint:fix
 
 ## 8) Troubleshooting
 
-- **CORS issues:** verify `CORS_ORIGINS` exactly matches frontend origin (including protocol and domain).
+- **CORS issues:** verify `CORS_ORIGINS` exactly matches the frontend origin (protocol, host and port, no trailing slash) and restart the backend after changing it. See [3.6 CORS configuration](#36-cors-configuration).
 - **Auth redirect loops:** verify `VITE_API_URL` points to the correct backend URL.
 - **Emails not sending:** verify SMTP credentials, sender identity, and backend logs.
 - **Map not loading:** verify `VITE_MAPY_API_KEY` is present and valid.

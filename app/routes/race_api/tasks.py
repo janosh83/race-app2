@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
 from sqlalchemy.exc import IntegrityError
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
 from sqlalchemy.orm import selectinload
@@ -12,8 +12,9 @@ from sqlalchemy.orm import selectinload
 from app import db
 from app.models import Task, TaskLog, User, Image, Registration, Race, TaskTranslation
 from app.schemas import TaskCreateSchema, TaskLogSchema
-from app.utils import resolve_language, allowed_file, validate_uploaded_image, get_registration_time_windows
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now, current_user_id, get_registration_time_windows
 from app.routes.admin import admin_required
+from app.routes.race_api.access import race_content_denied
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,10 @@ def get_tasks(race_id):
                     type: integer
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -314,7 +318,10 @@ def get_task(race_id, task_id):
         description: Task not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -418,7 +425,7 @@ def log_task_completion(race_id):
     except ValidationError as err:
         logger.warning("Task log validation failed for race %s: %s", race_id, err)
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     registration = Registration.query.filter_by(
@@ -427,7 +434,7 @@ def log_task_completion(race_id):
         payment_confirmed=True,
     ).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     windows = get_registration_time_windows(registration, race)
     if not (windows['start_logging_at'] < now and now < windows['end_logging_at']) and not is_administrator:
         logger.warning("Task completion log attempt outside logging period for race %s by user %s", race_id, user.id)
@@ -438,6 +445,9 @@ def log_task_completion(race_id):
     image_id = None
     saved_image_path = None
     if is_administrator or is_signed_to_race:
+        # Before saving any upload: the task must belong to this race.
+        Task.query.filter_by(id=data['task_id'], race_id=race_id).first_or_404()
+
         if file:
             max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
             if max_content_length and request.content_length and request.content_length > max_content_length:
@@ -577,7 +587,7 @@ def unlog_task_completion(race_id):
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     registration = Registration.query.filter_by(
@@ -586,7 +596,7 @@ def unlog_task_completion(race_id):
         payment_confirmed=True,
     ).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     windows = get_registration_time_windows(registration, race)
     if not (windows['start_logging_at'] < now < windows['end_logging_at']) and not is_administrator:
         logger.warning("Task unlog attempt outside logging period for race %s by user %s", race_id, user.id)
@@ -725,12 +735,15 @@ def get_tasks_with_status(race_id, team_id):
           description: Unauthorized (user is not an admin or team member)
       """
 
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.warning("Unauthorized access attempt to team %s tasks by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403
 
     race = Race.query.filter_by(id=race_id).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(

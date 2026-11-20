@@ -3,16 +3,17 @@ import uuid
 import logging
 from datetime import datetime
 from flask import Blueprint, jsonify, request, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from werkzeug.utils import secure_filename
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from app import db
-from app.models import Checkpoint, CheckpointLog, User, Image, Registration, Race, CheckpointTranslation
-from app.utils import resolve_language, allowed_file, validate_uploaded_image, get_registration_time_windows
+from app.models import Checkpoint, CheckpointLog, FavouriteCheckpoint, User, Image, Registration, Race, CheckpointTranslation
+from app.utils import resolve_language, allowed_file, validate_uploaded_image, utc_now, current_user_id, get_registration_time_windows
 from app.routes.admin import admin_required
+from app.routes.race_api.access import race_content_denied
 from app.schemas import CheckpointCreateSchema, CheckpointLogSchema
 from app.utils import extract_image_coordinates, calculate_distance
 
@@ -20,6 +21,31 @@ logger = logging.getLogger(__name__)
 
 # Blueprint pro checkpointy
 checkpoints_bp = Blueprint('checkpoints', __name__)
+
+def _registered_team_id(user, race_id):
+    """The user's team with a paid registration for the race, or None."""
+    team_ids = [team.id for team in user.teams or []]
+    if not team_ids:
+        return None
+    registration = Registration.query.filter(
+        Registration.race_id == race_id,
+        Registration.team_id.in_(team_ids),
+        Registration.payment_confirmed.is_(True),
+    ).first()
+    return registration.team_id if registration else None
+
+
+def _favourite_checkpoint_ids(team_id, race_id):
+    if team_id is None:
+        return set()
+    rows = (
+        db.session.query(FavouriteCheckpoint.checkpoint_id)
+        .join(Checkpoint, Checkpoint.id == FavouriteCheckpoint.checkpoint_id)
+        .filter(FavouriteCheckpoint.team_id == team_id, Checkpoint.race_id == race_id)
+        .all()
+    )
+    return {row.checkpoint_id for row in rows}
+
 
 def _apply_checkpoint_translation(checkpoint, language):
     if not language:
@@ -93,11 +119,17 @@ def get_checkpoints(race_id):
                     type: string
                   numOfPoints:
                     type: integer
+                  is_favourite:
+                    type: boolean
+                    description: Whether the user's team marked the checkpoint as favourite
       404:
         description: Race or user not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -112,6 +144,8 @@ def get_checkpoints(race_id):
         .all()
     )
 
+    favourite_ids = _favourite_checkpoint_ids(_registered_team_id(user, race_id), race_id)
+
     response = []
     for checkpoint in checkpoints:
         title, description = _apply_checkpoint_translation_prefetched(checkpoint, language)
@@ -123,6 +157,7 @@ def get_checkpoints(race_id):
                 "longitude": checkpoint.longitude,
                 "description": description,
                 "numOfPoints": checkpoint.numOfPoints,
+                "is_favourite": checkpoint.id in favourite_ids,
             }
         )
 
@@ -331,7 +366,7 @@ def create_checkpoint(race_id):
     return jsonify(result), 201
 
 # tested by test_races.py -> test_get_race_checkpoints
-# Note, right now it is not used in frontend, but it is still useful for testing and future-proofing for potential use of checkpoint translations in the UI.
+# Note: this endpoint is used for translated checkpoint details and is kept intentionally lightweight.
 @checkpoints_bp.route("/<int:checkpoint_id>/", methods=["GET"])
 @jwt_required()
 def get_checkpoint(race_id, checkpoint_id):
@@ -385,8 +420,10 @@ def get_checkpoint(race_id, checkpoint_id):
         description: Race, user, or checkpoint not found
     """
     race = Race.query.filter_by(id=race_id).first_or_404()
-    # FIXME: there is missing if user is registred to the race and his registration is confirmed
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -513,7 +550,7 @@ def log_visit(race_id):
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
     # check if user is admin or member of the team
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     registration = Registration.query.filter_by(
@@ -522,7 +559,7 @@ def log_visit(race_id):
         payment_confirmed=True,
     ).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     windows = get_registration_time_windows(registration, race)
     if not (windows['start_logging_at'] < now and now < windows['end_logging_at']) and not is_administrator:
         logger.error("Attempt to log visit outside logging period for race %s by user %s", race_id, user.id)
@@ -545,6 +582,9 @@ def log_visit(race_id):
         user_longitude = data.get('user_longitude')
 
     if is_administrator or is_signed_to_race:
+        # Before saving any upload: the checkpoint must belong to this race.
+        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
+
         if file:
             max_content_length = current_app.config.get('MAX_CONTENT_LENGTH')
             if max_content_length and request.content_length and request.content_length > max_content_length:
@@ -598,9 +638,6 @@ def log_visit(race_id):
                         os.remove(saved_image_path)
                     except OSError as cleanup_err:
                         logger.error("Failed to cleanup image file %s: %s", saved_image_path, cleanup_err)
-
-        # Get checkpoint details for location validation
-        checkpoint = Checkpoint.query.filter_by(id=data['checkpoint_id'], race_id=race_id).first_or_404()
 
         # Calculate distance if image coordinates are available
         if image_latitude is not None and image_longitude is not None:
@@ -768,7 +805,7 @@ def unlog_visit(race_id):
         logger.error("Checkpoint unlog validation failed for race %s: %s", race_id, err)
         return jsonify({"errors": getattr(err, 'messages', str(err))}), 400
 
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     is_administrator = user.is_administrator
 
     user_is_in_team = int(data['team_id']) in [team.id for team in user.teams]
@@ -778,7 +815,7 @@ def unlog_visit(race_id):
         payment_confirmed=True,
     ).first_or_404()
     race = Race.query.filter_by(id=race_id).first_or_404()
-    now = datetime.now()
+    now = utc_now()
     windows = get_registration_time_windows(registration, race)
     if not (windows['start_logging_at'] < now < windows['end_logging_at']) and not is_administrator:
         logger.error("Unlog attempt outside logging period for race %s by user %s", race_id, user.id)
@@ -913,6 +950,9 @@ def get_checkpoints_with_status(race_id, team_id):
                     type: integer
                   visited:
                     type: boolean
+                  is_favourite:
+                    type: boolean
+                    description: Whether the team marked the checkpoint as favourite
                   image_filename:
                     type: string
                     nullable: true
@@ -931,13 +971,16 @@ def get_checkpoints_with_status(race_id, team_id):
     """
 
     # Check if the user is authorized to view this team's data
-    user = User.query.filter_by(id=get_jwt_identity()).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
     if not user.is_administrator and team_id not in [team.id for team in user.teams]:
         logger.error("Unauthorized access attempt to team %s checkpoints by user %s", team_id, user.id)
         return jsonify({"msg": "Unauthorized"}), 403
 
     # Get all checkpoints for the race
     race = Race.query.filter_by(id=race_id).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
     requested_language = request.args.get("lang")
     if requested_language and requested_language not in (race.supported_languages or []):
         logger.warning(
@@ -963,6 +1006,7 @@ def get_checkpoints_with_status(race_id, team_id):
         visit.checkpoint_id: (visit, image_filename)
         for visit, image_filename in visit_rows
     }
+    favourite_ids = _favourite_checkpoint_ids(team_id, race_id)
 
     logger.info(
         "Retrieved %s checkpoints with status for race %s, team %s, user %s",
@@ -987,6 +1031,7 @@ def get_checkpoints_with_status(race_id, team_id):
             "longitude": checkpoint.longitude,
             "numOfPoints": checkpoint.numOfPoints,
             "visited": visit_entry is not None,
+            "is_favourite": checkpoint.id in favourite_ids,
         }
         # Add image info if visit exists and has an image.
         # Missing image rows are tolerated to avoid breaking the whole response.
@@ -1002,3 +1047,73 @@ def get_checkpoints_with_status(race_id, team_id):
         response.append(checkpoint_data)
 
     return jsonify(response), 200
+
+
+@checkpoints_bp.route("/<int:checkpoint_id>/favourite/", methods=["PUT", "DELETE"])
+@jwt_required()
+def set_favourite_checkpoint(race_id, checkpoint_id):
+    """
+    Mark (PUT) or unmark (DELETE) a checkpoint as a favourite of the current
+    user's team; favourites are shared by all team members.
+    Allowed while the race checkpoints are shown, for members of a team with a
+    paid registration. Both methods are idempotent.
+    ---
+    tags:
+      - Checkpoints
+    parameters:
+      - in: path
+        name: race_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the race
+      - in: path
+        name: checkpoint_id
+        schema:
+          type: integer
+        required: true
+        description: ID of the checkpoint
+    security:
+      - BearerAuth: []
+    responses:
+      200:
+        description: Favourite state after the change
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                checkpoint_id:
+                  type: integer
+                is_favourite:
+                  type: boolean
+      403:
+        description: Not a member of a registered team, or checkpoints are not shown at this time
+      404:
+        description: Race or checkpoint not found
+    """
+    race = Race.query.filter_by(id=race_id).first_or_404()
+    user = User.query.filter_by(id=current_user_id()).first_or_404()
+    denied = race_content_denied(race, user)
+    if denied:
+        return denied
+    # Admins pass race_content_denied without being in a team, but favourites
+    # always belong to a team.
+    team_id = _registered_team_id(user, race_id)
+    if team_id is None:
+        return jsonify({"message": "Only members of a registered team can mark favourite checkpoints."}), 403
+    Checkpoint.query.filter_by(id=checkpoint_id, race_id=race_id).first_or_404()
+
+    favourite = FavouriteCheckpoint.query.filter_by(team_id=team_id, checkpoint_id=checkpoint_id).first()
+    if request.method == "PUT" and favourite is None:
+        db.session.add(FavouriteCheckpoint(team_id=team_id, checkpoint_id=checkpoint_id))
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # A concurrent request (e.g. a double tap) stored it first.
+            db.session.rollback()
+    elif request.method == "DELETE" and favourite is not None:
+        db.session.delete(favourite)
+        db.session.commit()
+
+    return jsonify({"checkpoint_id": checkpoint_id, "is_favourite": request.method == "PUT"}), 200

@@ -9,10 +9,12 @@ Tests the user endpoints:
 - GET /api/user/signed-races/ - Get races the current user is signed to
 """
 
+import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 from app import db
-from app.models import Race, Team, User, RaceCategory, Registration
+from app.utils import utc_now
+from app.models import Race, Team, User, RaceCategory, Registration, RegistrationEmailLog, RefreshSession
 from datetime import datetime, timedelta
 
 
@@ -20,7 +22,7 @@ from datetime import datetime, timedelta
 def add_test_data(test_app):
     """Create test data including users, teams, races, and registrations."""
     with test_app.app_context():
-        now = datetime.now()
+        now = utc_now()
         some_time_earlier = now - timedelta(minutes=10)
         some_time_later = now + timedelta(minutes=10)
 
@@ -147,6 +149,32 @@ def test_get_signed_races_success(test_client, add_test_data):
         assert "end_showing_checkpoints" in race
         assert "start_logging" in race
         assert "end_logging" in race
+
+
+def test_get_signed_races_includes_team_name_and_members(test_client, add_test_data):
+    """Each signed race carries its team's name and members (names only)."""
+    response = test_client.post("/auth/login/", json={"email": "user1@example.com", "password": "password"})
+    headers = {"Authorization": f"Bearer {response.json['access_token']}"}
+
+    signed_races = test_client.get("/api/user/signed-races/", headers=headers).json["signed_races"]
+    by_race = {race["race_id"]: race for race in signed_races}
+
+    assert by_race[1]["team_name"] == "Team Alpha"
+    assert by_race[1]["team_members"] == [{"id": 1, "name": "User One"}]
+    assert by_race[2]["team_name"] == "Team Beta"
+    assert by_race[2]["team_members"] == [{"id": 1, "name": "User One"}, {"id": 2, "name": "User Two"}]
+    # No e-mail addresses of teammates.
+    assert all(set(member) == {"id", "name"} for race in signed_races for member in race["team_members"])
+
+
+def test_login_signed_races_include_team(test_client, add_test_data):
+    """Login returns the same signed-races shape, team included."""
+    response = test_client.post("/auth/login/", json={"email": "user2@example.com", "password": "password"})
+    by_race = {race["race_id"]: race for race in response.json["signed_races"]}
+
+    assert by_race[1]["team_name"] == "Team Gamma"
+    assert by_race[1]["race_category"] == "Cars"
+    assert [m["name"] for m in by_race[2]["team_members"]] == ["User One", "User Two"]
 
 
 def test_get_signed_races_specific_details(test_client, add_test_data):
@@ -517,6 +545,29 @@ def test_update_user_password(test_client, add_test_data, admin_auth_headers):
     assert login_response.status_code == 200
 
 
+def _add_refresh_session(user_id):
+    db.session.add(RefreshSession(id=str(uuid.uuid4()), user_id=user_id, current_jti=str(uuid.uuid4()), rotated_at=utc_now()))
+    db.session.commit()
+
+
+def test_update_user_password_revokes_refresh_sessions(test_client, add_test_data, admin_auth_headers):
+    """Changing the password logs the user out on every device."""
+    _add_refresh_session(1)
+    _add_refresh_session(1)
+
+    response = test_client.put("/api/user/1/", json={"password": "newpassword456"}, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert RefreshSession.query.filter_by(user_id=1).count() == 0
+
+
+def test_update_user_without_password_keeps_refresh_sessions(test_client, add_test_data, admin_auth_headers):
+    _add_refresh_session(1)
+
+    response = test_client.put("/api/user/1/", json={"name": "Renamed"}, headers=admin_auth_headers)
+    assert response.status_code == 200
+    assert RefreshSession.query.filter_by(user_id=1).count() == 1
+
+
 def test_update_user_admin_flag(test_client, add_test_data, admin_auth_headers):
     """Test updating user admin status."""
     update_data = {
@@ -658,6 +709,19 @@ def test_update_user_self_cannot_change_admin(test_client, add_test_data):
 
 # DELETE /api/user/<id>/ endpoint tests
 
+def test_get_users_sorted_by_name(test_client, add_test_data, admin_auth_headers):
+    """Users come sorted by name, case-insensitively, also when paginated."""
+    for name, email in [("zoe", "zoe@example.com"), ("Adam", "adam@example.com")]:
+        response = test_client.post("/api/user/", json={"name": name, "email": email, "password": "x"}, headers=admin_auth_headers)
+        assert response.status_code == 201
+
+    names = [u["name"] for u in test_client.get("/api/user/", headers=admin_auth_headers).json]
+    paged = [u["name"] for u in test_client.get("/api/user/?page=1&per_page=100", headers=admin_auth_headers).json["data"]]
+
+    assert names == sorted(names, key=str.lower)
+    assert paged == names
+
+
 def test_delete_user_success(test_client, add_test_data, admin_auth_headers):
     """Test deleting a user as admin."""
     response = test_client.delete("/api/user/1/", headers=admin_auth_headers)
@@ -668,6 +732,33 @@ def test_delete_user_success(test_client, add_test_data, admin_auth_headers):
     get_response = test_client.get("/api/user/", headers=admin_auth_headers)
     user_ids = [u["id"] for u in get_response.json]
     assert 1 not in user_ids
+
+
+def test_delete_user_cannot_delete_self(test_client, add_test_data, admin_auth_headers):
+    """An admin can't delete their own account from the admin area."""
+    admin = User.query.filter_by(email="admin@test.com").first()
+
+    response = test_client.delete(f"/api/user/{admin.id}/", headers=admin_auth_headers)
+
+    assert response.status_code == 400
+    assert response.json["code"] == "cannot_delete_self"
+    assert db.session.get(User, admin.id) is not None
+
+
+def test_delete_user_keeps_registration_email_logs(test_client, add_test_data, admin_auth_headers):
+    """Email logs of a deleted user stay, without the user link."""
+    registration = Registration.query.first()
+    log = RegistrationEmailLog(registration_id=registration.id, user_id=2, email_address="u2@example.com",
+                               template_type="registration_confirmation")
+    db.session.add(log)
+    db.session.commit()
+    log_id = log.id
+
+    response = test_client.delete("/api/user/2/", headers=admin_auth_headers)
+
+    assert response.status_code == 200
+    kept = db.session.get(RegistrationEmailLog, log_id)
+    assert kept is not None and kept.user_id is None and kept.email_address == "u2@example.com"
 
 
 def test_delete_user_not_found(test_client, admin_auth_headers):
@@ -706,3 +797,27 @@ def test_delete_user_by_id(test_client, add_test_data, admin_auth_headers):
     user_ids = [u["id"] for u in get_response.json]
     assert 2 not in user_ids
     assert 1 in user_ids  # Other user still exists
+
+def test_signed_races_place_names_in_users_language(test_client, add_test_data):
+    """Finish and bivak names come from the race translation in the user's
+    language; a place without a translated name keeps the race's own."""
+    from app.models import RaceTranslation
+
+    with test_client.application.app_context():
+        db.session.add(RaceTranslation(race_id=1, language="cs", name="Jarní závod", bivak_1_name="Tábor jedna"))
+        User.query.filter_by(email="user1@example.com").first().preferred_language = "cs"
+        db.session.commit()
+
+    def spring_race(email):
+        login = test_client.post("/auth/login/", json={"email": email, "password": "password"})
+        races = test_client.get(
+            "/api/user/signed-races/", headers={"Authorization": f"Bearer {login.json['access_token']}"}
+        ).json["signed_races"]
+        return next(r for r in races if r["race_id"] == 1)
+
+    czech = spring_race("user1@example.com")
+    assert czech["bivak_1_name"] == "Tábor jedna"
+    assert czech["finish_description"] == "Spring finish"
+
+    other = spring_race("user2@example.com")
+    assert other["bivak_1_name"] == "Camp One"

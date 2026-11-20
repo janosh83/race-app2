@@ -7,7 +7,7 @@ from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app import db
-from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog
+from app.models import Team, Race, User, Registration, RaceCategory, RegistrationEmailLog, CheckpointLog, TaskLog
 from app.routes.admin import admin_required
 from app.schemas import (
   PaginationQuerySchema,
@@ -18,15 +18,19 @@ from app.schemas import (
   TeamCreateSchema,
   TeamDisqualifySchema,
   TeamSignUpSchema,
+  TeamUpdateSchema,
 )
 from app.services.email_service import EmailService, generate_reset_token
 from app.services.email_tracking_service import add_registration_email_log, normalize_email_send_result
 from app.utils import (
+    utc_now,
   registration_mode as _registration_mode,
   resolve_language as _resolve_language,
   resolve_race_category_name as _resolve_race_category_name,
   resolve_race_greeting as _resolve_race_greeting,
   resolve_race_name as _resolve_race_name,
+  get_registration_time_windows,
+  stamp_registration_time_windows,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,7 +66,7 @@ def _retry_single_registration_email_log(failed_log, race):
     category = RaceCategory.query.filter_by(id=registration.race_category_id).first()
     try:
         reset_token = generate_reset_token()
-        member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+        member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
         email_language = _resolve_language(race, member)
         send_result = EmailService.send_registration_confirmation_email(
             user_email=member.email,
@@ -212,7 +216,7 @@ def get_teams():
               items:
                 $ref: '#/components/schemas/TeamObject'
     """
-    query = Team.query.order_by(Team.id.asc())
+    query = Team.query.order_by(db.func.lower(Team.name).asc(), Team.id.asc())
     paginate_requested = 'page' in request.args or 'per_page' in request.args
     search_term = (request.args.get('search') or '').strip()
 
@@ -648,6 +652,7 @@ def update_registration(race_id, team_id):
         registration.payment_confirmed = False
         registration.payment_confirmed_at = None
         registration.disqualified = False
+        stamp_registration_time_windows(registration, race)
 
     try:
         db.session.commit()
@@ -668,6 +673,10 @@ def update_registration(race_id, team_id):
 def delete_registration(race_id, team_id):
     """
     Delete a registration (unregister a team from a race) - admin only.
+    Its payment attempts and email logs go with it. A team with logged
+    visits or task completions in the race can't be unregistered, so a
+    mistaken delete can't lose results: disqualify it, or delete the
+    visits in visit review first.
     ---
     tags:
       - Teams
@@ -699,12 +708,23 @@ def delete_registration(race_id, team_id):
                   example: Registration deleted successfully
       404:
         description: Registration not found
+      409:
+        description: The team has logged visits in this race (code registration_has_visits).
       401:
         description: Unauthorized
       403:
         description: Forbidden - admin access required
     """
     registration = Registration.query.filter_by(race_id=race_id, team_id=team_id).first_or_404()
+    visits = (CheckpointLog.query.filter_by(race_id=race_id, team_id=team_id).count()
+              + TaskLog.query.filter_by(race_id=race_id, team_id=team_id).count())
+    if visits:
+        return jsonify({
+            "message": "Cannot delete the registration, the team has logged visits in this race. "
+                       "Disqualify it, or delete its visits first.",
+            "code": "registration_has_visits",
+            "visits": visits,
+        }), 409
     db.session.delete(registration)
     db.session.commit()
     logger.info("Registration deleted: team %s unregistered from race %s", team_id, race_id)
@@ -892,7 +912,7 @@ def send_registration_emails(race_id):
     sent_count = 0
     failed_count = 0
 
-    # FIXME: this can be optimized by clever database joins
+    # This path is intentionally straightforward; database joins can be optimized later if needed.
 
     for registration in registrations:
         team = registration.team
@@ -907,7 +927,7 @@ def send_registration_emails(race_id):
             try:
                 # Generate password reset token for user
                 reset_token = generate_reset_token()
-                member.set_reset_token(reset_token, datetime.now() + timedelta(days=7))
+                member.set_reset_token(reset_token, utc_now() + timedelta(days=7))
                 email_language = _resolve_language(race, member)
 
                 send_result = EmailService.send_registration_confirmation_email(
@@ -1260,7 +1280,48 @@ def retry_registration_email_log(race_id, log_id):
 
     return jsonify({'message': message, 'status': retry_result['status']}), status_code
 
-# TODO: get race by team
+# Race lookup by team is intentionally kept out of this path for now.
+
+@team_bp.route("/<int:team_id>/", methods=["PUT"])
+@admin_required()
+def update_team(team_id):
+    """
+    Update a team name and/or exact member list.
+    """
+    data = request.get_json() or {}
+    validated = TeamUpdateSchema().load(data)
+    team = Team.query.filter_by(id=team_id).first_or_404()
+
+    if validated.get('name') is not None:
+        team.name = validated['name']
+
+    if validated.get('user_ids') is not None:
+        member_limit = _resolve_team_member_limit(team)
+        updated_member_ids = list(dict.fromkeys(validated['user_ids']))
+        if member_limit is not None and len(updated_member_ids) > member_limit:
+            return jsonify({
+                "message": f"Team has too many members for registered race options. Maximum allowed is {member_limit}."
+            }), 400
+
+        resolved_members = []
+        seen_ids = set()
+        for user_id in updated_member_ids:
+            user = User.query.filter_by(id=user_id).first_or_404()
+            if user.id in seen_ids:
+                continue
+            seen_ids.add(user.id)
+            resolved_members.append(user)
+
+        team.members = resolved_members
+
+    db.session.commit()
+    logger.info("Updated team %s (ID: %s)", team.name, team.id)
+    return jsonify({
+        "id": team.id,
+        "name": team.name,
+        "user_ids": [member.id for member in team.members],
+    }), 200
+
 
 # create team
 # tested by test_teams.py -> test_add_team
@@ -1393,6 +1454,55 @@ def add_members(team_id):
 # get members of team
 # tested by test_teams.py -> test_add_members
 # for now it can stay open, but in the future it should be somehow protected
+@team_bp.route("/<int:team_id>/registrations/", methods=["GET"])
+@admin_required()
+def get_team_registrations(team_id):
+    """
+    Races a team is registered for, newest first - admin only.
+    ---
+    tags:
+      - Teams
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: integer
+        required: true
+    responses:
+      200:
+        description: >
+          One item per registration: race_id, race_name, race_category,
+          start_logging_at, end_logging_at, payment_confirmed, disqualified.
+      404:
+        description: Team not found
+    """
+    team = Team.query.filter_by(id=team_id).first_or_404()
+    registrations = (
+        Registration.query.filter_by(team_id=team.id)
+        .join(Race, Registration.race_id == Race.id)
+        .options(joinedload(Registration.race))
+        .order_by(Race.start_logging_at.desc(), Race.id.desc())
+        .all()
+    )
+    category_ids = {r.race_category_id for r in registrations}
+    categories = {c.id: c.name for c in RaceCategory.query.filter(RaceCategory.id.in_(category_ids)).all()} if category_ids else {}
+    result = []
+    for r in registrations:
+        windows = get_registration_time_windows(r, r.race)
+        result.append({
+            "race_id": r.race_id,
+            "race_name": r.race.name,
+            "race_category": categories.get(r.race_category_id),
+            "start_logging_at": windows['start_logging_at'],
+            "end_logging_at": windows['end_logging_at'],
+            "payment_confirmed": r.payment_confirmed,
+            "disqualified": r.disqualified,
+        })
+    return jsonify(result)
+
+
 @team_bp.route("/<int:team_id>/members/", methods=["GET"])
 def get_members(team_id):
     """
@@ -1456,7 +1566,9 @@ def remove_all_members(team_id):
 @admin_required()
 def delete_team(team_id):
     """
-    Delete a team.
+    Delete a team. Its members stay as users, only the membership goes.
+    A team registered for a race or with logged visits can't be deleted:
+    delete its registrations first.
     ---
     tags:
       - Teams
@@ -1470,14 +1582,28 @@ def delete_team(team_id):
     responses:
       200:
         description: Team deleted successfully
-      400:
-        description: Cannot delete the team, it has members associated with it.
       404:
         description: Team not found
+      409:
+        description: >
+          The team is registered for a race (code team_has_registrations)
+          or has logged visits (code team_has_visits).
     """
     team = Team.query.filter_by(id=team_id).first_or_404()
-    if team.members:
-        return jsonify({"message": "Cannot delete the team, it has members associated with it."}), 400
+    registration_count = Registration.query.filter_by(team_id=team.id).count()
+    if registration_count:
+        return jsonify({
+            "message": "Cannot delete the team, it is registered for a race. Delete its registrations first.",
+            "code": "team_has_registrations",
+            "registrations": registration_count,
+        }), 409
+    if (CheckpointLog.query.filter_by(team_id=team.id).first()
+            or TaskLog.query.filter_by(team_id=team.id).first()):
+        return jsonify({
+            "message": "Cannot delete the team, it has logged visits.",
+            "code": "team_has_visits",
+        }), 409
+    team.members = []
     db.session.delete(team)
     db.session.commit()
     logger.info("Team deleted successfully: %s (ID: %s)", team.name, team.id)

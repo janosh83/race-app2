@@ -1,10 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
+import { selectActiveRace } from '../utils/activeRaceUtils';
 import { apiFetch } from '../utils/api';
 import { logger } from '../utils/logger';
-import { getRaceId, resolveRaceRecord } from '../utils/activeRaceUtils';
+import { reportPosition } from '../utils/positionReporting';
 
 const TimeContext = createContext(null);
+
+const POLL_INTERVAL_MS = 60_000;
+const MIN_EVENT_REFRESH_INTERVAL_MS = 5_000;
+
+const raceIdOf = (race) => race?.race_id ?? race?.id ?? race?.raceId;
 
 function parseRaceTimeField(race, ...keys) {
   for (const k of keys) {
@@ -36,13 +42,24 @@ export function timeStateForRace(nowMs, race) {
   return { state: 'AFTER_SHOW', startShow, startLogging, endLogging, endShow };
 }
 
+// Checkpoints and tasks are visible (and served by the API) in these phases.
+export function isContentShown(timeInfo) {
+  return ['SHOW_ONLY', 'LOGGING', 'POST_LOG_SHOW'].includes(timeInfo?.state);
+}
+
+// When showing starts our clock may be slightly ahead of the server's, so a
+// 403 right then is retried quietly before it's reported as an error.
+export const SHOW_START_RETRIES = 6;
+export const SHOW_START_RETRY_MS = 10_000;
+
 export function formatDate(ts) {
   if (!ts) return '—';
   const d = new Date(ts);
   return d.toLocaleString();
 }
 
-export function TimeProvider({ children }) {
+// isLoggedIn: null while App is still checking auth, then true/false.
+export function TimeProvider({ isLoggedIn = null, children }) {
   const [activeRace, setActiveRace] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('activeRace') || 'null');
@@ -78,12 +95,10 @@ export function TimeProvider({ children }) {
   const intervalRef = useRef(null);
   const refreshRef = useRef(null);
 
-  const effectiveActiveRace = resolveRaceRecord(activeRace, signedRaces);
-
   useEffect(() => {
     function compute() {
       const now = Date.now();
-      const next = timeStateForRace(now, effectiveActiveRace);
+      const next = timeStateForRace(now, activeRace);
       setTimeInfo(prev => {
         if (!prev) return next;
         if (
@@ -107,7 +122,14 @@ export function TimeProvider({ children }) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [effectiveActiveRace]);
+  }, [activeRace]);
+
+  // Mirrors of state/props for callbacks that must stay stable (so the polling
+  // effect below isn't torn down on every refresh).
+  const activeRaceRef = useRef(activeRace);
+  const isLoggedInRef = useRef(isLoggedIn);
+  isLoggedInRef.current = isLoggedIn;
+  const lastSyncRef = useRef(0);
 
   const setActiveRaceAndPersist = useCallback((race) => {
     if (!race) {
@@ -117,6 +139,7 @@ export function TimeProvider({ children }) {
       logger.info('CONTEXT', 'Setting active race', { race: race.race_name || race.name || race.race_id });
       localStorage.setItem('activeRace', JSON.stringify(race));
     }
+    activeRaceRef.current = race;
     setActiveRace(race);
   }, []);
 
@@ -133,64 +156,97 @@ export function TimeProvider({ children }) {
     localStorage.setItem('selectedLanguage', language);
   }, []);
 
+  /**
+   * Store a fresh signed-races list (from login or a refresh) and reconcile the
+   * selected race with it:
+   * - the selected race is replaced by its fresh copy, or cleared when the user
+   *   is no longer registered for it (e.g. an admin removed the registration);
+   * - with no race selected, a single race currently in its time window is
+   *   auto-selected. A race the user picked manually is never replaced.
+   * Returns the resulting active race (or null).
+   */
+  const syncSignedRaces = useCallback((races, { resetSelection = false } = {}) => {
+    const safeRaces = Array.isArray(races) ? races : [];
+    lastSyncRef.current = Date.now();
+    setSignedRacesAndPersist(safeRaces);
+
+    const current = resetSelection ? null : activeRaceRef.current;
+    let next = current ? safeRaces.find(r => raceIdOf(r) === raceIdOf(current)) ?? null : null;
+    if (current && !next) {
+      logger.info('CONTEXT', 'Selected race is no longer among signed races, clearing it', { raceId: raceIdOf(current) });
+    }
+    if (!next) {
+      const { activeRaceId } = selectActiveRace(safeRaces);
+      if (activeRaceId !== null && activeRaceId !== undefined) {
+        next = safeRaces.find(r => raceIdOf(r) === activeRaceId) ?? null;
+        logger.info('CONTEXT', 'Auto-selecting the only race in its time window', { raceId: activeRaceId });
+      }
+    }
+    // Compare with the stored race, not `current`: with resetSelection both
+    // may be null while a previous session's race is still stored.
+    if (next !== activeRaceRef.current) setActiveRaceAndPersist(next);
+    return next;
+  }, [setActiveRaceAndPersist, setSignedRacesAndPersist]);
+
   const refreshSignedRaces = useCallback(async () => {
     logger.info('CONTEXT', 'Refreshing signed races from server');
+    lastSyncRef.current = Date.now(); // also covers the request in flight
+    // Piggyback the live position on the same rhythm; it is a no-op outside
+    // the active race's logging window.
+    reportPosition(activeRaceRef.current);
     try {
       const data = await apiFetch('/api/user/signed-races/');
+      // Ignore a response that arrives after logout.
+      if (!isLoggedInRef.current) return;
       if (data && Array.isArray(data.signed_races)) {
-        setSignedRacesAndPersist(data.signed_races);
-        // if our activeRace refers to an outdated object, refresh it by id
-        if (activeRace) {
-          const idA = getRaceId(activeRace);
-          const updated = data.signed_races.find(r => (r.race_id ?? r.id ?? r.raceId) === idA);
-          if (updated) {
-            logger.info('CONTEXT', 'Updated active race from refresh', { race: updated.name || updated.race_id });
-            setActiveRaceAndPersist(updated);
-          }
-        }
+        syncSignedRaces(data.signed_races);
         logger.success('CONTEXT', 'Signed races refreshed successfully');
       }
     } catch (e) {
       logger.error('CONTEXT', 'Failed to refresh signed races', e.message);
       // ignore errors; next refresh will try again
     }
-  }, [activeRace, setActiveRaceAndPersist, setSignedRacesAndPersist]);
+  }, [syncSignedRaces]);
 
   useEffect(() => {
-    // Only set up refresh if user is logged in (has signed races)
-    if (!signedRaces || signedRaces.length === 0) {
-      if (refreshRef.current) clearInterval(refreshRef.current);
-      return;
+    if (isLoggedIn === false) {
+      // Logged out (possibly in another tab, without a page reload): drop the
+      // previous user's races so nothing keeps polling or shows stale data.
+      setSignedRacesAndPersist([]);
+      setActiveRaceAndPersist(null);
+      return undefined;
     }
+    if (!isLoggedIn) return undefined; // auth check still in progress
 
-    // refresh on window focus or when tab becomes visible
-    const onFocus = () => {
-      logger.info('CONTEXT', 'Window focus detected, refreshing races');
+    // Focus and visibilitychange often fire together, and right after login
+    // the list is already fresh, so skip event refreshes that come too soon.
+    const refreshIfStale = (reason) => {
+      if (Date.now() - lastSyncRef.current < MIN_EVENT_REFRESH_INTERVAL_MS) return;
+      logger.info('CONTEXT', `Refreshing races: ${reason}`);
       refreshSignedRaces();
     };
+    const onFocus = () => refreshIfStale('window focus');
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        logger.info('CONTEXT', 'Tab became visible, refreshing races');
-        refreshSignedRaces();
-      }
+      if (document.visibilityState === 'visible') refreshIfStale('tab visible');
     };
+
+    refreshIfStale('logged in');
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
-    // periodic light polling (1 min)
     if (refreshRef.current) clearInterval(refreshRef.current);
     refreshRef.current = setInterval(() => {
       logger.info('CONTEXT', 'Periodic refresh triggered');
       refreshSignedRaces();
-    }, 60_000);
+    }, POLL_INTERVAL_MS);
     return () => {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
       if (refreshRef.current) clearInterval(refreshRef.current);
     };
-  }, [activeRace, refreshSignedRaces, signedRaces]);
+  }, [isLoggedIn, refreshSignedRaces, setActiveRaceAndPersist, setSignedRacesAndPersist]);
 
   return (
-    <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, refreshSignedRaces, selectedLanguage, setSelectedLanguage: setSelectedLanguageAndPersist }}>
+    <TimeContext.Provider value={{ activeRace, setActiveRace: setActiveRaceAndPersist, timeInfo, signedRaces, setSignedRaces: setSignedRacesAndPersist, syncSignedRaces, refreshSignedRaces, selectedLanguage, setSelectedLanguage: setSelectedLanguageAndPersist }}>
       {children}
     </TimeContext.Provider>
   );

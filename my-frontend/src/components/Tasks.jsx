@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import './Tasks.css';
-import { useTime, formatDate } from '../contexts/TimeContext';
+import { useTime, formatDate, isContentShown, SHOW_START_RETRIES, SHOW_START_RETRY_MS } from '../contexts/TimeContext';
 import { raceApi } from '../services/raceApi';
-import { isTokenExpired, logoutAndRedirect } from '../utils/api';
 import { resizeImageWithExif } from '../utils/image';
 import { logger } from '../utils/logger';
 
+import FilePickerButton from './FilePickerButton';
+import SafeDescription from './SafeDescription';
 import StatusBadge from './StatusBadge';
 import Toast from './Toast';
 
@@ -26,18 +27,6 @@ const getTaskUploadErrorMessage = (t, err) => {
 
 function Tasks({ topOffset = 56 }) {
   const { t } = useTranslation();
-  // token expiry watcher
-  useEffect(() => {
-    const check = () => {
-      const token = localStorage.getItem('accessToken');
-      if (!token) return;
-      if (isTokenExpired(token, 5)) logoutAndRedirect();
-    };
-    check();
-    const id = setInterval(check, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
   const { activeRace, timeInfo, selectedLanguage } = useTime();
   const [tasks, setTasks] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -51,10 +40,20 @@ function Tasks({ topOffset = 56 }) {
   const apiUrl = import.meta.env.VITE_API_URL;
   const activeRaceId = activeRace?.race_id ?? activeRace?.id ?? null;
   const activeTeamId = activeRace?.team_id ?? null;
+  const showTasks = isContentShown(timeInfo);
 
   // Fetch tasks with status
   useEffect(() => {
-    if (!activeRaceId || !activeTeamId) return;
+    if (!activeRaceId || !activeTeamId) return undefined;
+    // The API refuses tasks outside the showing window: fetch only while
+    // they're shown, and again when showing starts.
+    if (!showTasks) {
+      setTasks([]);
+      return undefined;
+    }
+    let cancelled = false;
+    let retryTimer = null;
+    let retriesLeft = SHOW_START_RETRIES;
 
     const fetchTasks = () => {
       logger.info('RACE', 'Fetching tasks', { raceId: activeRaceId, teamId: activeTeamId, language: selectedLanguage });
@@ -63,11 +62,18 @@ function Tasks({ topOffset = 56 }) {
       raceApi
         .getTasksStatus(activeRaceId, activeTeamId, selectedLanguage)
         .then((data) => {
+          if (cancelled) return;
           logger.success('RACE', 'Tasks loaded', { count: data?.length || 0 });
           setTasks(data);
           setTaskError(false);
         })
         .catch((err) => {
+          if (cancelled) return;
+          if (err.status === 403 && retriesLeft > 0) {
+            retriesLeft -= 1;
+            retryTimer = setTimeout(fetchTasks, SHOW_START_RETRY_MS);
+            return;
+          }
           logger.error('RACE', 'Failed to fetch tasks', err.message);
           setTaskError(true);
           setToast({
@@ -79,10 +85,13 @@ function Tasks({ topOffset = 56 }) {
     };
 
     fetchTasks();
-  }, [activeRaceId, activeTeamId, selectedLanguage, t]);
+    return () => {
+      cancelled = true;
+      clearTimeout(retryTimer);
+    };
+  }, [activeRaceId, activeTeamId, selectedLanguage, showTasks, t]);
 
   const loggingAllowed = timeInfo.state === 'LOGGING';
-  const showTasks = timeInfo.state !== 'BEFORE_SHOW' && timeInfo.state !== 'AFTER_SHOW' && timeInfo.state !== 'UNKNOWN';
 
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -222,7 +231,9 @@ function Tasks({ topOffset = 56 }) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const sortedTasks = [...tasks].sort((a, b) => Number(b.completed) - Number(a.completed));
+  // Tasks still to do first; completed ones sink to the bottom.
+  const sortedTasks = [...tasks].sort((a, b) => Number(a.completed) - Number(b.completed));
+  const completedCount = tasks.filter(task => task.completed).length;
 
   return (
     <>
@@ -275,6 +286,11 @@ function Tasks({ topOffset = 56 }) {
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h3 className="mb-0">{t('tasks.title')}</h3>
         </div>
+        {showTasks && tasks.length > 0 && (
+          <p className="text-muted small mb-2">
+            {t('tasks.progress', { completed: completedCount, total: tasks.length })}
+          </p>
+        )}
 
         {!showTasks && (
           <div className="alert alert-warning">
@@ -292,15 +308,27 @@ function Tasks({ topOffset = 56 }) {
           <div className="row g-3">
             {sortedTasks.map((task) => (
               <div className="col-12 col-md-6 col-lg-4" key={task.id}>
-                <div className="card h-100 tasks-card" onClick={() => setSelectedTask(task)}>
-                  <div className="card-body">
+                <div
+                  className={`card h-100 tasks-card ${task.completed ? 'tasks-card-completed' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setSelectedTask(task)}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      setSelectedTask(task);
+                    }
+                  }}
+                >
+                  <span className="tasks-card-chevron" aria-hidden="true">›</span>
+                  <div className="card-body pe-4">
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <h5 className="card-title mb-0">{task.title}</h5>
                       <span className={`badge ${task.completed ? 'bg-success' : 'bg-secondary'}`}>
                         {task.completed ? t('tasks.completed') : t('tasks.notCompleted')}
                       </span>
                     </div>
-                    {task.description && <p className="card-text text-muted small">{task.description}</p>}
+                    {task.description && <SafeDescription html={task.description} className="card-text text-muted small" />}
                     <div className="d-flex justify-content-between align-items-center mt-2">
                       <span className="badge bg-primary">{t('tasks.points', { count: task.numOfPoints })}</span>
                       {task.completed && task.image_filename && (
@@ -323,17 +351,15 @@ function Tasks({ topOffset = 56 }) {
       {selectedTask && (
         <div className="tasks-overlay" style={{ top: topOffset }}>
           <div className="container">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <h3>{selectedTask.title}</h3>
-              <button className="btn btn-sm btn-outline-secondary" onClick={handleCloseOverlay}>
+            <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+              <h3 className="mb-0">{selectedTask.title}</h3>
+              <button className="btn btn-sm btn-outline-secondary flex-shrink-0 text-nowrap" onClick={handleCloseOverlay}>
                 ✕ {t('tasks.close')}
               </button>
             </div>
 
             {selectedTask.description && (
-              <div className="mb-3">
-                <p>{selectedTask.description}</p>
-              </div>
+              <SafeDescription html={selectedTask.description} className="mb-3" />
             )}
 
             <div className="mb-3">
@@ -371,17 +397,21 @@ function Tasks({ topOffset = 56 }) {
 
             <div className="mb-4">
               <label className="form-label">{t('tasks.uploadPhoto')}</label>
-              <input type="file" accept="image/*" className="form-control" onChange={handleImageSelect} />
+              <FilePickerButton accept="image/*" onChange={handleImageSelect} fileName={selectedImage?.name} />
               <div className="form-text">{t('tasks.imageHelp')}</div>
             </div>
 
             {!loggingAllowed && (
-              <div className="alert alert-warning">{t('tasks.loggingClosed')}</div>
+              <div className="alert alert-warning">
+                {timeInfo.state === 'SHOW_ONLY'
+                  ? t('tasks.loggingNotOpen', { time: formatDate(timeInfo.startLogging) })
+                  : t('tasks.loggingClosed')}
+              </div>
             )}
 
-            <div className="d-flex gap-2">
+            <div className="overlay-action-bar">
               <button
-                className="btn btn-primary"
+                className="btn btn-primary btn-lg"
                 onClick={handleLogTask}
                 disabled={!loggingAllowed}
               >

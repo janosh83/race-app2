@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app import db
 from app.models import RegistrationEmailLog
+from app.utils import to_naive_utc, utc_now
 
 
 STATUS_PRECEDENCE = {
@@ -43,7 +44,7 @@ def add_registration_email_log(registration, user_id, email_address, template_ty
             template_type=template_type,
         ).count() + 1
     )
-    now = datetime.now()
+    now = utc_now()
 
     db.session.add(
         RegistrationEmailLog(
@@ -82,7 +83,7 @@ def _parse_provider_time(raw_value):
         return None
 
     if isinstance(raw_value, (int, float)):
-        return datetime.fromtimestamp(raw_value)
+        return datetime.fromtimestamp(raw_value, timezone.utc).replace(tzinfo=None)
 
     value = str(raw_value).strip()
     if not value:
@@ -92,7 +93,7 @@ def _parse_provider_time(raw_value):
         value = value[:-1] + '+00:00'
 
     try:
-        return datetime.fromisoformat(value)
+        return to_naive_utc(datetime.fromisoformat(value))
     except ValueError:
         return None
 
@@ -129,7 +130,7 @@ def apply_brevo_event(event):
     if not logs:
         return {'updated': 0, 'skipped': 1, 'reason': 'log_not_found'}
 
-    occurred_at = _parse_provider_time((event or {}).get('date') or (event or {}).get('ts')) or datetime.now()
+    occurred_at = _parse_provider_time((event or {}).get('date') or (event or {}).get('ts')) or utc_now()
     updated = 0
     for log in logs:
         current_status = (log.status or 'pending').lower()

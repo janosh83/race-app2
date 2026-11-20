@@ -1,0 +1,25 @@
+.favourite-button {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  line-height: 1;
+  color: #adb5bd;
+  cursor: pointer;
+}
+
+.favourite-button.is-favourite {
+  color: #f0ad00;
+}
+
+.favourite-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.favourite-button-md {
+  font-size: 1.4rem;
+}
+
+.favourite-button-lg {
+  font-size: 2rem;
+}

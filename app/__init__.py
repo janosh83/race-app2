@@ -143,17 +143,21 @@ def create_app(config_class=None):
         or (not isinstance(config_class, str) and getattr(config_class, '__name__', '') == 'ProductionConfig')
     )
     if is_production_config:
+        def is_strong_secret(value, min_length=32):
+            cleaned = str(value or '').strip()
+            return len(cleaned) >= min_length and not cleaned.lower() in {'default-secret-key', 'your_jwt_secret_key'} and cleaned not in {'dev-secret-key', 'dev-jwt-secret'}
+
         unsafe_secret_keys = []
         for secret_name in ('SECRET_KEY', 'JWT_SECRET_KEY'):
             configured_secret = str(app.config.get(secret_name, '')).strip()
-            if not configured_secret or configured_secret == CONFIG_DEFAULTS[secret_name]:
+            if not configured_secret or configured_secret == CONFIG_DEFAULTS[secret_name] or not is_strong_secret(configured_secret):
                 unsafe_secret_keys.append(secret_name)
 
         if unsafe_secret_keys:
             raise RuntimeError(
                 'Unsafe production signing secrets: '
                 + ', '.join(unsafe_secret_keys)
-                + '. Set strong values via environment variables.'
+                + '. Set strong values of at least 32 characters via environment variables.'
             )
 
         if not str(app.config.get('STRIPE_RESTRICTED_KEY', '')).strip():
